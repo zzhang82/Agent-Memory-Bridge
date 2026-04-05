@@ -1,10 +1,12 @@
 # Agent Memory Bridge
 
-[简体中文](README.zh-CN.md)
+[Simplified Chinese](README.zh-CN.md)
 
-Persistent memory for coding agents that turns real sessions into reusable decisions, gotchas, and domain knowledge.
+An MCP-native memory layer for coding agents that turns real sessions into reusable engineering memory.
 
-Agent Memory Bridge is an MCP-native, local-first memory layer for agents. It captures what chat history usually loses:
+Built for Codex first.
+
+Agent Memory Bridge captures what chat history usually loses:
 
 - durable decisions
 - known fixes
@@ -14,7 +16,7 @@ Agent Memory Bridge is an MCP-native, local-first memory layer for agents. It ca
 
 The core idea is simple: keep the memory layer small, reliable, and inspectable. Let higher-level orchestration sit on top.
 
-The coolest part is not just persistence. It is automatic memory shaping:
+The interesting part is not just persistence. It is automatic memory shaping:
 
 - sessions become reusable `learn`
 - repeated failures become `gotcha`
@@ -22,30 +24,37 @@ The coolest part is not just persistence. It is automatic memory shaping:
 
 ## Why This Exists
 
-Most agent memory systems fall into one of three buckets:
+Most agent memory systems drift into one of three patterns:
 
 - memory trapped inside one app or one model
-- heavy hosted systems before retrieval basics are proven
+- heavier hosted infrastructure before retrieval basics are proven
 - transcript dumping instead of reusable operational knowledge
 
 Agent Memory Bridge takes a narrower path:
 
 - MCP-native from day one
 - local-first runtime
-- SQLite + FTS5 instead of heavy infrastructure
+- SQLite + FTS5 instead of heavier infrastructure
 - automatic promotion from session traces into reusable memory
 
 It is not just storage. It is a memory shaping pipeline:
 
 `session -> summary -> learn -> gotcha -> domain-note`
 
-## What Is Different Here
+## Positioning
 
-Three things make this project distinct:
+Agent Memory Bridge is intentionally narrow.
+
+If you want a broader memory platform with SDKs, dashboards, connectors, and multi-surface application support, projects like OpenMemory or Mem0 are closer to that shape.
+
+This project is different on purpose:
 
 1. It is built for coding-agent workflows, not generic note storage.
 2. It keeps the MCP surface intentionally small: `store` and `recall`.
 3. It promotes raw session output into compact machine-readable memory instead of treating summaries as the final artifact.
+4. It is local-first and inspectable by default.
+
+For a longer positioning note, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
 ## How It Works
 
@@ -95,7 +104,7 @@ $CODEX_HOME/mem-bridge/config.toml
 Recommended setup:
 
 - keep the live SQLite database local on each machine
-- keep shared profile/source vaults on NAS or shared storage if needed
+- keep shared profile or source vaults on NAS or shared storage if needed
 - move to a hosted backend later if you want true multi-machine live writes
 
 ### 3. Register the MCP server in Codex
@@ -288,7 +297,7 @@ instead of treating raw summaries as the final artifact.
 The current foundation is working:
 
 - MCP autoload works in Codex
-- project/session sync works
+- project and session sync work
 - recall-first workflows work
 - reflex promotion works
 - first-pass domain consolidation works
@@ -307,6 +316,7 @@ The framework can host imported operator profiles, but the framework itself stay
 - [README.zh-CN.md](README.zh-CN.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [AGENTS.md](AGENTS.md)
+- [docs/COMPARISON.md](docs/COMPARISON.md)
 - [docs/STARTUP-PROTOCOL.md](docs/STARTUP-PROTOCOL.md)
 - [docs/MEMORY-TAXONOMY.md](docs/MEMORY-TAXONOMY.md)
 - [docs/PROMOTION-RULES.md](docs/PROMOTION-RULES.md)

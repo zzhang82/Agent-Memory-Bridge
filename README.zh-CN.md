@@ -1,8 +1,10 @@
 # Agent Memory Bridge
 
-[English](README.md)
+[English](README.md) | 简体中文
 
-面向编码代理的持久记忆层。它把真实会话沉淀成可复用的决策、坑点和领域知识。
+面向编码代理的持久记忆层。它把真实会话沉淀成可复用的工程记忆。
+
+当前先从 Codex 开始。
 
 Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory framework。它用来保存聊天上下文最容易丢掉的东西：
 
@@ -14,7 +16,7 @@ Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory fram
 
 核心原则很简单：**让记忆层保持小、可靠、可检查**。更高层的 orchestration 放在它上面，而不是塞进它里面。
 
-这个项目最酷的地方不只是“能存下来”，而是会自动把记忆往上提炼：
+这个项目最有意思的地方不只是“能存下来”，而是会自动把记忆往上提炼：
 
 - session 变成可复用的 `learn`
 - 重复失败变成 `gotcha`
@@ -22,49 +24,37 @@ Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory fram
 
 ## 这个项目想解决什么
 
-大多数 agent memory 系统最后会落到三种情况之一：
+很多 agent memory 系统最后会落到三种情况之一：
 
-- 记忆被困在某一个 app / 某一个模型里
-- 还没证明 retrieval 好用，就先上重型基础设施
+- 记忆被困在某一个 app 或某一个模型里
+- 还没证明 retrieval 真有价值，就先上重型基础设施
 - 把 transcript 当 memory，最后变成噪音仓库
 
 这个项目走的是更克制的一条路：
 
 - 从第一天起就是 MCP-native
 - 本地优先
-- SQLite + FTS5，不先上重型服务
+- 用 SQLite + FTS5，不先上重型服务
 - 自动把 session 输出提升成可复用 memory
 
 它不是“再存一份聊天记录”，而是一条 **memory shaping pipeline**：
 
 `session -> summary -> learn -> gotcha -> domain-note`
 
-## 最核心的能力
+## 项目定位
 
-### 1. Durable recall
+Agent Memory Bridge 是故意做窄的。
 
-用 SQLite + FTS5 保存机器可读的记忆，并支持 metadata filter。
+如果你要的是更大的 memory 平台，带 SDK、dashboard、connectors、多种应用接入面，那么 OpenMemory 或 Mem0 更接近那种形态。
 
-### 2. Session sync
+这个项目故意不走那条路：
 
-监听 Codex rollout 文件，自动写入：
+1. 它面向 coding-agent workflow，而不是通用笔记存储。
+2. 它把 MCP surface 刻意收得很小，只有 `store` 和 `recall`。
+3. 它重点是把 session 输出提升成紧凑、机器可读的 memory，而不是把 summary 当成最终产物。
+4. 它默认 local-first，而且运行形态可检查。
 
-- `session-seen`
-- `checkpoint`
-- `closeout`
-
-### 3. Reflex promotion
-
-把 session summary 自动提升成：
-
-- `learn`
-- `gotcha`
-- `domain-note`
-- `signal`
-
-### 4. Domain consolidation
-
-把最近的 `learn` 和 `gotcha` 自动汇总成轻量的 domain synthesis，而不是只留下摘要。
+更完整的定位说明见 [docs/COMPARISON.md](docs/COMPARISON.md)。
 
 ## 它怎么工作
 
@@ -73,11 +63,12 @@ Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory fram
 1. MCP server
    - 提供 `store` 和 `recall`
 2. watcher
-   - 观察活跃的 Codex rollout
+   - 观察 Codex rollout 文件
+   - 写入 `session-seen`、`checkpoint`、`closeout`
 3. reflex
-   - 把 summary 提升成 durable memory
+   - 把 summary 提升成 `learn`、`gotcha`、`signal`
 4. consolidation
-   - 把重复模式综合成 domain knowledge
+   - 把重复出现的 `learn` 和 `gotcha` 综合成 domain note
 
 这样做的好处是：
 
@@ -113,7 +104,7 @@ $CODEX_HOME/mem-bridge/config.toml
 推荐做法：
 
 - live SQLite DB 保留在每台机器本地
-- 共享 profile/source vault 可以放在 NAS 或共享存储
+- 共享 profile 或 source vault 可以放在 NAS 或共享存储
 - 真正需要多机实时共享写入时，再切到 hosted backend
 
 ### 3. 在 Codex 里注册 MCP server
@@ -153,9 +144,15 @@ $env:AGENT_MEMORY_BRIDGE_RUN_ONCE = "1"
 .\.venv\Scripts\python.exe .\scripts\run_mem_bridge_service.py
 ```
 
+可选的开机启动安装：
+
+```powershell
+.\scripts\install_startup_watcher.ps1
+```
+
 ## MCP API
 
-公共接口刻意保持很小：
+公开接口刻意保持很小：
 
 - `store`
 - `recall`
@@ -209,8 +206,8 @@ $env:AGENT_MEMORY_BRIDGE_RUN_ONCE = "1"
 1. 先查全局 operating memory
 2. 再查相关 specialization memory
 3. 如果有 workspace，再查 `project:<workspace>`
-4. 遇到 issue-like 问题先查本地 memory / gotcha，再考虑外部搜索
-5. 设计实现细节必须回到 live code 验证
+4. 遇到 issue-like 问题先查本地 memory 和 gotcha，再考虑外部搜索
+5. 设计和实现细节必须回到 live code 验证
 
 ## 常用命令
 
@@ -280,12 +277,12 @@ agent 才是主要读者，所以 memory 优先：
 当前 foundation 已经可用：
 
 - Codex 中 MCP autoload 可用
-- project/session sync 可用
+- project 和 session sync 可用
 - recall-first workflow 可用
 - reflex promotion 可用
 - 第一版 domain consolidation 可用
 
-路线图见：
+现实状态和路线图见：
 
 - [docs/PRODUCTION-STATUS.md](docs/PRODUCTION-STATUS.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
@@ -299,6 +296,7 @@ agent 才是主要读者，所以 memory 优先：
 - [README.md](README.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [AGENTS.md](AGENTS.md)
+- [docs/COMPARISON.md](docs/COMPARISON.md)
 - [docs/STARTUP-PROTOCOL.md](docs/STARTUP-PROTOCOL.md)
 - [docs/MEMORY-TAXONOMY.md](docs/MEMORY-TAXONOMY.md)
 - [docs/PROMOTION-RULES.md](docs/PROMOTION-RULES.md)
