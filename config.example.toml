@@ -1,0 +1,26 @@
+[codex]
+home = "~/.codex"
+
+[cole]
+source_root = "~/Cole"
+
+[bridge]
+home = "~/.codex/mem-bridge"
+db_path = "bridge.db"
+log_dir = "logs"
+
+[watcher]
+sessions_root = "sessions"
+notes_root = "session-notes/auto"
+state_path = "watcher-state.json"
+log_dir = "watcher-logs"
+idle_seconds = 60
+checkpoint_seconds = 300
+checkpoint_min_messages = 2
+
+[reflex]
+state_path = "reflex-state.json"
+scan_limit = 200
+
+[service]
+poll_seconds = 30

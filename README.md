@@ -1,0 +1,318 @@
+# Agent Memory Bridge
+
+[简体中文](README.zh-CN.md)
+
+Persistent memory for coding agents that turns real sessions into reusable decisions, gotchas, and domain knowledge.
+
+Agent Memory Bridge is an MCP-native, local-first memory layer for agents. It captures what chat history usually loses:
+
+- durable decisions
+- known fixes
+- cross-session handoffs
+- reusable gotchas
+- compact domain knowledge
+
+The core idea is simple: keep the memory layer small, reliable, and inspectable. Let higher-level orchestration sit on top.
+
+The coolest part is not just persistence. It is automatic memory shaping:
+
+- sessions become reusable `learn`
+- repeated failures become `gotcha`
+- clusters of lessons become compact `domain-note`
+
+## Why This Exists
+
+Most agent memory systems fall into one of three buckets:
+
+- memory trapped inside one app or one model
+- heavy hosted systems before retrieval basics are proven
+- transcript dumping instead of reusable operational knowledge
+
+Agent Memory Bridge takes a narrower path:
+
+- MCP-native from day one
+- local-first runtime
+- SQLite + FTS5 instead of heavy infrastructure
+- automatic promotion from session traces into reusable memory
+
+It is not just storage. It is a memory shaping pipeline:
+
+`session -> summary -> learn -> gotcha -> domain-note`
+
+## What Is Different Here
+
+Three things make this project distinct:
+
+1. It is built for coding-agent workflows, not generic note storage.
+2. It keeps the MCP surface intentionally small: `store` and `recall`.
+3. It promotes raw session output into compact machine-readable memory instead of treating summaries as the final artifact.
+
+## How It Works
+
+The runtime has four main pieces:
+
+1. MCP server
+   - exposes `store` and `recall`
+2. watcher
+   - observes Codex rollout files
+   - writes `session-seen`, `checkpoint`, and `closeout`
+3. reflex
+   - promotes summaries into `learn`, `gotcha`, and `signal`
+4. consolidation
+   - synthesizes recurring `learn` and `gotcha` records into domain notes
+
+This keeps the system understandable:
+
+- raw sessions are not final memory
+- summaries are not final memory
+- durable memory is machine-first
+- synthesis happens after promotion
+
+## Quick Start
+
+Requirements:
+
+- Python 3.11+
+- Codex with MCP enabled
+- SQLite with FTS5 support
+
+### 1. Install
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e .[dev]
+```
+
+### 2. Create bridge config
+
+Copy [config.example.toml](config.example.toml) to:
+
+```text
+$CODEX_HOME/mem-bridge/config.toml
+```
+
+Recommended setup:
+
+- keep the live SQLite database local on each machine
+- keep shared profile/source vaults on NAS or shared storage if needed
+- move to a hosted backend later if you want true multi-machine live writes
+
+### 3. Register the MCP server in Codex
+
+Add this to `$CODEX_HOME/config.toml`:
+
+```toml
+[mcp_servers.agentMemoryBridge]
+command = "D:\\path\\to\\agent-memory-bridge\\.venv\\Scripts\\python.exe"
+args = ["-m", "agent_mem_bridge"]
+cwd = "D:\\path\\to\\agent-memory-bridge"
+
+[mcp_servers.agentMemoryBridge.env]
+CODEX_HOME = "%USERPROFILE%\\.codex"
+AGENT_MEMORY_BRIDGE_HOME = "%USERPROFILE%\\.codex\\mem-bridge"
+AGENT_MEMORY_BRIDGE_CONFIG = "%USERPROFILE%\\.codex\\mem-bridge\\config.toml"
+```
+
+### 4. Start the service
+
+Start the MCP server:
+
+```powershell
+.\.venv\Scripts\python.exe -m agent_mem_bridge
+```
+
+Run the background bridge service:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_mem_bridge_service.py
+```
+
+Run one cycle only:
+
+```powershell
+$env:AGENT_MEMORY_BRIDGE_RUN_ONCE = "1"
+.\.venv\Scripts\python.exe .\scripts\run_mem_bridge_service.py
+```
+
+Optional startup install:
+
+```powershell
+.\scripts\install_startup_watcher.ps1
+```
+
+## Core API
+
+The MCP surface is intentionally small:
+
+- `store`
+- `recall`
+
+Common `store` fields:
+
+- `namespace`
+- `content`
+- `kind`
+- `tags`
+- `session_id`
+- `actor`
+- `title`
+- `correlation_id`
+- `source_app`
+
+Common `recall` fields:
+
+- `namespace`
+- `query`
+- `kind`
+- `tags_any`
+- `session_id`
+- `actor`
+- `correlation_id`
+- `since`
+- `limit`
+
+## Typical Namespaces
+
+- `project:<workspace>`
+- `global`
+- `domain:<name>`
+- imported profile namespaces when a team wants them
+
+The framework is profile-agnostic. A specific operator profile can be layered on top, but the bridge itself is not tied to one persona or one protocol.
+
+## Day-to-Day Usage
+
+The intended layering is:
+
+- system-level operator profile
+- system-level memory substrate: `agentMemoryBridge`
+- project-local overrides: [AGENTS.md](AGENTS.md)
+
+The startup protocol is documented in [docs/STARTUP-PROTOCOL.md](docs/STARTUP-PROTOCOL.md).
+
+In short:
+
+1. recall global operating memory
+2. recall relevant specialization memory
+3. if a workspace exists, recall `project:<workspace>`
+4. for issue-like work, check local memory and gotchas before external search
+5. inspect live code before trusting recalled implementation details
+
+## Useful Commands
+
+Run tests:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
+
+Run the stdio smoke test:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\verify_stdio.py
+```
+
+Run the benchmark:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_benchmark.py
+```
+
+Run the bridge health check:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_healthcheck.py --report-path .\examples\healthcheck-report.json
+```
+
+Force a checkpoint from the latest rollout:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\sync_now.py
+```
+
+## Project Structure
+
+The repo is intentionally small:
+
+```text
+src/agent_mem_bridge/   canonical implementation
+scripts/                operational entrypoints
+tests/                  verification
+docs/                   design and roadmap
+examples/               sanitized demo artifacts
+```
+
+The files that matter most:
+
+- [src/agent_mem_bridge/server.py](src/agent_mem_bridge/server.py)
+- [src/agent_mem_bridge/storage.py](src/agent_mem_bridge/storage.py)
+- [src/agent_mem_bridge/watcher.py](src/agent_mem_bridge/watcher.py)
+- [src/agent_mem_bridge/reflex.py](src/agent_mem_bridge/reflex.py)
+- [src/agent_mem_bridge/consolidation.py](src/agent_mem_bridge/consolidation.py)
+- [src/agent_mem_bridge/service.py](src/agent_mem_bridge/service.py)
+
+## Design Choices
+
+### Small MCP surface
+
+The bridge exposes only `store` and `recall`. This keeps the contract stable and easy to integrate.
+
+### Local-first runtime
+
+The live DB stays local by default because SQLite on shared network storage is a reliability trap.
+
+### Machine-first memory
+
+Agents are the primary readers, so memory favors:
+
+- compact fields
+- stable tags
+- low token cost
+
+over polished prose.
+
+### Layered promotion
+
+The system tries to move upward:
+
+- `summary`
+- `learn`
+- `gotcha`
+- `domain-note`
+
+instead of treating raw summaries as the final artifact.
+
+## Status
+
+The current foundation is working:
+
+- MCP autoload works in Codex
+- project/session sync works
+- recall-first workflows work
+- reflex promotion works
+- first-pass domain consolidation works
+
+Reality check and roadmap:
+
+- [docs/PRODUCTION-STATUS.md](docs/PRODUCTION-STATUS.md)
+- [docs/ROADMAP.md](docs/ROADMAP.md)
+
+## Profile Imports
+
+The framework can host imported operator profiles, but the framework itself stays profile-agnostic.
+
+## Documentation
+
+- [README.zh-CN.md](README.zh-CN.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [AGENTS.md](AGENTS.md)
+- [docs/STARTUP-PROTOCOL.md](docs/STARTUP-PROTOCOL.md)
+- [docs/MEMORY-TAXONOMY.md](docs/MEMORY-TAXONOMY.md)
+- [docs/PROMOTION-RULES.md](docs/PROMOTION-RULES.md)
+- [docs/MODEL-ROUTING.md](docs/MODEL-ROUTING.md)
+- [docs/ROADMAP.md](docs/ROADMAP.md)
+
+## License
+
+MIT. See [LICENSE](LICENSE).

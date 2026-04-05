@@ -1,0 +1,24 @@
+{
+  "namespace": "project:demo-app",
+  "kind": "memory",
+  "title": "Demo session closeout",
+  "tags": [
+    "source:codex",
+    "project:demo-app",
+    "phase:closeout",
+    "topic:http",
+    "topic:cache"
+  ],
+  "actor": "orchestrator",
+  "session_id": "demo-session-001",
+  "correlation_id": "demo-closeout-001",
+  "source_app": "codex",
+  "summary": "This payload shows the shape of a curated closeout that can be written into the bridge after a productive session.",
+  "bullets": [
+    "Added a retry policy for idempotent requests only.",
+    "Confirmed cache invalidation needs explicit follow-up coverage.",
+    "Captured a handoff signal for the next implementation slice."
+  ],
+  "next_step": "Add tests that verify invalidation behavior after profile updates.",
+  "session_folder": "demo-session-001"
+}
