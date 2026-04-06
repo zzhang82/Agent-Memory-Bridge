@@ -19,17 +19,13 @@
 - 可复用 gotcha
 - 紧凑的领域知识
 
-记忆还会沿着一条小而清楚的提升路径往上走：
+它沿着一条小而清楚的提升路径工作：
 
-- session 变成可复用的 `learn`
-- 重复失败变成 `gotcha`
-- 一组经验再变成紧凑的 `domain-note`
-
-这个桥接层故意保持得很小。它负责记忆和协调，更高层的编排可以叠在它上面。
+`session -> summary -> learn -> gotcha -> domain-note`
 
 ## 这个项目想解决什么
 
-编码代理在跨会话时会丢掉太多状态。很多 agent 记忆系统最后会落到三种情况之一：
+编码代理在跨会话时会丢掉太多状态。很多记忆系统最后会落到三种情况之一：
 
 - 记忆被困在某一个应用或某一个模型里
 - 还没证明检索真有价值，就先上重型基础设施
@@ -42,22 +38,14 @@
 - 用 SQLite + FTS5，不先上重型服务
 - 自动把 session 输出提升成可复用记忆
 
-它沿着一条小而清楚的提升路径工作：
-
-`session -> summary -> learn -> gotcha -> domain-note`
-
-## 项目定位
-
-Agent Memory Bridge 是故意做窄的。
-
-如果你要的是更大的记忆平台，带 SDK、dashboard、connectors、多种应用接入面，那么 OpenMemory 或 Mem0 更接近那种形态。
-
-这个项目只聚焦四件事：
+## 它有什么不同
 
 1. 它面向编码代理工作流，而不是通用笔记存储。
 2. 它把持久知识和协调信号拆开处理。
 3. 它重点是把 session 输出提升成紧凑、机器可读的记忆，而不是把摘要当成最终产物。
 4. 它默认 local-first，而且运行形态可检查。
+
+如果你要的是更大的记忆平台，带 SDK、dashboard、connectors、多种应用接入面，那么 OpenMemory 或 Mem0 更接近那种形态。
 
 更完整的定位说明见 [docs/COMPARISON.md](docs/COMPARISON.md)。
 
@@ -68,8 +56,6 @@ Agent Memory Bridge 是故意做窄的。
 1. 先写一条持久记忆
 2. 再写一条协调信号
 3. 不用碰 SQLite，直接看看命名空间里有什么
-
-示例流程：
 
 ```text
 store(namespace="project:demo", kind="memory", content="claim: Use WAL mode for concurrent readers.")
@@ -85,27 +71,6 @@ recall(namespace="project:demo", kind="signal", since="<last_seen_id>")
 - `signal` 传递另一个流程现在需要知道的事
 
 如果你不是在一个已经注册好 MCP 的 Codex 环境里试用，而是要从零装起来，下面就是完整安装路径。
-
-## 它怎么工作
-
-运行时主要有四层：
-
-1. MCP server
-   - 提供存储、检查、纠错和导出相关的 MCP 工具
-2. watcher
-   - 观察 Codex rollout 文件
-   - 写入 `session-seen`、`checkpoint`、`closeout`
-3. reflex
-   - 把 summary 提升成 `learn`、`gotcha`、`signal`
-4. consolidation
-   - 把重复出现的 `learn` 和 `gotcha` 综合成 domain note
-
-这样做的好处是：
-
-- 原始 session 不是最终 memory
-- summary 不是最终 memory
-- durable memory 默认面向 agent，而不是人类 prose
-- synthesis 发生在 promotion 之后，而不是继续堆长文本
 
 ## 安装与配置
 
@@ -133,7 +98,7 @@ $CODEX_HOME/mem-bridge/config.toml
 
 推荐做法：
 
-- live SQLite DB 保留在每台机器本地
+- live SQLite 数据库保留在每台机器本地
 - 共享 profile 或 source vault 可以放在 NAS 或共享存储
 - 真正需要多机实时共享写入时，再切到 hosted backend
 
@@ -180,222 +145,51 @@ $env:AGENT_MEMORY_BRIDGE_RUN_ONCE = "1"
 .\scripts\install_startup_watcher.ps1
 ```
 
-### 可选：构建本地 Docker 镜像
+可选：构建本地 Docker 镜像
 
 ```powershell
 docker build -t agent-memory-bridge:local .
 docker --context desktop-linux run --rm -i agent-memory-bridge:local
 ```
 
-容器默认入口会直接启动 stdio MCP server，也就是 `python -m agent_mem_bridge`。
+## MCP 工具
 
-## MCP API
+MCP 接口保持得很小，也很实用：
 
-公开接口刻意保持很小：
+- `store` 和 `recall`：写入和读取桥里的状态
+- `browse` 和 `stats`：先看里面有什么
+- `forget` 和 `promote`：修正错误条目或提升条目等级
+- `export`：把记忆导出成 Markdown、JSON 或纯文本
 
-- `store`
-- `recall`
-- `browse`
-- `stats`
-- `forget`
-- `promote`
-- `export`
+## 命名空间
 
-常见 `store` 字段：
+最自然的起步方式是：
 
-- `namespace`
-- `content`
-- `kind`
-- `tags`
-- `session_id`
-- `actor`
-- `title`
-- `correlation_id`
-- `source_app`
+- `global`：默认共享 bucket
+- `project:<workspace>`：项目级记忆
+- `domain:<name>`：可复用的领域知识
 
-常见 `recall` 字段：
+这个 framework 本身是 profile-agnostic 的。你可以在上面叠加某个 operator profile，但桥本身不绑定某一个 persona 或某一种协议。
 
-- `namespace`
-- `query`
-- `kind`
-- `tags_any`
-- `session_id`
-- `actor`
-- `correlation_id`
-- `since`
-- `limit`
+## 可检查性与健康检查
 
-## 典型 namespace
+这个桥的目标是可检查，不是黑盒：
 
-- `global`：适合作为默认共享 bucket
-- `project:<workspace>`
-- `domain:<name>`
-- 团队自己导入的 profile namespace
+- `browse`、`stats`、`forget`、`export` 让你不用打开 SQLite 也能检查和修正状态
+- watcher health check 会验证 Codex rollout 文件是否还能解析成可用 summary
+- 当前测试套件结果是 `53 passed`
 
-这个 framework 本身是 **profile-agnostic** 的。  
-可以在它上面叠加某个 operator profile，但 bridge 本身不应该绑定一个固定 persona。
-
-如果你是第一次用，先从 `global` 开始最自然；等需要项目隔离时，再引入 `project:<workspace>`。
-
-## Signal handoff 示例
-
-`signal` 这一层是给协调用的，不是给长期记忆用的。
-
-Agent A：
-
-```text
-store(
-  namespace="project:foo",
-  kind="signal",
-  content="frontend review ready",
-  tags=["handoff:ready", "team:frontend"],
-  correlation_id="ticket-142"
-)
-```
-
-Agent B：
-
-```text
-recall(
-  namespace="project:foo",
-  kind="signal",
-  since="<last_seen_id>",
-  tags_any=["handoff:ready"]
-)
-```
-
-这样一个流程就能轮询新的 handoff 事件，而不会把这些短期事件混进 durable memory。
-
-## 手动提升示例
-
-如果一条记录是有价值的，但系统给它的等级还不够，你可以原地提升：
-
-```text
-promote(id="<memory_id>", to_kind="gotcha")
-```
-
-这样会保留同一个 id，但把 title、tags 和 structured content 改成更强的记录类型。
-
-## 导出示例
-
-如果你想把 memory 从 bridge 里导出来，而不是直接碰 SQLite：
-
-```text
-export(namespace="project:foo", format="markdown", limit=50)
-export(namespace="project:foo", format="json", kind="memory")
-```
-
-`markdown` 适合人读，`json` 适合交换或再处理，`text` 适合简单终端输出。
-
-## 日常使用方式
-
-推荐分层：
-
-- 系统级 operator profile
-- 系统级 memory substrate：`agentMemoryBridge`
-- 项目内薄覆盖：[AGENTS.md](AGENTS.md)
-
-启动协议见 [docs/STARTUP-PROTOCOL.md](docs/STARTUP-PROTOCOL.md)。
-
-简化版顺序是：
-
-1. 先查全局 operating memory
-2. 再查相关 specialization memory
-3. 如果有 workspace，再查 `project:<workspace>`
-4. 遇到 issue-like 问题先查本地 memory 和 gotcha，再考虑外部搜索
-5. 设计和实现细节必须回到 live code 验证
-
-## 常用命令
-
-运行测试：
+常用命令：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-```
-
-运行 stdio smoke test：
-
-```powershell
 .\.venv\Scripts\python.exe .\scripts\verify_stdio.py
-```
-
-运行 benchmark：
-
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_benchmark.py
-```
-
-运行 health check：
-
-```powershell
 .\.venv\Scripts\python.exe .\scripts\run_healthcheck.py --report-path .\examples\healthcheck-report.json
-```
-
-运行 watcher health check：
-
-```powershell
 .\.venv\Scripts\python.exe .\scripts\run_watcher_healthcheck.py --report-path .\examples\watcher-health-report.json
 ```
 
-强制写一次 checkpoint：
+## 更多文档
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\sync_now.py
-```
-
-## 设计取向
-
-### Small MCP surface
-
-桥接层只暴露一小组 MCP 工具，用来存储、检查、纠错和导出状态。目标没变：让 contract 容易理解，也容易集成。
-
-### Local-first runtime
-
-默认 live DB 放本地，因为 SQLite 放共享网络盘做实时写入很容易踩坑。
-
-### Machine-first memory
-
-agent 才是主要读者，所以 memory 优先：
-
-- 紧凑字段
-- 稳定标签
-- 低 token 成本
-
-而不是打磨成漂亮 prose。
-
-### Layered promotion
-
-系统目标是向上提升：
-
-- `summary`
-- `learn`
-- `gotcha`
-- `domain-note`
-
-而不是把 raw summary 当最终产物。
-
-## 当前状态
-
-当前 foundation 已经可用：
-
-- Codex 中 MCP autoload 可用
-- project 和 session sync 可用
-- recall-first workflow 可用
-- reflex promotion 可用
-- 第一版 domain consolidation 可用
-
-现实状态和路线图见：
-
-- [docs/PRODUCTION-STATUS.md](docs/PRODUCTION-STATUS.md)
-- [docs/ROADMAP.md](docs/ROADMAP.md)
-
-## Profile Import
-
-这个 framework 可以承载导入的 operator profile，但 framework 本身保持 profile-agnostic。
-
-## 文档
-
-- [README.md](README.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [AGENTS.md](AGENTS.md)
 - [docs/COMPARISON.md](docs/COMPARISON.md)
@@ -404,6 +198,7 @@ agent 才是主要读者，所以 memory 优先：
 - [docs/PROMOTION-RULES.md](docs/PROMOTION-RULES.md)
 - [docs/MODEL-ROUTING.md](docs/MODEL-ROUTING.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
+- [docs/PRODUCTION-STATUS.md](docs/PRODUCTION-STATUS.md)
 
 ## License
 

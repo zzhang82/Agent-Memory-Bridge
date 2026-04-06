@@ -19,21 +19,13 @@ So an agent can carry forward:
 - reusable gotchas
 - compact domain knowledge
 
-Memory also moves up a small promotion ladder:
+The bridge follows a small promotion ladder:
 
-- sessions become reusable `learn`
-- repeated failures become `gotcha`
-- clusters of lessons become compact `domain-note`
-
-The bridge stays small on purpose. It handles memory and coordination. Higher-level orchestration can sit on top.
+`session -> summary -> learn -> gotcha -> domain-note`
 
 ## Why This Exists
 
-Coding agents lose too much between sessions. Most memory systems then drift into one of three patterns:
-
-- memory trapped inside one app or one model
-- heavier hosted infrastructure before retrieval basics are proven
-- transcript dumping instead of reusable operational knowledge
+Coding agents lose too much between sessions. Memory often ends up trapped inside one client, mixed into raw transcripts, or pushed into heavier infrastructure before retrieval basics are proven.
 
 Agent Memory Bridge takes a narrower path:
 
@@ -42,22 +34,14 @@ Agent Memory Bridge takes a narrower path:
 - SQLite + FTS5 instead of heavier infrastructure
 - automatic promotion from session traces into reusable memory
 
-The bridge follows a small promotion ladder:
-
-`session -> summary -> learn -> gotcha -> domain-note`
-
-## Positioning
-
-Agent Memory Bridge is intentionally narrow.
-
-If you want a broader memory platform with SDKs, dashboards, connectors, and multi-surface application support, projects like OpenMemory or Mem0 are closer to that shape.
-
-This project stays focused on four things:
+## What Makes It Different
 
 1. It is built for coding-agent workflows, not generic note storage.
 2. It keeps durable knowledge and coordination signals separate.
 3. It promotes raw session output into compact machine-readable memory instead of treating summaries as the final artifact.
-4. It is local-first and inspectable by default.
+4. It stays small and inspectable by default.
+
+If you want a broader memory platform with SDKs, dashboards, connectors, and multi-surface application support, projects like OpenMemory or Mem0 are closer to that shape.
 
 For a longer positioning note, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
@@ -69,8 +53,6 @@ Once the MCP server is registered in Codex, the shortest useful path is:
 2. write one coordination signal
 3. inspect the namespace without opening SQLite
 
-Example flow:
-
 ```text
 store(namespace="project:demo", kind="memory", content="claim: Use WAL mode for concurrent readers.")
 store(namespace="project:demo", kind="signal", content="review ready", tags=["handoff:ready"])
@@ -79,33 +61,12 @@ browse(namespace="project:demo", limit=10)
 recall(namespace="project:demo", kind="signal", since="<last_seen_id>")
 ```
 
-That shows the core split:
+That shows the split:
 
 - `memory` keeps what the agent learned
 - `signal` carries what another workflow needs to know now
 
 If you are starting from scratch instead of adding the server to an existing Codex setup, the installation path is below.
-
-## How It Works
-
-The runtime has four main pieces:
-
-1. MCP server
-   - exposes the storage, inspection, correction, and export tools
-2. watcher
-   - observes Codex rollout files
-   - writes `session-seen`, `checkpoint`, and `closeout`
-3. reflex
-   - promotes summaries into `learn`, `gotcha`, and `signal`
-4. consolidation
-   - synthesizes recurring `learn` and `gotcha` records into domain notes
-
-This keeps the system understandable:
-
-- raw sessions are not final memory
-- summaries are not final memory
-- durable memory is machine-first
-- synthesis happens after promotion
 
 ## Setup
 
@@ -180,242 +141,51 @@ Optional startup install:
 .\scripts\install_startup_watcher.ps1
 ```
 
-### Optional: build a local Docker image
+Optional local Docker image:
 
 ```powershell
 docker build -t agent-memory-bridge:local .
 docker --context desktop-linux run --rm -i agent-memory-bridge:local
 ```
 
-The container entrypoint starts the stdio MCP server with `python -m agent_mem_bridge`.
+## MCP Tools
 
-## Core API
+The MCP surface is small and practical:
 
-The MCP surface is intentionally small:
+- `store` and `recall` for writing and retrieving bridge state
+- `browse` and `stats` for inspecting what is already there
+- `forget` and `promote` for correcting bad or under-classified entries
+- `export` for moving memory back out as Markdown, JSON, or plain text
 
-- `store`
-- `recall`
-- `browse`
-- `stats`
-- `forget`
-- `promote`
-- `export`
+## Namespaces
 
-Common `store` fields:
+Start simple:
 
-- `namespace`
-- `content`
-- `kind`
-- `tags`
-- `session_id`
-- `actor`
-- `title`
-- `correlation_id`
-- `source_app`
+- `global` for a default shared bucket
+- `project:<workspace>` for project-local memory
+- `domain:<name>` for reusable domain knowledge
 
-Common `recall` fields:
+The framework is profile-agnostic. A specific operator profile can sit on top, but the bridge itself is not tied to one persona or one protocol.
 
-- `namespace`
-- `query`
-- `kind`
-- `tags_any`
-- `session_id`
-- `actor`
-- `correlation_id`
-- `since`
-- `limit`
+## Trust and Health Checks
 
-## Typical Namespaces
+The bridge is meant to be inspectable, not magical:
 
-- `global` for a sensible default shared bucket
-- `project:<workspace>`
-- `domain:<name>`
-- imported profile namespaces when a team wants them
+- `browse`, `stats`, `forget`, and `export` let you inspect and correct bridge state without opening SQLite
+- watcher health checks verify that Codex rollout files still parse into usable summaries
+- the current test suite passes with `53 passed`
 
-The framework is profile-agnostic. A specific operator profile can be layered on top, but the bridge itself is not tied to one persona or one protocol.
-
-If you are starting from scratch, use `global` first and introduce `project:<workspace>` once you want project-local memory.
-
-## Signal Handoff Example
-
-The `signal` channel is for coordination, not durable recall.
-
-Agent A:
-
-```text
-store(
-  namespace="project:foo",
-  kind="signal",
-  content="frontend review ready",
-  tags=["handoff:ready", "team:frontend"],
-  correlation_id="ticket-142"
-)
-```
-
-Agent B:
-
-```text
-recall(
-  namespace="project:foo",
-  kind="signal",
-  since="<last_seen_id>",
-  tags_any=["handoff:ready"]
-)
-```
-
-That lets one workflow poll for fresh handoff events without mixing them into durable memory.
-
-## Manual Promotion Example
-
-If a record is useful but under-classified, you can promote it in place:
-
-```text
-promote(id="<memory_id>", to_kind="gotcha")
-```
-
-That keeps the same id while rewriting the stored title, tags, and structured content to match the stronger record type.
-
-## Export Example
-
-To move memory out of the bridge without opening SQLite directly:
-
-```text
-export(namespace="project:foo", format="markdown", limit=50)
-export(namespace="project:foo", format="json", kind="memory")
-```
-
-Use `markdown` for readable notes, `json` for interchange, and `text` for simple terminal output.
-
-## Day-to-Day Usage
-
-The intended layering is:
-
-- system-level operator profile
-- system-level memory substrate: `agentMemoryBridge`
-- project-local overrides: [AGENTS.md](AGENTS.md)
-
-The startup protocol is documented in [docs/STARTUP-PROTOCOL.md](docs/STARTUP-PROTOCOL.md).
-
-In short:
-
-1. recall global operating memory
-2. recall relevant specialization memory
-3. if a workspace exists, recall `project:<workspace>`
-4. for issue-like work, check local memory and gotchas before external search
-5. inspect live code before trusting recalled implementation details
-
-## Useful Commands
-
-Run tests:
+Useful commands:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest
-```
-
-Run the stdio smoke test:
-
-```powershell
 .\.venv\Scripts\python.exe .\scripts\verify_stdio.py
-```
-
-Run the benchmark:
-
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_benchmark.py
-```
-
-Run the bridge health check:
-
-```powershell
 .\.venv\Scripts\python.exe .\scripts\run_healthcheck.py --report-path .\examples\healthcheck-report.json
-```
-
-Run the watcher health check:
-
-```powershell
 .\.venv\Scripts\python.exe .\scripts\run_watcher_healthcheck.py --report-path .\examples\watcher-health-report.json
 ```
 
-Force a checkpoint from the latest rollout:
+## More Docs
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\sync_now.py
-```
-
-## Project Structure
-
-The repo is intentionally small:
-
-```text
-src/agent_mem_bridge/   canonical implementation
-scripts/                operational entrypoints
-tests/                  verification
-docs/                   design and roadmap
-examples/               sanitized demo artifacts
-```
-
-The files that matter most:
-
-- [src/agent_mem_bridge/server.py](src/agent_mem_bridge/server.py)
-- [src/agent_mem_bridge/storage.py](src/agent_mem_bridge/storage.py)
-- [src/agent_mem_bridge/watcher.py](src/agent_mem_bridge/watcher.py)
-- [src/agent_mem_bridge/reflex.py](src/agent_mem_bridge/reflex.py)
-- [src/agent_mem_bridge/consolidation.py](src/agent_mem_bridge/consolidation.py)
-- [src/agent_mem_bridge/service.py](src/agent_mem_bridge/service.py)
-
-## Design Choices
-
-### Small MCP surface
-
-The bridge exposes a small set of MCP tools for storing, inspecting, correcting, and exporting bridge state. The goal is still the same: keep the contract easy to understand and easy to integrate.
-
-### Local-first runtime
-
-The live DB stays local by default because SQLite on shared network storage is a reliability trap.
-
-### Machine-first memory
-
-Agents are the primary readers, so memory favors:
-
-- compact fields
-- stable tags
-- low token cost
-
-over polished prose.
-
-### Layered promotion
-
-The system tries to move upward:
-
-- `summary`
-- `learn`
-- `gotcha`
-- `domain-note`
-
-instead of treating raw summaries as the final artifact.
-
-## Status
-
-The current foundation is working:
-
-- MCP autoload works in Codex
-- project and session sync work
-- recall-first workflows work
-- reflex promotion works
-- first-pass domain consolidation works
-
-Reality check and roadmap:
-
-- [docs/PRODUCTION-STATUS.md](docs/PRODUCTION-STATUS.md)
-- [docs/ROADMAP.md](docs/ROADMAP.md)
-
-## Profile Imports
-
-The framework can host imported operator profiles, but the framework itself stays profile-agnostic.
-
-## Documentation
-
-- [README.zh-CN.md](README.zh-CN.md)
 - [CONTRIBUTING.md](CONTRIBUTING.md)
 - [AGENTS.md](AGENTS.md)
 - [docs/COMPARISON.md](docs/COMPARISON.md)
@@ -424,6 +194,7 @@ The framework can host imported operator profiles, but the framework itself stay
 - [docs/PROMOTION-RULES.md](docs/PROMOTION-RULES.md)
 - [docs/MODEL-ROUTING.md](docs/MODEL-ROUTING.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
+- [docs/PRODUCTION-STATUS.md](docs/PRODUCTION-STATUS.md)
 
 ## License
 
