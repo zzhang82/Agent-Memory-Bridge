@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-bridge"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local-first MCP memory bridge for agents, durable recall, and shared coordination"
 readme = "README.md"
 license = {text = "MIT"}
