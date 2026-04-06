@@ -2,16 +2,16 @@
 
 [English](README.md) | 简体中文
 
-面向编码代理的 MCP-native 记忆层。它把 coding session 沉淀成可复用的工程记忆。
+面向编码代理的双通道 MCP 记忆层。
 
-当前先从 Codex workflow 开始。
+当前先从 Codex 工作流开始。
 
-它把大多数 memory 工具混在一起的两类东西拆开了：
+大多数记忆工具会把所有状态混在一个桶里。Agent Memory Bridge 把两类状态分开：
 
 - `memory`：值得留到后面复用的持久知识
 - `signal`：用于 handoff、轮询和流程协调的短期事件
 
-Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory framework。它用来保存聊天上下文最容易丢掉的东西：
+这样，代理就有地方保留下列信息：
 
 - 关键决策
 - 已验证修复
@@ -19,30 +19,30 @@ Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory fram
 - 可复用 gotcha
 - 紧凑的领域知识
 
-核心原则很简单：**让记忆层保持小、可靠、可检查**。更高层的 orchestration 放在它上面，而不是塞进它里面。
-
-它会自动把会话输出继续提炼成更稳定的记忆：
+记忆还会沿着一条小而清楚的提升路径往上走：
 
 - session 变成可复用的 `learn`
 - 重复失败变成 `gotcha`
 - 一组经验再变成紧凑的 `domain-note`
 
+这个桥接层故意保持得很小。它负责记忆和协调，更高层的编排可以叠在它上面。
+
 ## 这个项目想解决什么
 
-很多 agent memory 系统最后会落到三种情况之一：
+编码代理在跨会话时会丢掉太多状态。很多 agent 记忆系统最后会落到三种情况之一：
 
-- 记忆被困在某一个 app 或某一个模型里
-- 还没证明 retrieval 真有价值，就先上重型基础设施
-- 把 transcript 当 memory，最后变成噪音仓库
+- 记忆被困在某一个应用或某一个模型里
+- 还没证明检索真有价值，就先上重型基础设施
+- 把对话原文当记忆，最后变成噪音仓库
 
 这个项目走的是更克制的一条路：
 
 - 从第一天起就是 MCP-native
 - 本地优先
 - 用 SQLite + FTS5，不先上重型服务
-- 自动把 session 输出提升成可复用 memory
+- 自动把 session 输出提升成可复用记忆
 
-它的核心是一条 **memory shaping pipeline**：
+它沿着一条小而清楚的提升路径工作：
 
 `session -> summary -> learn -> gotcha -> domain-note`
 
@@ -50,13 +50,13 @@ Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory fram
 
 Agent Memory Bridge 是故意做窄的。
 
-如果你要的是更大的 memory 平台，带 SDK、dashboard、connectors、多种应用接入面，那么 OpenMemory 或 Mem0 更接近那种形态。
+如果你要的是更大的记忆平台，带 SDK、dashboard、connectors、多种应用接入面，那么 OpenMemory 或 Mem0 更接近那种形态。
 
-这个项目故意不走那条路：
+这个项目只聚焦四件事：
 
-1. 它面向 coding-agent workflow，而不是通用笔记存储。
-2. 它把 MCP surface 刻意保持得很小，而且可检查。
-3. 它重点是把 session 输出提升成紧凑、机器可读的 memory，而不是把 summary 当成最终产物。
+1. 它面向编码代理工作流，而不是通用笔记存储。
+2. 它把持久知识和协调信号拆开处理。
+3. 它重点是把 session 输出提升成紧凑、机器可读的记忆，而不是把摘要当成最终产物。
 4. 它默认 local-first，而且运行形态可检查。
 
 更完整的定位说明见 [docs/COMPARISON.md](docs/COMPARISON.md)。
@@ -65,9 +65,9 @@ Agent Memory Bridge 是故意做窄的。
 
 在 Codex 里注册好 MCP 之后，最短的有效路径是：
 
-1. 先写一条 durable memory
-2. 再写一条 coordination signal
-3. 不用碰 SQLite，直接看看 namespace 里有什么
+1. 先写一条持久记忆
+2. 再写一条协调信号
+3. 不用碰 SQLite，直接看看命名空间里有什么
 
 示例流程：
 

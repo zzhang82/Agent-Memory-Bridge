@@ -2,16 +2,16 @@
 
 [简体中文](README.zh-CN.md)
 
-An MCP-native memory layer for coding agents that turns coding sessions into reusable engineering memory.
+Two-channel MCP memory for coding agents.
 
 Built for Codex-first workflows.
 
-It separates two kinds of state that most memory tools collapse into one pool:
+Most memory tools put everything in one bucket. Agent Memory Bridge keeps two kinds of state separate:
 
 - `memory`: durable knowledge worth reusing later
 - `signal`: short-lived coordination events for handoffs, polling, and workflow state
 
-Agent Memory Bridge captures what chat history usually loses:
+So an agent can carry forward:
 
 - durable decisions
 - known fixes
@@ -19,17 +19,17 @@ Agent Memory Bridge captures what chat history usually loses:
 - reusable gotchas
 - compact domain knowledge
 
-The core idea is simple: keep the memory layer small, reliable, and inspectable. Let higher-level orchestration sit on top.
-
-The system reshapes session output into durable memory:
+Memory also moves up a small promotion ladder:
 
 - sessions become reusable `learn`
 - repeated failures become `gotcha`
 - clusters of lessons become compact `domain-note`
 
+The bridge stays small on purpose. It handles memory and coordination. Higher-level orchestration can sit on top.
+
 ## Why This Exists
 
-Most agent memory systems drift into one of three patterns:
+Coding agents lose too much between sessions. Most memory systems then drift into one of three patterns:
 
 - memory trapped inside one app or one model
 - heavier hosted infrastructure before retrieval basics are proven
@@ -42,7 +42,7 @@ Agent Memory Bridge takes a narrower path:
 - SQLite + FTS5 instead of heavier infrastructure
 - automatic promotion from session traces into reusable memory
 
-At its core, it is a memory shaping pipeline:
+The bridge follows a small promotion ladder:
 
 `session -> summary -> learn -> gotcha -> domain-note`
 
@@ -52,10 +52,10 @@ Agent Memory Bridge is intentionally narrow.
 
 If you want a broader memory platform with SDKs, dashboards, connectors, and multi-surface application support, projects like OpenMemory or Mem0 are closer to that shape.
 
-This project is different on purpose:
+This project stays focused on four things:
 
 1. It is built for coding-agent workflows, not generic note storage.
-2. It keeps the MCP surface intentionally small and inspectable.
+2. It keeps durable knowledge and coordination signals separate.
 3. It promotes raw session output into compact machine-readable memory instead of treating summaries as the final artifact.
 4. It is local-first and inspectable by default.
 
