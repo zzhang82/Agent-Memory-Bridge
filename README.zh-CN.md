@@ -150,6 +150,15 @@ $env:AGENT_MEMORY_BRIDGE_RUN_ONCE = "1"
 .\scripts\install_startup_watcher.ps1
 ```
 
+### 可选：构建本地 Docker 镜像
+
+```powershell
+docker build -t agent-memory-bridge:local .
+docker --context desktop-linux run --rm -i agent-memory-bridge:local
+```
+
+容器默认入口会直接启动 stdio MCP server，也就是 `python -m agent_mem_bridge`。
+
 ## MCP API
 
 公开接口刻意保持很小：

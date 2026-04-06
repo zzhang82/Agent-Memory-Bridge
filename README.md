@@ -150,6 +150,15 @@ Optional startup install:
 .\scripts\install_startup_watcher.ps1
 ```
 
+### Optional: build a local Docker image
+
+```powershell
+docker build -t agent-memory-bridge:local .
+docker --context desktop-linux run --rm -i agent-memory-bridge:local
+```
+
+The container entrypoint starts the stdio MCP server with `python -m agent_mem_bridge`.
+
 ## Core API
 
 The MCP surface is intentionally small:
