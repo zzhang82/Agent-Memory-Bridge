@@ -2,6 +2,10 @@
 
 [English](README.md) | 简体中文
 
+[![Glama](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge/badges/score.svg)](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
+
 面向编码代理的双通道 MCP 记忆层。
 
 当前先从 Codex 工作流开始。
