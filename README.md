@@ -84,12 +84,14 @@ That shows the core split:
 - `memory` keeps what the agent learned
 - `signal` carries what another workflow needs to know now
 
+If you are starting from scratch instead of adding the server to an existing Codex setup, the installation path is below.
+
 ## How It Works
 
 The runtime has four main pieces:
 
 1. MCP server
-   - exposes `store` and `recall`
+   - exposes the storage, inspection, correction, and export tools
 2. watcher
    - observes Codex rollout files
    - writes `session-seen`, `checkpoint`, and `closeout`
@@ -105,7 +107,7 @@ This keeps the system understandable:
 - durable memory is machine-first
 - synthesis happens after promotion
 
-## Quick Start
+## Setup
 
 Requirements:
 
@@ -365,7 +367,7 @@ The files that matter most:
 
 ### Small MCP surface
 
-The bridge exposes only `store` and `recall`. This keeps the contract stable and easy to integrate.
+The bridge exposes a small set of MCP tools for storing, inspecting, correcting, and exporting bridge state. The goal is still the same: keep the contract easy to understand and easy to integrate.
 
 ### Local-first runtime
 

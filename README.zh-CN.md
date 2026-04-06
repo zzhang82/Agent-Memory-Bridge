@@ -84,12 +84,14 @@ recall(namespace="project:demo", kind="signal", since="<last_seen_id>")
 - `memory` 保存学到的东西
 - `signal` 传递另一个流程现在需要知道的事
 
+如果你不是在一个已经注册好 MCP 的 Codex 环境里试用，而是要从零装起来，下面就是完整安装路径。
+
 ## 它怎么工作
 
 运行时主要有四层：
 
 1. MCP server
-   - 提供 `store` 和 `recall`
+   - 提供存储、检查、纠错和导出相关的 MCP 工具
 2. watcher
    - 观察 Codex rollout 文件
    - 写入 `session-seen`、`checkpoint`、`closeout`
@@ -105,7 +107,7 @@ recall(namespace="project:demo", kind="signal", since="<last_seen_id>")
 - durable memory 默认面向 agent，而不是人类 prose
 - synthesis 发生在 promotion 之后，而不是继续堆长文本
 
-## 快速开始
+## 安装与配置
 
 要求：
 
@@ -345,7 +347,7 @@ export(namespace="project:foo", format="json", kind="memory")
 
 ### Small MCP surface
 
-只暴露 `store` 和 `recall`，让 contract 稳定、容易集成。
+桥接层只暴露一小组 MCP 工具，用来存储、检查、纠错和导出状态。目标没变：让 contract 容易理解，也容易集成。
 
 ### Local-first runtime
 
