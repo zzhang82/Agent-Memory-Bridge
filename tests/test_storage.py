@@ -314,3 +314,25 @@ def test_promote_returns_changed_false_when_already_target_kind(tmp_path: Path) 
     assert promoted["record_type"] == "gotcha"
     assert promoted["item"]["id"] == created["id"]
 
+
+def test_export_returns_markdown_json_and_text(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    store.store(
+        namespace="project:bridge",
+        content="record_type: learn\nclaim: Keep one bridge DB.\n",
+        kind="memory",
+        tags=["kind:learn", "domain:memory-bridge"],
+        title="[[Learn]] Keep one bridge DB.",
+    )
+
+    markdown_export = store.export(namespace="project:bridge", format="markdown")
+    json_export = store.export(namespace="project:bridge", format="json")
+    text_export = store.export(namespace="project:bridge", format="text")
+
+    assert markdown_export["format"] == "markdown"
+    assert "# Memory Export: project:bridge" in markdown_export["content"]
+    assert json_export["format"] == "json"
+    assert "\"namespace\": \"project:bridge\"" in json_export["content"]
+    assert text_export["format"] == "text"
+    assert "namespace: project:bridge" in text_export["content"]
+

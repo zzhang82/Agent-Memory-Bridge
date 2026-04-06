@@ -25,7 +25,7 @@ async def _exercise_server(tmp_path: Path) -> None:
 
             tools_response = await session.list_tools()
             tool_names = {tool.name for tool in tools_response.tools}
-            assert tool_names == {"store", "recall", "browse", "stats", "forget", "promote"}
+            assert tool_names == {"store", "recall", "browse", "stats", "forget", "promote", "export"}
 
             first = await session.call_tool(
                 "store",
@@ -147,6 +147,13 @@ async def _exercise_server(tmp_path: Path) -> None:
             assert promoted.structuredContent["record_type"] == "gotcha"
             assert "kind:gotcha" in promoted.structuredContent["item"]["tags"]
             assert "record_type: gotcha" in promoted.structuredContent["item"]["content"]
+
+            exported = await session.call_tool(
+                "export",
+                arguments={"namespace": "bridge", "format": "markdown", "limit": 10},
+            )
+            assert exported.structuredContent["count"] >= 2
+            assert "# Memory Export: bridge" in exported.structuredContent["content"]
 
 
 def test_stdio_server_round_trip(tmp_path: Path) -> None:

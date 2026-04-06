@@ -197,6 +197,7 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - `stats`
 - `forget`
 - `promote`
+- `export`
 
 常见 `store` 字段：
 
@@ -273,6 +274,17 @@ promote(id="<memory_id>", to_kind="gotcha")
 
 这样会保留同一个 id，但把 title、tags 和 structured content 改成更强的记录类型。
 
+## 导出示例
+
+如果你想把 memory 从 bridge 里导出来，而不是直接碰 SQLite：
+
+```text
+export(namespace="project:foo", format="markdown", limit=50)
+export(namespace="project:foo", format="json", kind="memory")
+```
+
+`markdown` 适合人读，`json` 适合交换或再处理，`text` 适合简单终端输出。
+
 ## 日常使用方式
 
 推荐分层：
@@ -315,6 +327,12 @@ promote(id="<memory_id>", to_kind="gotcha")
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_healthcheck.py --report-path .\examples\healthcheck-report.json
+```
+
+运行 watcher health check：
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_watcher_healthcheck.py --report-path .\examples\watcher-health-report.json
 ```
 
 强制写一次 checkpoint：

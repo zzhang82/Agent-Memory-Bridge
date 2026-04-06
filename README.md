@@ -197,6 +197,7 @@ The MCP surface is intentionally small:
 - `stats`
 - `forget`
 - `promote`
+- `export`
 
 Common `store` fields:
 
@@ -272,6 +273,17 @@ promote(id="<memory_id>", to_kind="gotcha")
 
 That keeps the same id while rewriting the stored title, tags, and structured content to match the stronger record type.
 
+## Export Example
+
+To move memory out of the bridge without opening SQLite directly:
+
+```text
+export(namespace="project:foo", format="markdown", limit=50)
+export(namespace="project:foo", format="json", kind="memory")
+```
+
+Use `markdown` for readable notes, `json` for interchange, and `text` for simple terminal output.
+
 ## Day-to-Day Usage
 
 The intended layering is:
@@ -314,6 +326,12 @@ Run the bridge health check:
 
 ```powershell
 .\.venv\Scripts\python.exe .\scripts\run_healthcheck.py --report-path .\examples\healthcheck-report.json
+```
+
+Run the watcher health check:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_watcher_healthcheck.py --report-path .\examples\watcher-health-report.json
 ```
 
 Force a checkpoint from the latest rollout:

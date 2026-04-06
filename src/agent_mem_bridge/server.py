@@ -336,5 +336,71 @@ def promote(
     return bridge.promote(memory_id=id, to_kind=to_kind)
 
 
+@mcp.tool(structured_output=True)
+def export(
+    namespace: Annotated[
+        str,
+        Field(
+            description=(
+                "Namespace to export, such as `project:<workspace>`, `domain:<name>`, or `global`."
+            )
+        ),
+    ],
+    format: Annotated[
+        Literal["markdown", "json", "text"],
+        Field(
+            description=(
+                "Output format for the exported memory. Use `markdown` for readable notes, "
+                "`json` for structured interchange, or `text` for plain text."
+            )
+        ),
+    ] = "markdown",
+    query: Annotated[
+        str,
+        Field(
+            description=(
+                "Optional full-text query to narrow the export. Leave empty to export by "
+                "filters alone."
+            )
+        ),
+    ] = "",
+    kind: Annotated[
+        Literal["memory", "signal"] | None,
+        Field(description="Optional type filter for the export."),
+    ] = None,
+    tags_any: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "Optional OR-style tag filter. Any matching tag is enough for an entry "
+                "to be included."
+            )
+        ),
+    ] = None,
+    limit: Annotated[
+        int,
+        Field(
+            ge=1,
+            le=500,
+            description="Maximum number of entries to export in one call.",
+        ),
+    ] = 100,
+) -> dict[str, Any]:
+    """Export bridge content into a readable or portable format.
+
+    Use this tool when you want to inspect a namespace outside the MCP client, create
+    a human-readable snapshot, or move memory into another system without opening the
+    database directly.
+    """
+    return bridge.export(
+        namespace=namespace,
+        format=format,
+        query=query,
+        kind=kind,
+        tags_any=tags_any,
+        limit=limit,
+    )
+
+
 def main() -> None:
     mcp.run(transport="stdio")

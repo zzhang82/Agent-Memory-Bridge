@@ -510,6 +510,53 @@ class MemoryStore:
             "item": promoted,
         }
 
+    def export(
+        self,
+        namespace: str,
+        format: str = "markdown",
+        query: str = "",
+        kind: str | None = None,
+        tags_any: list[str] | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        cleaned_namespace = namespace.strip()
+        export_format = format.strip().lower()
+        if not cleaned_namespace:
+            raise ValueError("namespace must not be empty")
+        if export_format not in {"markdown", "json", "text"}:
+            raise ValueError("format must be one of ['json', 'markdown', 'text']")
+        if kind is not None and kind not in ALLOWED_KINDS:
+            raise ValueError(f"kind must be one of {sorted(ALLOWED_KINDS)}")
+
+        items = self._recall_candidates(
+            namespace=cleaned_namespace,
+            query=query.strip(),
+            limit=max(1, min(limit, 500)),
+            kind=kind,
+            tags_any=tags_any,
+            session_id=None,
+            actor=None,
+            correlation_id=None,
+            since=None,
+        )
+        rendered = self._render_export(items, namespace=cleaned_namespace, format=export_format)
+        payload = {
+            "namespace": cleaned_namespace,
+            "format": export_format,
+            "count": len(items),
+            "content": rendered,
+        }
+        self._log(
+            "export",
+            {
+                "namespace": cleaned_namespace,
+                "format": export_format,
+                "count": len(items),
+                "kind": kind,
+            },
+        )
+        return payload
+
     def store_memory(self, **kwargs: Any) -> dict[str, Any]:
         return self.store(**kwargs)
 
@@ -801,6 +848,55 @@ class MemoryStore:
             """,
             (memory_id,),
         ).fetchone()
+
+    @classmethod
+    def _render_export(cls, items: list[dict[str, Any]], namespace: str, format: str) -> str:
+        if format == "json":
+            return json.dumps({"namespace": namespace, "count": len(items), "items": items}, indent=2, ensure_ascii=False)
+        if format == "text":
+            return cls._render_text_export(items, namespace=namespace)
+        return cls._render_markdown_export(items, namespace=namespace)
+
+    @staticmethod
+    def _render_text_export(items: list[dict[str, Any]], namespace: str) -> str:
+        lines = [f"namespace: {namespace}", f"count: {len(items)}"]
+        if items:
+            lines.append("")
+        for item in items:
+            lines.extend(
+                [
+                    f"id: {item['id']}",
+                    f"title: {item.get('title') or ''}",
+                    f"kind: {item['kind']}",
+                    f"created_at: {item['created_at']}",
+                    f"tags: {', '.join(item.get('tags', []))}",
+                    "content:",
+                    item["content"],
+                    "",
+                ]
+            )
+        return "\n".join(lines).rstrip()
+
+    @staticmethod
+    def _render_markdown_export(items: list[dict[str, Any]], namespace: str) -> str:
+        lines = [f"# Memory Export: {namespace}", "", f"- Count: {len(items)}"]
+        for item in items:
+            lines.extend(
+                [
+                    "",
+                    f"## {item.get('title') or item['id']}",
+                    "",
+                    f"- ID: `{item['id']}`",
+                    f"- Kind: `{item['kind']}`",
+                    f"- Created: `{item['created_at']}`",
+                    f"- Tags: {', '.join(f'`{tag}`' for tag in item.get('tags', [])) or '(none)'}",
+                    "",
+                    "```text",
+                    item["content"],
+                    "```",
+                ]
+            )
+        return "\n".join(lines).rstrip()
 
     def _init_db(self) -> None:
         with self._connect() as conn:

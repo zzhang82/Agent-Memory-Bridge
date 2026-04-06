@@ -31,6 +31,8 @@ def test_run_health_check_reports_ok_for_imported_cole_docs(tmp_path: Path, monk
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(bridge_home))
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(db_path))
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(log_dir))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    (tmp_path / "sessions").mkdir()
 
     store = MemoryStore(db_path=db_path, log_dir=log_dir)
     import_cole_memory(store, cole_root)
@@ -41,6 +43,7 @@ def test_run_health_check_reports_ok_for_imported_cole_docs(tmp_path: Path, monk
     assert report["compare"]["missing_count"] == 0
     assert report["compare"]["content_mismatch_count"] == 0
     assert all(item["ok"] for item in report["recall_checks"])
+    assert report["watcher_health"]["ok"] is True
 
 
 def test_run_health_check_auto_uses_live_compare_when_manifest_exists(tmp_path: Path, monkeypatch) -> None:
@@ -77,6 +80,8 @@ def test_run_health_check_auto_uses_live_compare_when_manifest_exists(tmp_path: 
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(bridge_home))
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(db_path))
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(log_dir))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_SESSIONS_ROOT", str(tmp_path / "sessions"))
+    (tmp_path / "sessions").mkdir()
 
     store = MemoryStore(db_path=db_path, log_dir=log_dir)
     import_cole_memory(store, cole_root)
@@ -85,4 +90,5 @@ def test_run_health_check_auto_uses_live_compare_when_manifest_exists(tmp_path: 
 
     assert report["ok"] is True
     assert report["resolved_compare_mode"] == "live"
+    assert report["watcher_health"]["ok"] is True
 
