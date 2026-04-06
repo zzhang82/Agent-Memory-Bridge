@@ -196,6 +196,7 @@ The MCP surface is intentionally small:
 - `browse`
 - `stats`
 - `forget`
+- `promote`
 
 Common `store` fields:
 
@@ -260,6 +261,16 @@ recall(
 ```
 
 That lets one workflow poll for fresh handoff events without mixing them into durable memory.
+
+## Manual Promotion Example
+
+If a record is useful but under-classified, you can promote it in place:
+
+```text
+promote(id="<memory_id>", to_kind="gotcha")
+```
+
+That keeps the same id while rewriting the stored title, tags, and structured content to match the stronger record type.
 
 ## Day-to-Day Usage
 

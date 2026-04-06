@@ -17,6 +17,7 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 HASHTAG_RE = re.compile(r"(?<!\w)#([A-Za-z][A-Za-z0-9_/-]*)")
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 ALLOWED_KINDS = {"memory", "signal"}
+PROMOTABLE_RECORD_TYPES = {"learn", "gotcha", "domain-note"}
 
 
 @dataclass(slots=True)
@@ -410,6 +411,105 @@ class MemoryStore:
         self._log("stats", payload)
         return payload
 
+    def promote(self, memory_id: str, to_kind: str) -> dict[str, Any]:
+        cleaned_id = memory_id.strip()
+        target_kind = to_kind.strip().lower()
+        if not cleaned_id:
+            raise ValueError("id must not be empty")
+        if target_kind not in PROMOTABLE_RECORD_TYPES:
+            raise ValueError(f"to_kind must be one of {sorted(PROMOTABLE_RECORD_TYPES)}")
+
+        with self._connect() as conn:
+            row = self._fetch_row_by_id(conn, cleaned_id)
+            if row is None:
+                raise ValueError(f"memory id not found: {cleaned_id}")
+            if row["kind"] != "memory":
+                raise ValueError("only kind=memory entries can be promoted")
+
+            source = MemoryRow.from_sqlite(row)
+            current_record_type = self._record_type_for_row(source)
+            if current_record_type == target_kind:
+                self._log("promote", {"id": cleaned_id, "changed": False, "reason": "already-target-kind"})
+                return {
+                    "id": cleaned_id,
+                    "changed": False,
+                    "record_type": target_kind,
+                    "previous_record_type": current_record_type,
+                    "item": source.as_dict(),
+                }
+
+            updated_item = self._build_promoted_item(source, target_kind=target_kind, current_record_type=current_record_type)
+            content_hash = hashlib.sha256(self._normalize_content(updated_item["content"]).encode("utf-8")).hexdigest()
+
+            duplicate = conn.execute(
+                """
+                SELECT id
+                FROM memories
+                WHERE namespace = ? AND kind = 'memory' AND content_hash = ? AND id != ?
+                LIMIT 1
+                """,
+                (source.namespace, content_hash, cleaned_id),
+            ).fetchone()
+            if duplicate is not None:
+                self._log(
+                    "promote",
+                    {
+                        "id": cleaned_id,
+                        "changed": False,
+                        "duplicate_of": duplicate["id"],
+                        "to_kind": target_kind,
+                    },
+                )
+                return {
+                    "id": cleaned_id,
+                    "changed": False,
+                    "record_type": target_kind,
+                    "previous_record_type": current_record_type,
+                    "duplicate_of": duplicate["id"],
+                    "item": source.as_dict(),
+                }
+
+            conn.execute(
+                """
+                UPDATE memories
+                SET title = ?, content = ?, tags_json = ?, content_hash = ?
+                WHERE id = ?
+                """,
+                (
+                    updated_item["title"],
+                    updated_item["content"],
+                    json.dumps(updated_item["tags"]),
+                    content_hash,
+                    cleaned_id,
+                ),
+            )
+            conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (cleaned_id,))
+            conn.execute(
+                "INSERT INTO memories_fts(memory_id, title, content) VALUES (?, ?, ?)",
+                (cleaned_id, updated_item["title"] or "", updated_item["content"]),
+            )
+            conn.commit()
+
+            refreshed = self._fetch_row_by_id(conn, cleaned_id)
+
+        promoted = MemoryRow.from_sqlite(refreshed).as_dict() if refreshed is not None else updated_item
+        self._log(
+            "promote",
+            {
+                "id": cleaned_id,
+                "changed": True,
+                "from_kind": current_record_type,
+                "to_kind": target_kind,
+            },
+        )
+        return {
+            "id": cleaned_id,
+            "changed": True,
+            "record_type": target_kind,
+            "previous_record_type": current_record_type,
+            "item": promoted,
+        }
+
     def store_memory(self, **kwargs: Any) -> dict[str, Any]:
         return self.store(**kwargs)
 
@@ -680,6 +780,28 @@ class MemoryStore:
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
 
+    def _fetch_row_by_id(self, conn: sqlite3.Connection, memory_id: str) -> sqlite3.Row | None:
+        return conn.execute(
+            """
+            SELECT
+                id,
+                namespace,
+                kind,
+                title,
+                content,
+                tags_json,
+                session_id,
+                actor,
+                correlation_id,
+                source_app,
+                created_at
+            FROM memories
+            WHERE id = ?
+            LIMIT 1
+            """,
+            (memory_id,),
+        ).fetchone()
+
     def _init_db(self) -> None:
         with self._connect() as conn:
             conn.executescript(
@@ -810,6 +932,120 @@ class MemoryStore:
     def _normalize_wikilink_target(raw_link: str) -> str:
         normalized = " ".join(raw_link.split()).strip()
         return normalized
+
+    @staticmethod
+    def _parse_structured_record(content: str) -> dict[str, str]:
+        fields: dict[str, str] = {}
+        for line in str(content).splitlines():
+            compact = " ".join(line.split()).strip()
+            if not compact or ":" not in compact:
+                continue
+            key, _, value = compact.partition(":")
+            key = key.strip()
+            value = value.strip()
+            if not key or not value:
+                continue
+            fields[key] = value
+        return fields
+
+    @staticmethod
+    def _build_structured_record(fields: dict[str, str]) -> str:
+        lines: list[str] = []
+        for key, value in fields.items():
+            normalized = " ".join(str(value).split()).strip()
+            if not normalized:
+                continue
+            lines.append(f"{key}: {normalized}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _truncate_title(text: str, limit: int = 72) -> str:
+        compact = " ".join(text.split()).strip()
+        if len(compact) <= limit:
+            return compact
+        return compact[: limit - 3].rstrip() + "..."
+
+    @classmethod
+    def _record_type_for_row(cls, row: MemoryRow) -> str:
+        for tag in row.tags:
+            if tag in {"kind:learn", "kind:gotcha", "kind:domain-note"}:
+                return tag.split(":", 1)[1]
+        return cls._parse_structured_record(row.content).get("record_type", "memory")
+
+    @classmethod
+    def _build_promoted_item(
+        cls,
+        row: MemoryRow,
+        target_kind: str,
+        current_record_type: str,
+    ) -> dict[str, Any]:
+        fields = cls._parse_structured_record(row.content)
+        claim = fields.get("claim") or row.title or row.content
+        claim = " ".join(str(claim).split()).strip(" -:;,.")
+        if claim and claim[-1] not in ".!?":
+            claim += "."
+
+        domain_tags = [tag for tag in row.tags if tag.startswith("domain:")]
+        topic_tags = [tag for tag in row.tags if tag.startswith("topic:")]
+        base_fields: dict[str, str] = {}
+        for key in ("scope", "trigger", "symptom", "fix", "confidence", "signals", "domain"):
+            value = fields.get(key)
+            if value:
+                base_fields[key] = value
+
+        if target_kind == "learn":
+            promoted_fields = {
+                "record_type": "learn",
+                "claim": claim,
+                "scope": base_fields.get("scope", "global"),
+                "confidence": "manual",
+                "domains": " | ".join(domain_tags),
+                "topics": " | ".join(topic_tags),
+            }
+            title = f"[[Learn]] {cls._truncate_title(claim)}"
+        elif target_kind == "gotcha":
+            promoted_fields = {
+                "record_type": "gotcha",
+                "claim": claim,
+                "trigger": base_fields.get("trigger", ""),
+                "symptom": base_fields.get("symptom", claim),
+                "fix": base_fields.get("fix", ""),
+                "scope": base_fields.get("scope", "global"),
+                "confidence": "manual",
+            }
+            title = f"[[Gotcha]] {cls._truncate_title(claim)}"
+        else:
+            primary_domain = base_fields.get("domain") or (domain_tags[0] if domain_tags else "domain:general")
+            promoted_fields = {
+                "record_type": "domain-note",
+                "domain": primary_domain,
+                "claim": claim,
+                "scope": base_fields.get("scope", "global"),
+                "signals": base_fields.get("signals", ""),
+            }
+            title = f"[[Domain Note]] {cls._truncate_title(claim)}"
+
+        tags = [
+            tag
+            for tag in row.tags
+            if not tag.startswith("kind:") and not tag.startswith("confidence:") and not tag.startswith("promoted-from:")
+        ]
+        tags.extend([f"kind:{target_kind}", "confidence:manual"])
+        if current_record_type in PROMOTABLE_RECORD_TYPES:
+            tags.append(f"promoted-from:{current_record_type}")
+        return {
+            "id": row.id,
+            "namespace": row.namespace,
+            "kind": row.kind,
+            "title": title,
+            "content": cls._build_structured_record(promoted_fields),
+            "tags": cls._normalize_tags(tags),
+            "session_id": row.session_id,
+            "actor": row.actor,
+            "correlation_id": row.correlation_id,
+            "source_app": row.source_app,
+            "created_at": row.created_at,
+        }
 
     @staticmethod
     def _escape_like(value: str) -> str:

@@ -25,7 +25,7 @@ async def _exercise_server(tmp_path: Path) -> None:
 
             tools_response = await session.list_tools()
             tool_names = {tool.name for tool in tools_response.tools}
-            assert tool_names == {"store", "recall", "browse", "stats", "forget"}
+            assert tool_names == {"store", "recall", "browse", "stats", "forget", "promote"}
 
             first = await session.call_tool(
                 "store",
@@ -127,6 +127,26 @@ async def _exercise_server(tmp_path: Path) -> None:
                 },
             )
             assert after_forget.structuredContent["count"] == 0
+
+            learn = await session.call_tool(
+                "store",
+                arguments={
+                    "namespace": "bridge",
+                    "content": "record_type: learn\nclaim: Use one shared DB.\nscope: global\nconfidence: observed",
+                    "kind": "memory",
+                    "tags": ["kind:learn", "domain:memory-bridge"],
+                    "title": "[[Learn]] Use one shared DB.",
+                },
+            )
+
+            promoted = await session.call_tool(
+                "promote",
+                arguments={"id": learn.structuredContent["id"], "to_kind": "gotcha"},
+            )
+            assert promoted.structuredContent["changed"] is True
+            assert promoted.structuredContent["record_type"] == "gotcha"
+            assert "kind:gotcha" in promoted.structuredContent["item"]["tags"]
+            assert "record_type: gotcha" in promoted.structuredContent["item"]["content"]
 
 
 def test_stdio_server_round_trip(tmp_path: Path) -> None:

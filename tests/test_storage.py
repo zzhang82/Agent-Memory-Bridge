@@ -267,3 +267,50 @@ def test_forget_returns_deleted_false_for_missing_id(tmp_path: Path) -> None:
 
     assert removed == {"id": "missing-id", "deleted": False, "item": None}
 
+
+def test_promote_reclassifies_memory_in_place(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content=(
+            "record_type: learn\n"
+            "claim: Use one shared bridge DB.\n"
+            "scope: global\n"
+            "confidence: observed\n"
+        ),
+        kind="memory",
+        tags=["kind:learn", "domain:memory-bridge", "topic:runtime-path"],
+        title="[[Learn]] Use one shared bridge DB.",
+    )
+
+    promoted = store.promote(created["id"], "gotcha")
+    browse = store.browse(namespace="project:bridge", kind="memory", limit=10)
+
+    assert promoted["changed"] is True
+    assert promoted["id"] == created["id"]
+    assert promoted["record_type"] == "gotcha"
+    assert promoted["previous_record_type"] == "learn"
+    assert "kind:gotcha" in promoted["item"]["tags"]
+    assert "promoted-from:learn" in promoted["item"]["tags"]
+    assert "record_type: gotcha" in promoted["item"]["content"]
+    assert browse["count"] == 1
+    assert browse["items"][0]["id"] == created["id"]
+    assert browse["items"][0]["title"].startswith("[[Gotcha]]")
+
+
+def test_promote_returns_changed_false_when_already_target_kind(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="record_type: gotcha\nclaim: Bad path split.\n",
+        kind="memory",
+        tags=["kind:gotcha"],
+        title="[[Gotcha]] Bad path split.",
+    )
+
+    promoted = store.promote(created["id"], "gotcha")
+
+    assert promoted["changed"] is False
+    assert promoted["record_type"] == "gotcha"
+    assert promoted["item"]["id"] == created["id"]
+

@@ -306,5 +306,35 @@ def forget(
     return bridge.forget(memory_id=id)
 
 
+@mcp.tool(structured_output=True)
+def promote(
+    id: Annotated[
+        str,
+        Field(
+            description=(
+                "Exact memory identifier to reclassify. Use this when a stored record should "
+                "be treated as a stronger kind of durable memory."
+            )
+        ),
+    ],
+    to_kind: Annotated[
+        Literal["learn", "gotcha", "domain-note"],
+        Field(
+            description=(
+                "Target durable record type. Use `learn` for reusable claims, `gotcha` for "
+                "pitfalls and fixes, or `domain-note` for broader synthesized guidance."
+            )
+        ),
+    ],
+) -> dict[str, Any]:
+    """Manually promote one stored memory to a stronger durable record type.
+
+    Use this tool when you know a record should be treated as a learn, gotcha, or
+    domain note even if the reflex layer has not promoted it yet. Promotion keeps the
+    same id and updates the stored title, tags, and structured content in place.
+    """
+    return bridge.promote(memory_id=id, to_kind=to_kind)
+
+
 def main() -> None:
     mcp.run(transport="stdio")

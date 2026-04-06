@@ -47,6 +47,10 @@ Agent Memory Bridge keeps the public MCP contract small on purpose:
 
 - `store`
 - `recall`
+- `browse`
+- `stats`
+- `forget`
+- `promote`
 
 The complexity sits behind the bridge:
 

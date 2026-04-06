@@ -196,6 +196,7 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - `browse`
 - `stats`
 - `forget`
+- `promote`
 
 常见 `store` 字段：
 
@@ -261,6 +262,16 @@ recall(
 ```
 
 这样一个流程就能轮询新的 handoff 事件，而不会把这些短期事件混进 durable memory。
+
+## 手动提升示例
+
+如果一条记录是有价值的，但系统给它的等级还不够，你可以原地提升：
+
+```text
+promote(id="<memory_id>", to_kind="gotcha")
+```
+
+这样会保留同一个 id，但把 title、tags 和 structured content 改成更强的记录类型。
 
 ## 日常使用方式
 

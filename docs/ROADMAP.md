@@ -5,6 +5,7 @@ Last updated: 2026-04-05
 Agent Memory Bridge already covers the foundation:
 
 - MCP-native `store` and `recall`
+- inspectable bridge tools: `browse`, `stats`, `forget`, and `promote`
 - session-aware capture
 - `summary -> learn / gotcha / domain-note` promotion
 - first-pass domain consolidation
