@@ -6,24 +6,43 @@ Agent Memory Bridge already covers the foundation:
 
 - MCP-native `store` and `recall`
 - session-aware capture
-- summary -> learn / gotcha / domain-note promotion
+- `summary -> learn / gotcha / domain-note` promotion
 - first-pass domain consolidation
 
-The next work is about making the memory more useful, not making the system heavier.
+The next stage is about memory governance:
+
+- what to keep
+- what to down-rank
+- what to assemble into context
+- what to synthesize into reusable engineering knowledge
+
+The goal is not to make the bridge bigger. The goal is to make the memory more selective, more structured, and more useful in real coding workflows.
 
 ## Near Term
 
-### Better learning quality
+### Better lifecycle and retention
 
 1. Add a durable-event scorer for checkpoint and closeout lines.
-2. Improve promotion quality on reviewed real samples.
-3. Expand `gotcha` extraction beyond the current known patterns.
+2. Add clearer retention signals such as confidence, freshness, reuse, and support count.
+3. Add stale-handling and demotion rules so weak memory does not accumulate forever.
 
-### Better synthesis
+### Better recall assembly
 
-1. Strengthen domain/topic synthesis across many sessions.
-2. Improve topic clustering quality.
+1. Define an explicit recall assembly policy for startup and task-time retrieval.
+2. Improve how project, global, gotcha, and domain layers are combined into compact working context.
+3. Generate smaller machine-first briefs instead of dumping more raw memory into context.
+
+### Better synthesis and relations
+
+1. Strengthen domain and topic synthesis across many sessions.
+2. Add lightweight relationship fields such as `derived_from`, `fix_for`, `related_problem`, and `supersedes`.
 3. Reduce generic or weak domain notes.
+
+### Better evaluation
+
+1. Add practical retrieval checks for repeated engineering issues and known fixes.
+2. Measure whether cross-project gotcha reuse actually reduces repeated work.
+3. Add consolidation quality checks so synthesis improves instead of drifting.
 
 ### Better coordination
 
@@ -43,6 +62,8 @@ These depend on more real usage:
 ### Research track
 
 - pre-compaction capture before model-side context loss
+- event segmentation that better distinguishes routine chatter from durable decisions
+- longer-term lifecycle ideas inspired by memory-system research without turning the bridge into a heavyweight cognitive platform
 
 ### Separate future track: worker execution
 
@@ -56,7 +77,8 @@ These are intentionally outside the bridge core:
 
 ## Guardrails
 
-- keep the bridge focused on memory and signaling
+- keep the bridge focused on memory lifecycle and signaling
 - keep worker execution as a separate layer
 - prefer compact machine-first records over transcript growth
 - do not expand the MCP surface unless real workflows require it
+- do not turn the bridge into a universal cognitive platform before the narrow coding-agent use case is clearly strong
