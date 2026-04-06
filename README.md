@@ -1,6 +1,6 @@
 # Agent Memory Bridge
 
-[Simplified Chinese](README.zh-CN.md)
+[简体中文](README.zh-CN.md)
 
 An MCP-native memory layer for coding agents that turns real sessions into reusable engineering memory.
 
