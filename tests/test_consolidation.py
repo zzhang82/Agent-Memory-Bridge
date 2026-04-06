@@ -7,9 +7,9 @@ from agent_mem_bridge.storage import MemoryStore
 def test_consolidation_creates_domain_note_from_recent_learns_and_gotchas(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     store.store(
-        namespace="cole-core",
+        namespace="global",
         kind="memory",
-        title="[[Cole Learn]] Safe FTS fallback",
+        title="[[Learn]] Safe FTS fallback",
         content=(
             "record_type: learn\n"
             "claim: Punctuation-heavy queries can break naive FTS recall paths.\n"
@@ -18,12 +18,12 @@ def test_consolidation_creates_domain_note_from_recent_learns_and_gotchas(tmp_pa
         ),
         tags=["kind:learn", "domain:retrieval", "topic:fts", "project:mem-store"],
         session_id="session-1",
-        actor="cole-reflex",
+        actor="bridge-reflex",
         correlation_id="thread-1",
         source_app="agent-memory-bridge-reflex",
     )
     store.store(
-        namespace="cole-core",
+        namespace="global",
         kind="memory",
         title="[[Gotcha]] recall before web",
         content=(
@@ -31,13 +31,13 @@ def test_consolidation_creates_domain_note_from_recent_learns_and_gotchas(tmp_pa
             "claim: Check local bridge memory before external search for issue-like prompts.\n"
             "trigger: Issue-like debugging starts from scratch.\n"
             "symptom: The agent wastes time rediscovering prior fixes.\n"
-            "fix: Recall project memory and cole-core gotchas before browsing.\n"
+            "fix: Recall project memory and global gotchas before browsing.\n"
             "scope: global\n"
             "confidence: validated"
         ),
         tags=["kind:gotcha", "domain:retrieval", "topic:cross-project-reuse", "project:resume-work"],
         session_id="session-2",
-        actor="cole-reflex",
+        actor="bridge-reflex",
         correlation_id="thread-2",
         source_app="agent-memory-bridge-reflex",
     )
@@ -49,9 +49,9 @@ def test_consolidation_creates_domain_note_from_recent_learns_and_gotchas(tmp_pa
 
     result = engine.run_once()
     domain_notes = store.recall(
-        namespace="cole-core",
+        namespace="global",
         tags_any=["kind:domain-note"],
-        actor="cole-consolidation",
+        actor="bridge-consolidation",
         limit=10,
     )
 
@@ -69,37 +69,37 @@ def test_consolidation_creates_domain_note_from_recent_learns_and_gotchas(tmp_pa
 def test_consolidation_requires_new_input_before_writing_again(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     store.store(
-        namespace="cole-core",
+        namespace="global",
         kind="memory",
-        title="[[Cole Learn]] Global startup",
+        title="[[Learn]] Global startup",
         content=(
             "record_type: learn\n"
-            "claim: Keep Cole as a system-level operator profile and keep repo AGENTS thin.\n"
+            "claim: Keep a system-level operating profile and keep repo AGENTS thin.\n"
             "scope: global\n"
             "confidence: validated"
         ),
         tags=["kind:learn", "domain:orchestration", "topic:startup-protocol", "project:mem-store"],
         session_id="session-3",
-        actor="cole-reflex",
+        actor="bridge-reflex",
         correlation_id="thread-3",
         source_app="agent-memory-bridge-reflex",
     )
     store.store(
-        namespace="cole-core",
+        namespace="global",
         kind="memory",
         title="[[Gotcha]] duplicated core drift",
         content=(
             "record_type: gotcha\n"
-            "claim: Duplicating full Cole core into each repo AGENTS creates drift and confusion.\n"
+            "claim: Duplicating full shared operating memory into each repo AGENTS creates drift and confusion.\n"
             "trigger: Treating AGENTS.md as a system-level startup mechanism.\n"
             "symptom: Global operator rules diverge across repositories.\n"
-            "fix: Keep the global operating profile in cole-operator and agentMemoryBridge.\n"
+            "fix: Keep the global operating profile in one shared bridge namespace.\n"
             "scope: global\n"
             "confidence: validated"
         ),
         tags=["kind:gotcha", "domain:orchestration", "topic:startup-protocol", "project:mem-store"],
         session_id="session-4",
-        actor="cole-reflex",
+        actor="bridge-reflex",
         correlation_id="thread-4",
         source_app="agent-memory-bridge-reflex",
     )
@@ -112,9 +112,9 @@ def test_consolidation_requires_new_input_before_writing_again(tmp_path: Path) -
     first = engine.run_once()
     second = engine.run_once()
     domain_notes = store.recall(
-        namespace="cole-core",
+        namespace="global",
         tags_any=["kind:domain-note"],
-        actor="cole-consolidation",
+        actor="bridge-consolidation",
         limit=10,
     )
 

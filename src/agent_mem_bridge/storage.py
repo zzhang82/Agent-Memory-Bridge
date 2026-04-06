@@ -6,11 +6,19 @@ import os
 import re
 import sqlite3
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from .exporters import render_export
 from .paths import resolve_bridge_db_path, resolve_bridge_log_dir
+from .signals import (
+    SignalSnapshot,
+    effective_signal_status,
+    is_signal_claimable,
+    normalize_signal_status_filter,
+    resolve_signal_expiry,
+)
 
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
@@ -32,6 +40,12 @@ class MemoryRow:
     actor: str | None
     correlation_id: str | None
     source_app: str | None
+    signal_status: str | None
+    claimed_by: str | None
+    claimed_at: str | None
+    lease_expires_at: str | None
+    expires_at: str | None
+    acknowledged_at: str | None
     created_at: str
 
     @classmethod
@@ -47,10 +61,17 @@ class MemoryRow:
             actor=row["actor"],
             correlation_id=row["correlation_id"],
             source_app=row["source_app"],
+            signal_status=row["signal_status"],
+            claimed_by=row["claimed_by"],
+            claimed_at=row["claimed_at"],
+            lease_expires_at=row["lease_expires_at"],
+            expires_at=row["expires_at"],
+            acknowledged_at=row["acknowledged_at"],
             created_at=row["created_at"],
         )
 
     def as_dict(self) -> dict[str, Any]:
+        signal_status = effective_signal_status(SignalSnapshot.from_row(self.as_sql_row()))
         return {
             "id": self.id,
             "namespace": self.namespace,
@@ -62,7 +83,24 @@ class MemoryRow:
             "actor": self.actor,
             "correlation_id": self.correlation_id,
             "source_app": self.source_app,
+            "signal_status": signal_status,
+            "claimed_by": self.claimed_by,
+            "claimed_at": self.claimed_at,
+            "lease_expires_at": self.lease_expires_at,
+            "expires_at": self.expires_at,
+            "acknowledged_at": self.acknowledged_at,
             "created_at": self.created_at,
+        }
+
+    def as_sql_row(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "signal_status": self.signal_status,
+            "claimed_by": self.claimed_by,
+            "claimed_at": self.claimed_at,
+            "lease_expires_at": self.lease_expires_at,
+            "expires_at": self.expires_at,
+            "acknowledged_at": self.acknowledged_at,
         }
 
 
@@ -91,6 +129,8 @@ class MemoryStore:
         title: str | None = None,
         correlation_id: str | None = None,
         source_app: str | None = None,
+        expires_at: str | None = None,
+        ttl_seconds: int | None = None,
     ) -> dict[str, Any]:
         cleaned_namespace = namespace.strip()
         cleaned_content = content.strip()
@@ -103,10 +143,14 @@ class MemoryStore:
             raise ValueError("kind must not be empty")
         if cleaned_kind not in ALLOWED_KINDS:
             raise ValueError(f"kind must be one of {sorted(ALLOWED_KINDS)}")
+        if cleaned_kind != "signal" and (expires_at is not None or ttl_seconds is not None):
+            raise ValueError("expires_at and ttl_seconds are only valid for kind='signal'")
 
         normalized_content = self._normalize_content(cleaned_content)
         payload_tags = self._merge_tags(tags, title=title, content=cleaned_content)
         content_hash = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
+        resolved_expires_at = resolve_signal_expiry(expires_at=expires_at, ttl_seconds=ttl_seconds)
+        signal_status = "pending" if cleaned_kind == "signal" else None
 
         with self._connect() as conn:
             if cleaned_kind != "signal":
@@ -154,9 +198,15 @@ class MemoryStore:
                         actor,
                         correlation_id,
                         source_app,
+                        signal_status,
+                        claimed_by,
+                        claimed_at,
+                        lease_expires_at,
+                        expires_at,
+                        acknowledged_at,
                         content_hash,
                         created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         memory_id,
@@ -169,6 +219,12 @@ class MemoryStore:
                         actor,
                         correlation_id,
                         source_app,
+                        signal_status,
+                        None,
+                        None,
+                        None,
+                        resolved_expires_at,
+                        None,
                         content_hash,
                         created_at,
                     ),
@@ -219,6 +275,7 @@ class MemoryStore:
                 "kind": cleaned_kind,
                 "stored": True,
                 "id": memory_id,
+                "signal_status": signal_status,
             },
         )
         return {
@@ -226,6 +283,8 @@ class MemoryStore:
             "stored": True,
             "duplicate": False,
             "duplicate_of": None,
+            "signal_status": signal_status,
+            "expires_at": resolved_expires_at,
             "created_at": created_at,
         }
 
@@ -235,6 +294,7 @@ class MemoryStore:
         query: str = "",
         limit: int = 5,
         kind: str | None = None,
+        signal_status: str | None = None,
         tags_any: list[str] | None = None,
         session_id: str | None = None,
         actor: str | None = None,
@@ -247,12 +307,14 @@ class MemoryStore:
 
         query_text = query.strip()
         search_limit = max(1, min(limit, 100))
+        normalized_signal_status = normalize_signal_status_filter(signal_status)
 
         items = self._recall_candidates(
             namespace=cleaned_namespace,
             query=query_text,
             limit=search_limit,
             kind=kind,
+            signal_status=normalized_signal_status,
             tags_any=tags_any,
             session_id=session_id,
             actor=actor,
@@ -268,6 +330,7 @@ class MemoryStore:
                 "query": query_text,
                 "count": payload["count"],
                 "kind": kind,
+                "signal_status": normalized_signal_status,
                 "since": since,
             },
         )
@@ -278,6 +341,7 @@ class MemoryStore:
         namespace: str,
         domain: str | None = None,
         kind: str | None = None,
+        signal_status: str | None = None,
         limit: int = 10,
     ) -> dict[str, Any]:
         cleaned_namespace = namespace.strip()
@@ -287,12 +351,14 @@ class MemoryStore:
             raise ValueError(f"kind must be one of {sorted(ALLOWED_KINDS)}")
 
         search_limit = max(1, min(limit, 100))
+        normalized_signal_status = normalize_signal_status_filter(signal_status)
         tags_any = [f"domain:{domain.strip()}"] if domain and domain.strip() else None
         items = self._recall_candidates(
             namespace=cleaned_namespace,
             query="",
             limit=search_limit,
             kind=kind,
+            signal_status=normalized_signal_status,
             tags_any=tags_any,
             session_id=None,
             actor=None,
@@ -305,6 +371,7 @@ class MemoryStore:
             "namespace": cleaned_namespace,
             "domain": domain.strip() if domain and domain.strip() else None,
             "kind": kind,
+            "signal_status": normalized_signal_status,
         }
         self._log(
             "browse",
@@ -313,6 +380,7 @@ class MemoryStore:
                 "count": payload["count"],
                 "kind": kind,
                 "domain": payload["domain"],
+                "signal_status": normalized_signal_status,
             },
         )
         return payload
@@ -336,6 +404,12 @@ class MemoryStore:
                     actor,
                     correlation_id,
                     source_app,
+                    signal_status,
+                    claimed_by,
+                    claimed_at,
+                    lease_expires_at,
+                    expires_at,
+                    acknowledged_at,
                     created_at
                 FROM memories
                 WHERE id = ?
@@ -371,7 +445,16 @@ class MemoryStore:
         with self._connect() as conn:
             rows = conn.execute(
                 """
-                SELECT kind, tags_json, created_at
+                SELECT
+                    kind,
+                    tags_json,
+                    created_at,
+                    signal_status,
+                    claimed_by,
+                    claimed_at,
+                    lease_expires_at,
+                    expires_at,
+                    acknowledged_at
                 FROM memories
                 WHERE namespace = ?
                 ORDER BY created_at ASC
@@ -380,6 +463,7 @@ class MemoryStore:
             ).fetchall()
 
         kind_counts = {kind: 0 for kind in sorted(ALLOWED_KINDS)}
+        signal_status_counts = {status: 0 for status in ("pending", "claimed", "acked", "expired")}
         domain_counts: dict[str, int] = {}
         oldest_entry_at = rows[0]["created_at"] if rows else None
         newest_entry_at = rows[-1]["created_at"] if rows else None
@@ -387,6 +471,10 @@ class MemoryStore:
         for row in rows:
             kind = row["kind"]
             kind_counts[kind] = kind_counts.get(kind, 0) + 1
+            if kind == "signal":
+                effective_status = effective_signal_status(SignalSnapshot.from_row(row))
+                if effective_status:
+                    signal_status_counts[effective_status] = signal_status_counts.get(effective_status, 0) + 1
             for tag in json.loads(row["tags_json"] or "[]"):
                 if not isinstance(tag, str) or not tag.startswith("domain:"):
                     continue
@@ -404,12 +492,154 @@ class MemoryStore:
             "namespace": cleaned_namespace,
             "total_count": len(rows),
             "kind_counts": kind_counts,
+            "signal_status_counts": signal_status_counts,
             "top_domains": top_domains,
             "oldest_entry_at": oldest_entry_at,
             "newest_entry_at": newest_entry_at,
         }
         self._log("stats", payload)
         return payload
+
+    def claim_signal(
+        self,
+        namespace: str,
+        consumer: str,
+        lease_seconds: int,
+        signal_id: str | None = None,
+        tags_any: list[str] | None = None,
+        correlation_id: str | None = None,
+    ) -> dict[str, Any]:
+        cleaned_namespace = namespace.strip()
+        cleaned_consumer = consumer.strip()
+        cleaned_signal_id = signal_id.strip() if signal_id else None
+        if not cleaned_namespace:
+            raise ValueError("namespace must not be empty")
+        if not cleaned_consumer:
+            raise ValueError("consumer must not be empty")
+        if lease_seconds <= 0:
+            raise ValueError("lease_seconds must be greater than 0")
+
+        now = datetime.now(UTC)
+        claimed_at = now.isoformat()
+        lease_expires_at = (now + timedelta(seconds=lease_seconds)).isoformat()
+
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            candidate = self._select_claimable_signal(
+                conn,
+                namespace=cleaned_namespace,
+                signal_id=cleaned_signal_id,
+                tags_any=tags_any,
+                correlation_id=correlation_id,
+                consumer=cleaned_consumer,
+                now=now,
+            )
+            if candidate is None:
+                conn.rollback()
+                self._log(
+                    "claim_signal",
+                    {
+                        "namespace": cleaned_namespace,
+                        "consumer": cleaned_consumer,
+                        "claimed": False,
+                        "signal_id": cleaned_signal_id,
+                    },
+                )
+                return {
+                    "claimed": False,
+                    "signal_id": cleaned_signal_id,
+                    "namespace": cleaned_namespace,
+                    "consumer": cleaned_consumer,
+                    "item": None,
+                }
+
+            conn.execute(
+                """
+                UPDATE memories
+                SET signal_status = 'claimed',
+                    claimed_by = ?,
+                    claimed_at = ?,
+                    lease_expires_at = ?,
+                    acknowledged_at = NULL
+                WHERE id = ?
+                """,
+                (cleaned_consumer, claimed_at, lease_expires_at, candidate["id"]),
+            )
+            conn.commit()
+            refreshed = self._fetch_row_by_id(conn, candidate["id"])
+
+        item = MemoryRow.from_sqlite(refreshed).as_dict() if refreshed is not None else None
+        self._log(
+            "claim_signal",
+            {
+                "namespace": cleaned_namespace,
+                "consumer": cleaned_consumer,
+                "claimed": True,
+                "signal_id": candidate["id"],
+                "lease_expires_at": lease_expires_at,
+            },
+        )
+        return {
+            "claimed": True,
+            "signal_id": candidate["id"],
+            "namespace": cleaned_namespace,
+            "consumer": cleaned_consumer,
+            "lease_expires_at": lease_expires_at,
+            "item": item,
+        }
+
+    def ack_signal(self, memory_id: str, consumer: str | None = None) -> dict[str, Any]:
+        cleaned_id = memory_id.strip()
+        cleaned_consumer = consumer.strip() if consumer else None
+        if not cleaned_id:
+            raise ValueError("id must not be empty")
+
+        now = datetime.now(UTC)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = self._fetch_row_by_id(conn, cleaned_id)
+            if row is None:
+                conn.rollback()
+                return {"id": cleaned_id, "acked": False, "reason": "missing", "item": None}
+            if row["kind"] != "signal":
+                conn.rollback()
+                raise ValueError("only kind=signal entries can be acknowledged")
+
+            snapshot = SignalSnapshot.from_row(row)
+            status = effective_signal_status(snapshot, now=now)
+            if status == "expired":
+                conn.rollback()
+                return {"id": cleaned_id, "acked": False, "reason": "expired", "item": MemoryRow.from_sqlite(row).as_dict()}
+            if status == "acked":
+                conn.rollback()
+                return {"id": cleaned_id, "acked": False, "reason": "already-acked", "item": MemoryRow.from_sqlite(row).as_dict()}
+            if cleaned_consumer and snapshot.claimed_by and snapshot.claimed_by != cleaned_consumer and status == "claimed":
+                conn.rollback()
+                return {"id": cleaned_id, "acked": False, "reason": "claimed-by-other", "item": MemoryRow.from_sqlite(row).as_dict()}
+
+            conn.execute(
+                """
+                UPDATE memories
+                SET signal_status = 'acked',
+                    acknowledged_at = ?,
+                    lease_expires_at = NULL
+                WHERE id = ?
+                """,
+                (now.isoformat(), cleaned_id),
+            )
+            conn.commit()
+            refreshed = self._fetch_row_by_id(conn, cleaned_id)
+
+        item = MemoryRow.from_sqlite(refreshed).as_dict() if refreshed is not None else None
+        self._log(
+            "ack_signal",
+            {
+                "id": cleaned_id,
+                "acked": True,
+                "consumer": cleaned_consumer,
+            },
+        )
+        return {"id": cleaned_id, "acked": True, "consumer": cleaned_consumer, "item": item}
 
     def promote(self, memory_id: str, to_kind: str) -> dict[str, Any]:
         cleaned_id = memory_id.strip()
@@ -516,6 +746,7 @@ class MemoryStore:
         format: str = "markdown",
         query: str = "",
         kind: str | None = None,
+        signal_status: str | None = None,
         tags_any: list[str] | None = None,
         limit: int = 100,
     ) -> dict[str, Any]:
@@ -527,19 +758,21 @@ class MemoryStore:
             raise ValueError("format must be one of ['json', 'markdown', 'text']")
         if kind is not None and kind not in ALLOWED_KINDS:
             raise ValueError(f"kind must be one of {sorted(ALLOWED_KINDS)}")
+        normalized_signal_status = normalize_signal_status_filter(signal_status)
 
         items = self._recall_candidates(
             namespace=cleaned_namespace,
             query=query.strip(),
             limit=max(1, min(limit, 500)),
             kind=kind,
+            signal_status=normalized_signal_status,
             tags_any=tags_any,
             session_id=None,
             actor=None,
             correlation_id=None,
             since=None,
         )
-        rendered = self._render_export(items, namespace=cleaned_namespace, format=export_format)
+        rendered = render_export(items, namespace=cleaned_namespace, format=export_format)
         payload = {
             "namespace": cleaned_namespace,
             "format": export_format,
@@ -553,6 +786,7 @@ class MemoryStore:
                 "format": export_format,
                 "count": len(items),
                 "kind": kind,
+                "signal_status": normalized_signal_status,
             },
         )
         return payload
@@ -569,6 +803,7 @@ class MemoryStore:
         query: str,
         limit: int,
         kind: str | None,
+        signal_status: str | None,
         tags_any: list[str] | None,
         session_id: str | None,
         actor: str | None,
@@ -582,6 +817,7 @@ class MemoryStore:
                 match_query=match_query,
                 limit=limit,
                 kind=kind,
+                signal_status=signal_status,
                 tags_any=tags_any,
                 session_id=session_id,
                 actor=actor,
@@ -589,7 +825,10 @@ class MemoryStore:
                 since=since,
             )
             if rows:
-                return [MemoryRow.from_sqlite(row).as_dict() for row in rows]
+                items = [MemoryRow.from_sqlite(row).as_dict() for row in rows]
+                if signal_status is not None:
+                    items = [item for item in items if item.get("signal_status") == signal_status]
+                return items
 
         if query:
             rows = self._recall_via_like(
@@ -597,6 +836,7 @@ class MemoryStore:
                 query=query,
                 limit=limit,
                 kind=kind,
+                signal_status=signal_status,
                 tags_any=tags_any,
                 session_id=session_id,
                 actor=actor,
@@ -608,13 +848,17 @@ class MemoryStore:
                 namespace=namespace,
                 limit=limit,
                 kind=kind,
+                signal_status=signal_status,
                 tags_any=tags_any,
                 session_id=session_id,
                 actor=actor,
                 correlation_id=correlation_id,
                 since=since,
             )
-        return [MemoryRow.from_sqlite(row).as_dict() for row in rows]
+        items = [MemoryRow.from_sqlite(row).as_dict() for row in rows]
+        if signal_status is not None:
+            items = [item for item in items if item.get("signal_status") == signal_status]
+        return items
 
     def _recall_via_fts(
         self,
@@ -622,6 +866,7 @@ class MemoryStore:
         match_query: str,
         limit: int,
         kind: str | None,
+        signal_status: str | None,
         tags_any: list[str] | None,
         session_id: str | None,
         actor: str | None,
@@ -631,6 +876,7 @@ class MemoryStore:
         where_sql, params = self._build_filters(
             namespace=namespace,
             kind=kind,
+            signal_status=signal_status,
             tags_any=tags_any,
             session_id=session_id,
             actor=actor,
@@ -652,6 +898,12 @@ class MemoryStore:
                     m.actor,
                     m.correlation_id,
                     m.source_app,
+                    m.signal_status,
+                    m.claimed_by,
+                    m.claimed_at,
+                    m.lease_expires_at,
+                    m.expires_at,
+                    m.acknowledged_at,
                     m.created_at
                 FROM memories m
                 JOIN memories_fts f ON f.memory_id = m.id
@@ -668,6 +920,7 @@ class MemoryStore:
         query: str,
         limit: int,
         kind: str | None,
+        signal_status: str | None,
         tags_any: list[str] | None,
         session_id: str | None,
         actor: str | None,
@@ -677,6 +930,7 @@ class MemoryStore:
         where_sql, params = self._build_filters(
             namespace=namespace,
             kind=kind,
+            signal_status=signal_status,
             tags_any=tags_any,
             session_id=session_id,
             actor=actor,
@@ -698,6 +952,12 @@ class MemoryStore:
                     actor,
                     correlation_id,
                     source_app,
+                    signal_status,
+                    claimed_by,
+                    claimed_at,
+                    lease_expires_at,
+                    expires_at,
+                    acknowledged_at,
                     created_at
                 FROM memories
                 WHERE {where_sql}
@@ -713,6 +973,7 @@ class MemoryStore:
         namespace: str,
         limit: int,
         kind: str | None,
+        signal_status: str | None,
         tags_any: list[str] | None,
         session_id: str | None,
         actor: str | None,
@@ -722,6 +983,7 @@ class MemoryStore:
         where_sql, params = self._build_filters(
             namespace=namespace,
             kind=kind,
+            signal_status=signal_status,
             tags_any=tags_any,
             session_id=session_id,
             actor=actor,
@@ -742,6 +1004,12 @@ class MemoryStore:
                     actor,
                     correlation_id,
                     source_app,
+                    signal_status,
+                    claimed_by,
+                    claimed_at,
+                    lease_expires_at,
+                    expires_at,
+                    acknowledged_at,
                     created_at
                 FROM memories
                 WHERE {where_sql}
@@ -755,6 +1023,7 @@ class MemoryStore:
         self,
         namespace: str,
         kind: str | None,
+        signal_status: str | None,
         tags_any: list[str] | None,
         session_id: str | None,
         actor: str | None,
@@ -841,6 +1110,12 @@ class MemoryStore:
                 actor,
                 correlation_id,
                 source_app,
+                signal_status,
+                claimed_by,
+                claimed_at,
+                lease_expires_at,
+                expires_at,
+                acknowledged_at,
                 created_at
             FROM memories
             WHERE id = ?
@@ -849,54 +1124,58 @@ class MemoryStore:
             (memory_id,),
         ).fetchone()
 
-    @classmethod
-    def _render_export(cls, items: list[dict[str, Any]], namespace: str, format: str) -> str:
-        if format == "json":
-            return json.dumps({"namespace": namespace, "count": len(items), "items": items}, indent=2, ensure_ascii=False)
-        if format == "text":
-            return cls._render_text_export(items, namespace=namespace)
-        return cls._render_markdown_export(items, namespace=namespace)
+    def _select_claimable_signal(
+        self,
+        conn: sqlite3.Connection,
+        namespace: str,
+        signal_id: str | None,
+        tags_any: list[str] | None,
+        correlation_id: str | None,
+        consumer: str,
+        now: datetime,
+    ) -> sqlite3.Row | None:
+        clauses = ["namespace = ?", "kind = 'signal'"]
+        params: list[Any] = [namespace]
+        if signal_id:
+            clauses.append("id = ?")
+            params.append(signal_id)
+        if correlation_id:
+            clauses.append("correlation_id = ?")
+            params.append(correlation_id)
+        tag_filter_sql, tag_params = self._build_tag_filter(tags_any)
+        if tag_filter_sql:
+            clauses.append(tag_filter_sql)
+            params.extend(tag_params)
 
-    @staticmethod
-    def _render_text_export(items: list[dict[str, Any]], namespace: str) -> str:
-        lines = [f"namespace: {namespace}", f"count: {len(items)}"]
-        if items:
-            lines.append("")
-        for item in items:
-            lines.extend(
-                [
-                    f"id: {item['id']}",
-                    f"title: {item.get('title') or ''}",
-                    f"kind: {item['kind']}",
-                    f"created_at: {item['created_at']}",
-                    f"tags: {', '.join(item.get('tags', []))}",
-                    "content:",
-                    item["content"],
-                    "",
-                ]
-            )
-        return "\n".join(lines).rstrip()
-
-    @staticmethod
-    def _render_markdown_export(items: list[dict[str, Any]], namespace: str) -> str:
-        lines = [f"# Memory Export: {namespace}", "", f"- Count: {len(items)}"]
-        for item in items:
-            lines.extend(
-                [
-                    "",
-                    f"## {item.get('title') or item['id']}",
-                    "",
-                    f"- ID: `{item['id']}`",
-                    f"- Kind: `{item['kind']}`",
-                    f"- Created: `{item['created_at']}`",
-                    f"- Tags: {', '.join(f'`{tag}`' for tag in item.get('tags', [])) or '(none)'}",
-                    "",
-                    "```text",
-                    item["content"],
-                    "```",
-                ]
-            )
-        return "\n".join(lines).rstrip()
+        query = f"""
+            SELECT
+                id,
+                namespace,
+                kind,
+                title,
+                content,
+                tags_json,
+                session_id,
+                actor,
+                correlation_id,
+                source_app,
+                signal_status,
+                claimed_by,
+                claimed_at,
+                lease_expires_at,
+                expires_at,
+                acknowledged_at,
+                created_at
+            FROM memories
+            WHERE {' AND '.join(clauses)}
+            ORDER BY created_at ASC
+            LIMIT 50
+        """
+        rows = conn.execute(query, params).fetchall()
+        for row in rows:
+            if is_signal_claimable(SignalSnapshot.from_row(row), consumer=consumer, now=now):
+                return row
+        return None
 
     def _init_db(self) -> None:
         with self._connect() as conn:
@@ -913,6 +1192,12 @@ class MemoryStore:
                     actor TEXT,
                     correlation_id TEXT,
                     source_app TEXT,
+                    signal_status TEXT,
+                    claimed_by TEXT,
+                    claimed_at TEXT,
+                    lease_expires_at TEXT,
+                    expires_at TEXT,
+                    acknowledged_at TEXT,
                     content_hash TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
@@ -925,6 +1210,22 @@ class MemoryStore:
                 "memories",
                 "correlation_id",
                 "ALTER TABLE memories ADD COLUMN correlation_id TEXT",
+            )
+            self._ensure_column(conn, "memories", "signal_status", "ALTER TABLE memories ADD COLUMN signal_status TEXT")
+            self._ensure_column(conn, "memories", "claimed_by", "ALTER TABLE memories ADD COLUMN claimed_by TEXT")
+            self._ensure_column(conn, "memories", "claimed_at", "ALTER TABLE memories ADD COLUMN claimed_at TEXT")
+            self._ensure_column(
+                conn,
+                "memories",
+                "lease_expires_at",
+                "ALTER TABLE memories ADD COLUMN lease_expires_at TEXT",
+            )
+            self._ensure_column(conn, "memories", "expires_at", "ALTER TABLE memories ADD COLUMN expires_at TEXT")
+            self._ensure_column(
+                conn,
+                "memories",
+                "acknowledged_at",
+                "ALTER TABLE memories ADD COLUMN acknowledged_at TEXT",
             )
             conn.executescript(
                 """
@@ -946,6 +1247,12 @@ class MemoryStore:
 
                 CREATE INDEX IF NOT EXISTS idx_memories_correlation_id_created_at
                 ON memories (correlation_id, created_at DESC);
+
+                CREATE INDEX IF NOT EXISTS idx_memories_signal_status_created_at
+                ON memories (namespace, signal_status, created_at DESC);
+
+                CREATE INDEX IF NOT EXISTS idx_memories_signal_claimed_by_created_at
+                ON memories (claimed_by, created_at DESC);
                 """
             )
             self._ensure_fts_columns(conn)

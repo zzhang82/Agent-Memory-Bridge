@@ -336,7 +336,7 @@ def _is_durable_checkpoint_sentence(message: str) -> bool:
 def _build_actor(summary: RolloutSummary) -> str:
     if summary.agent_nickname:
         return summary.agent_nickname.lower()
-    return "cole"
+    return "codex"
 
 
 def extract_message_text(payload: dict[str, Any]) -> str:

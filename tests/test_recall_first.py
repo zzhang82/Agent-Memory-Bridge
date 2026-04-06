@@ -26,14 +26,14 @@ def test_recall_first_prefers_project_and_core_memory(tmp_path: Path) -> None:
         tags=["kind:summary", "project:alpha"],
     )
     store.store(
-        namespace="cole-core",
+        namespace="global",
         kind="memory",
-        title="[[Cole Learn]] sqlite sync discipline",
+        title="[[Learn]] sqlite sync discipline",
         content="record_type: learn\nclaim: Keep sqlite write scopes short during sync\nscope: global",
         tags=["kind:learn", "domain:sqlite", "topic:session-sync"],
     )
     store.store(
-        namespace="cole-core",
+        namespace="global",
         kind="memory",
         title="[[Gotcha]] sqlite timeout",
         content=(
@@ -46,9 +46,9 @@ def test_recall_first_prefers_project_and_core_memory(tmp_path: Path) -> None:
         tags=["kind:gotcha", "domain:sqlite", "topic:session-sync"],
     )
     store.store(
-        namespace="cole-core",
+        namespace="global",
         kind="memory",
-        title="[[Cole Domain]] sqlite patterns",
+        title="[[Domain Note]] sqlite patterns",
         content="record_type: domain-note\ndomain: domain:sqlite\nclaim: prefer WAL and short write scopes",
         tags=["kind:domain-note", "domain:sqlite"],
     )
@@ -71,7 +71,7 @@ def test_recall_first_prefers_project_and_core_memory(tmp_path: Path) -> None:
 def test_recall_first_uses_tag_hints_for_short_issue_queries(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     store.store(
-        namespace="cole-core",
+        namespace="global",
         kind="memory",
         title="[[Gotcha]] canonical bridge path",
         content=(

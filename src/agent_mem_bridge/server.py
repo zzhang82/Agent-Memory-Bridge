@@ -94,6 +94,25 @@ def store(
             )
         ),
     ] = None,
+    expires_at: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Optional ISO-8601 expiry timestamp for a signal. Use this when a coordination "
+                "event should stop being claimable after a deadline."
+            )
+        ),
+    ] = None,
+    ttl_seconds: Annotated[
+        int | None,
+        Field(
+            gt=0,
+            description=(
+                "Optional relative expiry in seconds for a signal. Useful for short-lived "
+                "handoff or review events."
+            ),
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """Store one entry in the bridge for later retrieval or coordination.
 
@@ -114,6 +133,8 @@ def store(
         title=title,
         correlation_id=correlation_id,
         source_app=source_app,
+        expires_at=expires_at,
+        ttl_seconds=ttl_seconds,
     )
 
 
@@ -151,6 +172,15 @@ def recall(
             description=(
                 "Optional type filter. Use `memory` for durable knowledge recall and "
                 "`signal` for coordination or polling flows."
+            )
+        ),
+    ] = None,
+    signal_status: Annotated[
+        Literal["pending", "claimed", "acked", "expired"] | None,
+        Field(
+            description=(
+                "Optional status filter for signals. Useful when you want only pending handoffs, "
+                "currently claimed work, or already-acked coordination events."
             )
         ),
     ] = None,
@@ -204,6 +234,7 @@ def recall(
         query=query,
         limit=limit,
         kind=kind,
+        signal_status=signal_status,
         tags_any=tags_any,
         session_id=session_id,
         actor=actor,
@@ -241,6 +272,12 @@ def browse(
             )
         ),
     ] = None,
+    signal_status: Annotated[
+        Literal["pending", "claimed", "acked", "expired"] | None,
+        Field(
+            description="Optional status filter when browsing signal entries.",
+        ),
+    ] = None,
     limit: Annotated[
         int,
         Field(
@@ -260,6 +297,7 @@ def browse(
         namespace=namespace,
         domain=domain,
         kind=kind,
+        signal_status=signal_status,
         limit=limit,
     )
 
@@ -304,6 +342,87 @@ def forget(
     removed item metadata when a match is found.
     """
     return bridge.forget(memory_id=id)
+
+
+@mcp.tool(structured_output=True)
+def claim_signal(
+    namespace: Annotated[
+        str,
+        Field(
+            description=(
+                "Namespace that holds the coordination events to claim, such as "
+                "`project:<workspace>`."
+            )
+        ),
+    ],
+    consumer: Annotated[
+        str,
+        Field(
+            description=(
+                "Stable worker or agent identifier that will own the lease, for example "
+                "`reviewer-a` or `worker:planner`."
+            )
+        ),
+    ],
+    lease_seconds: Annotated[
+        int,
+        Field(
+            gt=0,
+            description="How long the claim lease should last before another consumer can reclaim the signal.",
+        ),
+    ] = 300,
+    signal_id: Annotated[
+        str | None,
+        Field(
+            description="Optional exact signal id to claim. Leave empty to claim the next eligible signal.",
+        ),
+    ] = None,
+    tags_any: Annotated[
+        list[str] | None,
+        Field(
+            description="Optional OR-style tag filter used to narrow which pending signals are claimable.",
+        ),
+    ] = None,
+    correlation_id: Annotated[
+        str | None,
+        Field(
+            description="Optional workflow correlation id used to claim signals from one handoff thread.",
+        ),
+    ] = None,
+) -> dict[str, Any]:
+    """Claim one signal with a short lease for lightweight work coordination.
+
+    Use this when a worker should take ownership of a pending signal before it acts.
+    If `signal_id` is omitted, the bridge claims the next eligible signal in the
+    namespace that matches the optional filters.
+    """
+    return bridge.claim_signal(
+        namespace=namespace,
+        consumer=consumer,
+        lease_seconds=lease_seconds,
+        signal_id=signal_id,
+        tags_any=tags_any,
+        correlation_id=correlation_id,
+    )
+
+
+@mcp.tool(structured_output=True)
+def ack_signal(
+    id: Annotated[
+        str,
+        Field(
+            description="Exact signal id to acknowledge after the work is done.",
+        ),
+    ],
+    consumer: Annotated[
+        str | None,
+        Field(
+            description="Optional consumer identity. When provided, the bridge checks that another active claimant does not own the lease.",
+        ),
+    ] = None,
+) -> dict[str, Any]:
+    """Acknowledge one claimed or pending signal so downstream polling can stop treating it as active work."""
+    return bridge.ack_signal(memory_id=id, consumer=consumer)
 
 
 @mcp.tool(structured_output=True)
@@ -368,6 +487,10 @@ def export(
         Literal["memory", "signal"] | None,
         Field(description="Optional type filter for the export."),
     ] = None,
+    signal_status: Annotated[
+        Literal["pending", "claimed", "acked", "expired"] | None,
+        Field(description="Optional status filter when exporting signal entries."),
+    ] = None,
     tags_any: Annotated[
         list[str] | None,
         Field(
@@ -397,6 +520,7 @@ def export(
         format=format,
         query=query,
         kind=kind,
+        signal_status=signal_status,
         tags_any=tags_any,
         limit=limit,
     )

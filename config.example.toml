@@ -1,8 +1,13 @@
 [codex]
 home = "~/.codex"
 
-[cole]
+[profile]
 source_root = "~/Cole"
+namespace = "global"
+reflex_actor = "bridge-reflex"
+consolidation_actor = "bridge-consolidation"
+learn_title_prefix = "[[Learn]]"
+domain_title_prefix = "[[Domain Note]]"
 
 [bridge]
 home = "~/.codex/mem-bridge"

@@ -25,7 +25,17 @@ async def _exercise_server(tmp_path: Path) -> None:
 
             tools_response = await session.list_tools()
             tool_names = {tool.name for tool in tools_response.tools}
-            assert tool_names == {"store", "recall", "browse", "stats", "forget", "promote", "export"}
+            assert tool_names == {
+                "store",
+                "recall",
+                "browse",
+                "stats",
+                "forget",
+                "claim_signal",
+                "ack_signal",
+                "promote",
+                "export",
+            }
 
             first = await session.call_tool(
                 "store",
@@ -68,6 +78,7 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "actor": "cole",
                     "correlation_id": "handoff-1",
                     "source_app": "codex",
+                    "ttl_seconds": 300,
                 },
             )
 
@@ -95,6 +106,29 @@ async def _exercise_server(tmp_path: Path) -> None:
             )
             assert polling.structuredContent["count"] == 1
             assert polling.structuredContent["items"][0]["id"] == signal.structuredContent["id"]
+            assert polling.structuredContent["items"][0]["signal_status"] == "pending"
+
+            claimed = await session.call_tool(
+                "claim_signal",
+                arguments={
+                    "namespace": "bridge",
+                    "consumer": "reviewer-a",
+                    "lease_seconds": 120,
+                    "signal_id": signal.structuredContent["id"],
+                },
+            )
+            assert claimed.structuredContent["claimed"] is True
+            assert claimed.structuredContent["item"]["signal_status"] == "claimed"
+
+            acked = await session.call_tool(
+                "ack_signal",
+                arguments={
+                    "id": signal.structuredContent["id"],
+                    "consumer": "reviewer-a",
+                },
+            )
+            assert acked.structuredContent["acked"] is True
+            assert acked.structuredContent["item"]["signal_status"] == "acked"
 
             stats = await session.call_tool(
                 "stats",
@@ -103,13 +137,14 @@ async def _exercise_server(tmp_path: Path) -> None:
             assert stats.structuredContent["total_count"] == 2
             assert stats.structuredContent["kind_counts"]["memory"] == 1
             assert stats.structuredContent["kind_counts"]["signal"] == 1
+            assert stats.structuredContent["signal_status_counts"]["acked"] == 1
 
             browse = await session.call_tool(
                 "browse",
-                arguments={"namespace": "bridge", "kind": "memory", "limit": 5},
+                arguments={"namespace": "bridge", "kind": "signal", "signal_status": "acked", "limit": 5},
             )
             assert browse.structuredContent["count"] == 1
-            assert browse.structuredContent["items"][0]["id"] == first.structuredContent["id"]
+            assert browse.structuredContent["items"][0]["id"] == signal.structuredContent["id"]
 
             forgotten = await session.call_tool(
                 "forget",
@@ -150,9 +185,9 @@ async def _exercise_server(tmp_path: Path) -> None:
 
             exported = await session.call_tool(
                 "export",
-                arguments={"namespace": "bridge", "format": "markdown", "limit": 10},
+                arguments={"namespace": "bridge", "format": "markdown", "kind": "signal", "signal_status": "acked", "limit": 10},
             )
-            assert exported.structuredContent["count"] >= 2
+            assert exported.structuredContent["count"] == 1
             assert "# Memory Export: bridge" in exported.structuredContent["content"]
 
 

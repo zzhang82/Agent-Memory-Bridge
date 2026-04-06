@@ -8,75 +8,85 @@
 
 面向编码代理的双通道 MCP 记忆层。
 
-当前先从 Codex 工作流开始。
+当前先从 Codex-first 工作流开始。
 
-大多数记忆工具会把所有状态混在一个桶里。Agent Memory Bridge 把两类状态分开：
+很多记忆工具会把所有状态塞进一个桶里。Agent Memory Bridge 把两类状态分开：
 
-- `memory`：值得留到后面复用的持久知识
+- `memory`：值得长期复用的持久知识
 - `signal`：用于 handoff、轮询和流程协调的短期事件
 
-这样，代理就有地方保留下列信息：
-
-- 关键决策
-- 已验证修复
-- 跨会话 handoff
-- 可复用 gotcha
-- 紧凑的领域知识
-
-它沿着一条小而清楚的提升路径工作：
+桥内部沿着一条很小的提升路径工作：
 
 `session -> summary -> learn -> gotcha -> domain-note`
 
-## 这个项目想解决什么
+## 它解决什么问题
 
-编码代理在跨会话时会丢掉太多状态。很多记忆系统最后会落到三种情况之一：
+编码代理跨会话时会丢掉太多状态。团队最后往往落到两种低效路径之一：
 
-- 记忆被困在某一个应用或某一个模型里
-- 还没证明检索真有价值，就先上重型基础设施
-- 把对话原文当记忆，最后变成噪音仓库
+- 一直重复发现同样的问题和修复
+- 把原始对话当记忆保存，最后变成难检索、难复用的噪音仓库
 
-这个项目走的是更克制的一条路：
+Agent Memory Bridge 走的是更克制的一条路：
 
 - 从第一天起就是 MCP-native
 - 本地优先
-- 用 SQLite + FTS5，不先上重型服务
-- 自动把 session 输出提升成可复用记忆
+- 用 SQLite + FTS5，不先上重型基础设施
+- 从真实编码会话里提炼可复用记忆
 
 ## 它有什么不同
 
-1. 它面向编码代理工作流，而不是通用笔记存储。
-2. 它把持久知识和协调信号拆开处理。
-3. 它重点是把 session 输出提升成紧凑、机器可读的记忆，而不是把摘要当成最终产物。
-4. 它默认 local-first，而且运行形态可检查。
+1. 它把持久知识和协调状态分开。
+2. 它默认保持小而可检查，不靠大平台包装。
+3. 它给 `signal` 补了最小生命周期：`pending`、`claimed`、`acked`、`expired`。
+4. 它会把 session 输出提升成紧凑、机器可读的记忆，而不是把 summary 当最终产物。
 
-如果你要的是更大的记忆平台，带 SDK、dashboard、connectors、多种应用接入面，那么 OpenMemory 或 Mem0 更接近那种形态。
+如果你想要的是更大的记忆平台，带 SDK、dashboard、connectors 或 hosted-first 形态，OpenMemory 和 Mem0 会更接近那条路。
 
 更完整的定位说明见 [docs/COMPARISON.md](docs/COMPARISON.md)。
 
-## 5 分钟上手路径
+## 5 分钟上手
 
-在 Codex 里注册好 MCP 之后，最短的有效路径是：
+在 Codex 里注册好 MCP 以后，最短的有效路径是：
 
-1. 先写一条持久记忆
-2. 再写一条协调信号
-3. 不用碰 SQLite，直接看看命名空间里有什么
+1. 写一条持久记忆
+2. 写一条协调信号
+3. 看看命名空间里现在有什么
+4. claim 并 ack 那条信号
 
 ```text
-store(namespace="project:demo", kind="memory", content="claim: Use WAL mode for concurrent readers.")
-store(namespace="project:demo", kind="signal", content="review ready", tags=["handoff:ready"])
+store(
+  namespace="project:demo",
+  kind="memory",
+  content="claim: Use WAL mode for concurrent readers."
+)
+
+store(
+  namespace="project:demo",
+  kind="signal",
+  content="release note review ready",
+  tags=["handoff:review"],
+  ttl_seconds=600
+)
+
 stats(namespace="project:demo")
 browse(namespace="project:demo", limit=10)
-recall(namespace="project:demo", kind="signal", since="<last_seen_id>")
+
+claim_signal(
+  namespace="project:demo",
+  consumer="reviewer-a",
+  lease_seconds=300,
+  tags_any=["handoff:review"]
+)
+
+ack_signal(id="<signal_id>", consumer="reviewer-a")
 ```
 
 这条路径最能体现它的核心拆分：
 
-- `memory` 保存学到的东西
-- `signal` 传递另一个流程现在需要知道的事
+- `memory` 保存已经学到的东西
+- `signal` 传递另一个流程现在需要处理的事
 
-如果你不是在一个已经注册好 MCP 的 Codex 环境里试用，而是要从零装起来，下面就是完整安装路径。
-
-## 安装与配置
+## 安装
 
 要求：
 
@@ -84,11 +94,21 @@ recall(namespace="project:demo", kind="signal", since="<last_seen_id>")
 - 启用了 MCP 的 Codex
 - 带 FTS5 的 SQLite
 
-### 1. 安装
+### 1. 安装依赖
+
+PowerShell：
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+pip install -e .[dev]
+```
+
+macOS / Linux：
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -e .[dev]
 ```
 
@@ -100,11 +120,22 @@ pip install -e .[dev]
 $CODEX_HOME/mem-bridge/config.toml
 ```
 
+几个关键默认项：
+
+- `[profile]` 控制默认 namespace、actor 和标题前缀
+- `[bridge]` 控制本地 live 数据库
+- `[watcher]`、`[reflex]`、`[consolidation]` 控制后台流水线
+
 推荐做法：
 
 - live SQLite 数据库保留在每台机器本地
-- 共享 profile 或 source vault 可以放在 NAS 或共享存储
-- 真正需要多机实时共享写入时，再切到 hosted backend
+- 共享 profile 或 source vault 可以放 NAS 或共享存储
+- 真正需要多机实时写入时，再换 hosted backend
+
+要特别注意：
+
+- 共享 SQLite 适合过渡或备份
+- 不适合作为强一致、多写入者的最终 live backend
 
 ### 3. 在 Codex 里注册 MCP server
 
@@ -143,13 +174,13 @@ $env:AGENT_MEMORY_BRIDGE_RUN_ONCE = "1"
 .\.venv\Scripts\python.exe .\scripts\run_mem_bridge_service.py
 ```
 
-可选的开机启动安装：
+可选：安装开机启动：
 
 ```powershell
 .\scripts\install_startup_watcher.ps1
 ```
 
-可选：构建本地 Docker 镜像
+可选：构建本地 Docker 镜像：
 
 ```powershell
 docker build -t agent-memory-bridge:local .
@@ -158,30 +189,39 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 
 ## MCP 工具
 
-MCP 接口保持得很小，也很实用：
+公开 MCP surface 刻意保持很小：
 
-- `store` 和 `recall`：写入和读取桥里的状态
-- `browse` 和 `stats`：先看里面有什么
-- `forget` 和 `promote`：修正错误条目或提升条目等级
-- `export`：把记忆导出成 Markdown、JSON 或纯文本
+- `store` 和 `recall`
+- `browse` 和 `stats`
+- `forget` 和 `promote`
+- `claim_signal` 和 `ack_signal`
+- `export`
+
+真正的复杂度放在桥背后：
+
+- watcher 从 Codex rollout 文件抓取状态
+- checkpoint / closeout 同步
+- reflex promotion
+- domain consolidation
 
 ## 命名空间
 
-最自然的起步方式是：
+最自然的起步方式：
 
 - `global`：默认共享 bucket
 - `project:<workspace>`：项目级记忆
 - `domain:<name>`：可复用的领域知识
 
-这个 framework 本身是 profile-agnostic 的。你可以在上面叠加某个 operator profile，但桥本身不绑定某一个 persona 或某一种协议。
+这个 framework 本身是 profile-agnostic 的。你可以在上面叠某个 operator profile，但桥本身不需要长成那个 profile 的样子。
 
 ## 可检查性与健康检查
 
-这个桥的目标是可检查，不是黑盒：
+这座桥的目标是可检查，不是黑盒：
 
-- `browse`、`stats`、`forget`、`export` 让你不用打开 SQLite 也能检查和修正状态
-- watcher health check 会验证 Codex rollout 文件是否还能解析成可用 summary
-- 当前测试套件结果是 `53 passed`
+- `browse`、`stats`、`forget`、`export` 让你不用打开 SQLite 也能看清状态
+- `signal` 的状态可以直接查到：`pending`、`claimed`、`acked`、`expired`
+- watcher health check 会验证 Codex rollout 文件是否还能被解析成可用 summary
+- 当前测试套件结果是 `57 passed`
 
 常用命令：
 

@@ -10,42 +10,34 @@ Two-channel MCP memory for coding agents.
 
 Built for Codex-first workflows.
 
-Most memory tools put everything in one bucket. Agent Memory Bridge keeps two kinds of state separate:
+Most memory tools put everything into one bucket. Agent Memory Bridge keeps two different kinds of state separate:
 
-- `memory`: durable knowledge worth reusing later
-- `signal`: short-lived coordination events for handoffs, polling, and workflow state
+- `memory` for durable knowledge worth reusing later
+- `signal` for short-lived coordination events such as handoffs, review requests, and workflow state
 
-So an agent can carry forward:
-
-- durable decisions
-- known fixes
-- cross-session handoffs
-- reusable gotchas
-- compact domain knowledge
-
-The bridge follows a small promotion ladder:
+The bridge then promotes raw session output through a small ladder:
 
 `session -> summary -> learn -> gotcha -> domain-note`
 
-## Why This Exists
+## The Problem
 
-Coding agents lose too much between sessions. Memory often ends up trapped inside one client, mixed into raw transcripts, or pushed into heavier infrastructure before retrieval basics are proven.
+Coding agents lose too much between sessions. Teams either keep rediscovering the same fixes, or they end up storing raw transcripts that are expensive to search and noisy to reuse.
 
 Agent Memory Bridge takes a narrower path:
 
 - MCP-native from day one
 - local-first runtime
 - SQLite + FTS5 instead of heavier infrastructure
-- automatic promotion from session traces into reusable memory
+- session capture that turns real coding work into reusable memory
 
 ## What Makes It Different
 
-1. It is built for coding-agent workflows, not generic note storage.
-2. It keeps durable knowledge and coordination signals separate.
-3. It promotes raw session output into compact machine-readable memory instead of treating summaries as the final artifact.
-4. It stays small and inspectable by default.
+1. It separates durable knowledge from coordination state.
+2. It stays small and inspectable instead of hiding behind a larger platform.
+3. It gives signals a minimal lifecycle: pending, claimed, acked, and expired.
+4. It promotes session output into compact machine-readable memory instead of treating summaries as the final artifact.
 
-If you want a broader memory platform with SDKs, dashboards, connectors, and multi-surface application support, projects like OpenMemory or Mem0 are closer to that shape.
+If you want a broader memory platform with SDKs, dashboards, connectors, or hosted-first deployment, projects like OpenMemory or Mem0 are closer to that shape.
 
 For a longer positioning note, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
@@ -55,22 +47,41 @@ Once the MCP server is registered in Codex, the shortest useful path is:
 
 1. write one durable memory
 2. write one coordination signal
-3. inspect the namespace without opening SQLite
+3. inspect the namespace
+4. claim and acknowledge the signal
 
 ```text
-store(namespace="project:demo", kind="memory", content="claim: Use WAL mode for concurrent readers.")
-store(namespace="project:demo", kind="signal", content="review ready", tags=["handoff:ready"])
+store(
+  namespace="project:demo",
+  kind="memory",
+  content="claim: Use WAL mode for concurrent readers."
+)
+
+store(
+  namespace="project:demo",
+  kind="signal",
+  content="release note review ready",
+  tags=["handoff:review"],
+  ttl_seconds=600
+)
+
 stats(namespace="project:demo")
 browse(namespace="project:demo", limit=10)
-recall(namespace="project:demo", kind="signal", since="<last_seen_id>")
+
+claim_signal(
+  namespace="project:demo",
+  consumer="reviewer-a",
+  lease_seconds=300,
+  tags_any=["handoff:review"]
+)
+
+ack_signal(id="<signal_id>", consumer="reviewer-a")
 ```
 
-That shows the split:
+That shows the core split:
 
 - `memory` keeps what the agent learned
-- `signal` carries what another workflow needs to know now
-
-If you are starting from scratch instead of adding the server to an existing Codex setup, the installation path is below.
+- `signal` carries what another workflow needs to act on right now
 
 ## Setup
 
@@ -82,9 +93,19 @@ Requirements:
 
 ### 1. Install
 
+PowerShell:
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+pip install -e .[dev]
+```
+
+macOS / Linux:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -e .[dev]
 ```
 
@@ -96,11 +117,19 @@ Copy [config.example.toml](config.example.toml) to:
 $CODEX_HOME/mem-bridge/config.toml
 ```
 
+The important defaults are:
+
+- `[profile]` controls the neutral runtime shape for namespace, actors, and title prefixes
+- `[bridge]` controls the live local database
+- `[watcher]`, `[reflex]`, and `[consolidation]` control the background pipeline
+
 Recommended setup:
 
 - keep the live SQLite database local on each machine
 - keep shared profile or source vaults on NAS or shared storage if needed
 - move to a hosted backend later if you want true multi-machine live writes
+
+Important: shared SQLite is fine as a transition or backup path, but it is not a strong multi-writer live backend.
 
 ### 3. Register the MCP server in Codex
 
@@ -154,12 +183,20 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 
 ## MCP Tools
 
-The MCP surface is small and practical:
+The public MCP surface stays small on purpose:
 
-- `store` and `recall` for writing and retrieving bridge state
-- `browse` and `stats` for inspecting what is already there
-- `forget` and `promote` for correcting bad or under-classified entries
-- `export` for moving memory back out as Markdown, JSON, or plain text
+- `store` and `recall`
+- `browse` and `stats`
+- `forget` and `promote`
+- `claim_signal` and `ack_signal`
+- `export`
+
+The complexity stays behind the bridge:
+
+- watcher capture from Codex rollout files
+- checkpoint and closeout sync
+- reflex promotion
+- domain consolidation
 
 ## Namespaces
 
@@ -169,15 +206,16 @@ Start simple:
 - `project:<workspace>` for project-local memory
 - `domain:<name>` for reusable domain knowledge
 
-The framework is profile-agnostic. A specific operator profile can sit on top, but the bridge itself is not tied to one persona or one protocol.
+The framework is profile-agnostic. A specific operator profile can sit on top, but the bridge itself does not need to look or sound like that profile.
 
 ## Trust and Health Checks
 
 The bridge is meant to be inspectable, not magical:
 
 - `browse`, `stats`, `forget`, and `export` let you inspect and correct bridge state without opening SQLite
+- signal status is visible and queryable through `pending`, `claimed`, `acked`, and `expired`
 - watcher health checks verify that Codex rollout files still parse into usable summaries
-- the current test suite passes with `53 passed`
+- the current test suite passes with `57 passed`
 
 Useful commands:
 

@@ -7,6 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .paths import (
+    resolve_domain_title_prefix,
+    resolve_learn_title_prefix,
+    resolve_profile_namespace,
+    resolve_reflex_actor,
+)
 from .storage import MemoryStore
 
 
@@ -146,7 +152,7 @@ CLAIM_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     ),
     (
         ("not need to put in each project",),
-        "Keep Cole core memory in a shared global bridge instead of copying it into each project.",
+        "Keep shared operating memory in one global namespace instead of copying it into each project.",
     ),
     (
         ("domain based", "topic based"),
@@ -220,7 +226,10 @@ class DomainRule:
 @dataclass(slots=True)
 class ReflexConfig:
     state_path: Path
-    target_namespace: str = "cole-core"
+    target_namespace: str = "global"
+    actor: str = "bridge-reflex"
+    learn_title_prefix: str = "[[Learn]]"
+    domain_title_prefix: str = "[[Domain Note]]"
     scan_limit: int = 200
 
 
@@ -350,11 +359,11 @@ GOTCHA_RULES: tuple[GotchaRule, ...] = (
     ),
     GotchaRule(
         name="copied-core-memory",
-        title="[[Gotcha]] copying global core memory into each project causes drift",
-        claim="copying global core memory into each project causes cross-project drift",
+        title="[[Gotcha]] copying shared operating memory into each project causes drift",
+        claim="copying shared operating memory into each project causes cross-project drift",
         trigger="shared operating memory is duplicated into repo-local project stores",
         symptom="core guidance diverges across projects and becomes harder to trust",
-        fix="keep Cole core memory in one shared global bridge and reference it from project memory",
+        fix="keep shared operating memory in one global namespace and reference it from project memory",
         keywords=(
             "not need to put in each project",
             "cross projects",
@@ -377,21 +386,21 @@ GOTCHA_RULES: tuple[GotchaRule, ...] = (
 DOMAIN_RULES: tuple[DomainRule, ...] = (
     DomainRule(
         name="orchestration",
-        title="[[Cole Domain]] orchestration patterns",
+        title="[[Domain Note]] orchestration patterns",
         summary="recurring orchestration guidance promoted from recent session summaries",
         keywords=("orchestration", "subagent", "worker", "validation", "high reasoning"),
         tags=("kind:domain-note", "domain:orchestration", "scope:global"),
     ),
     DomainRule(
         name="memory-bridge",
-        title="[[Cole Domain]] memory bridge patterns",
+        title="[[Domain Note]] memory bridge patterns",
         summary="recurring memory-bridge practices promoted from recent session summaries",
         keywords=("memory bridge", "shared memory", "recall", "store", "context"),
         tags=("kind:domain-note", "domain:memory-bridge", "scope:global"),
     ),
     DomainRule(
         name="agent-memory",
-        title="[[Cole Domain]] agent memory patterns",
+        title="[[Domain Note]] agent memory patterns",
         summary="recurring agent-memory practices promoted from recent session summaries",
         keywords=("machine-readable", "structured", "token", "summary", "gotcha", "agent recall"),
         tags=("kind:domain-note", "domain:agent-memory", "scope:global"),
@@ -442,7 +451,7 @@ class ReflexEngine:
                 continue
             seen_claims.add(normalized_claim)
             inferred_tags = self._infer_domain_tags(clean_line)
-            title = f"[[Cole Learn]] {self._truncate_title(clean_line)}"
+            title = f"{self.config.learn_title_prefix} {self._truncate_title(clean_line)}"
             tags = self._base_tags_for_row(row)
             tags.extend(("kind:learn", "confidence:observed", f"source-summary:{row['id']}"))
             tags.extend(inferred_tags)
@@ -462,10 +471,10 @@ class ReflexEngine:
                 kind="memory",
                 tags=self._unique_tags(tags),
                 session_id=row["session_id"],
-                actor="cole-reflex",
+                actor=self.config.actor,
                 title=title,
                 correlation_id=row["correlation_id"],
-            source_app="agent-memory-bridge-reflex",
+                source_app="agent-memory-bridge-reflex",
             )
             stored.append({"type": "learn", "index": index, "result": result, "source_id": row["id"]})
         return stored
@@ -481,10 +490,10 @@ class ReflexEngine:
                 kind="memory",
                 tags=self._unique_tags(structured_gotcha["tags"]),
                 session_id=row["session_id"],
-                actor="cole-reflex",
+                actor=self.config.actor,
                 title=structured_gotcha["title"],
                 correlation_id=row["correlation_id"],
-            source_app="agent-memory-bridge-reflex",
+                source_app="agent-memory-bridge-reflex",
             )
             stored.append({"type": "gotcha", "rule": "checkpoint-structured", "result": result, "source_id": row["id"]})
         for rule in GOTCHA_RULES:
@@ -510,10 +519,10 @@ class ReflexEngine:
                 kind="memory",
                 tags=self._unique_tags(tags),
                 session_id=row["session_id"],
-                actor="cole-reflex",
+                actor=self.config.actor,
                 title=rule.title,
                 correlation_id=row["correlation_id"],
-            source_app="agent-memory-bridge-reflex",
+                source_app="agent-memory-bridge-reflex",
             )
             stored.append({"type": "gotcha", "rule": rule.name, "result": result, "source_id": row["id"]})
         return stored
@@ -543,10 +552,10 @@ class ReflexEngine:
                 kind="memory",
                 tags=self._unique_tags(tags),
                 session_id=cycle_id,
-                actor="cole-reflex",
-                title=rule.title,
+                actor=self.config.actor,
+                title=self._domain_title_for_rule(rule),
                 correlation_id=cycle_id,
-            source_app="agent-memory-bridge-reflex",
+                source_app="agent-memory-bridge-reflex",
             )
             stored.append({"type": "domain-note", "rule": rule.name, "result": result, "match_count": len(matched)})
         return stored
@@ -825,3 +834,18 @@ class ReflexEngine:
 
     def _save_state(self, state: dict[str, str]) -> None:
         self.config.state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+    def _domain_title_for_rule(self, rule: DomainRule) -> str:
+        suffix = rule.title.split("]]", 1)[-1].strip() if "]]" in rule.title else rule.title
+        return f"{self.config.domain_title_prefix} {suffix}".strip()
+
+
+def build_default_reflex_config(state_path: Path, scan_limit: int) -> ReflexConfig:
+    return ReflexConfig(
+        state_path=state_path,
+        target_namespace=resolve_profile_namespace(),
+        actor=resolve_reflex_actor(),
+        learn_title_prefix=resolve_learn_title_prefix(),
+        domain_title_prefix=resolve_domain_title_prefix(),
+        scan_limit=scan_limit,
+    )

@@ -101,6 +101,17 @@ def _resolve_float(env_names: str | tuple[str, ...], config_keys: tuple[str, ...
     return float(configured)
 
 
+def _resolve_str(env_names: str | tuple[str, ...], config_keys: tuple[str, ...], default: str) -> str:
+    names = (env_names,) if isinstance(env_names, str) else env_names
+    raw = _first_env(*names)
+    if raw:
+        return raw.strip()
+    configured = _config_value(*config_keys)
+    if isinstance(configured, str) and configured.strip():
+        return configured.strip()
+    return default
+
+
 def resolve_codex_home() -> Path:
     return _resolve_path("CODEX_HOME", ("codex", "home"), _default_codex_home)
 
@@ -109,11 +120,49 @@ def resolve_bridge_home() -> Path:
     return _resolve_path("AGENT_MEMORY_BRIDGE_HOME", ("bridge", "home"), _default_bridge_home)
 
 
+def resolve_profile_source_root() -> Path:
+    raw = _first_env("AGENT_MEMORY_BRIDGE_PROFILE_SOURCE_ROOT", "COLE_SOURCE_ROOT")
+    if raw:
+        return Path(raw).expanduser()
+
+    configured = _config_value("profile", "source_root")
+    if not isinstance(configured, str) or not configured.strip():
+        configured = _config_value("cole", "source_root")
+    if isinstance(configured, str) and configured.strip():
+        return _resolve_config_path_value(configured.strip())
+
+    return Path(__file__).resolve().parents[3] / "Cole"
+
+
 def resolve_cole_source_root() -> Path:
-    return _resolve_path(
-        "COLE_SOURCE_ROOT",
-        ("cole", "source_root"),
-        lambda: Path(__file__).resolve().parents[3] / "Cole",
+    return resolve_profile_source_root()
+
+
+def resolve_profile_namespace() -> str:
+    return _resolve_str("AGENT_MEMORY_BRIDGE_PROFILE_NAMESPACE", ("profile", "namespace"), "global")
+
+
+def resolve_reflex_actor() -> str:
+    return _resolve_str("AGENT_MEMORY_BRIDGE_REFLEX_ACTOR", ("profile", "reflex_actor"), "bridge-reflex")
+
+
+def resolve_consolidation_actor() -> str:
+    return _resolve_str(
+        "AGENT_MEMORY_BRIDGE_CONSOLIDATION_ACTOR",
+        ("profile", "consolidation_actor"),
+        "bridge-consolidation",
+    )
+
+
+def resolve_learn_title_prefix() -> str:
+    return _resolve_str("AGENT_MEMORY_BRIDGE_LEARN_TITLE_PREFIX", ("profile", "learn_title_prefix"), "[[Learn]]")
+
+
+def resolve_domain_title_prefix() -> str:
+    return _resolve_str(
+        "AGENT_MEMORY_BRIDGE_DOMAIN_TITLE_PREFIX",
+        ("profile", "domain_title_prefix"),
+        "[[Domain Note]]",
     )
 
 

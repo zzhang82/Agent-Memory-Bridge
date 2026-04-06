@@ -4,7 +4,7 @@ import json
 import os
 import time
 
-from .consolidation import ConsolidationConfig, ConsolidationEngine
+from .consolidation import ConsolidationEngine, build_default_consolidation_config
 from .paths import (
     resolve_checkpoint_min_messages,
     resolve_checkpoint_seconds,
@@ -22,7 +22,7 @@ from .paths import (
     resolve_watcher_notes_root,
     resolve_watcher_state_path,
 )
-from .reflex import ReflexConfig, ReflexEngine
+from .reflex import ReflexEngine, build_default_reflex_config
 from .storage import MemoryStore
 from .watcher import CodexSessionWatcher, WatcherConfig
 
@@ -50,14 +50,14 @@ def run_service() -> None:
     )
     reflex = ReflexEngine(
         store=store,
-        config=ReflexConfig(
+        config=build_default_reflex_config(
             state_path=resolve_reflex_state_path(),
             scan_limit=resolve_reflex_scan_limit(),
         ),
     )
     consolidation = ConsolidationEngine(
         store=store,
-        config=ConsolidationConfig(
+        config=build_default_consolidation_config(
             state_path=resolve_consolidation_state_path(),
             scan_limit=resolve_consolidation_scan_limit(),
         ),

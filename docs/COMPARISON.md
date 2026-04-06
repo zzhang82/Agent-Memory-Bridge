@@ -16,6 +16,7 @@ Agent Memory Bridge is optimized for:
 
 - coding-agent workflows
 - local-first operation
+- two-channel memory plus coordination signals
 - a very small MCP surface
 - inspectable storage
 - turning session traces into reusable engineering memory
@@ -51,6 +52,8 @@ Agent Memory Bridge keeps the public MCP contract small on purpose:
 - `stats`
 - `forget`
 - `promote`
+- `claim_signal`
+- `ack_signal`
 - `export`
 
 The complexity sits behind the bridge:
@@ -59,6 +62,7 @@ The complexity sits behind the bridge:
 - checkpoint and closeout sync
 - reflex promotion
 - consolidation
+- signal lifecycle with lease and acknowledgement
 
 That makes the integration story simpler while still allowing the memory itself to improve over time.
 

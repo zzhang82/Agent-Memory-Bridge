@@ -7,13 +7,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .paths import resolve_consolidation_actor, resolve_domain_title_prefix, resolve_profile_namespace
 from .storage import MemoryStore
 
 
 @dataclass(slots=True)
 class ConsolidationConfig:
     state_path: Path
-    target_namespace: str = "cole-core"
+    target_namespace: str = "global"
+    actor: str = "bridge-consolidation"
+    domain_title_prefix: str = "[[Domain Note]]"
     scan_limit: int = 200
     min_support: int = 2
 
@@ -171,7 +174,7 @@ class ConsolidationEngine:
             f"support-count:{support_count}",
         ]
         tags.extend(topic_tags[:4])
-        title = f"[[Domain]] {domain_name} synthesis"
+        title = f"{self.config.domain_title_prefix} {domain_name} synthesis"
         newest_row = support_rows[0]
         result = self.store.store(
             namespace=self.config.target_namespace,
@@ -179,7 +182,7 @@ class ConsolidationEngine:
             kind="memory",
             tags=self._unique_tags(tags),
             session_id=newest_row["session_id"],
-            actor="cole-consolidation",
+            actor=self.config.actor,
             title=title,
             correlation_id=newest_row["correlation_id"],
             source_app="agent-memory-bridge-consolidation",
@@ -271,3 +274,14 @@ class ConsolidationEngine:
 
     def _save_state(self, state: dict[str, str]) -> None:
         self.config.state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+
+def build_default_consolidation_config(state_path: Path, scan_limit: int, min_support: int = 2) -> ConsolidationConfig:
+    return ConsolidationConfig(
+        state_path=state_path,
+        target_namespace=resolve_profile_namespace(),
+        actor=resolve_consolidation_actor(),
+        domain_title_prefix=resolve_domain_title_prefix(),
+        scan_limit=scan_limit,
+        min_support=min_support,
+    )

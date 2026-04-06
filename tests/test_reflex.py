@@ -18,7 +18,7 @@ def test_reflex_promotes_summary_into_learn_and_gotcha(tmp_path: Path) -> None:
         ),
         tags=["kind:summary", "project:alpha", "source:codex"],
         session_id="session-1",
-        actor="cole",
+        actor="codex",
         correlation_id="thread-1",
         source_app="codex-session-watcher",
     )
@@ -29,8 +29,8 @@ def test_reflex_promotes_summary_into_learn_and_gotcha(tmp_path: Path) -> None:
     )
     result = reflex.run_once()
 
-    learns = store.recall(namespace="cole-core", tags_any=["kind:learn"], limit=10)
-    gotchas = store.recall(namespace="cole-core", tags_any=["symptom:wrong-db"], limit=10)
+    learns = store.recall(namespace="global", tags_any=["kind:learn"], limit=10)
+    gotchas = store.recall(namespace="global", tags_any=["symptom:wrong-db"], limit=10)
 
     assert result["processed_count"] >= 2
     assert learns["count"] >= 1
@@ -58,7 +58,7 @@ def test_reflex_creates_domain_note_after_repeated_matches(tmp_path: Path) -> No
             content=f"Automatic Codex closeout.\n\n## Durable Points\n\n{content}\n",
             tags=["kind:summary", "project:alpha", "source:codex"],
             session_id=f"session-{idx}",
-            actor="cole",
+            actor="codex",
             correlation_id=f"thread-{idx}",
             source_app="codex-session-watcher",
         )
@@ -69,7 +69,7 @@ def test_reflex_creates_domain_note_after_repeated_matches(tmp_path: Path) -> No
     )
     reflex.run_once()
 
-    domain_notes = store.recall(namespace="cole-core", tags_any=["kind:domain-note"], limit=10)
+    domain_notes = store.recall(namespace="global", tags_any=["kind:domain-note"], limit=10)
 
     assert domain_notes["count"] >= 1
     assert any("domain:orchestration" in item["tags"] for item in domain_notes["items"])
@@ -91,7 +91,7 @@ def test_reflex_promotes_machine_first_and_cross_project_memory_rules(tmp_path: 
         ),
         tags=["kind:summary", "project:alpha", "source:codex"],
         session_id="session-2",
-        actor="cole",
+        actor="codex",
         correlation_id="thread-2",
         source_app="codex-session-watcher",
     )
@@ -102,8 +102,8 @@ def test_reflex_promotes_machine_first_and_cross_project_memory_rules(tmp_path: 
     )
     reflex.run_once()
 
-    learns = store.recall(namespace="cole-core", tags_any=["kind:learn"], limit=10)
-    gotchas = store.recall(namespace="cole-core", tags_any=["kind:gotcha"], limit=10)
+    learns = store.recall(namespace="global", tags_any=["kind:learn"], limit=10)
+    gotchas = store.recall(namespace="global", tags_any=["kind:gotcha"], limit=10)
 
     assert any(
         "claim: Store MCP memory in machine-readable low-token records because agents are the primary readers."
@@ -130,7 +130,7 @@ def test_reflex_promotes_structured_checkpoint_into_gotcha(tmp_path: Path) -> No
         ),
         tags=["kind:summary", "project:alpha", "auto-checkpoint", "source:codex"],
         session_id="session-3",
-        actor="cole",
+        actor="codex",
         correlation_id="thread-3",
         source_app="codex-session-checkpointer",
     )
@@ -141,7 +141,7 @@ def test_reflex_promotes_structured_checkpoint_into_gotcha(tmp_path: Path) -> No
     )
     reflex.run_once()
 
-    gotchas = store.recall(namespace="cole-core", tags_any=["kind:gotcha"], limit=10)
+    gotchas = store.recall(namespace="global", tags_any=["kind:gotcha"], limit=10)
 
     assert any("claim: Later work can be missing until closeout." in item["content"] for item in gotchas["items"])
     assert any("fix: Write checkpoint summaries during active rollouts." in item["content"] for item in gotchas["items"])

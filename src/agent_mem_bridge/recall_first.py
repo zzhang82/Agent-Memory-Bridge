@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .paths import resolve_profile_namespace
 from .storage import MemoryStore
 
 
@@ -75,12 +76,15 @@ def recall_first(
     query: str,
     project_namespace: str,
     limit: int = 5,
+    global_namespace: str | None = None,
 ) -> dict[str, Any]:
     plan = plan_recall(query=query, project_namespace=project_namespace)
+    target_global_namespace = (global_namespace or resolve_profile_namespace()).strip()
     if not plan.should_search_local:
         return {
             "query": plan.query,
             "project_namespace": plan.project_namespace,
+            "global_namespace": target_global_namespace,
             "should_search_local": False,
             "tag_hints": list(plan.tag_hints),
             "project_hits": [],
@@ -98,7 +102,7 @@ def recall_first(
 
     learn_hits = _filter_by_tag(
         store.recall(
-            namespace="cole-core",
+            namespace=target_global_namespace,
             query=plan.query,
             limit=limit,
         )["items"],
@@ -106,7 +110,7 @@ def recall_first(
     )
     gotcha_hits = _filter_by_tag(
         store.recall(
-            namespace="cole-core",
+            namespace=target_global_namespace,
             query=plan.query,
             limit=limit,
         )["items"],
@@ -114,7 +118,7 @@ def recall_first(
     )
     domain_hits = _filter_by_tag(
         store.recall(
-            namespace="cole-core",
+            namespace=target_global_namespace,
             query=plan.query,
             limit=limit,
         )["items"],
@@ -123,7 +127,7 @@ def recall_first(
 
     if plan.tag_hints:
         tag_hint_hits = store.recall(
-            namespace="cole-core",
+            namespace=target_global_namespace,
             tags_any=list(plan.tag_hints),
             limit=max(limit * 3, 10),
         )["items"]
@@ -138,6 +142,7 @@ def recall_first(
     return {
         "query": plan.query,
         "project_namespace": plan.project_namespace,
+        "global_namespace": target_global_namespace,
         "should_search_local": True,
         "tag_hints": list(plan.tag_hints),
         "project_hits": project_hits,

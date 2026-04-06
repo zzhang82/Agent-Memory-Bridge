@@ -66,6 +66,7 @@ def test_signal_entries_are_not_deduplicated(tmp_path: Path) -> None:
     assert first["stored"] is True
     assert second["stored"] is True
     assert second["id"] != first["id"]
+    assert first["signal_status"] == "pending"
 
 
 def test_special_character_query_falls_back_safely(tmp_path: Path) -> None:
@@ -146,6 +147,99 @@ def test_polling_with_since_returns_only_new_items(tmp_path: Path) -> None:
     assert polled["count"] == 1
     assert polled["items"][0]["id"] == second["id"]
     assert polled["next_since"] == second["id"]
+
+
+def test_claim_signal_sets_lease_and_ack_marks_completion(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="Reviewer needed for release note pass.",
+        kind="signal",
+        tags=["handoff:review"],
+        actor="codex",
+        ttl_seconds=600,
+    )
+
+    claimed = store.claim_signal(
+        namespace="project:bridge",
+        consumer="reviewer-a",
+        lease_seconds=120,
+        signal_id=created["id"],
+    )
+    acked = store.ack_signal(created["id"], consumer="reviewer-a")
+    recalled = store.recall(namespace="project:bridge", kind="signal", limit=5)
+
+    assert claimed["claimed"] is True
+    assert claimed["item"]["signal_status"] == "claimed"
+    assert claimed["item"]["claimed_by"] == "reviewer-a"
+    assert claimed["item"]["lease_expires_at"] is not None
+    assert acked["acked"] is True
+    assert acked["item"]["signal_status"] == "acked"
+    assert recalled["count"] == 1
+    assert recalled["items"][0]["signal_status"] == "acked"
+
+
+def test_claim_signal_reuses_stale_lease(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="Pending triage work.",
+        kind="signal",
+        tags=["handoff:triage"],
+    )
+    store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-a",
+        lease_seconds=1,
+        signal_id=created["id"],
+    )
+
+    import time
+    time.sleep(1.1)
+
+    reclaimed = store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-b",
+        lease_seconds=60,
+        signal_id=created["id"],
+    )
+
+    assert reclaimed["claimed"] is True
+    assert reclaimed["item"]["claimed_by"] == "worker-b"
+    assert reclaimed["item"]["signal_status"] == "claimed"
+
+
+def test_recall_can_filter_by_effective_signal_status(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    pending = store.store(
+        namespace="project:bridge",
+        content="Open handoff.",
+        kind="signal",
+        tags=["handoff:open"],
+    )
+    claimed = store.store(
+        namespace="project:bridge",
+        content="Claim me.",
+        kind="signal",
+        tags=["handoff:claimed"],
+    )
+    acked = store.store(
+        namespace="project:bridge",
+        content="Already done.",
+        kind="signal",
+        tags=["handoff:acked"],
+    )
+
+    store.claim_signal(namespace="project:bridge", consumer="worker-a", lease_seconds=60, signal_id=claimed["id"])
+    store.ack_signal(acked["id"])
+
+    pending_hits = store.recall(namespace="project:bridge", kind="signal", signal_status="pending", limit=10)
+    claimed_hits = store.recall(namespace="project:bridge", kind="signal", signal_status="claimed", limit=10)
+    acked_hits = store.recall(namespace="project:bridge", kind="signal", signal_status="acked", limit=10)
+
+    assert [item["id"] for item in pending_hits["items"]] == [pending["id"]]
+    assert [item["id"] for item in claimed_hits["items"]] == [claimed["id"]]
+    assert [item["id"] for item in acked_hits["items"]] == [acked["id"]]
 
 
 def test_filter_only_recall_returns_newest_first(tmp_path: Path) -> None:
@@ -236,6 +330,7 @@ def test_stats_returns_kind_counts_and_top_domains(tmp_path: Path) -> None:
     assert stats["total_count"] == 3
     assert stats["kind_counts"]["memory"] == 2
     assert stats["kind_counts"]["signal"] == 1
+    assert stats["signal_status_counts"]["pending"] == 1
     assert stats["top_domains"][0] == {"domain": "storage", "count": 2}
     assert stats["oldest_entry_at"] == first["created_at"]
     assert stats["newest_entry_at"] == signal["created_at"]
@@ -335,4 +430,16 @@ def test_export_returns_markdown_json_and_text(tmp_path: Path) -> None:
     assert "\"namespace\": \"project:bridge\"" in json_export["content"]
     assert text_export["format"] == "text"
     assert "namespace: project:bridge" in text_export["content"]
+
+
+def test_store_rejects_signal_expiry_for_memory_kind(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+
+    with pytest.raises(ValueError, match="only valid for kind='signal'"):
+        store.store(
+            namespace="project:bridge",
+            content="This is durable memory.",
+            kind="memory",
+            ttl_seconds=30,
+        )
 
