@@ -2,9 +2,9 @@
 
 [简体中文](README.zh-CN.md)
 
-An MCP-native memory layer for coding agents that turns real sessions into reusable engineering memory.
+An MCP-native memory layer for coding agents that turns coding sessions into reusable engineering memory.
 
-Built for Codex first.
+Built for Codex-first workflows.
 
 Agent Memory Bridge captures what chat history usually loses:
 
@@ -16,7 +16,7 @@ Agent Memory Bridge captures what chat history usually loses:
 
 The core idea is simple: keep the memory layer small, reliable, and inspectable. Let higher-level orchestration sit on top.
 
-The interesting part is not just persistence. It is automatic memory shaping:
+The system reshapes session output into durable memory:
 
 - sessions become reusable `learn`
 - repeated failures become `gotcha`
@@ -37,7 +37,7 @@ Agent Memory Bridge takes a narrower path:
 - SQLite + FTS5 instead of heavier infrastructure
 - automatic promotion from session traces into reusable memory
 
-It is not just storage. It is a memory shaping pipeline:
+At its core, it is a memory shaping pipeline:
 
 `session -> summary -> learn -> gotcha -> domain-note`
 

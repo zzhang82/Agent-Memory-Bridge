@@ -2,9 +2,9 @@
 
 [English](README.md) | 简体中文
 
-面向编码代理的持久记忆层。它把真实会话沉淀成可复用的工程记忆。
+面向编码代理的 MCP-native 记忆层。它把 coding session 沉淀成可复用的工程记忆。
 
-当前先从 Codex 开始。
+当前先从 Codex workflow 开始。
 
 Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory framework。它用来保存聊天上下文最容易丢掉的东西：
 
@@ -16,7 +16,7 @@ Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory fram
 
 核心原则很简单：**让记忆层保持小、可靠、可检查**。更高层的 orchestration 放在它上面，而不是塞进它里面。
 
-这个项目最有意思的地方不只是“能存下来”，而是会自动把记忆往上提炼：
+它会自动把会话输出继续提炼成更稳定的记忆：
 
 - session 变成可复用的 `learn`
 - 重复失败变成 `gotcha`
@@ -37,7 +37,7 @@ Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory fram
 - 用 SQLite + FTS5，不先上重型服务
 - 自动把 session 输出提升成可复用 memory
 
-它不是“再存一份聊天记录”，而是一条 **memory shaping pipeline**：
+它的核心是一条 **memory shaping pipeline**：
 
 `session -> summary -> learn -> gotcha -> domain-note`
 
