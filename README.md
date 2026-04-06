@@ -6,6 +6,11 @@ An MCP-native memory layer for coding agents that turns coding sessions into reu
 
 Built for Codex-first workflows.
 
+It separates two kinds of state that most memory tools collapse into one pool:
+
+- `memory`: durable knowledge worth reusing later
+- `signal`: short-lived coordination events for handoffs, polling, and workflow state
+
 Agent Memory Bridge captures what chat history usually loses:
 
 - durable decisions
@@ -50,11 +55,34 @@ If you want a broader memory platform with SDKs, dashboards, connectors, and mul
 This project is different on purpose:
 
 1. It is built for coding-agent workflows, not generic note storage.
-2. It keeps the MCP surface intentionally small: `store` and `recall`.
+2. It keeps the MCP surface intentionally small and inspectable.
 3. It promotes raw session output into compact machine-readable memory instead of treating summaries as the final artifact.
 4. It is local-first and inspectable by default.
 
 For a longer positioning note, see [docs/COMPARISON.md](docs/COMPARISON.md).
+
+## 5-Minute Quickstart
+
+Once the MCP server is registered in Codex, the shortest useful path is:
+
+1. write one durable memory
+2. write one coordination signal
+3. inspect the namespace without opening SQLite
+
+Example flow:
+
+```text
+store(namespace="project:demo", kind="memory", content="claim: Use WAL mode for concurrent readers.")
+store(namespace="project:demo", kind="signal", content="review ready", tags=["handoff:ready"])
+stats(namespace="project:demo")
+browse(namespace="project:demo", limit=10)
+recall(namespace="project:demo", kind="signal", since="<last_seen_id>")
+```
+
+That shows the core split:
+
+- `memory` keeps what the agent learned
+- `signal` carries what another workflow needs to know now
 
 ## How It Works
 
@@ -165,6 +193,9 @@ The MCP surface is intentionally small:
 
 - `store`
 - `recall`
+- `browse`
+- `stats`
+- `forget`
 
 Common `store` fields:
 
@@ -192,12 +223,43 @@ Common `recall` fields:
 
 ## Typical Namespaces
 
+- `global` for a sensible default shared bucket
 - `project:<workspace>`
-- `global`
 - `domain:<name>`
 - imported profile namespaces when a team wants them
 
 The framework is profile-agnostic. A specific operator profile can be layered on top, but the bridge itself is not tied to one persona or one protocol.
+
+If you are starting from scratch, use `global` first and introduce `project:<workspace>` once you want project-local memory.
+
+## Signal Handoff Example
+
+The `signal` channel is for coordination, not durable recall.
+
+Agent A:
+
+```text
+store(
+  namespace="project:foo",
+  kind="signal",
+  content="frontend review ready",
+  tags=["handoff:ready", "team:frontend"],
+  correlation_id="ticket-142"
+)
+```
+
+Agent B:
+
+```text
+recall(
+  namespace="project:foo",
+  kind="signal",
+  since="<last_seen_id>",
+  tags_any=["handoff:ready"]
+)
+```
+
+That lets one workflow poll for fresh handoff events without mixing them into durable memory.
 
 ## Day-to-Day Usage
 

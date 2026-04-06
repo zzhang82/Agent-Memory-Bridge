@@ -184,3 +184,86 @@ def test_store_rejects_unknown_kind(tmp_path: Path) -> None:
             kind="note",
         )
 
+
+def test_browse_lists_recent_items_and_can_filter_by_domain(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    older = store.store(
+        namespace="project:bridge",
+        content="Older storage note.",
+        kind="memory",
+        tags=["domain:storage"],
+    )
+    newer = store.store(
+        namespace="project:bridge",
+        content="Newer orchestration note.",
+        kind="memory",
+        tags=["domain:orchestration"],
+    )
+
+    browse_all = store.browse(namespace="project:bridge", limit=10)
+    browse_domain = store.browse(namespace="project:bridge", domain="orchestration", limit=10)
+
+    assert browse_all["count"] == 2
+    assert browse_all["items"][0]["id"] == newer["id"]
+    assert browse_all["items"][1]["id"] == older["id"]
+    assert browse_domain["count"] == 1
+    assert browse_domain["items"][0]["id"] == newer["id"]
+
+
+def test_stats_returns_kind_counts_and_top_domains(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    first = store.store(
+        namespace="project:bridge",
+        content="Storage claim one.",
+        kind="memory",
+        tags=["domain:storage"],
+    )
+    store.store(
+        namespace="project:bridge",
+        content="Storage claim two.",
+        kind="memory",
+        tags=["domain:storage", "domain:retrieval"],
+    )
+    signal = store.store(
+        namespace="project:bridge",
+        content="Reviewer ready.",
+        kind="signal",
+        tags=["domain:orchestration"],
+    )
+
+    stats = store.stats(namespace="project:bridge")
+
+    assert stats["total_count"] == 3
+    assert stats["kind_counts"]["memory"] == 2
+    assert stats["kind_counts"]["signal"] == 1
+    assert stats["top_domains"][0] == {"domain": "storage", "count": 2}
+    assert stats["oldest_entry_at"] == first["created_at"]
+    assert stats["newest_entry_at"] == signal["created_at"]
+
+
+def test_forget_removes_existing_item_and_returns_deleted_metadata(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="Wrong durable memory.",
+        kind="memory",
+        tags=["domain:storage"],
+        title="Bad record",
+    )
+
+    removed = store.forget(created["id"])
+    recall = store.recall(namespace="project:bridge", query="Wrong durable memory", limit=5)
+
+    assert removed["deleted"] is True
+    assert removed["item"]["id"] == created["id"]
+    assert removed["item"]["title"] == "Bad record"
+    assert recall["count"] == 0
+
+
+def test_forget_returns_deleted_false_for_missing_id(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+
+    removed = store.forget("missing-id")
+
+    assert removed == {"id": "missing-id", "deleted": False, "item": None}
+

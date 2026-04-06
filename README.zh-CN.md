@@ -6,6 +6,11 @@
 
 当前先从 Codex workflow 开始。
 
+它把大多数 memory 工具混在一起的两类东西拆开了：
+
+- `memory`：值得留到后面复用的持久知识
+- `signal`：用于 handoff、轮询和流程协调的短期事件
+
 Agent Memory Bridge 是一个 **MCP-native、local-first** 的 agent memory framework。它用来保存聊天上下文最容易丢掉的东西：
 
 - 关键决策
@@ -50,11 +55,34 @@ Agent Memory Bridge 是故意做窄的。
 这个项目故意不走那条路：
 
 1. 它面向 coding-agent workflow，而不是通用笔记存储。
-2. 它把 MCP surface 刻意收得很小，只有 `store` 和 `recall`。
+2. 它把 MCP surface 刻意保持得很小，而且可检查。
 3. 它重点是把 session 输出提升成紧凑、机器可读的 memory，而不是把 summary 当成最终产物。
 4. 它默认 local-first，而且运行形态可检查。
 
 更完整的定位说明见 [docs/COMPARISON.md](docs/COMPARISON.md)。
+
+## 5 分钟上手路径
+
+在 Codex 里注册好 MCP 之后，最短的有效路径是：
+
+1. 先写一条 durable memory
+2. 再写一条 coordination signal
+3. 不用碰 SQLite，直接看看 namespace 里有什么
+
+示例流程：
+
+```text
+store(namespace="project:demo", kind="memory", content="claim: Use WAL mode for concurrent readers.")
+store(namespace="project:demo", kind="signal", content="review ready", tags=["handoff:ready"])
+stats(namespace="project:demo")
+browse(namespace="project:demo", limit=10)
+recall(namespace="project:demo", kind="signal", since="<last_seen_id>")
+```
+
+这条路径最能体现它的核心拆分：
+
+- `memory` 保存学到的东西
+- `signal` 传递另一个流程现在需要知道的事
 
 ## 它怎么工作
 
@@ -165,6 +193,9 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 
 - `store`
 - `recall`
+- `browse`
+- `stats`
+- `forget`
 
 常见 `store` 字段：
 
@@ -192,13 +223,44 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 
 ## 典型 namespace
 
+- `global`：适合作为默认共享 bucket
 - `project:<workspace>`
-- `global`
 - `domain:<name>`
 - 团队自己导入的 profile namespace
 
 这个 framework 本身是 **profile-agnostic** 的。  
 可以在它上面叠加某个 operator profile，但 bridge 本身不应该绑定一个固定 persona。
+
+如果你是第一次用，先从 `global` 开始最自然；等需要项目隔离时，再引入 `project:<workspace>`。
+
+## Signal handoff 示例
+
+`signal` 这一层是给协调用的，不是给长期记忆用的。
+
+Agent A：
+
+```text
+store(
+  namespace="project:foo",
+  kind="signal",
+  content="frontend review ready",
+  tags=["handoff:ready", "team:frontend"],
+  correlation_id="ticket-142"
+)
+```
+
+Agent B：
+
+```text
+recall(
+  namespace="project:foo",
+  kind="signal",
+  since="<last_seen_id>",
+  tags_any=["handoff:ready"]
+)
+```
+
+这样一个流程就能轮询新的 handoff 事件，而不会把这些短期事件混进 durable memory。
 
 ## 日常使用方式
 

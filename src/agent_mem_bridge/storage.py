@@ -272,6 +272,144 @@ class MemoryStore:
         )
         return payload
 
+    def browse(
+        self,
+        namespace: str,
+        domain: str | None = None,
+        kind: str | None = None,
+        limit: int = 10,
+    ) -> dict[str, Any]:
+        cleaned_namespace = namespace.strip()
+        if not cleaned_namespace:
+            raise ValueError("namespace must not be empty")
+        if kind is not None and kind not in ALLOWED_KINDS:
+            raise ValueError(f"kind must be one of {sorted(ALLOWED_KINDS)}")
+
+        search_limit = max(1, min(limit, 100))
+        tags_any = [f"domain:{domain.strip()}"] if domain and domain.strip() else None
+        items = self._recall_candidates(
+            namespace=cleaned_namespace,
+            query="",
+            limit=search_limit,
+            kind=kind,
+            tags_any=tags_any,
+            session_id=None,
+            actor=None,
+            correlation_id=None,
+            since=None,
+        )
+        payload = {
+            "count": len(items),
+            "items": items,
+            "namespace": cleaned_namespace,
+            "domain": domain.strip() if domain and domain.strip() else None,
+            "kind": kind,
+        }
+        self._log(
+            "browse",
+            {
+                "namespace": cleaned_namespace,
+                "count": payload["count"],
+                "kind": kind,
+                "domain": payload["domain"],
+            },
+        )
+        return payload
+
+    def forget(self, memory_id: str) -> dict[str, Any]:
+        cleaned_id = memory_id.strip()
+        if not cleaned_id:
+            raise ValueError("id must not be empty")
+
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT
+                    id,
+                    namespace,
+                    kind,
+                    title,
+                    content,
+                    tags_json,
+                    session_id,
+                    actor,
+                    correlation_id,
+                    source_app,
+                    created_at
+                FROM memories
+                WHERE id = ?
+                LIMIT 1
+                """,
+                (cleaned_id,),
+            ).fetchone()
+            if row is None:
+                self._log("forget", {"id": cleaned_id, "deleted": False})
+                return {"id": cleaned_id, "deleted": False, "item": None}
+
+            conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (cleaned_id,))
+            conn.execute("DELETE FROM memories WHERE id = ?", (cleaned_id,))
+            conn.commit()
+
+        item = MemoryRow.from_sqlite(row).as_dict()
+        self._log(
+            "forget",
+            {
+                "id": cleaned_id,
+                "deleted": True,
+                "namespace": item["namespace"],
+                "kind": item["kind"],
+            },
+        )
+        return {"id": cleaned_id, "deleted": True, "item": item}
+
+    def stats(self, namespace: str) -> dict[str, Any]:
+        cleaned_namespace = namespace.strip()
+        if not cleaned_namespace:
+            raise ValueError("namespace must not be empty")
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT kind, tags_json, created_at
+                FROM memories
+                WHERE namespace = ?
+                ORDER BY created_at ASC
+                """,
+                (cleaned_namespace,),
+            ).fetchall()
+
+        kind_counts = {kind: 0 for kind in sorted(ALLOWED_KINDS)}
+        domain_counts: dict[str, int] = {}
+        oldest_entry_at = rows[0]["created_at"] if rows else None
+        newest_entry_at = rows[-1]["created_at"] if rows else None
+
+        for row in rows:
+            kind = row["kind"]
+            kind_counts[kind] = kind_counts.get(kind, 0) + 1
+            for tag in json.loads(row["tags_json"] or "[]"):
+                if not isinstance(tag, str) or not tag.startswith("domain:"):
+                    continue
+                domain = tag.split(":", 1)[1].strip()
+                if not domain:
+                    continue
+                domain_counts[domain] = domain_counts.get(domain, 0) + 1
+
+        top_domains = [
+            {"domain": domain, "count": count}
+            for domain, count in sorted(domain_counts.items(), key=lambda item: (-item[1], item[0]))[:5]
+        ]
+
+        payload = {
+            "namespace": cleaned_namespace,
+            "total_count": len(rows),
+            "kind_counts": kind_counts,
+            "top_domains": top_domains,
+            "oldest_entry_at": oldest_entry_at,
+            "newest_entry_at": newest_entry_at,
+        }
+        self._log("stats", payload)
+        return payload
+
     def store_memory(self, **kwargs: Any) -> dict[str, Any]:
         return self.store(**kwargs)
 

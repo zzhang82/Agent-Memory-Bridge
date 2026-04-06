@@ -212,5 +212,99 @@ def recall(
     )
 
 
+@mcp.tool(structured_output=True)
+def browse(
+    namespace: Annotated[
+        str,
+        Field(
+            description=(
+                "Namespace to inspect without a text query, such as "
+                "`project:<workspace>`, `domain:<name>`, or `global`."
+            )
+        ),
+    ],
+    domain: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Optional domain tag to narrow the list, using the plain domain name "
+                "without the `domain:` prefix."
+            )
+        ),
+    ] = None,
+    kind: Annotated[
+        Literal["memory", "signal"] | None,
+        Field(
+            description=(
+                "Optional type filter. Use `memory` for durable knowledge and `signal` "
+                "for coordination events."
+            )
+        ),
+    ] = None,
+    limit: Annotated[
+        int,
+        Field(
+            ge=1,
+            le=100,
+            description="Maximum number of items to list. Smaller values keep browse output readable.",
+        ),
+    ] = 10,
+) -> dict[str, Any]:
+    """Browse recent items when you do not yet know what to search for.
+
+    Use this tool to inspect a namespace by filters alone. It is useful when you want
+    to see recent memory, scan a domain bucket, or confirm that signals are flowing
+    before writing a more specific recall query.
+    """
+    return bridge.browse(
+        namespace=namespace,
+        domain=domain,
+        kind=kind,
+        limit=limit,
+    )
+
+
+@mcp.tool(structured_output=True)
+def stats(
+    namespace: Annotated[
+        str,
+        Field(
+            description=(
+                "Namespace to summarize, such as `project:<workspace>`, `domain:<name>`, "
+                "or `global`."
+            )
+        ),
+    ],
+) -> dict[str, Any]:
+    """Return a quick health summary for one namespace.
+
+    Use this tool when you want to inspect what is in the bridge without opening SQLite
+    directly. It returns total item count, a kind breakdown, top domains, and the
+    oldest and newest entry timestamps for the namespace.
+    """
+    return bridge.stats(namespace=namespace)
+
+
+@mcp.tool(structured_output=True)
+def forget(
+    id: Annotated[
+        str,
+        Field(
+            description=(
+                "Exact memory identifier to remove. Use this when a record is noisy, wrong, "
+                "or no longer belongs in the bridge."
+            )
+        ),
+    ],
+) -> dict[str, Any]:
+    """Delete one stored entry by id.
+
+    Use this tool to remove a bad memory, an accidental write, or a signal that should
+    no longer exist. The response tells you whether anything was deleted and returns the
+    removed item metadata when a match is found.
+    """
+    return bridge.forget(memory_id=id)
+
+
 def main() -> None:
     mcp.run(transport="stdio")
