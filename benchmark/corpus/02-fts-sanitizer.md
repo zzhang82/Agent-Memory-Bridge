@@ -5,7 +5,7 @@ title: FTS Sanitizer
 tags:
   - project:agent-memory-bridge
   - topic:fts
-actor: cole
+actor: benchmark
 session_id: bench-1
 correlation_id: task-search
 source_app: benchmark

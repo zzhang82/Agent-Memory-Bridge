@@ -17,3 +17,10 @@ Current runnable entrypoints:
 
 - `python .\\scripts\\run_benchmark.py`
 - `python .\\scripts\\run_deterministic_proof.py`
+
+The benchmark report combines two layers:
+
+- deterministic proof for signal correctness, duplicate suppression, and recall timing
+- retrieval comparison for `precision@1`, `precision@3`, and latency against a simple file-scan baseline
+
+The goal is not to win a leaderboard. It is to make regressions visible and keep the bridge honest as retrieval and signal semantics evolve.

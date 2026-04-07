@@ -5,7 +5,7 @@ title: Review Handoff
 tags:
   - handoff
   - review
-actor: cole
+actor: benchmark
 session_id: bench-2
 correlation_id: handoff-review
 source_app: benchmark

@@ -5,7 +5,7 @@ title: Storage Decision
 tags:
   - project:agent-memory-bridge
   - topic:storage
-actor: cole
+actor: benchmark
 session_id: bench-1
 correlation_id: task-storage
 source_app: benchmark

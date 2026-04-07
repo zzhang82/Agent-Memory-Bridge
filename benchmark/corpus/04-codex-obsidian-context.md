@@ -5,7 +5,7 @@ title: Codex Context Bridge
 tags:
   - project:agent-memory-bridge
   - topic:context
-actor: cole
+actor: benchmark
 session_id: bench-3
 correlation_id: task-context
 source_app: benchmark

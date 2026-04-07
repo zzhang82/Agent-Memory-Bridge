@@ -3,30 +3,35 @@
     "id": "q1",
     "query": "SQLite WAL",
     "expected_title": "Storage Decision",
+    "relevant_titles": ["Storage Decision"],
     "kind": "memory"
   },
   {
     "id": "q2",
     "query": "values.yaml",
     "expected_title": "FTS Sanitizer",
+    "relevant_titles": ["FTS Sanitizer"],
     "kind": "memory"
   },
   {
     "id": "q3",
     "query": "context compaction",
     "expected_title": "Codex Context Bridge",
+    "relevant_titles": ["Codex Context Bridge"],
     "kind": "memory"
   },
   {
     "id": "q4",
     "query": "API handoff",
     "expected_title": "Review Handoff",
+    "relevant_titles": ["Review Handoff"],
     "kind": "signal"
   },
   {
     "id": "q5",
     "query": "Obsidian-friendly structure",
     "expected_title": "Codex Context Bridge",
+    "relevant_titles": ["Codex Context Bridge"],
     "kind": "memory"
   }
 ]
