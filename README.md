@@ -3,7 +3,6 @@
 [简体中文](README.zh-CN.md)
 
 [![MCP](https://img.shields.io/badge/MCP_Server-Enabled-4A90E2?logo=protocolsdotio&logoColor=white)](https://modelcontextprotocol.io)
-[![Codex-first](https://img.shields.io/badge/Codex--first-Primary-0A7CFF?logo=openai&logoColor=white)](https://openai.com)
 [![Glama](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge/badges/score.svg)](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
@@ -11,13 +10,15 @@
 Two-channel MCP memory for coding agents:
 durable knowledge + coordination signals.
 
-Built for Codex-first workflows.
+MCP-native, currently optimized for Codex-first workflows.
 
 v0.5.0 adds:
 
 - benchmarked retrieval with `expected_top1_accuracy = 1.0`
 - a fuller signal lifecycle: `claim -> extend -> ack / expire / reclaim`
 - `extend_signal_lease` as part of the public MCP surface
+
+![Agent Memory Bridge v0.5 terminal demo](examples/demo/v0.5-terminal-demo.gif)
 
 Most memory tools put everything into one bucket. Agent Memory Bridge keeps two different kinds of state separate:
 
@@ -103,8 +104,6 @@ Lease renewal is not reclaim. If a lease is still active, the current claimant c
 ## Demo
 
 There is now a short terminal demo for `v0.5`:
-
-![Agent Memory Bridge v0.5 terminal demo](examples/demo/v0.5-terminal-demo.gif)
 
 - GIF: [examples/demo/v0.5-terminal-demo.gif](examples/demo/v0.5-terminal-demo.gif)
 - source: [examples/demo/README.md](examples/demo/README.md)

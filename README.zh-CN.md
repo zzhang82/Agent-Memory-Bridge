@@ -3,7 +3,6 @@
 [English](README.md) | 简体中文
 
 [![MCP](https://img.shields.io/badge/MCP_Server-Enabled-4A90E2?logo=protocolsdotio&logoColor=white)](https://modelcontextprotocol.io)
-[![Codex-first](https://img.shields.io/badge/Codex--first-Primary-0A7CFF?logo=openai&logoColor=white)](https://openai.com)
 [![Glama](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge/badges/score.svg)](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
@@ -11,13 +10,15 @@
 面向编码代理的双通道 MCP 记忆层：
 持久知识 + 协调信号。
 
-当前先从 Codex-first 工作流开始。
+MCP-native，目前优先针对 Codex-first 工作流做优化。
 
 `v0.5.0` 这一版新增：
 
 - 可度量的 retrieval，当前 `expected_top1_accuracy = 1.0`
 - 更完整的 signal lifecycle：`claim -> extend -> ack / expire / reclaim`
 - `extend_signal_lease` 正式进入公开 MCP surface
+
+![Agent Memory Bridge v0.5 terminal demo](examples/demo/v0.5-terminal-demo.gif)
 
 很多记忆工具会把所有状态塞进一个桶里。Agent Memory Bridge 把两类状态分开：
 
@@ -106,8 +107,6 @@ ack_signal(id="<signal_id>", consumer="reviewer-a")
 ## Demo
 
 现在已经有一个很短的 `v0.5` 终端演示：
-
-![Agent Memory Bridge v0.5 terminal demo](examples/demo/v0.5-terminal-demo.gif)
 
 - GIF: [examples/demo/v0.5-terminal-demo.gif](examples/demo/v0.5-terminal-demo.gif)
 - source: [examples/demo/README.md](examples/demo/README.md)
