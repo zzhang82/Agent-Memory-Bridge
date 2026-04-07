@@ -1,0 +1,50 @@
+{
+  "source_root": "\\\\My-G\\home\\Drive\\obsidian\\Wanders\\Cole",
+  "mode": "full",
+  "stale_path_count": 4,
+  "stale_paths": [
+    "skills/cloudflare-markdown-for-agents/SKILL.md",
+    "skills/credit-card-kb/SKILL.md",
+    "skills/vw-maintenance/SKILL.md",
+    "skills/work-logger/SKILL.md"
+  ],
+  "deleted_row_count": 4,
+  "comparison_before": {
+    "mode": "full",
+    "basis": {
+      "source_root": "\\\\My-G\\home\\Drive\\obsidian\\Wanders\\Cole"
+    },
+    "expected_count": 74,
+    "imported_count": 78,
+    "missing_count": 0,
+    "extra_count": 4,
+    "out_of_scope_count": 0,
+    "out_of_scope_paths": [],
+    "content_match_count": 74,
+    "content_mismatch_count": 0,
+    "content_mismatch_paths": [],
+    "namespace_mismatch_count": 0,
+    "namespace_mismatch_paths": [],
+    "missing_paths": [],
+    "extra_paths": [
+      "skills/cloudflare-markdown-for-agents/SKILL.md",
+      "skills/credit-card-kb/SKILL.md",
+      "skills/vw-maintenance/SKILL.md",
+      "skills/work-logger/SKILL.md"
+    ],
+    "expected_by_namespace": {
+      "cole-core": 14,
+      "cole-skills": 32,
+      "cole-team": 7,
+      "cole-workflows": 10,
+      "cole-workspace": 11
+    },
+    "imported_by_namespace": {
+      "cole-core": 14,
+      "cole-skills": 32,
+      "cole-team": 7,
+      "cole-workflows": 10,
+      "cole-workspace": 11
+    }
+  }
+}

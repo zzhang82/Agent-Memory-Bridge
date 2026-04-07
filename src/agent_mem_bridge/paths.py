@@ -131,6 +131,7 @@ def resolve_profile_source_root() -> Path:
 
     configured = _config_value("profile", "source_root")
     if not isinstance(configured, str) or not configured.strip():
+        # Legacy compatibility for older live configs that still use [cole].
         configured = _config_value("cole", "source_root")
     if isinstance(configured, str) and configured.strip():
         return _resolve_config_path_value(configured.strip())

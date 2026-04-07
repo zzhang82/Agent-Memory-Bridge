@@ -1,17 +1,21 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 
-from agent_mem_bridge.cole_migration import compare_cole_migration_with_mode, import_cole_memory, prune_stale_cole_imports
-from agent_mem_bridge.paths import resolve_bridge_db_path, resolve_bridge_log_dir, resolve_cole_source_root
+from agent_mem_bridge.paths import resolve_bridge_db_path, resolve_bridge_log_dir, resolve_profile_source_root
+from agent_mem_bridge.profile_migration import (
+    compare_profile_migration_with_mode,
+    import_profile_memory,
+    prune_stale_profile_imports,
+)
 from agent_mem_bridge.storage import MemoryStore
 
 
 def main() -> None:
     args = _parse_args()
-    source_root = args.source_root.resolve() if args.source_root else _default_cole_root()
+    source_root = args.source_root.resolve() if args.source_root else _default_profile_root()
 
     store = MemoryStore(
         db_path=resolve_bridge_db_path(),
@@ -19,7 +23,7 @@ def main() -> None:
     )
 
     if args.prune_stale:
-        result = prune_stale_cole_imports(
+        result = prune_stale_profile_imports(
             store,
             source_root,
             mode=args.compare_mode,
@@ -27,7 +31,7 @@ def main() -> None:
             snapshot_manifest_path=args.snapshot_manifest_path,
         )
     elif args.compare_only:
-        result = compare_cole_migration_with_mode(
+        result = compare_profile_migration_with_mode(
             store,
             source_root,
             mode=args.compare_mode,
@@ -35,7 +39,8 @@ def main() -> None:
             snapshot_manifest_path=args.snapshot_manifest_path,
         )
     else:
-        result = import_cole_memory(store, source_root)
+        result = import_profile_memory(store, source_root)
+
     rendered = json.dumps(result, indent=2)
     if args.report_path is not None:
         args.report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -44,12 +49,14 @@ def main() -> None:
 
 
 def _parse_args() -> argparse.Namespace:
-parser = argparse.ArgumentParser(description="Import or compare Cole markdown memory in Agent Memory Bridge.")
+    parser = argparse.ArgumentParser(
+        description="Import or compare markdown profile memory in Agent Memory Bridge."
+    )
     parser.add_argument(
         "source_root",
         nargs="?",
         type=Path,
-        help="Path to the Cole source root. Defaults to the sibling Cole directory.",
+        help="Path to the profile source root. Defaults to the configured [profile].source_root.",
     )
     parser.add_argument(
         "--compare-only",
@@ -59,7 +66,7 @@ parser = argparse.ArgumentParser(description="Import or compare Cole markdown me
     parser.add_argument(
         "--prune-stale",
         action="store_true",
-        help="Delete stale imported Cole rows whose source paths no longer exist in the selected compare basis.",
+        help="Delete stale imported profile rows whose source paths no longer exist in the selected compare basis.",
     )
     parser.add_argument(
         "--compare-mode",
@@ -70,7 +77,7 @@ parser = argparse.ArgumentParser(description="Import or compare Cole markdown me
     parser.add_argument(
         "--live-manifest-path",
         type=Path,
-        help="Optional path to the live source manifest. Defaults to <Cole>/live-source-manifest.json.",
+        help="Optional path to the live source manifest. Defaults to <profile-root>/live-source-manifest.json.",
     )
     parser.add_argument(
         "--snapshot-manifest-path",
@@ -85,10 +92,9 @@ parser = argparse.ArgumentParser(description="Import or compare Cole markdown me
     return parser.parse_args()
 
 
-def _default_cole_root() -> Path:
-    return resolve_cole_source_root()
+def _default_profile_root() -> Path:
+    return resolve_profile_source_root()
 
 
 if __name__ == "__main__":
     main()
-

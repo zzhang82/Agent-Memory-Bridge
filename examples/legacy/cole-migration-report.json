@@ -1,0 +1,781 @@
+{
+  "source_root": "\\\\My-G\\home\\Drive\\obsidian\\Wanders\\Cole",
+  "document_count": 74,
+  "stored_count": 2,
+  "duplicate_count": 72,
+  "results": [
+    {
+      "relative_path": "HOW-TO-USE-COLE.md",
+      "namespace": "cole-core",
+      "title": "How to Use Cole",
+      "id": "20260405033621760963-b283f6da",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260405033621760963-b283f6da",
+      "created_at": "2026-04-05T03:36:21.761010+00:00"
+    },
+    {
+      "relative_path": "architecture.md",
+      "namespace": "cole-core",
+      "title": "architecture",
+      "id": "20260404202933044785-a50fb620",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933044785-a50fb620",
+      "created_at": "2026-04-04T20:29:33.044812+00:00"
+    },
+    {
+      "relative_path": "memory/.claude-memory-guard.md",
+      "namespace": "cole-core",
+      "title": "Structure",
+      "id": "20260404202933054940-82db5563",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933054940-82db5563",
+      "created_at": "2026-04-04T20:29:33.054972+00:00"
+    },
+    {
+      "relative_path": "memory/core/archive-convention.md",
+      "namespace": "cole-core",
+      "title": "File Archive Convention",
+      "id": "20260404202933064482-d82d9acd",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933064482-d82d9acd",
+      "created_at": "2026-04-04T20:29:33.064507+00:00"
+    },
+    {
+      "relative_path": "memory/core/core.md",
+      "namespace": "cole-core",
+      "title": "Core Identity",
+      "id": "20260405033700625523-d7899f3a",
+      "stored": true,
+      "duplicate": false,
+      "duplicate_of": null,
+      "created_at": "2026-04-05T03:37:00.625571+00:00"
+    },
+    {
+      "relative_path": "memory/core/decision-making.md",
+      "namespace": "cole-core",
+      "title": "Decision Making Patterns",
+      "id": "20260405021918277689-e73e77f8",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260405021918277689-e73e77f8",
+      "created_at": "2026-04-05T02:19:18.277733+00:00"
+    },
+    {
+      "relative_path": "memory/core/evolution.md",
+      "namespace": "cole-core",
+      "title": "Evolution",
+      "id": "20260404202933095513-4295a45a",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933095513-4295a45a",
+      "created_at": "2026-04-04T20:29:33.095565+00:00"
+    },
+    {
+      "relative_path": "memory/core/leadership.md",
+      "namespace": "cole-core",
+      "title": "Leadership Philosophy",
+      "id": "20260404202933105771-9be596ca",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933105771-9be596ca",
+      "created_at": "2026-04-04T20:29:33.105801+00:00"
+    },
+    {
+      "relative_path": "memory/core/persona.md",
+      "namespace": "cole-core",
+      "title": "persona",
+      "id": "20260404202933114734-2f74901e",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933114734-2f74901e",
+      "created_at": "2026-04-04T20:29:33.114763+00:00"
+    },
+    {
+      "relative_path": "memory/core/reflections.md",
+      "namespace": "cole-core",
+      "title": "Reflections",
+      "id": "20260405021918292130-12b4f111",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260405021918292130-12b4f111",
+      "created_at": "2026-04-05T02:19:18.292161+00:00"
+    },
+    {
+      "relative_path": "memory/MEMORY.md",
+      "namespace": "cole-core",
+      "title": "\ud83d\udee4\ufe0f 3. Execution Workflows (`workflows/`)",
+      "id": "20260405033700643828-196589a7",
+      "stored": true,
+      "duplicate": false,
+      "duplicate_of": null,
+      "created_at": "2026-04-05T03:37:00.643867+00:00"
+    },
+    {
+      "relative_path": "memory/QUEUE.md",
+      "namespace": "cole-core",
+      "title": "Swarm OS Global State Queue",
+      "id": "20260404202933144595-ecfc494e",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933144595-ecfc494e",
+      "created_at": "2026-04-04T20:29:33.144634+00:00"
+    },
+    {
+      "relative_path": "memory/REDLINE.md",
+      "namespace": "cole-core",
+      "title": "REDLINE",
+      "id": "20260404202933154841-8cb3f709",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933154841-8cb3f709",
+      "created_at": "2026-04-04T20:29:33.154880+00:00"
+    },
+    {
+      "relative_path": "memory/skills/agent-memory-patterns.md",
+      "namespace": "cole-skills",
+      "title": "Agent Memory Patterns",
+      "id": "20260404202933165392-5c092a99",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933165392-5c092a99",
+      "created_at": "2026-04-04T20:29:33.165426+00:00"
+    },
+    {
+      "relative_path": "memory/skills/ai-watch-sources.md",
+      "namespace": "cole-skills",
+      "title": "AI Watch Sources",
+      "id": "20260404202933175832-368b6c8d",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933175832-368b6c8d",
+      "created_at": "2026-04-04T20:29:33.175862+00:00"
+    },
+    {
+      "relative_path": "memory/skills/code-review-skill.md",
+      "namespace": "cole-skills",
+      "title": "Code Review Expert Skill",
+      "id": "20260404202933186171-2880adee",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933186171-2880adee",
+      "created_at": "2026-04-04T20:29:33.186198+00:00"
+    },
+    {
+      "relative_path": "memory/skills/docker-deployment-lessons.md",
+      "namespace": "cole-skills",
+      "title": "Docker Deployment Lessons (Hard-Won)",
+      "id": "20260404202933197935-edf64412",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933197935-edf64412",
+      "created_at": "2026-04-04T20:29:33.197968+00:00"
+    },
+    {
+      "relative_path": "memory/skills/docker.md",
+      "namespace": "cole-skills",
+      "title": "Docker Deployment Patterns",
+      "id": "20260404202933207157-0a56e39c",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933207157-0a56e39c",
+      "created_at": "2026-04-04T20:29:33.207184+00:00"
+    },
+    {
+      "relative_path": "memory/skills/hn-scraper-skill.md",
+      "namespace": "cole-skills",
+      "title": "Hacker News Scraper Skill",
+      "id": "20260404202933216153-efd443cb",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933216153-efd443cb",
+      "created_at": "2026-04-04T20:29:33.216180+00:00"
+    },
+    {
+      "relative_path": "memory/skills/hybrid-search.md",
+      "namespace": "cole-skills",
+      "title": "Hybrid Search",
+      "id": "20260404202933224587-64402e16",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933224587-64402e16",
+      "created_at": "2026-04-04T20:29:33.224615+00:00"
+    },
+    {
+      "relative_path": "memory/skills/kimi-api.md",
+      "namespace": "cole-skills",
+      "title": "\u26a0\ufe0f DEPRECATED: Kimi API & Bespoke Scripts \u26a0\ufe0f",
+      "id": "20260404202933233167-4c683e85",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933233167-4c683e85",
+      "created_at": "2026-04-04T20:29:33.233195+00:00"
+    },
+    {
+      "relative_path": "memory/skills/kimi-cli.md",
+      "namespace": "cole-skills",
+      "title": "Kimi CLI Technical Patterns",
+      "id": "20260404202933241662-6c37e1ab",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933241662-6c37e1ab",
+      "created_at": "2026-04-04T20:29:33.241686+00:00"
+    },
+    {
+      "relative_path": "memory/skills/multi-agent-patterns.md",
+      "namespace": "cole-skills",
+      "title": "Multi-Agent Workflow Patterns",
+      "id": "20260404202933250610-995b28c0",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933250610-995b28c0",
+      "created_at": "2026-04-04T20:29:33.250633+00:00"
+    },
+    {
+      "relative_path": "memory/skills/ocr-easyocr.md",
+      "namespace": "cole-skills",
+      "title": "EasyOCR Knowledge",
+      "id": "20260404202933259555-beb38d45",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933259555-beb38d45",
+      "created_at": "2026-04-04T20:29:33.259581+00:00"
+    },
+    {
+      "relative_path": "memory/skills/openclaw-analysis.md",
+      "namespace": "cole-skills",
+      "title": "OpenClaw Framework Analysis",
+      "id": "20260404202933267918-b240db19",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933267918-b240db19",
+      "created_at": "2026-04-04T20:29:33.267936+00:00"
+    },
+    {
+      "relative_path": "memory/skills/output-skill.md",
+      "namespace": "cole-skills",
+      "title": "Output Skill",
+      "id": "20260404202933277102-ae867c37",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933277102-ae867c37",
+      "created_at": "2026-04-04T20:29:33.277126+00:00"
+    },
+    {
+      "relative_path": "memory/skills/patterns/file-stability-check.md",
+      "namespace": "cole-skills",
+      "title": "File Stability Detection Pattern",
+      "id": "20260404202933285923-3b63c898",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933285923-3b63c898",
+      "created_at": "2026-04-04T20:29:33.285948+00:00"
+    },
+    {
+      "relative_path": "memory/skills/patterns/parallel-review.md",
+      "namespace": "cole-skills",
+      "title": "Parallel Executor/Reviewer Pattern",
+      "id": "20260404202933295395-8761c128",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933295395-8761c128",
+      "created_at": "2026-04-04T20:29:33.295421+00:00"
+    },
+    {
+      "relative_path": "memory/skills/patterns/singleton-thread-safe.md",
+      "namespace": "cole-skills",
+      "title": "Thread-Safe Singleton Pattern",
+      "id": "20260404202933311314-8e5a2d72",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933311314-8e5a2d72",
+      "created_at": "2026-04-04T20:29:33.311343+00:00"
+    },
+    {
+      "relative_path": "memory/skills/python.md",
+      "namespace": "cole-skills",
+      "title": "Python Best Practices",
+      "id": "20260404202933322575-c62a7fae",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933322575-c62a7fae",
+      "created_at": "2026-04-04T20:29:33.322602+00:00"
+    },
+    {
+      "relative_path": "memory/skills/rag-agent-patterns.md",
+      "namespace": "cole-skills",
+      "title": "RAG Agent Patterns",
+      "id": "20260404202933331099-4501608e",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933331099-4501608e",
+      "created_at": "2026-04-04T20:29:33.331121+00:00"
+    },
+    {
+      "relative_path": "memory/skills/redesign-skill.md",
+      "namespace": "cole-skills",
+      "title": "Redesign Skill",
+      "id": "20260404202933339111-24dd9c65",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933339111-24dd9c65",
+      "created_at": "2026-04-04T20:29:33.339138+00:00"
+    },
+    {
+      "relative_path": "memory/skills/resilience-patterns.md",
+      "namespace": "cole-skills",
+      "title": "Resilience Patterns",
+      "id": "20260404202933348158-27d09524",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933348158-27d09524",
+      "created_at": "2026-04-04T20:29:33.348180+00:00"
+    },
+    {
+      "relative_path": "memory/skills/skills-framework.md",
+      "namespace": "cole-skills",
+      "title": "Skills Framework",
+      "id": "20260404202933356287-b7d2a761",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933356287-b7d2a761",
+      "created_at": "2026-04-04T20:29:33.356310+00:00"
+    },
+    {
+      "relative_path": "memory/skills/structured-llm-outputs.md",
+      "namespace": "cole-skills",
+      "title": "Structured LLM Outputs",
+      "id": "20260404202933364530-04e7073d",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933364530-04e7073d",
+      "created_at": "2026-04-04T20:29:33.364553+00:00"
+    },
+    {
+      "relative_path": "memory/skills/synology-nas.md",
+      "namespace": "cole-skills",
+      "title": "Synology NAS Environment",
+      "id": "20260404202933373397-17136720",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933373397-17136720",
+      "created_at": "2026-04-04T20:29:33.373424+00:00"
+    },
+    {
+      "relative_path": "memory/skills/taste-skill.md",
+      "namespace": "cole-skills",
+      "title": "UI Taste Skill",
+      "id": "20260404202933381934-e0224ab8",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933381934-e0224ab8",
+      "created_at": "2026-04-04T20:29:33.381963+00:00"
+    },
+    {
+      "relative_path": "memory/skills/telegram-bot.md",
+      "namespace": "cole-skills",
+      "title": "Telegram Bot Patterns",
+      "id": "20260404202933390943-fd9b5fad",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933390943-fd9b5fad",
+      "created_at": "2026-04-04T20:29:33.390989+00:00"
+    },
+    {
+      "relative_path": "memory/skills/tiered-llm-filtering.md",
+      "namespace": "cole-skills",
+      "title": "Tiered LLM Filtering",
+      "id": "20260404202933399427-11476f1b",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933399427-11476f1b",
+      "created_at": "2026-04-04T20:29:33.399453+00:00"
+    },
+    {
+      "relative_path": "memory/skills/turix-cua-debugging.md",
+      "namespace": "cole-skills",
+      "title": "TuriX-CUA Debugging Insights",
+      "id": "20260404202933408073-8fc76bb1",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933408073-8fc76bb1",
+      "created_at": "2026-04-04T20:29:33.408095+00:00"
+    },
+    {
+      "relative_path": "memory/status.md",
+      "namespace": "cole-core",
+      "title": "\u26a0\ufe0f DEPRECATED: ZOMBIE STATE \u26a0\ufe0f",
+      "id": "20260404202933416003-f4bef81a",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933416003-f4bef81a",
+      "created_at": "2026-04-04T20:29:33.416027+00:00"
+    },
+    {
+      "relative_path": "memory/team/agents/arch-reviewer-api.md",
+      "namespace": "cole-team",
+      "title": "arch-reviewer-api",
+      "id": "20260404202933424112-53f67f3a",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933424112-53f67f3a",
+      "created_at": "2026-04-04T20:29:33.424135+00:00"
+    },
+    {
+      "relative_path": "memory/team/agents/arch-reviewer-coupling.md",
+      "namespace": "cole-team",
+      "title": "arch-reviewer-coupling",
+      "id": "20260404202933432774-f6c1ffd4",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933432774-f6c1ffd4",
+      "created_at": "2026-04-04T20:29:33.432800+00:00"
+    },
+    {
+      "relative_path": "memory/team/agents/arch-reviewer-devops.md",
+      "namespace": "cole-team",
+      "title": "arch-reviewer-devops",
+      "id": "20260404202933442064-97349378",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933442064-97349378",
+      "created_at": "2026-04-04T20:29:33.442094+00:00"
+    },
+    {
+      "relative_path": "memory/team/agents/design-obsidian-export.md",
+      "namespace": "cole-team",
+      "title": "design-obsidian-export",
+      "id": "20260404202933450478-46010fb9",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933450478-46010fb9",
+      "created_at": "2026-04-04T20:29:33.450506+00:00"
+    },
+    {
+      "relative_path": "memory/team/agents/design-sop-analyzer.md",
+      "namespace": "cole-team",
+      "title": "design-sop-analyzer",
+      "id": "20260404202933458738-a9b732a4",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933458738-a9b732a4",
+      "created_at": "2026-04-04T20:29:33.458764+00:00"
+    },
+    {
+      "relative_path": "memory/team/agents/design-telegram-bot.md",
+      "namespace": "cole-team",
+      "title": "design-telegram-bot",
+      "id": "20260404202933467458-c2bce7f4",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933467458-c2bce7f4",
+      "created_at": "2026-04-04T20:29:33.467480+00:00"
+    },
+    {
+      "relative_path": "memory/team/README.md",
+      "namespace": "cole-team",
+      "title": "Current Roster",
+      "id": "20260404202933476659-5fdcdf88",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933476659-5fdcdf88",
+      "created_at": "2026-04-04T20:29:33.476687+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/agent-learning-framework.md",
+      "namespace": "cole-workflows",
+      "title": "Agent Learning Framework",
+      "id": "20260404202933486724-0c1b36db",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933486724-0c1b36db",
+      "created_at": "2026-04-04T20:29:33.486752+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/agent-registry.md",
+      "namespace": "cole-workflows",
+      "title": "Agent Registry",
+      "id": "20260404202933495448-2427cf0b",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933495448-2427cf0b",
+      "created_at": "2026-04-04T20:29:33.495475+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/boris-tane-workflow.md",
+      "namespace": "cole-workflows",
+      "title": "Boris Tane 6-Step Workflow",
+      "id": "20260404202933504465-3d4a7fa3",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933504465-3d4a7fa3",
+      "created_at": "2026-04-04T20:29:33.504491+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/checkpoint-system.md",
+      "namespace": "cole-workflows",
+      "title": "Checkpoint System",
+      "id": "20260404202933513231-64f7de8b",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933513231-64f7de8b",
+      "created_at": "2026-04-04T20:29:33.513257+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/cross-domain-patterns.md",
+      "namespace": "cole-workflows",
+      "title": "Cross-Domain Patterns",
+      "id": "20260404202933521904-1dc046a5",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933521904-1dc046a5",
+      "created_at": "2026-04-04T20:29:33.521929+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/deploy-claw-pattern.md",
+      "namespace": "cole-workflows",
+      "title": "Claw Deployment Pattern",
+      "id": "20260404202933530541-6534fdb4",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933530541-6534fdb4",
+      "created_at": "2026-04-04T20:29:33.530564+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/deploy-new-agent.md",
+      "namespace": "cole-workflows",
+      "title": "Deploy New Agent",
+      "id": "20260404202933538856-1ecb5ac7",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933538856-1ecb5ac7",
+      "created_at": "2026-04-04T20:29:33.538881+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/hooks-system.md",
+      "namespace": "cole-workflows",
+      "title": "Hooks System",
+      "id": "20260404202933547209-a1fed03a",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933547209-a1fed03a",
+      "created_at": "2026-04-04T20:29:33.547232+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/research-pipeline.md",
+      "namespace": "cole-workflows",
+      "title": "Research Pipeline v2.0",
+      "id": "20260404202933555200-3290cf8c",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933555200-3290cf8c",
+      "created_at": "2026-04-04T20:29:33.555222+00:00"
+    },
+    {
+      "relative_path": "memory/workflows/subagent-patterns.md",
+      "namespace": "cole-workflows",
+      "title": "Subagent Orchestration Patterns",
+      "id": "20260404202933564506-ec603091",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933564506-ec603091",
+      "created_at": "2026-04-04T20:29:33.564540+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/active_projects/daily-briefing.md",
+      "namespace": "cole-workspace",
+      "title": "Daily Briefing Project",
+      "id": "20260404202933573088-f6b7ab71",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933573088-f6b7ab71",
+      "created_at": "2026-04-04T20:29:33.573117+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/active_projects/finsight.md",
+      "namespace": "cole-workspace",
+      "title": "FinSight",
+      "id": "20260404202933581244-8026f434",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933581244-8026f434",
+      "created_at": "2026-04-04T20:29:33.581270+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/active_projects/horizon-bridge/CONTEXT_COMPASS.md",
+      "namespace": "cole-workspace",
+      "title": "Context Compass: Horizon Bridge",
+      "id": "20260404202933590352-65465398",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933590352-65465398",
+      "created_at": "2026-04-04T20:29:33.590381+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/active_projects/horizon-integration.md",
+      "namespace": "cole-workspace",
+      "title": "Horizon Integration: AI News as Learning Source",
+      "id": "20260404202933599170-b2177056",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933599170-b2177056",
+      "created_at": "2026-04-04T20:29:33.599194+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/active_projects/read-later-agent.md",
+      "namespace": "cole-workspace",
+      "title": "Read Later Agent Project",
+      "id": "20260404202933608691-433c3751",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933608691-433c3751",
+      "created_at": "2026-04-04T20:29:33.608724+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/active_projects/vision-to-sop/implementation.md",
+      "namespace": "cole-workspace",
+      "title": "Vision-to-SOP: Implementation Status",
+      "id": "20260404202933618190-6ab4a25a",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933618190-6ab4a25a",
+      "created_at": "2026-04-04T20:29:33.618217+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/active_projects/vision-to-sop/plan.md",
+      "namespace": "cole-workspace",
+      "title": "Vision-to-SOP: Implementation Plan",
+      "id": "20260404202933629135-e8439881",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933629135-e8439881",
+      "created_at": "2026-04-04T20:29:33.629168+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/active_projects/vision-to-sop/research.md",
+      "namespace": "cole-workspace",
+      "title": "Vision-to-SOP: Research Phase",
+      "id": "20260404202933638292-4d103de5",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933638292-4d103de5",
+      "created_at": "2026-04-04T20:29:33.638320+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/active_projects/vision-to-sop/retrospective.md",
+      "namespace": "cole-workspace",
+      "title": "Vision-to-SOP Retrospective: Layer 1 Team Lead Observations",
+      "id": "20260404202933648043-65659a22",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933648043-65659a22",
+      "created_at": "2026-04-04T20:29:33.648071+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/archived_projects/expense-snap.md",
+      "namespace": "cole-workspace",
+      "title": "Expense Snap Project",
+      "id": "20260404202933657901-db2acd5a",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933657901-db2acd5a",
+      "created_at": "2026-04-04T20:29:33.657931+00:00"
+    },
+    {
+      "relative_path": "memory/workspace/intake_inbox/TEMPLATE.md",
+      "namespace": "cole-workspace",
+      "title": "AI Daily - YYYY-MM-DD",
+      "id": "20260404202933666738-721a67e9",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933666738-721a67e9",
+      "created_at": "2026-04-04T20:29:33.666781+00:00"
+    },
+    {
+      "relative_path": "skills/json-canvas/SKILL.md",
+      "namespace": "cole-skills",
+      "title": "SKILL",
+      "id": "20260404202933697831-821cdaea",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933697831-821cdaea",
+      "created_at": "2026-04-04T20:29:33.697858+00:00"
+    },
+    {
+      "relative_path": "skills/kimi-api-expert/references/api_implementation.md",
+      "namespace": "cole-skills",
+      "title": "Kimi API Implementation Details",
+      "id": "20260405031457464376-dd42bce2",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260405031457464376-dd42bce2",
+      "created_at": "2026-04-05T03:14:57.464446+00:00"
+    },
+    {
+      "relative_path": "skills/kimi-api-expert/SKILL.md",
+      "namespace": "cole-skills",
+      "title": "Kimi API Expert",
+      "id": "20260405031457478709-a3a595a8",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260405031457478709-a3a595a8",
+      "created_at": "2026-04-05T03:14:57.478759+00:00"
+    },
+    {
+      "relative_path": "skills/obsidian-bases/SKILL.md",
+      "namespace": "cole-skills",
+      "title": "SKILL",
+      "id": "20260404202933706704-6d02f67f",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933706704-6d02f67f",
+      "created_at": "2026-04-04T20:29:33.706731+00:00"
+    },
+    {
+      "relative_path": "skills/obsidian-markdown/SKILL.md",
+      "namespace": "cole-skills",
+      "title": "Obsidian Flavored Markdown Skill",
+      "id": "20260404202933724617-93a74e78",
+      "stored": false,
+      "duplicate": true,
+      "duplicate_of": "20260404202933724617-93a74e78",
+      "created_at": "2026-04-04T20:29:33.724646+00:00"
+    }
+  ],
+  "comparison": {
+    "mode": "full",
+    "basis": {
+      "source_root": "\\\\My-G\\home\\Drive\\obsidian\\Wanders\\Cole"
+    },
+    "expected_count": 74,
+    "imported_count": 74,
+    "missing_count": 0,
+    "extra_count": 0,
+    "out_of_scope_count": 0,
+    "out_of_scope_paths": [],
+    "content_match_count": 74,
+    "content_mismatch_count": 0,
+    "content_mismatch_paths": [],
+    "namespace_mismatch_count": 0,
+    "namespace_mismatch_paths": [],
+    "missing_paths": [],
+    "extra_paths": [],
+    "expected_by_namespace": {
+      "cole-core": 14,
+      "cole-skills": 32,
+      "cole-team": 7,
+      "cole-workflows": 10,
+      "cole-workspace": 11
+    },
+    "imported_by_namespace": {
+      "cole-core": 14,
+      "cole-skills": 32,
+      "cole-team": 7,
+      "cole-workflows": 10,
+      "cole-workspace": 11
+    }
+  }
+}

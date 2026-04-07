@@ -12,7 +12,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from .archive_snapshot import build_default_live_manifest_path
-from .cole_migration import compare_cole_migration_with_mode
+from .profile_migration import compare_profile_migration_with_mode
 from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_bridge_log_dir, resolve_sessions_root
 from .storage import MemoryStore
 from .watcher_health import run_watcher_health_check
@@ -38,7 +38,7 @@ def run_health_check(
         log_dir=resolve_bridge_log_dir(),
     )
     resolved_compare_mode = _resolve_compare_mode(source_root, compare_mode)
-    compare = compare_cole_migration_with_mode(store, source_root, mode=resolved_compare_mode)
+    compare = compare_profile_migration_with_mode(store, source_root, mode=resolved_compare_mode)
     recall_checks = _run_recall_checks(store)
     watcher_health = run_watcher_health_check(resolve_sessions_root())
 

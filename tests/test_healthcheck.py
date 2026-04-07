@@ -1,7 +1,7 @@
 ﻿from pathlib import Path
 
 from agent_mem_bridge.archive_snapshot import write_live_source_manifest
-from agent_mem_bridge.cole_migration import import_cole_memory
+from agent_mem_bridge.profile_migration import import_profile_memory
 from agent_mem_bridge.healthcheck import run_health_check
 from agent_mem_bridge.storage import MemoryStore
 
@@ -35,7 +35,7 @@ def test_run_health_check_reports_ok_for_imported_cole_docs(tmp_path: Path, monk
     (tmp_path / "sessions").mkdir()
 
     store = MemoryStore(db_path=db_path, log_dir=log_dir)
-    import_cole_memory(store, cole_root)
+    import_profile_memory(store, cole_root)
 
     report = run_health_check(source_root=cole_root, check_stdio=False)
 
@@ -84,7 +84,7 @@ def test_run_health_check_auto_uses_live_compare_when_manifest_exists(tmp_path: 
     (tmp_path / "sessions").mkdir()
 
     store = MemoryStore(db_path=db_path, log_dir=log_dir)
-    import_cole_memory(store, cole_root)
+    import_profile_memory(store, cole_root)
 
     report = run_health_check(source_root=cole_root, check_stdio=False)
 

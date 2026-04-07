@@ -5,12 +5,12 @@ import json
 from pathlib import Path
 
 from agent_mem_bridge.healthcheck import run_health_check
-from agent_mem_bridge.paths import resolve_cole_source_root
+from agent_mem_bridge.paths import resolve_profile_source_root
 
 
 def main() -> None:
     args = _parse_args()
-    source_root = args.source_root.resolve() if args.source_root else _default_cole_root()
+    source_root = args.source_root.resolve() if args.source_root else _default_profile_root()
     report = run_health_check(
         source_root=source_root,
         check_stdio=not args.skip_stdio,
@@ -24,12 +24,12 @@ def main() -> None:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run bridge health checks and Cole migration validation.")
+    parser = argparse.ArgumentParser(description="Run bridge health checks and profile migration validation.")
     parser.add_argument(
         "source_root",
         nargs="?",
         type=Path,
-        help="Path to the Cole source root. Defaults to the sibling Cole directory.",
+        help="Path to the profile source root. Defaults to configured [profile].source_root.",
     )
     parser.add_argument(
         "--skip-stdio",
@@ -50,8 +50,8 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _default_cole_root() -> Path:
-    return resolve_cole_source_root()
+def _default_profile_root() -> Path:
+    return resolve_profile_source_root()
 
 
 if __name__ == "__main__":

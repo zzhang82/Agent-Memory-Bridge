@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .paths import resolve_profile_namespace
 from .storage import MemoryStore
 
 
@@ -79,7 +78,7 @@ def recall_first(
     global_namespace: str | None = None,
 ) -> dict[str, Any]:
     plan = plan_recall(query=query, project_namespace=project_namespace)
-    target_global_namespace = (global_namespace or resolve_profile_namespace()).strip()
+    target_global_namespace = (global_namespace or "global").strip()
     if not plan.should_search_local:
         return {
             "query": plan.query,

@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+"""Profile source migration helpers.
+
+These helpers import and compare markdown-based profile source trees. They keep
+compatibility with the original Cole source layout, but the public module shape
+is neutral so new users do not need to start from Cole-specific naming.
+"""
+
 import json
 from collections import Counter
 from dataclasses import dataclass
@@ -31,7 +38,7 @@ IMPORT_SOURCE_APP = "agent-memory-bridge-importer"
 
 
 @dataclass(frozen=True, slots=True)
-class ColeDocument:
+class ProfileDocument:
     path: Path
     relative_path: Path
     namespace: str
@@ -40,11 +47,11 @@ class ColeDocument:
     content: str
 
 
-def import_cole_memory(
+def import_profile_memory(
     store: MemoryStore,
     source_root: Path,
 ) -> dict[str, Any]:
-    documents = build_cole_documents(source_root)
+    documents = build_profile_documents(source_root)
     results: list[dict[str, Any]] = []
     for document in documents:
         result = store.store(
@@ -65,7 +72,7 @@ def import_cole_memory(
             }
         )
 
-    comparison = compare_cole_migration_with_mode(store, source_root, mode="full")
+    comparison = compare_profile_migration_with_mode(store, source_root, mode="full")
     return {
         "source_root": str(Path(source_root).resolve()),
         "document_count": len(documents),
@@ -76,11 +83,11 @@ def import_cole_memory(
     }
 
 
-def compare_cole_migration(store: MemoryStore, source_root: Path) -> dict[str, Any]:
-    return compare_cole_migration_with_mode(store, source_root, mode="full")
+def compare_profile_migration(store: MemoryStore, source_root: Path) -> dict[str, Any]:
+    return compare_profile_migration_with_mode(store, source_root, mode="full")
 
 
-def prune_stale_cole_imports(
+def prune_stale_profile_imports(
     store: MemoryStore,
     source_root: Path,
     *,
@@ -88,7 +95,7 @@ def prune_stale_cole_imports(
     live_manifest_path: Path | None = None,
     snapshot_manifest_path: Path | None = None,
 ) -> dict[str, Any]:
-    comparison = compare_cole_migration_with_mode(
+    comparison = compare_profile_migration_with_mode(
         store,
         source_root,
         mode=mode,
@@ -107,7 +114,7 @@ def prune_stale_cole_imports(
     }
 
 
-def compare_cole_migration_with_mode(
+def compare_profile_migration_with_mode(
     store: MemoryStore,
     source_root: Path,
     *,
@@ -194,25 +201,25 @@ def compare_cole_migration_with_mode(
     }
 
 
-def build_cole_documents(
+def build_profile_documents(
     source_root: Path,
     *,
     relative_paths: list[Path] | None = None,
-) -> list[ColeDocument]:
+) -> list[ProfileDocument]:
     root = Path(source_root).resolve()
-    documents: list[ColeDocument] = []
+    documents: list[ProfileDocument] = []
     if relative_paths is None:
-        paths = iter_cole_markdown_files(root)
+        paths = iter_profile_markdown_files(root)
     else:
         paths = [root / relative_path for relative_path in relative_paths if (root / relative_path).is_file()]
     for path in paths:
         relative_path = path.relative_to(root)
-        namespace = classify_cole_namespace(relative_path)
+        namespace = classify_profile_namespace(relative_path)
         title = extract_document_title(path, relative_path)
         tags = build_document_tags(relative_path, namespace)
         content = render_document_content(path, relative_path, namespace)
         documents.append(
-            ColeDocument(
+            ProfileDocument(
                 path=path,
                 relative_path=relative_path,
                 namespace=namespace,
@@ -224,7 +231,7 @@ def build_cole_documents(
     return documents
 
 
-def iter_cole_markdown_files(source_root: Path) -> list[Path]:
+def iter_profile_markdown_files(source_root: Path) -> list[Path]:
     root = Path(source_root).resolve()
     files: list[Path] = []
 
@@ -253,7 +260,7 @@ def iter_cole_markdown_files(source_root: Path) -> list[Path]:
     return deduped
 
 
-def classify_cole_namespace(relative_path: Path) -> str:
+def classify_profile_namespace(relative_path: Path) -> str:
     parts = relative_path.parts
     as_posix = relative_path.as_posix()
 
@@ -377,18 +384,18 @@ def _resolve_expected_documents(
     mode: Literal["full", "live", "snapshot-audit"],
     live_manifest_path: Path | None,
     snapshot_manifest_path: Path | None,
-) -> tuple[list[ColeDocument], dict[str, Any]]:
+) -> tuple[list[ProfileDocument], dict[str, Any]]:
     resolved_source_root = Path(source_root).resolve()
 
     if mode == "full":
-        return build_cole_documents(resolved_source_root), {
+        return build_profile_documents(resolved_source_root), {
             "source_root": str(resolved_source_root),
         }
 
     if mode == "live":
         manifest_path = (live_manifest_path or build_default_live_manifest_path(resolved_source_root)).resolve()
         relative_paths = load_manifest_relative_paths(manifest_path)
-        return build_cole_documents(resolved_source_root, relative_paths=relative_paths), {
+        return build_profile_documents(resolved_source_root, relative_paths=relative_paths), {
             "source_root": str(resolved_source_root),
             "live_manifest_path": str(manifest_path),
         }
@@ -399,8 +406,19 @@ def _resolve_expected_documents(
     manifest = load_manifest(manifest_path)
     snapshot_root = Path(manifest["snapshot_root"]).resolve()
     relative_paths = [Path(item) for item in manifest.get("files", [])]
-    return build_cole_documents(snapshot_root, relative_paths=relative_paths), {
+    return build_profile_documents(snapshot_root, relative_paths=relative_paths), {
         "source_root": str(resolved_source_root),
         "snapshot_manifest_path": str(Path(manifest_path).resolve()),
         "snapshot_root": str(snapshot_root),
     }
+
+
+# Legacy compatibility aliases for older internal callers.
+ColeDocument = ProfileDocument
+import_cole_memory = import_profile_memory
+compare_cole_migration = compare_profile_migration
+prune_stale_cole_imports = prune_stale_profile_imports
+compare_cole_migration_with_mode = compare_profile_migration_with_mode
+build_cole_documents = build_profile_documents
+iter_cole_markdown_files = iter_profile_markdown_files
+classify_cole_namespace = classify_profile_namespace

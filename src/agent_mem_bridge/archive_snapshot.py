@@ -49,7 +49,7 @@ def build_default_live_manifest_path(source_root: Path) -> Path:
     return Path(source_root).resolve() / "live-source-manifest.json"
 
 
-def create_cole_archive_snapshot(
+def create_profile_archive_snapshot(
     source_root: Path,
     snapshot_root: Path,
     *,
@@ -85,6 +85,10 @@ def create_cole_archive_snapshot(
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     manifest["manifest_path"] = str(manifest_path)
     return manifest
+
+
+# Legacy compatibility alias for older migration helpers.
+create_cole_archive_snapshot = create_profile_archive_snapshot
 
 
 def write_live_source_manifest(

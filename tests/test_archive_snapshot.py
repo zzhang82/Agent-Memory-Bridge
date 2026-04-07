@@ -3,12 +3,12 @@
 from agent_mem_bridge.archive_snapshot import (
     build_default_live_manifest_path,
     build_default_snapshot_root,
-    create_cole_archive_snapshot,
+    create_profile_archive_snapshot,
     write_live_source_manifest,
 )
 
 
-def test_create_cole_archive_snapshot_copies_markdown_only_targets(tmp_path: Path) -> None:
+def test_create_profile_archive_snapshot_copies_markdown_only_targets(tmp_path: Path) -> None:
     cole_root = tmp_path / "Cole"
     (cole_root / "memory" / "core").mkdir(parents=True)
     (cole_root / "memory" / "team").mkdir(parents=True)
@@ -20,7 +20,7 @@ def test_create_cole_archive_snapshot_copies_markdown_only_targets(tmp_path: Pat
     (cole_root / "skills" / "obsidian-markdown" / "SKILL.md").write_text("# Skill\n", encoding="utf-8")
 
     snapshot_root = build_default_snapshot_root(cole_root)
-    manifest = create_cole_archive_snapshot(
+    manifest = create_profile_archive_snapshot(
         source_root=cole_root,
         snapshot_root=snapshot_root,
         compare_report={

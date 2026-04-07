@@ -6,7 +6,7 @@ from pathlib import Path
 from shutil import copy2
 from typing import Any
 
-from .cole_migration import iter_cole_markdown_files
+from .profile_migration import iter_profile_markdown_files
 
 
 def build_default_sync_snapshot_root(target_root: Path, *, timestamp: datetime | None = None) -> Path:
@@ -26,11 +26,11 @@ def plan_source_sync(
 
     source_files = {
         path.relative_to(source).as_posix(): path
-        for path in iter_cole_markdown_files(source)
+        for path in iter_profile_markdown_files(source)
     }
     target_files = {
         path.relative_to(target).as_posix(): path
-        for path in iter_cole_markdown_files(target)
+        for path in iter_profile_markdown_files(target)
     }
 
     sync_candidates: list[str] = []

@@ -10,12 +10,12 @@ from agent_mem_bridge.rollback_cutover import (
     find_latest_live_cutover_manifest,
     rollback_live_source_cutover,
 )
-from agent_mem_bridge.paths import resolve_cole_source_root
+from agent_mem_bridge.paths import resolve_profile_source_root
 
 
 def main() -> None:
     args = _parse_args()
-    source_root = args.source_root.resolve() if args.source_root else _default_cole_root()
+    source_root = args.source_root.resolve() if args.source_root else _default_profile_root()
     manifest_path = args.cutover_manifest_path.resolve() if args.cutover_manifest_path else find_latest_live_cutover_manifest(source_root)
     if manifest_path is None:
         raise SystemExit("No live cutover manifest found.")
@@ -32,12 +32,12 @@ def main() -> None:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Restore archive-first Cole markdown back into the live source tree.")
+    parser = argparse.ArgumentParser(description="Restore archived profile markdown back into the live source tree.")
     parser.add_argument(
         "source_root",
         nargs="?",
         type=Path,
-        help="Path to the Cole source root. Defaults to the sibling Cole directory.",
+        help="Path to the profile source root. Defaults to the configured [profile].source_root.",
     )
     parser.add_argument(
         "--cutover-manifest-path",
@@ -57,8 +57,8 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _default_cole_root() -> Path:
-    return resolve_cole_source_root()
+def _default_profile_root() -> Path:
+    return resolve_profile_source_root()
 
 
 if __name__ == "__main__":

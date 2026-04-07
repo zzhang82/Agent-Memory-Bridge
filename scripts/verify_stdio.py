@@ -34,7 +34,7 @@ async def main() -> None:
                 "store",
                 arguments={
                     "namespace": "smoke-test",
-                    "content": "Cole mem bridge transport proof is working.",
+                    "content": "Agent Memory Bridge transport proof is working.",
                     "kind": "memory",
                     "tags": ["project:agent-memory-bridge", "check:transport"],
                     "session_id": "smoke-1",
@@ -48,7 +48,7 @@ async def main() -> None:
                 "store",
                 arguments={
                     "namespace": "smoke-test",
-                    "content": "Cole mem bridge transport proof is working.",
+                    "content": "Agent Memory Bridge transport proof is working.",
                     "kind": "memory",
                     "tags": ["project:agent-memory-bridge", "check:transport"],
                     "session_id": "smoke-1",

@@ -48,7 +48,7 @@ Why:
   - the worker is not responsible for product direction
 
 Why:
-- Cole's team/workflow notes favor delegation only when the task is partitionable and the synchronization cost is low.
+- The project workflow notes favor delegation only when the task is partitionable and the synchronization cost is low.
 
 ### Small utility or read-only checks
 

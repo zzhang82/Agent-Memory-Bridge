@@ -3,6 +3,7 @@
 import argparse
 import json
 
+from agent_mem_bridge.paths import resolve_profile_namespace
 from agent_mem_bridge.recall_first import recall_first
 from agent_mem_bridge.storage import MemoryStore
 
@@ -24,6 +25,7 @@ def main() -> None:
         query=args.query,
         project_namespace=args.namespace,
         limit=args.limit,
+        global_namespace=resolve_profile_namespace(),
     )
     print(json.dumps(result, indent=2))
 
