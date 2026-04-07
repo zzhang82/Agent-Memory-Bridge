@@ -4,6 +4,7 @@ import json
 import shutil
 import tempfile
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -74,11 +75,16 @@ def run_signal_correctness_check(db_path: Path) -> dict[str, Any]:
         signal_id=created["id"],
     )
     claim_latency_ms = round((time.perf_counter_ns() - claim_started) / 1_000_000, 3)
+    extend_started = time.perf_counter_ns()
+    extended = store.extend_signal_lease(created["id"], consumer="reviewer-a", lease_seconds=180)
+    extend_latency_ms = round((time.perf_counter_ns() - extend_started) / 1_000_000, 3)
+    wrong_extend = store.extend_signal_lease(created["id"], consumer="reviewer-b", lease_seconds=180)
 
     wrong_ack = store.ack_signal(created["id"], consumer="reviewer-b")
     ack_started = time.perf_counter_ns()
     acked = store.ack_signal(created["id"], consumer="reviewer-a")
     ack_latency_ms = round((time.perf_counter_ns() - ack_started) / 1_000_000, 3)
+    extend_after_ack = store.extend_signal_lease(created["id"], consumer="reviewer-a", lease_seconds=60)
 
     expired = store.store(
         namespace="proof:signal",
@@ -99,17 +105,34 @@ def run_signal_correctness_check(db_path: Path) -> dict[str, Any]:
     )
     store.claim_signal(namespace="proof:signal", consumer="worker-a", lease_seconds=120, signal_id=lease["id"])
     force_expire_lease(store, lease["id"])
+    expired_extend = store.extend_signal_lease(lease["id"], consumer="worker-a", lease_seconds=120)
     reclaim_started = time.perf_counter_ns()
     reclaimed = store.claim_signal(namespace="proof:signal", consumer="worker-b", lease_seconds=120, signal_id=lease["id"])
     reclaim_latency_ms = round((time.perf_counter_ns() - reclaim_started) / 1_000_000, 3)
 
+    capped_expiry = datetime.now(UTC) + timedelta(seconds=45)
+    capped = store.store(
+        namespace="proof:signal",
+        content="Lease should stop at the hard signal expiry.",
+        kind="signal",
+        tags=["handoff:capped"],
+        expires_at=capped_expiry.isoformat(),
+    )
+    store.claim_signal(namespace="proof:signal", consumer="worker-c", lease_seconds=10, signal_id=capped["id"])
+    capped_extend = store.extend_signal_lease(capped["id"], consumer="worker-c", lease_seconds=600)
+
     checks = {
         "claim_sets_claimed_state": claimed["claimed"] and claimed["item"]["signal_status"] == "claimed",
+        "owner_can_extend_lease": extended["extended"] is True and extended["item"]["claimed_by"] == "reviewer-a",
+        "extend_rejects_wrong_consumer": wrong_extend["extended"] is False and wrong_extend["reason"] == "claimed-by-other",
         "ack_rejects_wrong_consumer": wrong_ack["acked"] is False and wrong_ack["reason"] == "claimed-by-other",
         "ack_marks_completion": acked["acked"] is True and acked["item"]["signal_status"] == "acked",
+        "acked_signal_cannot_extend": extend_after_ack["extended"] is False and extend_after_ack["reason"] == "already-acked",
         "expired_signal_filters_as_expired": any(item["id"] == expired["id"] for item in expired_hits["items"]),
         "expired_signal_cannot_be_acked": expired_ack["acked"] is False and expired_ack["reason"] == "expired",
+        "expired_lease_cannot_be_extended": expired_extend["extended"] is False and expired_extend["reason"] == "lease-expired",
         "stale_lease_can_be_reclaimed": reclaimed["claimed"] is True and reclaimed["item"]["claimed_by"] == "worker-b",
+        "hard_expiry_caps_extended_lease": capped_extend["extended"] is True and capped_extend["lease_expires_at"] == capped["expires_at"],
     }
 
     return {
@@ -117,6 +140,7 @@ def run_signal_correctness_check(db_path: Path) -> dict[str, Any]:
         "checks": checks,
         "latency_ms": {
             "claim": claim_latency_ms,
+            "extend": extend_latency_ms,
             "ack": ack_latency_ms,
             "reclaim": reclaim_latency_ms,
         },

@@ -48,7 +48,7 @@ Once the MCP server is registered in Codex, the shortest useful path is:
 1. write one durable memory
 2. write one coordination signal
 3. inspect the namespace
-4. claim and acknowledge the signal
+4. claim, extend if needed, and acknowledge the signal
 
 ```text
 store(
@@ -73,6 +73,12 @@ claim_signal(
   consumer="reviewer-a",
   lease_seconds=300,
   tags_any=["handoff:review"]
+)
+
+extend_signal_lease(
+  id="<signal_id>",
+  consumer="reviewer-a",
+  lease_seconds=300
 )
 
 ack_signal(id="<signal_id>", consumer="reviewer-a")
@@ -190,7 +196,7 @@ The public MCP surface stays small on purpose:
 - `store` and `recall`
 - `browse` and `stats`
 - `forget` and `promote`
-- `claim_signal` and `ack_signal`
+- `claim_signal`, `extend_signal_lease`, and `ack_signal`
 - `export`
 
 The complexity stays behind the bridge:
@@ -217,7 +223,7 @@ The bridge is meant to be inspectable, not magical:
 - `browse`, `stats`, `forget`, and `export` let you inspect and correct bridge state without opening SQLite
 - signal status is visible and queryable through `pending`, `claimed`, `acked`, and `expired`
 - watcher health checks verify that Codex rollout files still parse into usable summaries
-- the current test suite passes with `58 passed`
+- the current test suite passes with `68 passed`
 
 Useful commands:
 

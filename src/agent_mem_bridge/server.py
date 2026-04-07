@@ -426,6 +426,44 @@ def ack_signal(
 
 
 @mcp.tool(structured_output=True)
+def extend_signal_lease(
+    id: Annotated[
+        str,
+        Field(
+            description=(
+                "Exact signal id whose active lease should be extended."
+            ),
+        ),
+    ],
+    consumer: Annotated[
+        str,
+        Field(
+            description=(
+                "Consumer identity that currently owns the lease. Only the active claimant can extend it."
+            ),
+        ),
+    ],
+    lease_seconds: Annotated[
+        int,
+        Field(
+            gt=0,
+            description=(
+                "Additional lease duration in seconds. The bridge extends from the current lease end when possible, "
+                "but never beyond the signal's hard expiry."
+            ),
+        ),
+    ],
+) -> dict[str, Any]:
+    """Extend the active lease on one claimed signal.
+
+    Use this when a worker still owns a signal but needs more time before another
+    consumer can reclaim it. Expired leases cannot be extended; those signals must
+    be reclaimed instead. Hard signal expiry still takes precedence over lease renewal.
+    """
+    return bridge.extend_signal_lease(memory_id=id, consumer=consumer, lease_seconds=lease_seconds)
+
+
+@mcp.tool(structured_output=True)
 def promote(
     id: Annotated[
         str,

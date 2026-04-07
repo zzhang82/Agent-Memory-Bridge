@@ -51,7 +51,7 @@ Agent Memory Bridge 走的是更克制的一条路：
 1. 写一条持久记忆
 2. 写一条协调信号
 3. 看看命名空间里现在有什么
-4. claim 并 ack 那条信号
+4. claim 那条信号，需要时续租，再 ack
 
 ```text
 store(
@@ -76,6 +76,12 @@ claim_signal(
   consumer="reviewer-a",
   lease_seconds=300,
   tags_any=["handoff:review"]
+)
+
+extend_signal_lease(
+  id="<signal_id>",
+  consumer="reviewer-a",
+  lease_seconds=300
 )
 
 ack_signal(id="<signal_id>", consumer="reviewer-a")
@@ -196,7 +202,7 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - `store` 和 `recall`
 - `browse` 和 `stats`
 - `forget` 和 `promote`
-- `claim_signal` 和 `ack_signal`
+- `claim_signal`、`extend_signal_lease` 和 `ack_signal`
 - `export`
 
 真正的复杂度放在桥背后：
@@ -223,7 +229,7 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - `browse`、`stats`、`forget`、`export` 让你不用打开 SQLite 也能看清状态
 - `signal` 的状态可以直接查到：`pending`、`claimed`、`acked`、`expired`
 - watcher health check 会验证 Codex rollout 文件是否还能被解析成可用 summary
-- 当前测试套件结果是 `58 passed`
+- 当前测试套件结果是 `68 passed`
 
 常用命令：
 

@@ -277,9 +277,101 @@ def ack_signal_entry(
     return {"id": cleaned_id, "acked": True, "consumer": cleaned_consumer, "item": item}
 
 
+def extend_signal_lease_entry(
+    *,
+    store: Any,
+    memory_id: str,
+    consumer: str,
+    lease_seconds: int,
+    fetch_row_by_id: Callable[[sqlite3.Connection, str], sqlite3.Row | None],
+    row_to_item: Callable[[sqlite3.Row], dict[str, Any]],
+) -> dict[str, Any]:
+    cleaned_id = memory_id.strip()
+    cleaned_consumer = consumer.strip()
+    if not cleaned_id:
+        raise ValueError("id must not be empty")
+    if not cleaned_consumer:
+        raise ValueError("consumer must not be empty")
+    if lease_seconds <= 0:
+        raise ValueError("lease_seconds must be greater than 0")
+
+    now = datetime.now(UTC)
+    with store._connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = fetch_row_by_id(conn, cleaned_id)
+        if row is None:
+            conn.rollback()
+            return {"id": cleaned_id, "extended": False, "reason": "missing", "item": None}
+        if row["kind"] != "signal":
+            conn.rollback()
+            raise ValueError("only kind=signal entries can extend a lease")
+
+        snapshot = SignalSnapshot.from_row(row)
+        status = effective_signal_status(snapshot, now=now)
+        if status == "expired":
+            conn.rollback()
+            return {"id": cleaned_id, "extended": False, "reason": "expired", "item": row_to_item(row)}
+        if status == "acked":
+            conn.rollback()
+            return {"id": cleaned_id, "extended": False, "reason": "already-acked", "item": row_to_item(row)}
+        if _is_expired(snapshot.lease_expires_at, now):
+            conn.rollback()
+            return {"id": cleaned_id, "extended": False, "reason": "lease-expired", "item": row_to_item(row)}
+        if status != "claimed" or not snapshot.claimed_by:
+            conn.rollback()
+            return {"id": cleaned_id, "extended": False, "reason": "not-claimed", "item": row_to_item(row)}
+        if snapshot.claimed_by != cleaned_consumer:
+            conn.rollback()
+            return {"id": cleaned_id, "extended": False, "reason": "claimed-by-other", "item": row_to_item(row)}
+
+        previous_lease_expires_at = snapshot.lease_expires_at
+        lease_expires_at = _resolve_extended_lease_expiry(snapshot=snapshot, now=now, lease_seconds=lease_seconds)
+        conn.execute(
+            """
+            UPDATE memories
+            SET lease_expires_at = ?
+            WHERE id = ?
+            """,
+            (lease_expires_at, cleaned_id),
+        )
+        conn.commit()
+        refreshed = fetch_row_by_id(conn, cleaned_id)
+
+    item = row_to_item(refreshed) if refreshed is not None else None
+    store._log(
+        "extend_signal_lease",
+        {
+            "id": cleaned_id,
+            "consumer": cleaned_consumer,
+            "extended": True,
+            "previous_lease_expires_at": previous_lease_expires_at,
+            "lease_expires_at": lease_expires_at,
+        },
+    )
+    return {
+        "id": cleaned_id,
+        "extended": True,
+        "consumer": cleaned_consumer,
+        "previous_lease_expires_at": previous_lease_expires_at,
+        "lease_expires_at": lease_expires_at,
+        "item": item,
+    }
+
+
 def _is_expired(raw_value: str | None, now: datetime) -> bool:
     parsed = _parse_iso_utc(raw_value)
     return parsed is not None and parsed <= now
+
+
+def _resolve_extended_lease_expiry(*, snapshot: SignalSnapshot, now: datetime, lease_seconds: int) -> str:
+    current_lease = _parse_iso_utc(snapshot.lease_expires_at)
+    hard_expiry = _parse_iso_utc(snapshot.expires_at)
+
+    base = current_lease if current_lease and current_lease > now else now
+    extended = base + timedelta(seconds=lease_seconds)
+    if hard_expiry is not None and extended > hard_expiry:
+        extended = hard_expiry
+    return extended.isoformat()
 
 
 def _parse_iso_utc(raw_value: str | None) -> datetime | None:

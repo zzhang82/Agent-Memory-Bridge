@@ -21,7 +21,7 @@ from .repository import (
     store_entry,
 )
 from .schema import init_db
-from .signals import ack_signal_entry, claim_signal_entry, normalize_signal_status_filter
+from .signals import ack_signal_entry, claim_signal_entry, extend_signal_lease_entry, normalize_signal_status_filter
 
 
 class MemoryStore:
@@ -197,6 +197,16 @@ class MemoryStore:
             store=self,
             memory_id=memory_id,
             consumer=consumer,
+            fetch_row_by_id=fetch_row_by_id,
+            row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
+        )
+
+    def extend_signal_lease(self, memory_id: str, consumer: str, lease_seconds: int) -> dict[str, Any]:
+        return extend_signal_lease_entry(
+            store=self,
+            memory_id=memory_id,
+            consumer=consumer,
+            lease_seconds=lease_seconds,
             fetch_row_by_id=fetch_row_by_id,
             row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
         )

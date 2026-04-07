@@ -1,5 +1,7 @@
 ﻿from pathlib import Path
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from agent_mem_bridge.storage import MemoryStore
@@ -177,6 +179,136 @@ def test_claim_signal_sets_lease_and_ack_marks_completion(tmp_path: Path) -> Non
     assert acked["item"]["signal_status"] == "acked"
     assert recalled["count"] == 1
     assert recalled["items"][0]["signal_status"] == "acked"
+
+
+def test_extend_signal_lease_allows_current_owner_to_renew(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="Keep the review lease alive.",
+        kind="signal",
+        tags=["handoff:review"],
+        ttl_seconds=600,
+    )
+
+    claimed = store.claim_signal(
+        namespace="project:bridge",
+        consumer="reviewer-a",
+        lease_seconds=60,
+        signal_id=created["id"],
+    )
+    previous = datetime.fromisoformat(claimed["lease_expires_at"])
+
+    extended = store.extend_signal_lease(created["id"], consumer="reviewer-a", lease_seconds=120)
+
+    assert extended["extended"] is True
+    assert extended["item"]["signal_status"] == "claimed"
+    assert datetime.fromisoformat(extended["lease_expires_at"]) > previous
+
+
+def test_extend_signal_lease_rejects_wrong_consumer(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="Wrong worker should not renew.",
+        kind="signal",
+        tags=["handoff:review"],
+        ttl_seconds=600,
+    )
+    store.claim_signal(
+        namespace="project:bridge",
+        consumer="reviewer-a",
+        lease_seconds=60,
+        signal_id=created["id"],
+    )
+
+    extended = store.extend_signal_lease(created["id"], consumer="reviewer-b", lease_seconds=120)
+
+    assert extended["extended"] is False
+    assert extended["reason"] == "claimed-by-other"
+
+
+def test_extend_signal_lease_rejects_expired_lease_and_allows_reclaim(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="Expired lease should be reclaimed, not renewed.",
+        kind="signal",
+        tags=["handoff:triage"],
+        ttl_seconds=600,
+    )
+    store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-a",
+        lease_seconds=60,
+        signal_id=created["id"],
+    )
+
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE memories SET lease_expires_at = ? WHERE id = ?",
+            ("2000-01-01T00:00:00+00:00", created["id"]),
+        )
+        conn.commit()
+
+    extended = store.extend_signal_lease(created["id"], consumer="worker-a", lease_seconds=120)
+    reclaimed = store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-b",
+        lease_seconds=120,
+        signal_id=created["id"],
+    )
+
+    assert extended["extended"] is False
+    assert extended["reason"] == "lease-expired"
+    assert reclaimed["claimed"] is True
+    assert reclaimed["item"]["claimed_by"] == "worker-b"
+
+
+def test_extend_signal_lease_cannot_outrun_signal_expiry(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    hard_expiry = datetime.now(UTC) + timedelta(seconds=90)
+    created = store.store(
+        namespace="project:bridge",
+        content="Lease cap should stop at signal expiry.",
+        kind="signal",
+        tags=["handoff:review"],
+        expires_at=hard_expiry.isoformat(),
+    )
+    store.claim_signal(
+        namespace="project:bridge",
+        consumer="reviewer-a",
+        lease_seconds=30,
+        signal_id=created["id"],
+    )
+
+    extended = store.extend_signal_lease(created["id"], consumer="reviewer-a", lease_seconds=600)
+
+    assert extended["extended"] is True
+    assert datetime.fromisoformat(extended["lease_expires_at"]) <= hard_expiry
+
+
+def test_extend_signal_lease_rejects_acked_signal(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="Done work should not keep renewing.",
+        kind="signal",
+        tags=["handoff:done"],
+        ttl_seconds=600,
+    )
+    store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-a",
+        lease_seconds=60,
+        signal_id=created["id"],
+    )
+    store.ack_signal(created["id"], consumer="worker-a")
+
+    extended = store.extend_signal_lease(created["id"], consumer="worker-a", lease_seconds=120)
+
+    assert extended["extended"] is False
+    assert extended["reason"] == "already-acked"
 
 
 def test_claim_signal_reuses_stale_lease(tmp_path: Path) -> None:

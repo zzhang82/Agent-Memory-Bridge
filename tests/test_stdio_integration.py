@@ -32,6 +32,7 @@ async def _exercise_server(tmp_path: Path) -> None:
                 "stats",
                 "forget",
                 "claim_signal",
+                "extend_signal_lease",
                 "ack_signal",
                 "promote",
                 "export",
@@ -119,6 +120,17 @@ async def _exercise_server(tmp_path: Path) -> None:
             )
             assert claimed.structuredContent["claimed"] is True
             assert claimed.structuredContent["item"]["signal_status"] == "claimed"
+
+            extended = await session.call_tool(
+                "extend_signal_lease",
+                arguments={
+                    "id": signal.structuredContent["id"],
+                    "consumer": "reviewer-a",
+                    "lease_seconds": 120,
+                },
+            )
+            assert extended.structuredContent["extended"] is True
+            assert extended.structuredContent["item"]["signal_status"] == "claimed"
 
             acked = await session.call_tool(
                 "ack_signal",

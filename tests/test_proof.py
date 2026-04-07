@@ -15,8 +15,13 @@ def test_run_deterministic_proof_returns_expected_sections() -> None:
 
     signal_report = report["signal_correctness"]
     assert signal_report["passed"] is True
+    assert signal_report["checks"]["owner_can_extend_lease"] is True
+    assert signal_report["checks"]["extend_rejects_wrong_consumer"] is True
     assert signal_report["checks"]["ack_rejects_wrong_consumer"] is True
+    assert signal_report["checks"]["acked_signal_cannot_extend"] is True
+    assert signal_report["checks"]["expired_lease_cannot_be_extended"] is True
     assert signal_report["checks"]["stale_lease_can_be_reclaimed"] is True
+    assert signal_report["checks"]["hard_expiry_caps_extended_lease"] is True
 
     recall_report = report["recall_latency"]
     assert recall_report["question_count"] == 8
