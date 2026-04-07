@@ -105,6 +105,8 @@ ack_signal(id="<signal_id>", consumer="reviewer-a")
 
 现在已经有一个很短的 `v0.5` 终端演示：
 
+![Agent Memory Bridge v0.5 terminal demo](examples/demo/v0.5-terminal-demo.gif)
+
 - GIF: [examples/demo/v0.5-terminal-demo.gif](examples/demo/v0.5-terminal-demo.gif)
 - source: [examples/demo/README.md](examples/demo/README.md)
 

@@ -102,6 +102,8 @@ Lease renewal is not reclaim. If a lease is still active, the current claimant c
 
 There is now a short terminal demo for `v0.5`:
 
+![Agent Memory Bridge v0.5 terminal demo](examples/demo/v0.5-terminal-demo.gif)
+
 - GIF: [examples/demo/v0.5-terminal-demo.gif](examples/demo/v0.5-terminal-demo.gif)
 - source: [examples/demo/README.md](examples/demo/README.md)
 
