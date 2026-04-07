@@ -6,7 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-Two-channel MCP memory for coding agents.
+Two-channel MCP memory for coding agents:
+durable knowledge + coordination signals.
 
 Built for Codex-first workflows.
 
@@ -233,6 +234,22 @@ Useful commands:
 .\.venv\Scripts\python.exe .\scripts\run_healthcheck.py --report-path .\examples\healthcheck-report.json
 .\.venv\Scripts\python.exe .\scripts\run_watcher_healthcheck.py --report-path .\examples\watcher-health-report.json
 ```
+
+## Proof and Benchmark
+
+The bridge now has a small canonical proof and benchmark harness.
+
+- deterministic proof checks signal correctness, duplicate suppression, and recall timing
+- retrieval benchmark tracks `precision@1`, `precision@3`, and `expected_top1_accuracy`
+- the retrieval report compares bridge recall against a simple file-scan baseline
+
+On the current canonical fixture:
+
+- `memory_expected_top1_accuracy = 1.0`
+- `file_scan_expected_top1_accuracy = 0.5`
+- `duplicate_suppression_rate = 1.0`
+
+This is not a leaderboard. It is a regression harness that keeps retrieval quality and coordination semantics honest as the bridge evolves.
 
 ## More Docs
 

@@ -6,7 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-面向编码代理的双通道 MCP 记忆层。
+面向编码代理的双通道 MCP 记忆层：
+持久知识 + 协调信号。
 
 当前先从 Codex-first 工作流开始。
 
@@ -239,6 +240,22 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 .\.venv\Scripts\python.exe .\scripts\run_healthcheck.py --report-path .\examples\healthcheck-report.json
 .\.venv\Scripts\python.exe .\scripts\run_watcher_healthcheck.py --report-path .\examples\watcher-health-report.json
 ```
+
+## Proof 与 Benchmark
+
+这座桥现在已经有一套很小但可重复运行的 proof / benchmark harness。
+
+- deterministic proof 会检查 signal correctness、duplicate suppression 和 recall timing
+- retrieval benchmark 会跟踪 `precision@1`、`precision@3`、`expected_top1_accuracy`
+- retrieval report 会把 bridge recall 和简单 file-scan baseline 放在一起比较
+
+在当前 canonical fixture 上：
+
+- `memory_expected_top1_accuracy = 1.0`
+- `file_scan_expected_top1_accuracy = 0.5`
+- `duplicate_suppression_rate = 1.0`
+
+这不是排行榜，而是一套回归护栏，用来在 bridge 继续演化时持续盯住 retrieval 质量和 coordination 语义。
 
 ## 更多文档
 
