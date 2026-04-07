@@ -11,6 +11,12 @@ durable knowledge + coordination signals.
 
 Built for Codex-first workflows.
 
+v0.5.0 adds:
+
+- benchmarked retrieval with `expected_top1_accuracy = 1.0`
+- a fuller signal lifecycle: `claim -> extend -> ack / expire / reclaim`
+- `extend_signal_lease` as part of the public MCP surface
+
 Most memory tools put everything into one bucket. Agent Memory Bridge keeps two different kinds of state separate:
 
 - `memory` for durable knowledge worth reusing later
@@ -35,7 +41,7 @@ Agent Memory Bridge takes a narrower path:
 
 1. It separates durable knowledge from coordination state.
 2. It stays small and inspectable instead of hiding behind a larger platform.
-3. It gives signals a minimal lifecycle: pending, claimed, acked, and expired.
+3. It gives signals a clean lifecycle: `claim -> extend -> ack / expire / reclaim`.
 4. It promotes session output into compact machine-readable memory instead of treating summaries as the final artifact.
 
 If you want a broader memory platform with SDKs, dashboards, connectors, or hosted-first deployment, projects like OpenMemory or Mem0 are closer to that shape.
@@ -89,6 +95,15 @@ That shows the core split:
 
 - `memory` keeps what the agent learned
 - `signal` carries what another workflow needs to act on right now
+
+Lease renewal is not reclaim. If a lease is still active, the current claimant can extend it. If it has gone stale, another worker should reclaim it instead.
+
+## Demo
+
+There is now a short terminal demo for `v0.5`:
+
+- GIF: [examples/demo/v0.5-terminal-demo.gif](examples/demo/v0.5-terminal-demo.gif)
+- source: [examples/demo/README.md](examples/demo/README.md)
 
 ## Setup
 
@@ -236,6 +251,8 @@ Useful commands:
 ```
 
 ## Proof and Benchmark
+
+Retrieval quality is now benchmarked instead of guessed.
 
 The bridge now has a small canonical proof and benchmark harness.
 

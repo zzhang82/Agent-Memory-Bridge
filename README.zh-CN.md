@@ -11,6 +11,12 @@
 
 当前先从 Codex-first 工作流开始。
 
+`v0.5.0` 这一版新增：
+
+- 可度量的 retrieval，当前 `expected_top1_accuracy = 1.0`
+- 更完整的 signal lifecycle：`claim -> extend -> ack / expire / reclaim`
+- `extend_signal_lease` 正式进入公开 MCP surface
+
 很多记忆工具会把所有状态塞进一个桶里。Agent Memory Bridge 把两类状态分开：
 
 - `memory`：值得长期复用的持久知识
@@ -38,7 +44,7 @@ Agent Memory Bridge 走的是更克制的一条路：
 
 1. 它把持久知识和协调状态分开。
 2. 它默认保持小而可检查，不靠大平台包装。
-3. 它给 `signal` 补了最小生命周期：`pending`、`claimed`、`acked`、`expired`。
+3. 它给 `signal` 补上了一条更完整的生命周期：`claim -> extend -> ack / expire / reclaim`。
 4. 它会把 session 输出提升成紧凑、机器可读的记忆，而不是把 summary 当最终产物。
 
 如果你想要的是更大的记忆平台，带 SDK、dashboard、connectors 或 hosted-first 形态，OpenMemory 和 Mem0 会更接近那条路。
@@ -92,6 +98,15 @@ ack_signal(id="<signal_id>", consumer="reviewer-a")
 
 - `memory` 保存已经学到的东西
 - `signal` 传递另一个流程现在需要处理的事
+
+这里要特别说明一点：续租不等于重新领取。lease 还活着时，由当前 claimant 续租；lease 过期后，应该由新的 worker 重新 claim。
+
+## Demo
+
+现在已经有一个很短的 `v0.5` 终端演示：
+
+- GIF: [examples/demo/v0.5-terminal-demo.gif](examples/demo/v0.5-terminal-demo.gif)
+- source: [examples/demo/README.md](examples/demo/README.md)
 
 ## 安装
 
@@ -242,6 +257,8 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 ```
 
 ## Proof 与 Benchmark
+
+retrieval 质量现在已经是“可 benchmark”，不是“凭感觉猜”。
 
 这座桥现在已经有一套很小但可重复运行的 proof / benchmark harness。
 
