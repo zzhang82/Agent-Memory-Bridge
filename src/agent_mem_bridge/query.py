@@ -280,14 +280,15 @@ def rerank_items(query: str, items: list[dict[str, Any]], limit: int) -> list[di
     if not query_tokens:
         return items[:limit]
 
-    scored: list[tuple[tuple[float, ...], dict[str, Any]]] = []
-    for index, item in enumerate(items):
+    scored: list[tuple[tuple[float, ...], str, dict[str, Any]]] = []
+    for item in items:
         title = str(item.get("title") or "")
         content = str(item.get("content") or "")
         title_text = normalize_text(title)
         content_text = normalize_text(content)
         title_tokens = tokenize(title_text)
         content_tokens = tokenize(content_text)
+        title_edge = title_edge_match_score(query_tokens, title_tokens) if len(query_tokens) >= 3 else 0.0
 
         # Prefer clear answer-shaped titles, then use tight content spans as the fallback.
         score = (
@@ -295,6 +296,7 @@ def rerank_items(query: str, items: list[dict[str, Any]], limit: int) -> list[di
             + phrase_match_score(normalized_query, content_text) * 25.0
             + coverage_score(query_tokens, title_tokens) * 4.0
             + title_precision_score(query_tokens, title_tokens) * 13.0
+            + title_edge * 2.0
             + coverage_score(query_tokens, content_tokens) * 1.0
             + ordered_span_score(query_tokens, title_tokens, base=16.0)
             + ordered_span_score(query_tokens, content_tokens, base=28.0)
@@ -303,10 +305,25 @@ def rerank_items(query: str, items: list[dict[str, Any]], limit: int) -> list[di
         title_phrase = phrase_match_score(normalized_query, title_text)
         title_precision = title_precision_score(query_tokens, title_tokens)
         title_coverage = coverage_score(query_tokens, title_tokens)
-        scored.append(((score, title_phrase, title_precision, title_coverage, float(-index)), item))
+        scored.append(
+            (
+                (score, title_phrase, title_precision, title_coverage, title_edge),
+                title_text,
+                item,
+            )
+        )
 
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [item for _, item in scored[:limit]]
+    scored.sort(
+        key=lambda pair: (
+            -pair[0][0],
+            -pair[0][1],
+            -pair[0][2],
+            -pair[0][3],
+            -pair[0][4],
+            pair[1],
+        )
+    )
+    return [item for _, _, item in scored[:limit]]
 
 
 def phrase_match_score(query_text: str, field_text: str) -> float:
@@ -327,6 +344,12 @@ def title_precision_score(query_tokens: list[str], title_tokens: list[str]) -> f
         return 0.0
     query_set = set(query_tokens)
     return sum(1 for token in title_tokens if token in query_set) / len(title_tokens)
+
+
+def title_edge_match_score(query_tokens: list[str], title_tokens: list[str]) -> float:
+    if not query_tokens or not title_tokens:
+        return 0.0
+    return float(max(query_prefix_match_length(query_tokens, title_tokens), query_suffix_match_length(query_tokens, title_tokens)))
 
 
 def ordered_span_score(query_tokens: list[str], field_tokens: list[str], *, base: float) -> float:
@@ -365,6 +388,24 @@ def unmatched_title_penalty(query_tokens: list[str], title_tokens: list[str], *,
     query_set = set(query_tokens)
     unmatched = sum(1 for token in title_tokens if token not in query_set)
     return unmatched * factor
+
+
+def query_prefix_match_length(query_tokens: list[str], title_tokens: list[str]) -> int:
+    matched = 0
+    for query_token, title_token in zip(query_tokens, title_tokens):
+        if query_token != title_token:
+            break
+        matched += 1
+    return matched
+
+
+def query_suffix_match_length(query_tokens: list[str], title_tokens: list[str]) -> int:
+    matched = 0
+    for query_token, title_token in zip(reversed(query_tokens), reversed(title_tokens)):
+        if query_token != title_token:
+            break
+        matched += 1
+    return matched
 
 
 def normalize_text(value: str) -> str:
