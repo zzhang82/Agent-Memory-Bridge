@@ -52,9 +52,11 @@ def run_benchmark(
                 "question_count": retrieval_summary["question_count"],
                 "memory_precision_at_1": retrieval_summary["memory_precision_at_1"],
                 "memory_precision_at_3": retrieval_summary["memory_precision_at_3"],
+                "memory_expected_top1_accuracy": retrieval_summary["memory_expected_top1_accuracy"],
                 "memory_avg_latency_ms": retrieval_summary["memory_avg_latency_ms"],
                 "file_scan_precision_at_1": retrieval_summary["file_scan_precision_at_1"],
                 "file_scan_precision_at_3": retrieval_summary["file_scan_precision_at_3"],
+                "file_scan_expected_top1_accuracy": retrieval_summary["file_scan_expected_top1_accuracy"],
                 "file_scan_avg_latency_ms": retrieval_summary["file_scan_avg_latency_ms"],
                 "signal_correctness_passed": proof_report["summary"]["signal_correctness_passed"],
                 "duplicate_suppression_rate": proof_report["summary"]["duplicate_suppression_rate"],
@@ -81,6 +83,7 @@ def run_memory_benchmark(store: MemoryStore, question: dict[str, Any]) -> dict[s
     top_titles = [item["title"] for item in response["items"] if item.get("title")]
     return {
         "hit": bool(top_titles) and top_titles[0] in relevant_titles,
+        "expected_top1": bool(top_titles) and top_titles[0] == question["expected_title"],
         "latency_ms": elapsed_ms,
         "count": response["count"],
         "top_title": top_titles[0] if top_titles else None,
@@ -114,6 +117,7 @@ def run_file_benchmark(entries: list[dict[str, Any]], question: dict[str, Any]) 
     top_titles = [title for _, title in scored if title]
     return {
         "hit": bool(top_titles) and top_titles[0] in relevant_titles,
+        "expected_top1": bool(top_titles) and top_titles[0] == question["expected_title"],
         "latency_ms": elapsed_ms,
         "count": len(scored),
         "top_title": top_titles[0] if top_titles else None,
@@ -134,10 +138,18 @@ def build_retrieval_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "question_count": len(results),
         "memory_hit_count": sum(1 for result in results if result["memory"]["hit"]),
+        "memory_expected_top1_count": sum(1 for result in results if result["memory"]["expected_top1"]),
+        "memory_expected_top1_accuracy": average(
+            [1.0 if result["memory"]["expected_top1"] else 0.0 for result in results]
+        ),
         "memory_precision_at_1": average(memory_p1),
         "memory_precision_at_3": average(memory_p3),
         "memory_avg_latency_ms": average(memory_latency),
         "file_scan_hit_count": sum(1 for result in results if result["file_scan"]["hit"]),
+        "file_scan_expected_top1_count": sum(1 for result in results if result["file_scan"]["expected_top1"]),
+        "file_scan_expected_top1_accuracy": average(
+            [1.0 if result["file_scan"]["expected_top1"] else 0.0 for result in results]
+        ),
         "file_scan_precision_at_1": average(file_p1),
         "file_scan_precision_at_3": average(file_p3),
         "file_scan_avg_latency_ms": average(file_latency),

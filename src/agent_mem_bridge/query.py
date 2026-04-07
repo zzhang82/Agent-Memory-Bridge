@@ -24,13 +24,14 @@ def recall_candidates(
     correlation_id: str | None,
     since: str | None,
 ) -> list[dict[str, Any]]:
+    candidate_limit = max(limit, min(max(limit * 5, 20), 100))
     match_query = build_match_query(query)
     if match_query:
         rows = recall_via_fts(
             store,
             namespace=namespace,
             match_query=match_query,
-            limit=limit,
+            limit=candidate_limit,
             kind=kind,
             signal_status=signal_status,
             tags_any=tags_any,
@@ -43,14 +44,14 @@ def recall_candidates(
             items = [MemoryRow.from_sqlite(row).as_dict() for row in rows]
             if signal_status is not None:
                 items = [item for item in items if item.get("signal_status") == signal_status]
-            return items
+            return rerank_items(query, items, limit)
 
     if query:
         rows = recall_via_like(
             store,
             namespace=namespace,
             query=query,
-            limit=limit,
+            limit=candidate_limit,
             kind=kind,
             signal_status=signal_status,
             tags_any=tags_any,
@@ -75,6 +76,8 @@ def recall_candidates(
     items = [MemoryRow.from_sqlite(row).as_dict() for row in rows]
     if signal_status is not None:
         items = [item for item in items if item.get("signal_status") == signal_status]
+    if query:
+        return rerank_items(query, items, limit)
     return items
 
 
@@ -112,7 +115,7 @@ def recall_via_fts(
             FROM memories m
             JOIN memories_fts f ON f.memory_id = m.id
             WHERE {where_sql} AND memories_fts MATCH ?
-            ORDER BY bm25(memories_fts), m.created_at DESC
+            ORDER BY bm25(memories_fts), m.created_at ASC
             LIMIT ?
             """,
             (*params, match_query, limit),
@@ -153,7 +156,7 @@ def recall_via_like(
             FROM memories
             WHERE {where_sql}
             AND (content LIKE ? ESCAPE '\\' OR COALESCE(title, '') LIKE ? ESCAPE '\\')
-            ORDER BY created_at DESC
+            ORDER BY created_at ASC
             LIMIT ?
             """,
             (*params, like_value, like_value, limit),
@@ -269,6 +272,107 @@ def build_match_query(query: str) -> str:
     if not tokens:
         return ""
     return " OR ".join(f'"{token}"' for token in tokens)
+
+
+def rerank_items(query: str, items: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    normalized_query = normalize_text(query)
+    query_tokens = tokenize(normalized_query)
+    if not query_tokens:
+        return items[:limit]
+
+    scored: list[tuple[tuple[float, ...], dict[str, Any]]] = []
+    for index, item in enumerate(items):
+        title = str(item.get("title") or "")
+        content = str(item.get("content") or "")
+        title_text = normalize_text(title)
+        content_text = normalize_text(content)
+        title_tokens = tokenize(title_text)
+        content_tokens = tokenize(content_text)
+
+        # Prefer clear answer-shaped titles, then use tight content spans as the fallback.
+        score = (
+            phrase_match_score(normalized_query, title_text) * 50.0
+            + phrase_match_score(normalized_query, content_text) * 25.0
+            + coverage_score(query_tokens, title_tokens) * 4.0
+            + title_precision_score(query_tokens, title_tokens) * 13.0
+            + coverage_score(query_tokens, content_tokens) * 1.0
+            + ordered_span_score(query_tokens, title_tokens, base=16.0)
+            + ordered_span_score(query_tokens, content_tokens, base=28.0)
+            - unmatched_title_penalty(query_tokens, title_tokens, factor=0.3)
+        )
+        title_phrase = phrase_match_score(normalized_query, title_text)
+        title_precision = title_precision_score(query_tokens, title_tokens)
+        title_coverage = coverage_score(query_tokens, title_tokens)
+        scored.append(((score, title_phrase, title_precision, title_coverage, float(-index)), item))
+
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [item for _, item in scored[:limit]]
+
+
+def phrase_match_score(query_text: str, field_text: str) -> float:
+    if not query_text or not field_text:
+        return 0.0
+    return 1.0 if query_text in field_text else 0.0
+
+
+def coverage_score(query_tokens: list[str], field_tokens: list[str]) -> float:
+    if not query_tokens or not field_tokens:
+        return 0.0
+    field_set = set(field_tokens)
+    return sum(1 for token in query_tokens if token in field_set) / len(query_tokens)
+
+
+def title_precision_score(query_tokens: list[str], title_tokens: list[str]) -> float:
+    if not query_tokens or not title_tokens:
+        return 0.0
+    query_set = set(query_tokens)
+    return sum(1 for token in title_tokens if token in query_set) / len(title_tokens)
+
+
+def ordered_span_score(query_tokens: list[str], field_tokens: list[str], *, base: float) -> float:
+    span = find_ordered_span(query_tokens, field_tokens)
+    if span is None:
+        return 0.0
+    return round(base / span, 6)
+
+
+def find_ordered_span(query_tokens: list[str], field_tokens: list[str]) -> int | None:
+    if not query_tokens or not field_tokens:
+        return None
+    best_span: int | None = None
+    first = query_tokens[0]
+    start_positions = [index for index, token in enumerate(field_tokens) if token == first]
+    for start in start_positions:
+        current = start
+        matched = True
+        for token in query_tokens[1:]:
+            try:
+                current = field_tokens.index(token, current + 1)
+            except ValueError:
+                matched = False
+                break
+        if not matched:
+            continue
+        span = current - start + 1
+        if best_span is None or span < best_span:
+            best_span = span
+    return best_span
+
+
+def unmatched_title_penalty(query_tokens: list[str], title_tokens: list[str], *, factor: float = 0.2) -> float:
+    if not title_tokens:
+        return 0.0
+    query_set = set(query_tokens)
+    unmatched = sum(1 for token in title_tokens if token not in query_set)
+    return unmatched * factor
+
+
+def normalize_text(value: str) -> str:
+    return " ".join(value.lower().split())
+
+
+def tokenize(text: str) -> list[str]:
+    return TOKEN_RE.findall(text.lower())
 
 
 def escape_like(value: str) -> str:
