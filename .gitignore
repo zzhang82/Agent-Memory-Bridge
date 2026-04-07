@@ -20,6 +20,7 @@ htmlcov/
 logs/
 watcher-logs/
 examples/*-report.json
+examples/legacy/
 benchmark/latest-report.json
 benchmark/latest-proof-report.json
 docs/archive/
