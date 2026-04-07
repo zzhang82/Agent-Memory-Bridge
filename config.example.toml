@@ -2,7 +2,7 @@
 home = "~/.codex"
 
 [profile]
-source_root = "~/Cole"
+source_root = "~/.codex/mem-bridge/profile-source"
 namespace = "global"
 reflex_actor = "bridge-reflex"
 consolidation_actor = "bridge-consolidation"

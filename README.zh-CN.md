@@ -122,9 +122,11 @@ $CODEX_HOME/mem-bridge/config.toml
 
 几个关键默认项：
 
-- `[profile]` 控制默认 namespace、actor 和标题前缀
+- `[profile]` 控制默认 namespace、actor、标题前缀，以及可选的 profile source root
 - `[bridge]` 控制本地 live 数据库
-- `[watcher]`、`[reflex]`、`[consolidation]` 控制后台流水线
+- `[watcher]`、`[reflex]`、`[service]` 控制后台流水线
+
+示例配置把 `~/.codex/mem-bridge/profile-source` 当作中性的本地 sample path，这样新用户不会一上来就继承带个人色彩的 profile 名称。
 
 推荐做法：
 
@@ -221,7 +223,7 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - `browse`、`stats`、`forget`、`export` 让你不用打开 SQLite 也能看清状态
 - `signal` 的状态可以直接查到：`pending`、`claimed`、`acked`、`expired`
 - watcher health check 会验证 Codex rollout 文件是否还能被解析成可用 summary
-- 当前测试套件结果是 `57 passed`
+- 当前测试套件结果是 `58 passed`
 
 常用命令：
 

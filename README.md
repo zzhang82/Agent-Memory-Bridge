@@ -119,9 +119,11 @@ $CODEX_HOME/mem-bridge/config.toml
 
 The important defaults are:
 
-- `[profile]` controls the neutral runtime shape for namespace, actors, and title prefixes
+- `[profile]` controls the neutral runtime shape for namespace, actors, title prefixes, and an optional profile source root
 - `[bridge]` controls the live local database
-- `[watcher]`, `[reflex]`, and `[consolidation]` control the background pipeline
+- `[watcher]`, `[reflex]`, and `[service]` control the background pipeline
+
+The example config uses `~/.codex/mem-bridge/profile-source` as a neutral local sample path so a fresh install does not inherit a personal profile name.
 
 Recommended setup:
 
@@ -215,7 +217,7 @@ The bridge is meant to be inspectable, not magical:
 - `browse`, `stats`, `forget`, and `export` let you inspect and correct bridge state without opening SQLite
 - signal status is visible and queryable through `pending`, `claimed`, `acked`, and `expired`
 - watcher health checks verify that Codex rollout files still parse into usable summaries
-- the current test suite passes with `57 passed`
+- the current test suite passes with `58 passed`
 
 Useful commands:
 

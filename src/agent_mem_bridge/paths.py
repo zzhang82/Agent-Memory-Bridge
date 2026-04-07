@@ -28,6 +28,10 @@ def _default_bridge_home() -> Path:
     return _default_codex_home() / "mem-bridge"
 
 
+def _default_profile_source_root() -> Path:
+    return _default_bridge_home() / "profile-source"
+
+
 def resolve_config_path() -> Path:
     raw = _first_env("AGENT_MEMORY_BRIDGE_CONFIG")
     if raw:
@@ -131,7 +135,7 @@ def resolve_profile_source_root() -> Path:
     if isinstance(configured, str) and configured.strip():
         return _resolve_config_path_value(configured.strip())
 
-    return Path(__file__).resolve().parents[3] / "Cole"
+    return _default_profile_source_root()
 
 
 def resolve_cole_source_root() -> Path:

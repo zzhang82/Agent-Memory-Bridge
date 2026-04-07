@@ -81,4 +81,16 @@ def test_env_overrides_config_values(tmp_path: Path, monkeypatch) -> None:
     assert resolve_idle_seconds() == 90
 
 
+def test_profile_source_root_defaults_to_neutral_bridge_path(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("", encoding="utf-8")
+
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_CONFIG", str(config_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(tmp_path / "bridge-home"))
+    monkeypatch.delenv("AGENT_MEMORY_BRIDGE_PROFILE_SOURCE_ROOT", raising=False)
+    monkeypatch.delenv("COLE_SOURCE_ROOT", raising=False)
+
+    assert resolve_profile_source_root() == tmp_path / "bridge-home" / "profile-source"
+
+
 
