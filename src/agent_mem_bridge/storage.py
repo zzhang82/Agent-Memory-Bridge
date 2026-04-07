@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +21,7 @@ from .repository import (
     store_entry,
 )
 from .schema import init_db
-from .signals import SignalSnapshot, effective_signal_status, is_signal_claimable, normalize_signal_status_filter
+from .signals import ack_signal_entry, claim_signal_entry, normalize_signal_status_filter
 
 
 class MemoryStore:
@@ -178,130 +178,28 @@ class MemoryStore:
         tags_any: list[str] | None = None,
         correlation_id: str | None = None,
     ) -> dict[str, Any]:
-        cleaned_namespace = namespace.strip()
-        cleaned_consumer = consumer.strip()
-        cleaned_signal_id = signal_id.strip() if signal_id else None
-        if not cleaned_namespace:
-            raise ValueError("namespace must not be empty")
-        if not cleaned_consumer:
-            raise ValueError("consumer must not be empty")
-        if lease_seconds <= 0:
-            raise ValueError("lease_seconds must be greater than 0")
-
-        now = datetime.now(UTC)
-        claimed_at = now.isoformat()
-        lease_expires_at = (now + timedelta(seconds=lease_seconds)).isoformat()
-
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            candidate = self._select_claimable_signal(
-                conn,
-                namespace=cleaned_namespace,
-                signal_id=cleaned_signal_id,
-                tags_any=tags_any,
-                correlation_id=correlation_id,
-                consumer=cleaned_consumer,
-                now=now,
-            )
-            if candidate is None:
-                conn.rollback()
-                self._log(
-                    "claim_signal",
-                    {
-                        "namespace": cleaned_namespace,
-                        "consumer": cleaned_consumer,
-                        "claimed": False,
-                        "signal_id": cleaned_signal_id,
-                    },
-                )
-                return {
-                    "claimed": False,
-                    "signal_id": cleaned_signal_id,
-                    "namespace": cleaned_namespace,
-                    "consumer": cleaned_consumer,
-                    "item": None,
-                }
-
-            conn.execute(
-                """
-                UPDATE memories
-                SET signal_status = 'claimed',
-                    claimed_by = ?,
-                    claimed_at = ?,
-                    lease_expires_at = ?,
-                    acknowledged_at = NULL
-                WHERE id = ?
-                """,
-                (cleaned_consumer, claimed_at, lease_expires_at, candidate["id"]),
-            )
-            conn.commit()
-            refreshed = fetch_row_by_id(conn, candidate["id"])
-
-        item = MemoryRow.from_sqlite(refreshed).as_dict() if refreshed is not None else None
-        self._log(
-            "claim_signal",
-            {
-                "namespace": cleaned_namespace,
-                "consumer": cleaned_consumer,
-                "claimed": True,
-                "signal_id": candidate["id"],
-                "lease_expires_at": lease_expires_at,
-            },
+        return claim_signal_entry(
+            store=self,
+            namespace=namespace,
+            consumer=consumer,
+            lease_seconds=lease_seconds,
+            signal_id=signal_id,
+            tags_any=tags_any,
+            correlation_id=correlation_id,
+            row_select_sql=MEMORY_ROW_SELECT,
+            build_tag_filter=build_tag_filter,
+            fetch_row_by_id=fetch_row_by_id,
+            row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
         )
-        return {
-            "claimed": True,
-            "signal_id": candidate["id"],
-            "namespace": cleaned_namespace,
-            "consumer": cleaned_consumer,
-            "lease_expires_at": lease_expires_at,
-            "item": item,
-        }
 
     def ack_signal(self, memory_id: str, consumer: str | None = None) -> dict[str, Any]:
-        cleaned_id = memory_id.strip()
-        cleaned_consumer = consumer.strip() if consumer else None
-        if not cleaned_id:
-            raise ValueError("id must not be empty")
-
-        now = datetime.now(UTC)
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            row = fetch_row_by_id(conn, cleaned_id)
-            if row is None:
-                conn.rollback()
-                return {"id": cleaned_id, "acked": False, "reason": "missing", "item": None}
-            if row["kind"] != "signal":
-                conn.rollback()
-                raise ValueError("only kind=signal entries can be acknowledged")
-
-            snapshot = SignalSnapshot.from_row(row)
-            status = effective_signal_status(snapshot, now=now)
-            if status == "expired":
-                conn.rollback()
-                return {"id": cleaned_id, "acked": False, "reason": "expired", "item": MemoryRow.from_sqlite(row).as_dict()}
-            if status == "acked":
-                conn.rollback()
-                return {"id": cleaned_id, "acked": False, "reason": "already-acked", "item": MemoryRow.from_sqlite(row).as_dict()}
-            if cleaned_consumer and snapshot.claimed_by and snapshot.claimed_by != cleaned_consumer and status == "claimed":
-                conn.rollback()
-                return {"id": cleaned_id, "acked": False, "reason": "claimed-by-other", "item": MemoryRow.from_sqlite(row).as_dict()}
-
-            conn.execute(
-                """
-                UPDATE memories
-                SET signal_status = 'acked',
-                    acknowledged_at = ?,
-                    lease_expires_at = NULL
-                WHERE id = ?
-                """,
-                (now.isoformat(), cleaned_id),
-            )
-            conn.commit()
-            refreshed = fetch_row_by_id(conn, cleaned_id)
-
-        item = MemoryRow.from_sqlite(refreshed).as_dict() if refreshed is not None else None
-        self._log("ack_signal", {"id": cleaned_id, "acked": True, "consumer": cleaned_consumer})
-        return {"id": cleaned_id, "acked": True, "consumer": cleaned_consumer, "item": item}
+        return ack_signal_entry(
+            store=self,
+            memory_id=memory_id,
+            consumer=consumer,
+            fetch_row_by_id=fetch_row_by_id,
+            row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
+        )
 
     def promote(self, memory_id: str, to_kind: str) -> dict[str, Any]:
         return promote_entry(self, memory_id, to_kind)
@@ -365,45 +263,6 @@ class MemoryStore:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
-
-    def _select_claimable_signal(
-        self,
-        conn: sqlite3.Connection,
-        namespace: str,
-        signal_id: str | None,
-        tags_any: list[str] | None,
-        correlation_id: str | None,
-        consumer: str,
-        now: datetime,
-    ) -> sqlite3.Row | None:
-        clauses = ["namespace = ?", "kind = 'signal'"]
-        params: list[Any] = [namespace]
-        if signal_id:
-            clauses.append("id = ?")
-            params.append(signal_id)
-        if correlation_id:
-            clauses.append("correlation_id = ?")
-            params.append(correlation_id)
-        tag_filter_sql, tag_params = build_tag_filter(tags_any)
-        if tag_filter_sql:
-            clauses.append(tag_filter_sql)
-            params.extend(tag_params)
-
-        rows = conn.execute(
-            f"""
-            SELECT
-                {MEMORY_ROW_SELECT}
-            FROM memories
-            WHERE {' AND '.join(clauses)}
-            ORDER BY created_at ASC
-            LIMIT 50
-            """,
-            params,
-        ).fetchall()
-        for row in rows:
-            if is_signal_claimable(SignalSnapshot.from_row(row), consumer=consumer, now=now):
-                return row
-        return None
 
     def _init_db(self) -> None:
         with self._connect() as conn:

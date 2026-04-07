@@ -21,4 +21,5 @@ logs/
 watcher-logs/
 examples/*-report.json
 benchmark/latest-report.json
+benchmark/latest-proof-report.json
 docs/archive/
