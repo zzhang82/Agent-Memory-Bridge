@@ -14,6 +14,7 @@ def test_precision_at_k_and_rank_helpers() -> None:
 
     assert precision_at_k(top_titles, relevant, 1) == 0.0
     assert precision_at_k(top_titles, relevant, 3) == 0.667
+    assert precision_at_k(["B"], relevant, 3) == 0.333
     assert first_relevant_rank(top_titles, relevant) == 2
 
 

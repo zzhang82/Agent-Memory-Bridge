@@ -33,5 +33,26 @@
     "expected_title": "Codex Context Bridge",
     "relevant_titles": ["Codex Context Bridge"],
     "kind": "memory"
+  },
+  {
+    "id": "q6",
+    "query": "sqlite sync timeout",
+    "expected_title": "SQLite Timeout Recovery",
+    "relevant_titles": ["SQLite Timeout Recovery", "Storage Decision"],
+    "kind": "memory"
+  },
+  {
+    "id": "q7",
+    "query": "API review handoff",
+    "expected_title": "Review Handoff",
+    "relevant_titles": ["Review Handoff", "API Review Ready"],
+    "kind": "signal"
+  },
+  {
+    "id": "q8",
+    "query": "Codex context handoff",
+    "expected_title": "Codex Context Bridge",
+    "relevant_titles": ["Codex Context Bridge", "Context Handoff Guide"],
+    "kind": "memory"
   }
 ]

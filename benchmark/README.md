@@ -24,3 +24,10 @@ The benchmark report combines two layers:
 - retrieval comparison for `precision@1`, `precision@3`, and latency against a simple file-scan baseline
 
 The goal is not to win a leaderboard. It is to make regressions visible and keep the bridge honest as retrieval and signal semantics evolve.
+
+The current fixture set now includes:
+
+- exact-match retrieval checks
+- punctuation-heavy fallback checks
+- multi-relevant memory queries
+- multi-relevant signal queries

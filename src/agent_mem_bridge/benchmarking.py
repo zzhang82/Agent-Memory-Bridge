@@ -153,10 +153,10 @@ def precision_at_k(top_titles: list[str], relevant_titles: list[str], k: int) ->
     if k <= 0:
         raise ValueError("k must be greater than 0")
     window = top_titles[:k]
-    if not window:
+    if not top_titles:
         return 0.0
     relevant = set(relevant_titles)
-    return round(sum(1 for title in window if title in relevant) / len(window), 3)
+    return round(sum(1 for title in window if title in relevant) / k, 3)
 
 
 def first_relevant_rank(top_titles: list[str], relevant_titles: list[str]) -> int | None:

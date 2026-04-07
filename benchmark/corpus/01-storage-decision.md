@@ -15,3 +15,5 @@ We decided to use SQLite in WAL mode for agent-memory-bridge so multiple readers
 
 This is the foundation for a shared memory journal across Codex and other agents.
 
+During sync, short write scopes help keep timeout risk low.
+
