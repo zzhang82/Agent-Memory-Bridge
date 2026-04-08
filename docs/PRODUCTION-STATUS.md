@@ -37,7 +37,7 @@ For naming:
 
 ## Verified On 2026-04-07
 
-- `pytest` passes: `78 passed`
+- `pytest` passes: `80 passed`
 - The MCP server autoloads successfully in Codex
 - `recall(...)` works in-session through `agentMemoryBridge`
 - The canonical benchmark fixture now includes overlap-heavy retrieval cases for:
@@ -65,6 +65,7 @@ For naming:
 - Reviewed classifier calibration now compares raw classifier tags, retained classifier tags, expected tags, and keyword fallback tags before widening assist usage
 - Assist-mode enrichment now honors a classifier `minimum_confidence` gate so low-confidence outputs stay visible in calibration without silently entering promoted records
 - Reviewed calibration is now slice-aware, which makes it easier to see that coordination/runtime slices are stronger today than retrieval-heavy slices
+- Generic signal claim selection now applies a small fairness bias inside the oldest eligible window so one polling consumer does not immediately reclaim its own stale work when other pending signals exist
 - Recall-first can now surface:
   - current project memory
   - global learns
@@ -251,7 +252,7 @@ That means:
 2. Add a stronger durable-event scorer for checkpoint and closeout lines
 3. Expand `gotcha` extraction beyond a few known patterns
 4. Build richer domain/topic synthesis across many sessions
-5. Add claim-selection fairness and stronger coordination checks on top of `since`
+5. Add retry boundaries and stronger coordination checks on top of `since`
 
 That is the path from useful memory store to actual reflex and learning system.
 

@@ -21,6 +21,7 @@ def test_run_deterministic_proof_returns_expected_sections() -> None:
     assert signal_report["checks"]["acked_signal_cannot_extend"] is True
     assert signal_report["checks"]["expired_lease_cannot_be_extended"] is True
     assert signal_report["checks"]["stale_lease_can_be_reclaimed"] is True
+    assert signal_report["checks"]["fair_claim_avoids_same_consumer_reclaim_bias"] is True
     assert signal_report["checks"]["hard_expiry_caps_extended_lease"] is True
 
     recall_report = report["recall_latency"]

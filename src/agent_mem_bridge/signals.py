@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import sqlite3
+from hashlib import blake2b
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Callable
 
 
 SIGNAL_STATUSES = {"pending", "claimed", "acked", "expired"}
+FAIR_CLAIM_WINDOW = 8
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,10 +123,16 @@ def select_claimable_signal(
         """,
         params,
     ).fetchall()
-    for row in rows:
-        if is_signal_claimable(SignalSnapshot.from_row(row), consumer=consumer, now=now):
-            return row
-    return None
+    claimable_rows = [
+        row
+        for row in rows
+        if is_signal_claimable(SignalSnapshot.from_row(row), consumer=consumer, now=now)
+    ]
+    if not claimable_rows:
+        return None
+    if signal_id:
+        return claimable_rows[0]
+    return choose_fair_claim_candidate(claimable_rows, consumer=consumer)
 
 
 def claim_signal_entry(
@@ -356,6 +364,27 @@ def extend_signal_lease_entry(
         "lease_expires_at": lease_expires_at,
         "item": item,
     }
+
+
+def choose_fair_claim_candidate(rows: list[sqlite3.Row], *, consumer: str) -> sqlite3.Row:
+    if not rows:
+        raise ValueError("rows must not be empty")
+
+    window = rows[: min(len(rows), FAIR_CLAIM_WINDOW)]
+    preferred = [row for row in window if _clean_optional(row["claimed_by"]) != consumer]
+    pool = preferred if preferred else window
+    if len(pool) == 1:
+        return pool[0]
+
+    offset = fair_claim_offset(consumer, len(pool))
+    return pool[offset]
+
+
+def fair_claim_offset(consumer: str, pool_size: int) -> int:
+    if pool_size <= 0:
+        raise ValueError("pool_size must be greater than 0")
+    digest = blake2b(consumer.encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(digest, byteorder="big", signed=False) % pool_size
 
 
 def _is_expired(raw_value: str | None, now: datetime) -> bool:

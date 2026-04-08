@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from agent_mem_bridge.signals import fair_claim_offset
 from agent_mem_bridge.storage import MemoryStore
 
 
@@ -339,6 +340,56 @@ def test_claim_signal_reuses_stale_lease(tmp_path: Path) -> None:
     assert reclaimed["claimed"] is True
     assert reclaimed["item"]["claimed_by"] == "worker-b"
     assert reclaimed["item"]["signal_status"] == "claimed"
+
+
+def test_claim_signal_prefers_other_pending_work_before_reclaiming_same_consumer_stale_item(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    stale = store.store(
+        namespace="project:bridge",
+        content="Previously claimed work that went stale.",
+        kind="signal",
+        tags=["handoff:review"],
+    )
+    fresh = store.store(
+        namespace="project:bridge",
+        content="Fresh pending review work.",
+        kind="signal",
+        tags=["handoff:review"],
+    )
+    store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-a",
+        lease_seconds=60,
+        signal_id=stale["id"],
+    )
+
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE memories SET lease_expires_at = ? WHERE id = ?",
+            ("2000-01-01T00:00:00+00:00", stale["id"]),
+        )
+        conn.commit()
+
+    claimed = store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-a",
+        lease_seconds=60,
+        tags_any=["handoff:review"],
+    )
+
+    assert claimed["claimed"] is True
+    assert claimed["signal_id"] == fresh["id"]
+    assert claimed["item"]["claimed_by"] == "worker-a"
+
+
+def test_fair_claim_offset_is_deterministic_and_consumer_specific() -> None:
+    alpha = fair_claim_offset("worker-alpha", 5)
+    beta = fair_claim_offset("worker-beta", 5)
+
+    assert fair_claim_offset("worker-alpha", 5) == alpha
+    assert 0 <= alpha < 5
+    assert 0 <= beta < 5
+    assert alpha != beta
 
 
 def test_recall_can_filter_by_effective_signal_status(tmp_path: Path) -> None:

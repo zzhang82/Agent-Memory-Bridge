@@ -110,6 +110,34 @@ def run_signal_correctness_check(db_path: Path) -> dict[str, Any]:
     reclaimed = store.claim_signal(namespace="proof:signal", consumer="worker-b", lease_seconds=120, signal_id=lease["id"])
     reclaim_latency_ms = round((time.perf_counter_ns() - reclaim_started) / 1_000_000, 3)
 
+    fairness_stale = store.store(
+        namespace="proof:signal",
+        content="Stale worker-owned review signal.",
+        kind="signal",
+        tags=["handoff:review", "proof:fairness"],
+        ttl_seconds=600,
+    )
+    fairness_fresh = store.store(
+        namespace="proof:signal",
+        content="Fresh pending review signal.",
+        kind="signal",
+        tags=["handoff:review", "proof:fairness"],
+        ttl_seconds=600,
+    )
+    store.claim_signal(
+        namespace="proof:signal",
+        consumer="worker-fair",
+        lease_seconds=60,
+        signal_id=fairness_stale["id"],
+    )
+    force_expire_lease(store, fairness_stale["id"])
+    fair_claim = store.claim_signal(
+        namespace="proof:signal",
+        consumer="worker-fair",
+        lease_seconds=60,
+        tags_any=["proof:fairness"],
+    )
+
     capped_expiry = datetime.now(UTC) + timedelta(seconds=45)
     capped = store.store(
         namespace="proof:signal",
@@ -132,6 +160,7 @@ def run_signal_correctness_check(db_path: Path) -> dict[str, Any]:
         "expired_signal_cannot_be_acked": expired_ack["acked"] is False and expired_ack["reason"] == "expired",
         "expired_lease_cannot_be_extended": expired_extend["extended"] is False and expired_extend["reason"] == "lease-expired",
         "stale_lease_can_be_reclaimed": reclaimed["claimed"] is True and reclaimed["item"]["claimed_by"] == "worker-b",
+        "fair_claim_avoids_same_consumer_reclaim_bias": fair_claim["claimed"] is True and fair_claim["signal_id"] == fairness_fresh["id"],
         "hard_expiry_caps_extended_lease": capped_extend["extended"] is True and capped_extend["lease_expires_at"] == capped["expires_at"],
     }
 

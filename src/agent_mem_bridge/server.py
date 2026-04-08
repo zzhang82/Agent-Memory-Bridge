@@ -394,7 +394,8 @@ def claim_signal(
 
     Use this when a worker should take ownership of a pending signal before it acts.
     If `signal_id` is omitted, the bridge claims the next eligible signal in the
-    namespace that matches the optional filters.
+    namespace that matches the optional filters, with a small fairness bias inside
+    the oldest pending window so one polling consumer does not keep winning by accident.
     """
     return bridge.claim_signal(
         namespace=namespace,

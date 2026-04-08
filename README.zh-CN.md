@@ -12,13 +12,12 @@
 
 MCP-native，目前优先针对 Codex-first 工作流做优化。
 
-`v0.6.4` 这一版新增：
+`v0.6.5` 这一版新增：
 
-- classifier-assisted reflex enrichment，支持 `shadow` / `assist` rollout，并保留规则 fallback
-- 更大的 reviewed calibration set，并加入按 slice 切开的 classifier-vs-fallback 分析
-- 通过 `minimum_confidence` 给 assist-mode 加上 confidence gating
-- calibration report 现在能直接看出哪些 slice 已经稳、哪些 slice 还在漂
-- benchmarked retrieval 仍然保持 `expected_top1_accuracy = 1.0`
+- 在最老的 eligible signal 窗口里加入 claim-selection fairness
+- 同一个 consumer 的 stale claim 不会再意外压过其他 fresh pending work
+- deterministic proof 现在也会验证这条 fairness contract，连同 claim / extend / ack / reclaim 一起检查
+- slice-aware classifier calibration 和 benchmarked retrieval 继续保留
 
 ![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
 
@@ -49,7 +48,7 @@ Agent Memory Bridge 走的是更克制的一条路：
 
 1. 它把持久知识和协调状态分开。
 2. 它默认保持小而可检查，不靠大平台包装。
-3. 它给 `signal` 补上了更完整的生命周期：`claim -> extend -> ack / expire / reclaim`。
+3. 它给 `signal` 补上了更完整的生命周期：`claim -> extend -> ack / expire / reclaim`，并让多个 pending signal 的泛化 claim 更公平。
 4. 它会把 session 输出提升成紧凑、机器可读的记忆，而不是把 summary 当最终产物。
 5. 它可以增加 classifier-assisted enrichment，但不会让整个系统失去 deterministic fallback。
 
@@ -106,6 +105,7 @@ ack_signal(id="<signal_id>", consumer="reviewer-a")
 - `signal` 传递另一个流程现在需要处理的事
 
 这里要特别说明一点：续租不等于重新领取。lease 还活着时，由当前 claimant 续租；lease 过期后，应该由新的 worker 重新 claim。
+当 `signal_id` 留空时，`claim_signal(...)` 现在会在最老的 eligible 窗口里做一个很小的 fairness 偏置，减少“谁先轮询谁总赢”的偶然优势。
 
 ## Demo
 
@@ -260,7 +260,7 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - `signal` 的状态可以直接查到：`pending`、`claimed`、`acked`、`expired`
 - watcher health check 会验证 Codex rollout 文件是否还能被解析成可用 summary
 - classifier 的 shadow / assist 行为有基于 fixture 的回归测试
-- 当前测试套件结果是 `78 passed`
+- 当前测试套件结果是 `80 passed`
 
 常用命令：
 
@@ -277,7 +277,7 @@ retrieval 质量现在已经是“可 benchmark”，不是“凭感觉猜”。
 
 这座桥现在已经有一套很小但可重复运行的 proof / benchmark harness。
 
-- deterministic proof 会检查 signal correctness、duplicate suppression 和 recall timing
+- deterministic proof 会检查 signal correctness、claim fairness、duplicate suppression 和 recall timing
 - retrieval benchmark 会跟踪 `precision@1`、`precision@3`、`expected_top1_accuracy`
 - retrieval report 会把 bridge recall 和简单 file-scan baseline 放在一起比较
 - learning-quality 升级现在还带有 classifier-vs-fallback 的回归覆盖

@@ -12,13 +12,12 @@ durable knowledge + coordination signals.
 
 MCP-native, currently optimized for Codex-first workflows.
 
-v0.6.4 adds:
+v0.6.5 adds:
 
-- classifier-assisted reflex enrichment with `shadow` / `assist` rollout and rule fallback
-- a larger reviewed calibration set with slice-aware classifier-vs-fallback analysis
-- assist-mode confidence gating through `minimum_confidence`
-- slice summaries that show where calibration is already strong and where it still drifts
-- benchmarked retrieval still holding `expected_top1_accuracy = 1.0`
+- claim-selection fairness inside the oldest eligible signal window
+- stale same-consumer claims no longer outrank other pending work by accident
+- deterministic proof now checks the fairness contract along with claim / extend / ack / reclaim
+- slice-aware classifier calibration and benchmarked retrieval stay in place
 
 ![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
 
@@ -46,7 +45,7 @@ Agent Memory Bridge takes a narrower path:
 
 1. It separates durable knowledge from coordination state.
 2. It stays small and inspectable instead of hiding behind a larger platform.
-3. It gives signals a clean lifecycle: `claim -> extend -> ack / expire / reclaim`.
+3. It gives signals a clean lifecycle: `claim -> extend -> ack / expire / reclaim`, and fairer generic claim selection when several signals are pending.
 4. It promotes session output into compact machine-readable memory instead of treating summaries as the final artifact.
 5. It can add classifier-assisted enrichment without making the bridge depend on that path to stay useful.
 
@@ -103,6 +102,7 @@ That shows the core split:
 - `signal` carries what another workflow needs to act on right now
 
 Lease renewal is not reclaim. If a lease is still active, the current claimant can extend it. If it has gone stale, another worker should reclaim it instead.
+When `signal_id` is omitted, `claim_signal(...)` now picks from the oldest eligible window with a small fairness bias so one polling consumer does not keep winning by accident.
 
 ## Demo
 
@@ -254,7 +254,7 @@ The bridge is meant to be inspectable, not magical:
 - signal status is visible and queryable through `pending`, `claimed`, `acked`, and `expired`
 - watcher health checks verify that Codex rollout files still parse into usable summaries
 - classifier shadow/assist behavior is covered by fixture-based regression tests
-- the current test suite passes with `78 passed`
+- the current test suite passes with `80 passed`
 
 Useful commands:
 
@@ -272,6 +272,7 @@ Retrieval quality is now benchmarked instead of guessed.
 The bridge now has a small canonical proof and benchmark harness.
 
 - deterministic proof checks signal correctness, duplicate suppression, and recall timing
+- signal correctness now includes a fairness check for stale same-consumer reclaim bias
 - retrieval benchmark tracks `precision@1`, `precision@3`, and `expected_top1_accuracy`
 - the retrieval report compares bridge recall against a simple file-scan baseline
 - learning-quality upgrades now ship with classifier-vs-fallback regression coverage

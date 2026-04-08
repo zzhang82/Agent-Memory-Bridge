@@ -15,6 +15,7 @@ Agent Memory Bridge now covers the v0.6 foundation:
 - classifier-assisted reflex enrichment with `shadow` and `assist` rollout modes plus deterministic rule fallback
 - reviewed classifier calibration on labeled samples with assist-mode confidence gating and slice-aware summaries
 - broader canonical benchmark fixtures with more overlap-heavy retrieval cases
+- claim-selection fairness inside the oldest eligible signal window
 
 The next stage is about calibration, fairness, and broader learning quality.
 
@@ -28,9 +29,9 @@ The next stage is about calibration, fairness, and broader learning quality.
 
 ### Improve coordination fairness
 
-1. Add claim-selection fairness so one polling consumer does not win by accident.
-2. Add retry boundaries before considering dead-letter handling.
-3. Add stronger coordination benchmarks for claim, extend, ack, and reclaim behavior under contention.
+1. Add retry boundaries before considering dead-letter handling.
+2. Add stronger coordination benchmarks for claim, extend, ack, and reclaim behavior under contention.
+3. Measure fairness under broader contention before adding deeper ownership semantics.
 
 ### Keep benchmark coverage honest
 

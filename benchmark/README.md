@@ -23,6 +23,7 @@ Current runnable entrypoints:
 The benchmark report combines two layers:
 
 - deterministic proof for signal correctness, duplicate suppression, and recall timing
+- deterministic proof also checks that generic claim selection does not immediately favor reclaiming the same consumer's stale signal when other pending work exists
 - retrieval comparison for `precision@1`, `precision@3`, `expected_top1_accuracy`, and latency against a simple file-scan baseline
 - classifier-vs-fallback regression coverage in tests so learning-quality changes can roll out in shadow mode first
 - reviewed-sample calibration that compares expected tags, keyword fallback tags, raw classifier tags, retained classifier tags, and low-confidence filtering side by side
