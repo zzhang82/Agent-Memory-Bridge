@@ -40,3 +40,5 @@ The current fixture set now includes:
 - punctuation-heavy fallback checks
 - multi-relevant memory queries
 - multi-relevant signal queries
+- overlap-heavy review queue and release-cutover cases
+- context-compaction checklist vs bridge-note ambiguity

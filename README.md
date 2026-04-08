@@ -12,11 +12,11 @@ durable knowledge + coordination signals.
 
 MCP-native, currently optimized for Codex-first workflows.
 
-v0.6.1 adds:
+v0.6.2 adds:
 
 - classifier-assisted reflex enrichment with `shadow` / `assist` rollout and rule fallback
 - reviewed-sample calibration for classifier-vs-keyword decisions
-- benchmarked retrieval with `expected_top1_accuracy = 1.0`
+- broader canonical benchmark fixtures while keeping `expected_top1_accuracy = 1.0`
 - a fuller signal lifecycle: `claim -> extend -> ack / expire / reclaim`
 - `extend_signal_lease` as part of the public MCP surface
 
@@ -275,11 +275,12 @@ The bridge now has a small canonical proof and benchmark harness.
 - the retrieval report compares bridge recall against a simple file-scan baseline
 - learning-quality upgrades now ship with classifier-vs-fallback regression coverage
 - classifier calibration now runs on reviewed samples and reports where the classifier beats or loses to keyword fallback
+- the canonical retrieval fixture now includes more overlap-heavy memory and signal cases
 
 On the current canonical fixture:
 
 - `memory_expected_top1_accuracy = 1.0`
-- `file_scan_expected_top1_accuracy = 0.5`
+- `file_scan_expected_top1_accuracy = 0.636`
 - `duplicate_suppression_rate = 1.0`
 
 On the current reviewed calibration set:

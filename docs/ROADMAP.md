@@ -1,6 +1,6 @@
 # Roadmap
 
-Last updated: 2026-04-07
+Last updated: 2026-04-07 (America/New_York)
 
 Agent Memory Bridge now covers the v0.6 foundation:
 
@@ -13,6 +13,8 @@ Agent Memory Bridge now covers the v0.6 foundation:
 - neutral core defaults with profile-shaped config on top
 - benchmarked retrieval with `expected_top1_accuracy`
 - classifier-assisted reflex enrichment with `shadow` and `assist` rollout modes plus deterministic rule fallback
+- reviewed classifier calibration on labeled samples
+- broader canonical benchmark fixtures with more overlap-heavy retrieval cases
 
 The next stage is about calibration, fairness, and broader learning quality.
 
@@ -20,7 +22,7 @@ The next stage is about calibration, fairness, and broader learning quality.
 
 ### Calibrate learning quality
 
-1. Compare classifier output against reviewed fixtures before expanding `assist` mode by default.
+1. Compare classifier output against a larger reviewed sample set before expanding `assist` mode by default.
 2. Add clearer durable-event scoring for checkpoint and closeout lines.
 3. Add richer domain/topic synthesis over many sessions without dropping the deterministic fallback path.
 
@@ -30,11 +32,11 @@ The next stage is about calibration, fairness, and broader learning quality.
 2. Add retry boundaries before considering dead-letter handling.
 3. Add stronger coordination benchmarks for claim, extend, ack, and reclaim behavior under contention.
 
-### Broaden benchmark coverage
+### Keep benchmark coverage honest
 
-1. Expand the canonical fixture set beyond the current benchmark corpus.
-2. Keep tracking `precision@k` and `expected_top1_accuracy` together.
-3. Add more overlap-heavy retrieval cases so ranking does not overfit the small fixture set.
+1. Keep tracking `precision@k` and `expected_top1_accuracy` together.
+2. Add more real-world ambiguity cases so ranking does not overfit the current canonical corpus.
+3. Add a small reviewed retrieval set that captures where ranking helps and where it still drifts.
 
 ### Improve recall assembly
 

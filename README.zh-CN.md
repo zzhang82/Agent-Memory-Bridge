@@ -12,11 +12,11 @@
 
 MCP-native，目前优先针对 Codex-first 工作流做优化。
 
-`v0.6.1` 这一版新增：
+`v0.6.2` 这一版新增：
 
 - classifier-assisted reflex enrichment，支持 `shadow` / `assist` rollout，并保留规则 fallback
 - 基于 reviewed samples 的 classifier-vs-keyword calibration
-- 可度量的 retrieval，当前 `expected_top1_accuracy = 1.0`
+- 扩大的 canonical benchmark fixtures，同时保持 `expected_top1_accuracy = 1.0`
 - 更完整的 signal lifecycle：`claim -> extend -> ack / expire / reclaim`
 - `extend_signal_lease` 已进入公开 MCP surface
 
@@ -281,11 +281,12 @@ retrieval 质量现在已经是“可 benchmark”，不是“凭感觉猜”。
 - retrieval report 会把 bridge recall 和简单 file-scan baseline 放在一起比较
 - learning-quality 升级现在还带有 classifier-vs-fallback 的回归覆盖
 - classifier calibration 现在会在 reviewed samples 上比较 expected tags、fallback tags 和 classifier tags
+- canonical retrieval fixture 现在也包含了更多 overlap-heavy 的 memory / signal case
 
 在当前 canonical fixture 上：
 
 - `memory_expected_top1_accuracy = 1.0`
-- `file_scan_expected_top1_accuracy = 0.5`
+- `file_scan_expected_top1_accuracy = 0.636`
 - `duplicate_suppression_rate = 1.0`
 
 在当前 reviewed calibration set 上：

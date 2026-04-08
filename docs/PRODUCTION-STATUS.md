@@ -40,6 +40,11 @@ For naming:
 - `pytest` passes: `76 passed`
 - The MCP server autoloads successfully in Codex
 - `recall(...)` works in-session through `agentMemoryBridge`
+- The canonical benchmark fixture now includes overlap-heavy retrieval cases for:
+  - review queue ownership
+  - release cutover handoff
+  - context-compaction checklist vs bridge-note ambiguity
+- The bridge still holds `memory_expected_top1_accuracy = 1.0` on the current canonical fixture while the simple file-scan baseline sits at `0.636`
 - Cross-project namespaces are active in the shared DB, including:
   - `project:mem-store`
   - `project:ç®€åŽ†`
@@ -240,11 +245,11 @@ The next milestone should not be "more storage." It should be "calibrated learni
 
 That means:
 
-1. Calibrate classifier output against reviewed real samples before widening assist-mode use
+1. Expand the reviewed calibration set before widening assist-mode use further
 2. Add a stronger durable-event scorer for checkpoint and closeout lines
 3. Expand `gotcha` extraction beyond a few known patterns
 4. Build richer domain/topic synthesis across many sessions
-5. Add an active signal consumer loop on top of `since`
+5. Add claim-selection fairness and stronger coordination checks on top of `since`
 
 That is the path from useful memory store to actual reflex and learning system.
 

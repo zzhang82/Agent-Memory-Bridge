@@ -16,8 +16,8 @@
   {
     "id": "q3",
     "query": "context compaction",
-    "expected_title": "Codex Context Bridge",
-    "relevant_titles": ["Codex Context Bridge"],
+    "expected_title": "Context Compaction Checklist",
+    "relevant_titles": ["Context Compaction Checklist", "Codex Context Bridge"],
     "kind": "memory"
   },
   {
@@ -53,6 +53,27 @@
     "query": "Codex context handoff",
     "expected_title": "Codex Context Bridge",
     "relevant_titles": ["Codex Context Bridge", "Context Handoff Guide"],
+    "kind": "memory"
+  },
+  {
+    "id": "q9",
+    "query": "review queue ownership",
+    "expected_title": "Review Queue Policy",
+    "relevant_titles": ["Review Queue Policy", "Review Handoff"],
+    "kind": "memory"
+  },
+  {
+    "id": "q10",
+    "query": "release cutover ready",
+    "expected_title": "Release Cutover Ready",
+    "relevant_titles": ["Release Cutover Ready", "API Review Ready"],
+    "kind": "signal"
+  },
+  {
+    "id": "q11",
+    "query": "context compaction checklist",
+    "expected_title": "Context Compaction Checklist",
+    "relevant_titles": ["Context Compaction Checklist", "Codex Context Bridge", "Context Handoff Guide"],
     "kind": "memory"
   }
 ]

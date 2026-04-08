@@ -24,8 +24,8 @@ def test_run_deterministic_proof_returns_expected_sections() -> None:
     assert signal_report["checks"]["hard_expiry_caps_extended_lease"] is True
 
     recall_report = report["recall_latency"]
-    assert recall_report["question_count"] == 8
-    assert recall_report["hit_count"] >= 3
+    assert recall_report["question_count"] == 11
+    assert recall_report["hit_count"] == 11
     assert recall_report["avg_latency_ms"] >= 0
     assert any(item["count"] > 1 for item in recall_report["results"])
 

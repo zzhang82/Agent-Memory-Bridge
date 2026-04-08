@@ -149,9 +149,12 @@ def test_repo_benchmark_fixtures_capture_top1_ranking_improvements() -> None:
     by_id = {item["id"]: item for item in report["results"]}
 
     assert by_id["q1"]["memory"]["top_title"] == "Storage Decision"
-    assert by_id["q3"]["memory"]["top_title"] == "Codex Context Bridge"
+    assert by_id["q3"]["memory"]["top_title"] == "Context Compaction Checklist"
     assert by_id["q4"]["memory"]["top_title"] == "Review Handoff"
     assert by_id["q7"]["memory"]["top_title"] == "Review Handoff"
     assert by_id["q8"]["memory"]["top_title"] == "Codex Context Bridge"
-    assert report["retrieval_summary"]["memory_expected_top1_count"] == 8
+    assert by_id["q9"]["memory"]["top_title"] == "Review Queue Policy"
+    assert by_id["q10"]["memory"]["top_title"] == "Release Cutover Ready"
+    assert by_id["q11"]["memory"]["top_title"] == "Context Compaction Checklist"
+    assert report["retrieval_summary"]["memory_expected_top1_count"] == 11
     assert report["retrieval_summary"]["memory_expected_top1_accuracy"] == 1.0
