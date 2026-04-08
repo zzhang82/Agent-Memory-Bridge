@@ -18,6 +18,7 @@ Current runnable entrypoints:
 - `python .\\scripts\\run_benchmark.py`
 - `python .\\scripts\\run_deterministic_proof.py`
 - `python .\\scripts\\run_classifier_calibration.py`
+- `python .\\scripts\\run_classifier_calibration.py --fixture-gateway`
 
 The benchmark report combines two layers:
 
@@ -25,6 +26,7 @@ The benchmark report combines two layers:
 - retrieval comparison for `precision@1`, `precision@3`, `expected_top1_accuracy`, and latency against a simple file-scan baseline
 - classifier-vs-fallback regression coverage in tests so learning-quality changes can roll out in shadow mode first
 - reviewed-sample calibration that compares expected tags, keyword fallback tags, raw classifier tags, retained classifier tags, and low-confidence filtering side by side
+- slice-aware summaries so coordination, retrieval, runtime, memory-shaping, storage, and model-routing can be compared separately
 
 The goal is not to win a leaderboard. It is to make regressions visible and keep the bridge honest as retrieval and signal semantics evolve.
 
@@ -43,3 +45,14 @@ The current fixture set now includes:
 - multi-relevant signal queries
 - overlap-heavy review queue and release-cutover cases
 - context-compaction checklist vs bridge-note ambiguity
+
+The current reviewed calibration slices are:
+
+- coordination
+- retrieval
+- runtime
+- memory-shaping
+- model-routing
+- storage
+
+If no classifier command is configured, `run_classifier_calibration.py` will now say that it is running fallback-only calibration. Use `--fixture-gateway` for the deterministic bundled calibration path, or pass a real classifier command with `--command`.

@@ -13,7 +13,7 @@ Agent Memory Bridge now covers the v0.6 foundation:
 - neutral core defaults with profile-shaped config on top
 - benchmarked retrieval with `expected_top1_accuracy`
 - classifier-assisted reflex enrichment with `shadow` and `assist` rollout modes plus deterministic rule fallback
-- reviewed classifier calibration on labeled samples with assist-mode confidence gating
+- reviewed classifier calibration on labeled samples with assist-mode confidence gating and slice-aware summaries
 - broader canonical benchmark fixtures with more overlap-heavy retrieval cases
 
 The next stage is about calibration, fairness, and broader learning quality.
@@ -22,7 +22,7 @@ The next stage is about calibration, fairness, and broader learning quality.
 
 ### Calibrate learning quality
 
-1. Compare classifier output against more reviewed real samples before expanding `assist` mode by default.
+1. Compare classifier output against more reviewed real samples before expanding `assist` mode by default, especially in the weaker retrieval slice.
 2. Add clearer durable-event scoring for checkpoint and closeout lines.
 3. Add richer domain/topic synthesis over many sessions without dropping the deterministic fallback path.
 

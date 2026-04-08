@@ -19,23 +19,38 @@ def test_tag_match_score_behaves_like_f1() -> None:
 def test_run_classifier_calibration_reports_winners_and_exact_match_rates() -> None:
     report = run_classifier_calibration(command=_gateway_command())
     summary = report["summary"]
+    slices = report["slice_summaries"]
 
-    assert summary["sample_count"] == 10
-    assert summary["classifier_prediction_count"] == 10
-    assert summary["classifier_retained_prediction_count"] == 9
-    assert summary["classifier_filtered_low_confidence_count"] == 1
+    assert summary["sample_count"] == 16
+    assert summary["classifier_prediction_count"] == 16
+    assert summary["classifier_retained_prediction_count"] == 14
+    assert summary["classifier_filtered_low_confidence_count"] == 2
     assert summary["classifier_error"] is None
-    assert summary["classifier_exact_match_count"] == 9
-    assert summary["fallback_exact_match_count"] == 0
+    assert summary["classifier_exact_match_count"] == 14
+    assert summary["fallback_exact_match_count"] == 1
     assert summary["classifier_avg_score"] > summary["fallback_avg_score"]
     assert summary["classifier_missing_tag_total"] < summary["fallback_missing_tag_total"]
     assert summary["classifier_extra_tag_total"] < summary["fallback_extra_tag_total"]
-    assert summary["classifier_better_count"] > summary["fallback_better_count"]
+    assert summary["classifier_better_count"] == 13
+    assert summary["fallback_better_count"] == 2
+    assert summary["tie_count"] == 1
     assert summary["classifier_false_positive_sample_count"] == 0
     assert summary["fallback_false_positive_sample_count"] >= 1
     assert any(result["winner"] == "classifier" for result in report["results"])
     assert any(result["winner"] == "fallback" for result in report["results"])
     assert any(result["classifier_filtered_low_confidence"] for result in report["results"])
+    assert set(slices) == {
+        "coordination",
+        "memory-shaping",
+        "model-routing",
+        "retrieval",
+        "runtime",
+        "storage",
+    }
+    assert slices["coordination"]["classifier_exact_match_rate"] == 1.0
+    assert slices["retrieval"]["classifier_filtered_low_confidence_count"] == 2
+    assert slices["retrieval"]["fallback_better_count"] == 2
+    assert slices["memory-shaping"]["tie_count"] == 1
 
 
 def test_write_classifier_calibration_report_writes_json(tmp_path: Path) -> None:
@@ -46,4 +61,5 @@ def test_write_classifier_calibration_report_writes_json(tmp_path: Path) -> None
     )
 
     assert report_path.is_file()
-    assert report["summary"]["sample_count"] == 10
+    assert report["summary"]["sample_count"] == 16
+    assert "slice_summaries" in report

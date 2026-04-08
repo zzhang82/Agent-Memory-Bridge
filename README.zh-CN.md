@@ -12,14 +12,13 @@
 
 MCP-native，目前优先针对 Codex-first 工作流做优化。
 
-`v0.6.3` 这一版新增：
+`v0.6.4` 这一版新增：
 
 - classifier-assisted reflex enrichment，支持 `shadow` / `assist` rollout，并保留规则 fallback
-- 更大的 reviewed calibration set，并显式展示 classifier-vs-fallback 的误差形状
+- 更大的 reviewed calibration set，并加入按 slice 切开的 classifier-vs-fallback 分析
 - 通过 `minimum_confidence` 给 assist-mode 加上 confidence gating
-- 扩大的 canonical benchmark fixtures，同时保持 `expected_top1_accuracy = 1.0`
-- 更完整的 signal lifecycle：`claim -> extend -> ack / expire / reclaim`
-- `extend_signal_lease` 已进入公开 MCP surface
+- calibration report 现在能直接看出哪些 slice 已经稳、哪些 slice 还在漂
+- benchmarked retrieval 仍然保持 `expected_top1_accuracy = 1.0`
 
 ![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
 
@@ -293,11 +292,20 @@ retrieval 质量现在已经是“可 benchmark”，不是“凭感觉猜”。
 
 在当前 reviewed calibration set 上：
 
-- `classifier_exact_match_rate = 0.9`
-- `fallback_exact_match_rate = 0.0`
-- `classifier_better_count = 9`
-- `fallback_better_count = 1`
-- `classifier_filtered_low_confidence_count = 1`
+- 使用内置的 deterministic fixture gateway 复现
+- `reviewed_sample_count = 16`
+- `classifier_exact_match_rate = 0.875`
+- `fallback_exact_match_rate = 0.062`
+- `classifier_better_count = 13`
+- `fallback_better_count = 2`
+- `classifier_filtered_low_confidence_count = 2`
+- 当前最松的 slice 是 `retrieval`，`classifier_exact_match_rate = 0.6`
+
+如果你想在本地稳定复现这份已发布的 calibration snapshot，可以直接运行：
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_classifier_calibration.py --fixture-gateway
+```
 
 这不是排行榜，而是一套回归护栏，用来在 bridge 继续演化时持续盯住 retrieval 质量和 coordination 语义。
 

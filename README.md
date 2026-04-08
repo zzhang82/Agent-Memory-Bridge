@@ -12,14 +12,13 @@ durable knowledge + coordination signals.
 
 MCP-native, currently optimized for Codex-first workflows.
 
-v0.6.3 adds:
+v0.6.4 adds:
 
 - classifier-assisted reflex enrichment with `shadow` / `assist` rollout and rule fallback
-- a larger reviewed calibration set with explicit classifier-vs-fallback error analysis
+- a larger reviewed calibration set with slice-aware classifier-vs-fallback analysis
 - assist-mode confidence gating through `minimum_confidence`
-- broader canonical benchmark fixtures while keeping `expected_top1_accuracy = 1.0`
-- a fuller signal lifecycle: `claim -> extend -> ack / expire / reclaim`
-- `extend_signal_lease` as part of the public MCP surface
+- slice summaries that show where calibration is already strong and where it still drifts
+- benchmarked retrieval still holding `expected_top1_accuracy = 1.0`
 
 ![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
 
@@ -287,11 +286,20 @@ On the current canonical fixture:
 
 On the current reviewed calibration set:
 
-- `classifier_exact_match_rate = 0.9`
-- `fallback_exact_match_rate = 0.0`
-- `classifier_better_count = 9`
-- `fallback_better_count = 1`
-- `classifier_filtered_low_confidence_count = 1`
+- using the bundled deterministic fixture gateway
+- `reviewed_sample_count = 16`
+- `classifier_exact_match_rate = 0.875`
+- `fallback_exact_match_rate = 0.062`
+- `classifier_better_count = 13`
+- `fallback_better_count = 2`
+- `classifier_filtered_low_confidence_count = 2`
+- `retrieval` is currently the loosest slice with `classifier_exact_match_rate = 0.6`
+
+For a deterministic local replay of the published calibration snapshot:
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\run_classifier_calibration.py --fixture-gateway
+```
 
 This is not a leaderboard. It is a regression harness that keeps retrieval quality and coordination semantics honest as the bridge evolves.
 

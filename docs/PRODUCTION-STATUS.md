@@ -64,6 +64,7 @@ For naming:
 - Reflex can now run classifier-assisted enrichment in `shadow` or `assist` mode without removing the deterministic keyword/rule path
 - Reviewed classifier calibration now compares raw classifier tags, retained classifier tags, expected tags, and keyword fallback tags before widening assist usage
 - Assist-mode enrichment now honors a classifier `minimum_confidence` gate so low-confidence outputs stay visible in calibration without silently entering promoted records
+- Reviewed calibration is now slice-aware, which makes it easier to see that coordination/runtime slices are stronger today than retrieval-heavy slices
 - Recall-first can now surface:
   - current project memory
   - global learns
@@ -246,7 +247,7 @@ The next milestone should not be "more storage." It should be "calibrated learni
 
 That means:
 
-1. Expand the reviewed calibration set before widening assist-mode use further
+1. Expand the reviewed calibration set before widening assist-mode use further, especially on retrieval-heavy and domain-synthesis cases
 2. Add a stronger durable-event scorer for checkpoint and closeout lines
 3. Expand `gotcha` extraction beyond a few known patterns
 4. Build richer domain/topic synthesis across many sessions

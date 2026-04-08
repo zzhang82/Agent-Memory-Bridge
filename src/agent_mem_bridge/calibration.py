@@ -53,6 +53,7 @@ def run_classifier_calibration(
     fallback_missing_total = 0
     fallback_extra_total = 0
     for sample in samples:
+        sample_slice = normalize_slice(sample.get("slice"))
         expected = normalize_tags(sample.get("expected_tags", []))
         fallback = normalize_tags(infer_keyword_tags(str(sample["text"])))
         prediction = predictions.predictions.get(str(sample["id"]))
@@ -85,6 +86,7 @@ def run_classifier_calibration(
         results.append(
             {
                 "id": sample["id"],
+                "slice": sample_slice,
                 "text": sample["text"],
                 "expected_tags": expected,
                 "fallback_tags": fallback,
@@ -132,6 +134,7 @@ def run_classifier_calibration(
             "fallback_better_count": fallback_better,
             "tie_count": tied,
         },
+        "slice_summaries": build_slice_summaries(results),
         "results": results,
     }
 
@@ -169,6 +172,11 @@ def normalize_tags(tags: list[str]) -> list[str]:
     return normalized
 
 
+def normalize_slice(value: Any) -> str:
+    compact = str(value or "").strip().lower()
+    return compact or "unspecified"
+
+
 def tag_match_score(expected: list[str], actual: list[str]) -> float:
     if not expected and not actual:
         return 1.0
@@ -193,3 +201,92 @@ def average_score(total: float, count: int) -> float:
     if count <= 0:
         return 0.0
     return round(total / count, 3)
+
+
+def build_slice_summaries(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    buckets: dict[str, dict[str, Any]] = {}
+    for result in results:
+        name = normalize_slice(result.get("slice"))
+        bucket = buckets.setdefault(
+            name,
+            {
+                "sample_count": 0,
+                "classifier_prediction_count": 0,
+                "classifier_retained_prediction_count": 0,
+                "classifier_filtered_low_confidence_count": 0,
+                "classifier_exact_match_count": 0,
+                "fallback_exact_match_count": 0,
+                "classifier_score_total": 0.0,
+                "fallback_score_total": 0.0,
+                "classifier_missing_tag_total": 0,
+                "classifier_extra_tag_total": 0,
+                "fallback_missing_tag_total": 0,
+                "fallback_extra_tag_total": 0,
+                "classifier_false_negative_sample_count": 0,
+                "classifier_false_positive_sample_count": 0,
+                "fallback_false_negative_sample_count": 0,
+                "fallback_false_positive_sample_count": 0,
+                "classifier_better_count": 0,
+                "fallback_better_count": 0,
+                "tie_count": 0,
+            },
+        )
+        bucket["sample_count"] += 1
+        if result.get("classifier_raw_tags") or result.get("classifier_confidence") is not None:
+            bucket["classifier_prediction_count"] += 1
+        if result.get("classifier_tags"):
+            bucket["classifier_retained_prediction_count"] += 1
+        if result.get("classifier_filtered_low_confidence"):
+            bucket["classifier_filtered_low_confidence_count"] += 1
+        if result["classifier_tags"] == result["expected_tags"]:
+            bucket["classifier_exact_match_count"] += 1
+        if result["fallback_tags"] == result["expected_tags"]:
+            bucket["fallback_exact_match_count"] += 1
+        bucket["classifier_score_total"] += float(result["classifier_score"])
+        bucket["fallback_score_total"] += float(result["fallback_score"])
+        bucket["classifier_missing_tag_total"] += len(result["classifier_missing"])
+        bucket["classifier_extra_tag_total"] += len(result["classifier_extra"])
+        bucket["fallback_missing_tag_total"] += len(result["fallback_missing"])
+        bucket["fallback_extra_tag_total"] += len(result["fallback_extra"])
+        if result["classifier_missing"]:
+            bucket["classifier_false_negative_sample_count"] += 1
+        if result["classifier_extra"]:
+            bucket["classifier_false_positive_sample_count"] += 1
+        if result["fallback_missing"]:
+            bucket["fallback_false_negative_sample_count"] += 1
+        if result["fallback_extra"]:
+            bucket["fallback_false_positive_sample_count"] += 1
+        if result["winner"] == "classifier":
+            bucket["classifier_better_count"] += 1
+        elif result["winner"] == "fallback":
+            bucket["fallback_better_count"] += 1
+        else:
+            bucket["tie_count"] += 1
+
+    summaries: dict[str, dict[str, Any]] = {}
+    for name, bucket in sorted(buckets.items()):
+        sample_count = int(bucket["sample_count"])
+        summaries[name] = {
+            "sample_count": sample_count,
+            "classifier_prediction_count": bucket["classifier_prediction_count"],
+            "classifier_retained_prediction_count": bucket["classifier_retained_prediction_count"],
+            "classifier_filtered_low_confidence_count": bucket["classifier_filtered_low_confidence_count"],
+            "classifier_exact_match_count": bucket["classifier_exact_match_count"],
+            "classifier_exact_match_rate": rate(bucket["classifier_exact_match_count"], sample_count),
+            "fallback_exact_match_count": bucket["fallback_exact_match_count"],
+            "fallback_exact_match_rate": rate(bucket["fallback_exact_match_count"], sample_count),
+            "classifier_avg_score": average_score(bucket["classifier_score_total"], sample_count),
+            "fallback_avg_score": average_score(bucket["fallback_score_total"], sample_count),
+            "classifier_missing_tag_total": bucket["classifier_missing_tag_total"],
+            "classifier_extra_tag_total": bucket["classifier_extra_tag_total"],
+            "fallback_missing_tag_total": bucket["fallback_missing_tag_total"],
+            "fallback_extra_tag_total": bucket["fallback_extra_tag_total"],
+            "classifier_false_negative_sample_count": bucket["classifier_false_negative_sample_count"],
+            "classifier_false_positive_sample_count": bucket["classifier_false_positive_sample_count"],
+            "fallback_false_negative_sample_count": bucket["fallback_false_negative_sample_count"],
+            "fallback_false_positive_sample_count": bucket["fallback_false_positive_sample_count"],
+            "classifier_better_count": bucket["classifier_better_count"],
+            "fallback_better_count": bucket["fallback_better_count"],
+            "tie_count": bucket["tie_count"],
+        }
+    return summaries
