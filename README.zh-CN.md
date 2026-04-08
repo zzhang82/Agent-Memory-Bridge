@@ -12,9 +12,10 @@
 
 MCP-native，目前优先针对 Codex-first 工作流做优化。
 
-`v0.6.0` 这一版新增：
+`v0.6.1` 这一版新增：
 
 - classifier-assisted reflex enrichment，支持 `shadow` / `assist` rollout，并保留规则 fallback
+- 基于 reviewed samples 的 classifier-vs-keyword calibration
 - 可度量的 retrieval，当前 `expected_top1_accuracy = 1.0`
 - 更完整的 signal lifecycle：`claim -> extend -> ack / expire / reclaim`
 - `extend_signal_lease` 已进入公开 MCP surface
@@ -258,7 +259,7 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - `signal` 的状态可以直接查到：`pending`、`claimed`、`acked`、`expired`
 - watcher health check 会验证 Codex rollout 文件是否还能被解析成可用 summary
 - classifier 的 shadow / assist 行为有基于 fixture 的回归测试
-- 当前测试套件结果是 `73 passed`
+- 当前测试套件结果是 `76 passed`
 
 常用命令：
 
@@ -279,12 +280,20 @@ retrieval 质量现在已经是“可 benchmark”，不是“凭感觉猜”。
 - retrieval benchmark 会跟踪 `precision@1`、`precision@3`、`expected_top1_accuracy`
 - retrieval report 会把 bridge recall 和简单 file-scan baseline 放在一起比较
 - learning-quality 升级现在还带有 classifier-vs-fallback 的回归覆盖
+- classifier calibration 现在会在 reviewed samples 上比较 expected tags、fallback tags 和 classifier tags
 
 在当前 canonical fixture 上：
 
 - `memory_expected_top1_accuracy = 1.0`
 - `file_scan_expected_top1_accuracy = 0.5`
 - `duplicate_suppression_rate = 1.0`
+
+在当前 reviewed calibration set 上：
+
+- `classifier_exact_match_rate = 0.667`
+- `fallback_exact_match_rate = 0.0`
+- `classifier_better_count = 4`
+- `fallback_better_count = 2`
 
 这不是排行榜，而是一套回归护栏，用来在 bridge 继续演化时持续盯住 retrieval 质量和 coordination 语义。
 

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "c1",
+    "text": "Review handoff should keep explicit queue ownership for the next reviewer.",
+    "expected_tags": ["domain:orchestration", "topic:review-flow"]
+  },
+  {
+    "id": "c2",
+    "text": "SQLite WAL mode should stay enabled so readers can query during writes.",
+    "expected_tags": ["domain:sqlite", "topic:storage"]
+  },
+  {
+    "id": "c3",
+    "text": "Context compaction should write a bridge note before details are lost.",
+    "expected_tags": ["domain:retrieval", "topic:context-assembly"]
+  },
+  {
+    "id": "c4",
+    "text": "Store machine-readable, token-efficient records instead of narrative memory.",
+    "expected_tags": ["domain:agent-memory", "topic:memory-shaping"]
+  },
+  {
+    "id": "c5",
+    "text": "Wrong DB splits break trust in recall and need one canonical runtime path.",
+    "expected_tags": ["domain:memory-bridge", "topic:runtime-path"]
+  },
+  {
+    "id": "c6",
+    "text": "High reasoning should stay on planning and validation work instead of bounded code edits.",
+    "expected_tags": ["topic:model-routing"]
+  }
+]

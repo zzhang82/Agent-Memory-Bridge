@@ -12,9 +12,10 @@ durable knowledge + coordination signals.
 
 MCP-native, currently optimized for Codex-first workflows.
 
-v0.6.0 adds:
+v0.6.1 adds:
 
 - classifier-assisted reflex enrichment with `shadow` / `assist` rollout and rule fallback
+- reviewed-sample calibration for classifier-vs-keyword decisions
 - benchmarked retrieval with `expected_top1_accuracy = 1.0`
 - a fuller signal lifecycle: `claim -> extend -> ack / expire / reclaim`
 - `extend_signal_lease` as part of the public MCP surface
@@ -252,7 +253,7 @@ The bridge is meant to be inspectable, not magical:
 - signal status is visible and queryable through `pending`, `claimed`, `acked`, and `expired`
 - watcher health checks verify that Codex rollout files still parse into usable summaries
 - classifier shadow/assist behavior is covered by fixture-based regression tests
-- the current test suite passes with `73 passed`
+- the current test suite passes with `76 passed`
 
 Useful commands:
 
@@ -273,12 +274,20 @@ The bridge now has a small canonical proof and benchmark harness.
 - retrieval benchmark tracks `precision@1`, `precision@3`, and `expected_top1_accuracy`
 - the retrieval report compares bridge recall against a simple file-scan baseline
 - learning-quality upgrades now ship with classifier-vs-fallback regression coverage
+- classifier calibration now runs on reviewed samples and reports where the classifier beats or loses to keyword fallback
 
 On the current canonical fixture:
 
 - `memory_expected_top1_accuracy = 1.0`
 - `file_scan_expected_top1_accuracy = 0.5`
 - `duplicate_suppression_rate = 1.0`
+
+On the current reviewed calibration set:
+
+- `classifier_exact_match_rate = 0.667`
+- `fallback_exact_match_rate = 0.0`
+- `classifier_better_count = 4`
+- `fallback_better_count = 2`
 
 This is not a leaderboard. It is a regression harness that keeps retrieval quality and coordination semantics honest as the bridge evolves.
 

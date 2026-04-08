@@ -37,7 +37,7 @@ For naming:
 
 ## Verified On 2026-04-07
 
-- `pytest` passes: `73 passed`
+- `pytest` passes: `76 passed`
 - The MCP server autoloads successfully in Codex
 - `recall(...)` works in-session through `agentMemoryBridge`
 - Cross-project namespaces are active in the shared DB, including:
@@ -57,6 +57,7 @@ For naming:
   - `kind:gotcha`
   - `kind:domain-note`
 - Reflex can now run classifier-assisted enrichment in `shadow` or `assist` mode without removing the deterministic keyword/rule path
+- Reviewed classifier calibration now compares classifier tags, expected tags, and keyword fallback tags before widening assist usage
 - Recall-first can now surface:
   - current project memory
   - global learns

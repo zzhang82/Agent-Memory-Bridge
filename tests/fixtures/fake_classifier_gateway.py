@@ -17,6 +17,8 @@ def infer_tags(text: str) -> tuple[list[str], list[str]]:
     if "context compaction" in normalized:
         domains.append("domain:retrieval")
         topics.append("topic:context-assembly")
+    if "high reasoning" in normalized or "bounded code edits" in normalized:
+        topics.append("topic:model-routing")
     return domains, topics
 
 

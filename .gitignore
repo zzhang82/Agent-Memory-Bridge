@@ -23,4 +23,5 @@ examples/*-report.json
 examples/legacy/
 benchmark/latest-report.json
 benchmark/latest-proof-report.json
+benchmark/latest-calibration-report.json
 docs/archive/

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .classifier import ClassifierConfig, EnrichmentCandidate, EnrichmentClassifier
+from .enrichment_rules import infer_keyword_tags, normalize_text
 from .paths import (
     resolve_classifier_batch_size,
     resolve_classifier_command,
@@ -77,39 +78,6 @@ SYSTEM_CONTEXT_MARKERS = (
     "search",
     "subagent",
     "orchestration",
-)
-
-DOMAIN_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("domain:orchestration", ("orchestration", "subagent", "worker", "validation", "contract drift", "handoff")),
-    ("domain:memory-bridge", ("memory bridge", "shared memory", "recall", "store", "context")),
-    ("domain:sqlite", ("sqlite", "wal", "fts", "database")),
-    ("domain:retrieval", ("recall", "search", "fts", "semantic")),
-    ("domain:reliability", ("mistake", "drift", "canonical", "wrong db", "trust recall", "fix")),
-    (
-        "domain:agent-memory",
-        (
-            "agent recall",
-            "machine-readable",
-            "human readable",
-            "structured",
-            "token",
-            "summary",
-            "learn",
-            "gotcha",
-            "domain note",
-        ),
-    ),
-)
-
-TOPIC_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("topic:session-sync", ("session sync", "closeout", "watcher", "rollout", "thread")),
-    ("topic:dedup", ("dedup", "duplicate")),
-    ("topic:runtime-path", ("wrong db", "runtime path", "canonical", "database")),
-    ("topic:subagents", ("subagent", "worker", "parent thread")),
-    ("topic:fts", ("fts", "values.yaml", "search")),
-    ("topic:memory-shaping", ("machine-readable", "human readable", "structured", "token", "summary", "gotcha")),
-    ("topic:model-routing", ("high reasoning", "coding model", "validation", "bounded implementation")),
-    ("topic:cross-project-reuse", ("project b", "cross projects", "cross-project", "reuse", "gotcha")),
 )
 
 LEADING_FILLER_PREFIXES = (
@@ -803,17 +771,7 @@ class ReflexEngine:
         return f"project:{namespace}"
 
     def _infer_domain_tags(self, text: str) -> list[str]:
-        normalized = self._normalize_text(text)
-        tags: list[str] = []
-        for tag, keywords in DOMAIN_HINTS:
-            if any(keyword in normalized for keyword in keywords):
-                tags.append(tag)
-        for tag, keywords in TOPIC_HINTS:
-            if any(keyword in normalized for keyword in keywords):
-                tags.append(tag)
-        if not tags:
-            tags.append("domain:general")
-        return tags
+        return infer_keyword_tags(text)
 
     def _rule_matches_row(self, keywords: tuple[str, ...], row: sqlite3.Row) -> bool:
         text = self._normalize_text(self._row_text(row))
@@ -936,7 +894,7 @@ class ReflexEngine:
 
     @staticmethod
     def _normalize_text(text: str) -> str:
-        return " ".join(text.lower().split())
+        return normalize_text(text)
 
     @staticmethod
     def _unique_tags(tags: list[str]) -> list[str]:
