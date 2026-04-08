@@ -1,6 +1,6 @@
 ﻿# Production Status
 
-Last updated: 2026-04-07
+Last updated: 2026-04-07 (America/New_York)
 
 ## Current Runtime Shape
 
