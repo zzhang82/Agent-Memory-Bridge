@@ -8,6 +8,7 @@ from agent_mem_bridge.calibration import DEFAULT_REVIEWED_SAMPLES_PATH, write_cl
 from agent_mem_bridge.paths import (
     resolve_classifier_batch_size,
     resolve_classifier_command,
+    resolve_classifier_minimum_confidence,
     resolve_classifier_timeout_seconds,
 )
 
@@ -23,6 +24,7 @@ def main() -> None:
     parser.add_argument("--command", type=str, default=resolve_classifier_command())
     parser.add_argument("--batch-size", type=int, default=resolve_classifier_batch_size())
     parser.add_argument("--timeout-seconds", type=float, default=resolve_classifier_timeout_seconds())
+    parser.add_argument("--minimum-confidence", type=float, default=resolve_classifier_minimum_confidence())
     args = parser.parse_args()
 
     report = write_classifier_calibration_report(
@@ -31,6 +33,7 @@ def main() -> None:
         command=args.command,
         batch_size=args.batch_size,
         timeout_seconds=args.timeout_seconds,
+        minimum_confidence=args.minimum_confidence,
     )
     print(json.dumps(report["summary"], indent=2))
 

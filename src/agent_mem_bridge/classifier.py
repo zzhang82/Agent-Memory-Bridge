@@ -17,6 +17,7 @@ class ClassifierConfig:
     command: str = ""
     timeout_seconds: float = 10.0
     batch_size: int = 16
+    minimum_confidence: float = 0.6
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +70,13 @@ class EnrichmentClassifier:
                     error=outcome.error,
                 )
         return ClassificationBatchOutcome(predictions=predictions, requested_count=len(candidates))
+
+    def accepted_tags(self, classification: Classification | None) -> list[str]:
+        if classification is None:
+            return []
+        if classification.confidence is not None and classification.confidence < self.config.minimum_confidence:
+            return []
+        return list(classification.tags)
 
     def _classify_batch(self, batch: list[EnrichmentCandidate]) -> ClassificationBatchOutcome:
         payload = {

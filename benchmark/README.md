@@ -24,7 +24,7 @@ The benchmark report combines two layers:
 - deterministic proof for signal correctness, duplicate suppression, and recall timing
 - retrieval comparison for `precision@1`, `precision@3`, `expected_top1_accuracy`, and latency against a simple file-scan baseline
 - classifier-vs-fallback regression coverage in tests so learning-quality changes can roll out in shadow mode first
-- reviewed-sample calibration that compares expected tags, keyword fallback tags, and classifier tags side by side
+- reviewed-sample calibration that compares expected tags, keyword fallback tags, raw classifier tags, retained classifier tags, and low-confidence filtering side by side
 
 The goal is not to win a leaderboard. It is to make regressions visible and keep the bridge honest as retrieval and signal semantics evolve.
 
@@ -32,6 +32,7 @@ Classifier calibration is intentionally narrow. It is there to answer:
 
 - where the classifier already beats keyword fallback
 - where fallback still wins
+- where low-confidence classifier output should stay out of assist-mode enrichment
 - whether widening `assist` mode would be justified
 
 The current fixture set now includes:

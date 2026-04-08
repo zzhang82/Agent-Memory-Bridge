@@ -28,5 +28,25 @@
     "id": "c6",
     "text": "High reasoning should stay on planning and validation work instead of bounded code edits.",
     "expected_tags": ["topic:model-routing"]
+  },
+  {
+    "id": "c7",
+    "text": "Cross-project gotchas should be recalled before external search so later projects reuse prior fixes.",
+    "expected_tags": ["topic:cross-project-reuse"]
+  },
+  {
+    "id": "c8",
+    "text": "Single ownership keeps subagent execution from drifting when the contract is still moving.",
+    "expected_tags": ["domain:orchestration", "topic:subagents"]
+  },
+  {
+    "id": "c9",
+    "text": "Punctuation-heavy values.yaml queries need a safe FTS fallback instead of naive token parsing.",
+    "expected_tags": ["domain:retrieval", "topic:fts"]
+  },
+  {
+    "id": "c10",
+    "text": "Check local bridge memory before external search for issue-like prompts.",
+    "expected_tags": ["domain:memory-bridge", "domain:retrieval"]
   }
 ]

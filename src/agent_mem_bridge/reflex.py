@@ -12,6 +12,7 @@ from .enrichment_rules import infer_keyword_tags, normalize_text
 from .paths import (
     resolve_classifier_batch_size,
     resolve_classifier_command,
+    resolve_classifier_minimum_confidence,
     resolve_classifier_mode,
     resolve_classifier_provider,
     resolve_classifier_timeout_seconds,
@@ -210,6 +211,7 @@ class ReflexConfig:
     classifier_command: str = ""
     classifier_timeout_seconds: float = 10.0
     classifier_batch_size: int = 16
+    classifier_minimum_confidence: float = 0.6
 
 
 GOTCHA_RULES: tuple[GotchaRule, ...] = (
@@ -399,6 +401,7 @@ class ReflexEngine:
                 command=config.classifier_command,
                 timeout_seconds=config.classifier_timeout_seconds,
                 batch_size=config.classifier_batch_size,
+                minimum_confidence=config.classifier_minimum_confidence,
             )
         )
         self._classifier_stats = self._empty_classifier_stats()
@@ -472,7 +475,7 @@ class ReflexEngine:
 
         for item in prepared:
             prediction = predictions.get(str(item["key"]))
-            classifier_tags = list(prediction.tags) if prediction else []
+            classifier_tags = self.classifier.accepted_tags(prediction)
             inferred_tags = self._merge_inferred_tags(list(item["fallback_tags"]), classifier_tags)
             title = f"{self.config.learn_title_prefix} {self._truncate_title(str(item['claim']))}"
             tags = self._base_tags_for_row(row)
@@ -606,7 +609,7 @@ class ReflexEngine:
                 for row in rows
             ]
         )
-        return {key: prediction.tags for key, prediction in predictions.items()}
+        return {key: tuple(self.classifier.accepted_tags(prediction)) for key, prediction in predictions.items()}
 
     def _classify_candidates(
         self,
@@ -617,6 +620,15 @@ class ReflexEngine:
         outcome = self.classifier.classify(candidates)
         self._classifier_stats["request_count"] += outcome.requested_count
         self._classifier_stats["prediction_count"] += len(outcome.predictions)
+        accepted_prediction_count = 0
+        filtered_low_confidence_count = 0
+        for prediction in outcome.predictions.values():
+            if self.classifier.accepted_tags(prediction):
+                accepted_prediction_count += 1
+            else:
+                filtered_low_confidence_count += 1
+        self._classifier_stats["accepted_prediction_count"] += accepted_prediction_count
+        self._classifier_stats["filtered_low_confidence_count"] += filtered_low_confidence_count
         if outcome.error:
             self._classifier_stats["error_count"] += 1
             self._classifier_stats["last_error"] = outcome.error
@@ -716,7 +728,7 @@ class ReflexEngine:
             ]
         )
         prediction = predictions.get(str(row["id"]))
-        inferred_tags = self._merge_inferred_tags(fallback_tags, list(prediction.tags) if prediction else [])
+        inferred_tags = self._merge_inferred_tags(fallback_tags, self.classifier.accepted_tags(prediction))
         tags.extend(inferred_tags)
         fields_payload = {
             "record_type": "gotcha",
@@ -923,8 +935,11 @@ class ReflexEngine:
     def _empty_classifier_stats(self) -> dict[str, Any]:
         return {
             "mode": self.config.classifier_mode,
+            "minimum_confidence": self.config.classifier_minimum_confidence,
             "request_count": 0,
             "prediction_count": 0,
+            "accepted_prediction_count": 0,
+            "filtered_low_confidence_count": 0,
             "divergence_count": 0,
             "error_count": 0,
             "last_error": None,
@@ -944,4 +959,5 @@ def build_default_reflex_config(state_path: Path, scan_limit: int) -> ReflexConf
         classifier_command=resolve_classifier_command(),
         classifier_timeout_seconds=resolve_classifier_timeout_seconds(),
         classifier_batch_size=resolve_classifier_batch_size(),
+        classifier_minimum_confidence=resolve_classifier_minimum_confidence(),
     )

@@ -291,6 +291,14 @@ def resolve_classifier_batch_size() -> int:
     return _resolve_int("AGENT_MEMORY_BRIDGE_CLASSIFIER_BATCH_SIZE", ("classifier", "batch_size"), 16)
 
 
+def resolve_classifier_minimum_confidence() -> float:
+    return _resolve_float(
+        "AGENT_MEMORY_BRIDGE_CLASSIFIER_MINIMUM_CONFIDENCE",
+        ("classifier", "minimum_confidence"),
+        0.6,
+    )
+
+
 def resolve_consolidation_scan_limit() -> int:
     return _resolve_int(
         "AGENT_MEMORY_BRIDGE_CONSOLIDATION_SCAN_LIMIT",

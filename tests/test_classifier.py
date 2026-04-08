@@ -69,3 +69,22 @@ def test_command_classifier_reports_invalid_json() -> None:
 
     assert outcome.error is not None
     assert outcome.predictions == {}
+
+
+def test_command_classifier_filters_low_confidence_tags_for_assist() -> None:
+    classifier = EnrichmentClassifier(
+        ClassifierConfig(
+            mode="assist",
+            command=_gateway_command(),
+            minimum_confidence=0.6,
+        )
+    )
+
+    outcome = classifier.classify(
+        [EnrichmentCandidate(key="a", text="Punctuation-heavy values.yaml queries need a safe FTS fallback.")]
+    )
+
+    prediction = outcome.predictions["a"]
+    assert prediction.confidence == 0.55
+    assert list(prediction.tags) == ["domain:retrieval", "topic:fts"]
+    assert classifier.accepted_tags(prediction) == []

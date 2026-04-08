@@ -33,6 +33,7 @@ provider = "command"
 command = ""
 timeout_seconds = 10
 batch_size = 16
+minimum_confidence = 0.6
 
 [service]
 poll_seconds = 30

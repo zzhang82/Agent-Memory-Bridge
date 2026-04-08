@@ -8,31 +8,59 @@ def infer_tags(text: str) -> tuple[list[str], list[str]]:
     normalized = " ".join(text.lower().split())
     domains: list[str] = []
     topics: list[str] = []
+    confidence = 0.8
     if "review handoff" in normalized or "review queue" in normalized or "approval queue" in normalized:
         domains.append("domain:orchestration")
         topics.append("topic:review-flow")
+        confidence = 0.92
     if "sqlite" in normalized or "wal" in normalized:
         domains.append("domain:sqlite")
         topics.append("topic:storage")
+        confidence = 0.9
     if "context compaction" in normalized:
         domains.append("domain:retrieval")
         topics.append("topic:context-assembly")
+        confidence = 0.86
+    if "machine-readable" in normalized or "token-efficient" in normalized or "narrative memory" in normalized:
+        domains.append("domain:agent-memory")
+        topics.append("topic:memory-shaping")
+        confidence = 0.79
+    if "wrong db" in normalized or "canonical runtime path" in normalized:
+        domains.append("domain:memory-bridge")
+        topics.append("topic:runtime-path")
+        confidence = 0.84
     if "high reasoning" in normalized or "bounded code edits" in normalized:
         topics.append("topic:model-routing")
-    return domains, topics
+        confidence = 0.88
+    if "cross-project" in normalized or "projects reuse prior fixes" in normalized:
+        topics.append("topic:cross-project-reuse")
+        confidence = 0.74
+    if "single ownership" in normalized or "subagent execution" in normalized:
+        domains.append("domain:orchestration")
+        topics.append("topic:subagents")
+        confidence = 0.71
+    if "values.yaml" in normalized or "safe fts fallback" in normalized or "punctuation-heavy" in normalized:
+        domains.append("domain:retrieval")
+        topics.append("topic:fts")
+        confidence = 0.55
+    if "bridge memory" in normalized and "external search" in normalized:
+        domains.append("domain:memory-bridge")
+        domains.append("domain:retrieval")
+        confidence = 0.68
+    return domains, topics, confidence
 
 
 def main() -> None:
     payload = json.load(sys.stdin)
     items = []
     for item in payload.get("items", []):
-        domains, topics = infer_tags(str(item.get("text", "")))
+        domains, topics, confidence = infer_tags(str(item.get("text", "")))
         items.append(
             {
                 "key": item.get("key"),
                 "domains": domains,
                 "topics": topics,
-                "confidence": 0.8,
+                "confidence": confidence,
             }
         )
     json.dump({"items": items}, sys.stdout)

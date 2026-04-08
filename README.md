@@ -12,10 +12,11 @@ durable knowledge + coordination signals.
 
 MCP-native, currently optimized for Codex-first workflows.
 
-v0.6.2 adds:
+v0.6.3 adds:
 
 - classifier-assisted reflex enrichment with `shadow` / `assist` rollout and rule fallback
-- reviewed-sample calibration for classifier-vs-keyword decisions
+- a larger reviewed calibration set with explicit classifier-vs-fallback error analysis
+- assist-mode confidence gating through `minimum_confidence`
 - broader canonical benchmark fixtures while keeping `expected_top1_accuracy = 1.0`
 - a fuller signal lifecycle: `claim -> extend -> ack / expire / reclaim`
 - `extend_signal_lease` as part of the public MCP surface
@@ -159,6 +160,7 @@ The classifier is optional:
 - `mode = "off"` keeps the current deterministic rule path
 - `mode = "shadow"` runs classification and records divergence without changing stored tags
 - `mode = "assist"` lets classifier tags enrich reflex output while keyword/rule logic remains the fallback
+- `minimum_confidence = 0.6` keeps assist-mode enrichment from merging low-confidence classifier tags
 
 Recommended setup:
 
@@ -253,7 +255,7 @@ The bridge is meant to be inspectable, not magical:
 - signal status is visible and queryable through `pending`, `claimed`, `acked`, and `expired`
 - watcher health checks verify that Codex rollout files still parse into usable summaries
 - classifier shadow/assist behavior is covered by fixture-based regression tests
-- the current test suite passes with `76 passed`
+- the current test suite passes with `78 passed`
 
 Useful commands:
 
@@ -274,7 +276,7 @@ The bridge now has a small canonical proof and benchmark harness.
 - retrieval benchmark tracks `precision@1`, `precision@3`, and `expected_top1_accuracy`
 - the retrieval report compares bridge recall against a simple file-scan baseline
 - learning-quality upgrades now ship with classifier-vs-fallback regression coverage
-- classifier calibration now runs on reviewed samples and reports where the classifier beats or loses to keyword fallback
+- classifier calibration now runs on a larger reviewed sample set and reports exact matches, average score, missing tags, extra tags, and low-confidence filtering
 - the canonical retrieval fixture now includes more overlap-heavy memory and signal cases
 
 On the current canonical fixture:
@@ -285,10 +287,11 @@ On the current canonical fixture:
 
 On the current reviewed calibration set:
 
-- `classifier_exact_match_rate = 0.667`
+- `classifier_exact_match_rate = 0.9`
 - `fallback_exact_match_rate = 0.0`
-- `classifier_better_count = 4`
-- `fallback_better_count = 2`
+- `classifier_better_count = 9`
+- `fallback_better_count = 1`
+- `classifier_filtered_low_confidence_count = 1`
 
 This is not a leaderboard. It is a regression harness that keeps retrieval quality and coordination semantics honest as the bridge evolves.
 

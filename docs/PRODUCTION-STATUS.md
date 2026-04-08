@@ -37,7 +37,7 @@ For naming:
 
 ## Verified On 2026-04-07
 
-- `pytest` passes: `76 passed`
+- `pytest` passes: `78 passed`
 - The MCP server autoloads successfully in Codex
 - `recall(...)` works in-session through `agentMemoryBridge`
 - The canonical benchmark fixture now includes overlap-heavy retrieval cases for:
@@ -62,7 +62,8 @@ For naming:
   - `kind:gotcha`
   - `kind:domain-note`
 - Reflex can now run classifier-assisted enrichment in `shadow` or `assist` mode without removing the deterministic keyword/rule path
-- Reviewed classifier calibration now compares classifier tags, expected tags, and keyword fallback tags before widening assist usage
+- Reviewed classifier calibration now compares raw classifier tags, retained classifier tags, expected tags, and keyword fallback tags before widening assist usage
+- Assist-mode enrichment now honors a classifier `minimum_confidence` gate so low-confidence outputs stay visible in calibration without silently entering promoted records
 - Recall-first can now surface:
   - current project memory
   - global learns

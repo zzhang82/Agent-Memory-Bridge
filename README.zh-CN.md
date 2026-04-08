@@ -12,10 +12,11 @@
 
 MCP-native，目前优先针对 Codex-first 工作流做优化。
 
-`v0.6.2` 这一版新增：
+`v0.6.3` 这一版新增：
 
 - classifier-assisted reflex enrichment，支持 `shadow` / `assist` rollout，并保留规则 fallback
-- 基于 reviewed samples 的 classifier-vs-keyword calibration
+- 更大的 reviewed calibration set，并显式展示 classifier-vs-fallback 的误差形状
+- 通过 `minimum_confidence` 给 assist-mode 加上 confidence gating
 - 扩大的 canonical benchmark fixtures，同时保持 `expected_top1_accuracy = 1.0`
 - 更完整的 signal lifecycle：`claim -> extend -> ack / expire / reclaim`
 - `extend_signal_lease` 已进入公开 MCP surface
@@ -162,6 +163,7 @@ classifier 是可选的：
 - `mode = "off"`：保持当前 deterministic 规则路径
 - `mode = "shadow"`：运行 classification 并记录分歧，但不改变存储标签
 - `mode = "assist"`：让 classifier 标签参与 enrich，同时保留 keyword/rule fallback
+- `minimum_confidence = 0.6`：避免 assist-mode 把低 confidence 的 classifier 标签直接并入结果
 
 推荐做法：
 
@@ -259,7 +261,7 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - `signal` 的状态可以直接查到：`pending`、`claimed`、`acked`、`expired`
 - watcher health check 会验证 Codex rollout 文件是否还能被解析成可用 summary
 - classifier 的 shadow / assist 行为有基于 fixture 的回归测试
-- 当前测试套件结果是 `76 passed`
+- 当前测试套件结果是 `78 passed`
 
 常用命令：
 
@@ -280,7 +282,7 @@ retrieval 质量现在已经是“可 benchmark”，不是“凭感觉猜”。
 - retrieval benchmark 会跟踪 `precision@1`、`precision@3`、`expected_top1_accuracy`
 - retrieval report 会把 bridge recall 和简单 file-scan baseline 放在一起比较
 - learning-quality 升级现在还带有 classifier-vs-fallback 的回归覆盖
-- classifier calibration 现在会在 reviewed samples 上比较 expected tags、fallback tags 和 classifier tags
+- classifier calibration 现在会在更大的 reviewed sample set 上报告 exact match、average score、missing/extra tags 和 low-confidence filtering
 - canonical retrieval fixture 现在也包含了更多 overlap-heavy 的 memory / signal case
 
 在当前 canonical fixture 上：
@@ -291,10 +293,11 @@ retrieval 质量现在已经是“可 benchmark”，不是“凭感觉猜”。
 
 在当前 reviewed calibration set 上：
 
-- `classifier_exact_match_rate = 0.667`
+- `classifier_exact_match_rate = 0.9`
 - `fallback_exact_match_rate = 0.0`
-- `classifier_better_count = 4`
-- `fallback_better_count = 2`
+- `classifier_better_count = 9`
+- `fallback_better_count = 1`
+- `classifier_filtered_low_confidence_count = 1`
 
 这不是排行榜，而是一套回归护栏，用来在 bridge 继续演化时持续盯住 retrieval 质量和 coordination 语义。
 

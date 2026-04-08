@@ -185,6 +185,7 @@ def test_reflex_shadow_mode_keeps_fallback_tags_but_reports_divergence(tmp_path:
 
     assert result["classifier"]["prediction_count"] >= 1
     assert result["classifier"]["divergence_count"] >= 1
+    assert result["classifier"]["minimum_confidence"] == 0.6
     assert not any("topic:review-flow" in item["tags"] for item in learns["items"])
 
 
@@ -223,3 +224,42 @@ def test_reflex_assist_mode_uses_classifier_tags_for_domain_note_matching(tmp_pa
     assert result["classifier"]["prediction_count"] >= 2
     assert any("domain:orchestration" in item["tags"] for item in domain_notes["items"])
     assert any("topic:review-flow" in item["tags"] for item in learns["items"])
+
+
+def test_reflex_assist_mode_ignores_low_confidence_classifier_tags(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="[[Codex]] auto closeout 2026-04-16",
+        content=(
+            "Automatic Codex closeout.\n\n"
+            "## Durable Points\n\n"
+            "- Assistant outcome: Punctuation-heavy values.yaml queries need a safe FTS fallback instead of naive token parsing.\n"
+        ),
+        tags=["kind:summary", "project:alpha", "source:codex"],
+        session_id="session-low-confidence",
+        actor="codex",
+        correlation_id="thread-low-confidence",
+        source_app="codex-session-watcher",
+    )
+
+    reflex = ReflexEngine(
+        store,
+        ReflexConfig(
+            state_path=tmp_path / "reflex-state.json",
+            classifier_mode="assist",
+            classifier_command=_gateway_command(),
+            classifier_minimum_confidence=0.6,
+        ),
+    )
+    result = reflex.run_once()
+
+    learns = store.recall(namespace="global", tags_any=["kind:learn"], limit=10)
+
+    assert result["classifier"]["prediction_count"] >= 1
+    assert result["classifier"]["minimum_confidence"] == 0.6
+    assert result["classifier"]["accepted_prediction_count"] == 0
+    assert result["classifier"]["filtered_low_confidence_count"] >= 1
+    assert any("topic:fts" in item["tags"] for item in learns["items"])
+    assert any("domain:agent-memory" in item["tags"] for item in learns["items"])
