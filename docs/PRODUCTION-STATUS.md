@@ -1,17 +1,18 @@
 ﻿# Production Status
 
-Last updated: 2026-04-05
+Last updated: 2026-04-07
 
 ## Current Runtime Shape
 
-`agent-memory-bridge` now has six cooperating runtime surfaces:
+`agent-memory-bridge` now has seven cooperating runtime surfaces:
 
 1. A stdio MCP server with `store` and `recall`
 2. A shared SQLite/WAL + FTS5 bridge database under Codex home
 3. A Codex session watcher that writes idle-rollout closeouts
 4. An active-session checkpoint writer that stores mid-session summaries
 5. A reflex pass that promotes summaries into `learn`, `gotcha`, and `domain-note`
-6. A recall-first helper that checks local bridge memory before external search for issue-like prompts
+6. An optional classifier-backed enrichment layer that can run in `shadow` or `assist` mode while rules remain the fallback
+7. A recall-first helper that checks local bridge memory before external search for issue-like prompts
 
 All of these now converge on one canonical bridge home:
 
@@ -34,9 +35,9 @@ For naming:
 - `agentMemoryBridge` is the canonical Codex server name
 - one legacy compatibility name remains available during transition
 
-## Verified On 2026-04-05
+## Verified On 2026-04-07
 
-- `pytest` passes: `42 passed`
+- `pytest` passes: `73 passed`
 - The MCP server autoloads successfully in Codex
 - `recall(...)` works in-session through `agentMemoryBridge`
 - Cross-project namespaces are active in the shared DB, including:
@@ -55,6 +56,7 @@ For naming:
   - `kind:learn`
   - `kind:gotcha`
   - `kind:domain-note`
+- Reflex can now run classifier-assisted enrichment in `shadow` or `assist` mode without removing the deterministic keyword/rule path
 - Recall-first can now surface:
   - current project memory
   - global learns
@@ -72,6 +74,7 @@ This is production-capable today for:
 - Obsidian-style tag and wikilink extraction
 - subagent lineage tracking
 - compact machine-readable promotion records
+- optional classifier-assisted enrichment with safe fallback
 - recall-first local retrieval before external search
 - one canonical bridge database for both automation and interactive use
 
@@ -232,14 +235,14 @@ These are the real remaining gaps, ordered by product importance.
 
 ## Current Best Next Milestone
 
-The next milestone should not be "more storage." It should be "better learning."
+The next milestone should not be "more storage." It should be "calibrated learning."
 
 That means:
 
-1. Add a durable-event scorer for checkpoint and closeout lines
-2. Calibrate promotion on reviewed real samples
+1. Calibrate classifier output against reviewed real samples before widening assist-mode use
+2. Add a stronger durable-event scorer for checkpoint and closeout lines
 3. Expand `gotcha` extraction beyond a few known patterns
-4. Build first-pass domain/topic synthesis across many sessions
+4. Build richer domain/topic synthesis across many sessions
 5. Add an active signal consumer loop on top of `since`
 
 That is the path from useful memory store to actual reflex and learning system.

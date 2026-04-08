@@ -7,13 +7,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CAST_PATH = ROOT / "examples" / "demo" / "v0.5-terminal-demo.cast"
-COMMAND = r".\.venv\Scripts\python.exe .\scripts\demo_v0_5.py"
+CAST_PATH = ROOT / "examples" / "demo" / "terminal-demo.cast"
+COMMAND = r".\.venv\Scripts\python.exe .\scripts\demo_terminal.py"
 
 
 def main() -> None:
     completed = subprocess.run(
-        [str(ROOT / ".venv" / "Scripts" / "python.exe"), str(ROOT / "scripts" / "demo_v0_5.py")],
+        [str(ROOT / ".venv" / "Scripts" / "python.exe"), str(ROOT / "scripts" / "demo_terminal.py")],
         cwd=ROOT,
         capture_output=True,
         text=True,

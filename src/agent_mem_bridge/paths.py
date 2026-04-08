@@ -267,6 +267,30 @@ def resolve_reflex_scan_limit() -> int:
     return _resolve_int("AGENT_MEMORY_BRIDGE_REFLEX_SCAN_LIMIT", ("reflex", "scan_limit"), 200)
 
 
+def resolve_classifier_mode() -> str:
+    return _resolve_str("AGENT_MEMORY_BRIDGE_CLASSIFIER_MODE", ("classifier", "mode"), "off")
+
+
+def resolve_classifier_provider() -> str:
+    return _resolve_str("AGENT_MEMORY_BRIDGE_CLASSIFIER_PROVIDER", ("classifier", "provider"), "command")
+
+
+def resolve_classifier_command() -> str:
+    return _resolve_str("AGENT_MEMORY_BRIDGE_CLASSIFIER_COMMAND", ("classifier", "command"), "")
+
+
+def resolve_classifier_timeout_seconds() -> float:
+    return _resolve_float(
+        "AGENT_MEMORY_BRIDGE_CLASSIFIER_TIMEOUT_SECONDS",
+        ("classifier", "timeout_seconds"),
+        10.0,
+    )
+
+
+def resolve_classifier_batch_size() -> int:
+    return _resolve_int("AGENT_MEMORY_BRIDGE_CLASSIFIER_BATCH_SIZE", ("classifier", "batch_size"), 16)
+
+
 def resolve_consolidation_scan_limit() -> int:
     return _resolve_int(
         "AGENT_MEMORY_BRIDGE_CONSOLIDATION_SCAN_LIMIT",

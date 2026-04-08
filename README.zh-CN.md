@@ -12,18 +12,19 @@
 
 MCP-native，目前优先针对 Codex-first 工作流做优化。
 
-`v0.5.0` 这一版新增：
+`v0.6.0` 这一版新增：
 
+- classifier-assisted reflex enrichment，支持 `shadow` / `assist` rollout，并保留规则 fallback
 - 可度量的 retrieval，当前 `expected_top1_accuracy = 1.0`
 - 更完整的 signal lifecycle：`claim -> extend -> ack / expire / reclaim`
-- `extend_signal_lease` 正式进入公开 MCP surface
+- `extend_signal_lease` 已进入公开 MCP surface
 
-![Agent Memory Bridge v0.5 terminal demo](examples/demo/v0.5-terminal-demo.gif)
+![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
 
 很多记忆工具会把所有状态塞进一个桶里。Agent Memory Bridge 把两类状态分开：
 
 - `memory`：值得长期复用的持久知识
-- `signal`：用于 handoff、轮询和流程协调的短期事件
+- `signal`：用于 handoff、review、轮询和流程协调的短期事件
 
 桥内部沿着一条很小的提升路径工作：
 
@@ -47,8 +48,9 @@ Agent Memory Bridge 走的是更克制的一条路：
 
 1. 它把持久知识和协调状态分开。
 2. 它默认保持小而可检查，不靠大平台包装。
-3. 它给 `signal` 补上了一条更完整的生命周期：`claim -> extend -> ack / expire / reclaim`。
+3. 它给 `signal` 补上了更完整的生命周期：`claim -> extend -> ack / expire / reclaim`。
 4. 它会把 session 输出提升成紧凑、机器可读的记忆，而不是把 summary 当最终产物。
+5. 它可以增加 classifier-assisted enrichment，但不会让整个系统失去 deterministic fallback。
 
 如果你想要的是更大的记忆平台，带 SDK、dashboard、connectors 或 hosted-first 形态，OpenMemory 和 Mem0 会更接近那条路。
 
@@ -106,9 +108,9 @@ ack_signal(id="<signal_id>", consumer="reviewer-a")
 
 ## Demo
 
-现在已经有一个很短的 `v0.5` 终端演示：
+现在已经有一个很短的终端演示：
 
-- GIF: [examples/demo/v0.5-terminal-demo.gif](examples/demo/v0.5-terminal-demo.gif)
+- GIF: [examples/demo/terminal-demo.gif](examples/demo/terminal-demo.gif)
 - source: [examples/demo/README.md](examples/demo/README.md)
 
 ## 安装
@@ -150,8 +152,15 @@ $CODEX_HOME/mem-bridge/config.toml
 - `[profile]` 控制默认 namespace、actor、标题前缀，以及可选的 profile source root
 - `[bridge]` 控制本地 live 数据库
 - `[watcher]`、`[reflex]`、`[service]` 控制后台流水线
+- `[classifier]` 控制 reflex 使用的可选 enrichment gateway
 
 示例配置把 `~/.codex/mem-bridge/profile-source` 当作中性的本地 sample path，这样新用户不会一上来就继承带个人色彩的 profile 名称。
+
+classifier 是可选的：
+
+- `mode = "off"`：保持当前 deterministic 规则路径
+- `mode = "shadow"`：运行 classification 并记录分歧，但不改变存储标签
+- `mode = "assist"`：让 classifier 标签参与 enrich，同时保留 keyword/rule fallback
 
 推荐做法：
 
@@ -248,7 +257,8 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - `browse`、`stats`、`forget`、`export` 让你不用打开 SQLite 也能看清状态
 - `signal` 的状态可以直接查到：`pending`、`claimed`、`acked`、`expired`
 - watcher health check 会验证 Codex rollout 文件是否还能被解析成可用 summary
-- 当前测试套件结果是 `68 passed`
+- classifier 的 shadow / assist 行为有基于 fixture 的回归测试
+- 当前测试套件结果是 `73 passed`
 
 常用命令：
 
@@ -268,6 +278,7 @@ retrieval 质量现在已经是“可 benchmark”，不是“凭感觉猜”。
 - deterministic proof 会检查 signal correctness、duplicate suppression 和 recall timing
 - retrieval benchmark 会跟踪 `precision@1`、`precision@3`、`expected_top1_accuracy`
 - retrieval report 会把 bridge recall 和简单 file-scan baseline 放在一起比较
+- learning-quality 升级现在还带有 classifier-vs-fallback 的回归覆盖
 
 在当前 canonical fixture 上：
 

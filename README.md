@@ -12,13 +12,14 @@ durable knowledge + coordination signals.
 
 MCP-native, currently optimized for Codex-first workflows.
 
-v0.5.0 adds:
+v0.6.0 adds:
 
+- classifier-assisted reflex enrichment with `shadow` / `assist` rollout and rule fallback
 - benchmarked retrieval with `expected_top1_accuracy = 1.0`
 - a fuller signal lifecycle: `claim -> extend -> ack / expire / reclaim`
 - `extend_signal_lease` as part of the public MCP surface
 
-![Agent Memory Bridge v0.5 terminal demo](examples/demo/v0.5-terminal-demo.gif)
+![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
 
 Most memory tools put everything into one bucket. Agent Memory Bridge keeps two different kinds of state separate:
 
@@ -46,6 +47,7 @@ Agent Memory Bridge takes a narrower path:
 2. It stays small and inspectable instead of hiding behind a larger platform.
 3. It gives signals a clean lifecycle: `claim -> extend -> ack / expire / reclaim`.
 4. It promotes session output into compact machine-readable memory instead of treating summaries as the final artifact.
+5. It can add classifier-assisted enrichment without making the bridge depend on that path to stay useful.
 
 If you want a broader memory platform with SDKs, dashboards, connectors, or hosted-first deployment, projects like OpenMemory or Mem0 are closer to that shape.
 
@@ -103,9 +105,9 @@ Lease renewal is not reclaim. If a lease is still active, the current claimant c
 
 ## Demo
 
-There is now a short terminal demo for `v0.5`:
+There is now a short terminal demo in the repo:
 
-- GIF: [examples/demo/v0.5-terminal-demo.gif](examples/demo/v0.5-terminal-demo.gif)
+- GIF: [examples/demo/terminal-demo.gif](examples/demo/terminal-demo.gif)
 - source: [examples/demo/README.md](examples/demo/README.md)
 
 ## Setup
@@ -147,8 +149,15 @@ The important defaults are:
 - `[profile]` controls the neutral runtime shape for namespace, actors, title prefixes, and an optional profile source root
 - `[bridge]` controls the live local database
 - `[watcher]`, `[reflex]`, and `[service]` control the background pipeline
+- `[classifier]` controls the optional enrichment gateway used by reflex
 
 The example config uses `~/.codex/mem-bridge/profile-source` as a neutral local sample path so a fresh install does not inherit a personal profile name.
+
+The classifier is optional:
+
+- `mode = "off"` keeps the current deterministic rule path
+- `mode = "shadow"` runs classification and records divergence without changing stored tags
+- `mode = "assist"` lets classifier tags enrich reflex output while keyword/rule logic remains the fallback
 
 Recommended setup:
 
@@ -242,7 +251,8 @@ The bridge is meant to be inspectable, not magical:
 - `browse`, `stats`, `forget`, and `export` let you inspect and correct bridge state without opening SQLite
 - signal status is visible and queryable through `pending`, `claimed`, `acked`, and `expired`
 - watcher health checks verify that Codex rollout files still parse into usable summaries
-- the current test suite passes with `68 passed`
+- classifier shadow/assist behavior is covered by fixture-based regression tests
+- the current test suite passes with `73 passed`
 
 Useful commands:
 
@@ -262,6 +272,7 @@ The bridge now has a small canonical proof and benchmark harness.
 - deterministic proof checks signal correctness, duplicate suppression, and recall timing
 - retrieval benchmark tracks `precision@1`, `precision@3`, and `expected_top1_accuracy`
 - the retrieval report compares bridge recall against a simple file-scan baseline
+- learning-quality upgrades now ship with classifier-vs-fallback regression coverage
 
 On the current canonical fixture:
 

@@ -1,7 +1,13 @@
-﻿from pathlib import Path
+import sys
+from pathlib import Path
 
 from agent_mem_bridge.reflex import ReflexConfig, ReflexEngine
 from agent_mem_bridge.storage import MemoryStore
+
+
+def _gateway_command() -> str:
+    fixture = Path(__file__).parent / "fixtures" / "fake_classifier_gateway.py"
+    return f'"{sys.executable}" "{fixture}"'
 
 
 def test_reflex_promotes_summary_into_learn_and_gotcha(tmp_path: Path) -> None:
@@ -146,3 +152,74 @@ def test_reflex_promotes_structured_checkpoint_into_gotcha(tmp_path: Path) -> No
     assert any("claim: Later work can be missing until closeout." in item["content"] for item in gotchas["items"])
     assert any("fix: Write checkpoint summaries during active rollouts." in item["content"] for item in gotchas["items"])
 
+
+def test_reflex_shadow_mode_keeps_fallback_tags_but_reports_divergence(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="[[Codex]] auto closeout 2026-04-05",
+        content=(
+            "Automatic Codex closeout.\n\n"
+            "## Durable Points\n\n"
+            "- Assistant outcome: Review handoff should keep explicit queue ownership.\n"
+        ),
+        tags=["kind:summary", "project:alpha", "source:codex"],
+        session_id="session-shadow",
+        actor="codex",
+        correlation_id="thread-shadow",
+        source_app="codex-session-watcher",
+    )
+
+    reflex = ReflexEngine(
+        store,
+        ReflexConfig(
+            state_path=tmp_path / "reflex-state.json",
+            classifier_mode="shadow",
+            classifier_command=_gateway_command(),
+        ),
+    )
+    result = reflex.run_once()
+
+    learns = store.recall(namespace="global", tags_any=["kind:learn"], limit=10)
+
+    assert result["classifier"]["prediction_count"] >= 1
+    assert result["classifier"]["divergence_count"] >= 1
+    assert not any("topic:review-flow" in item["tags"] for item in learns["items"])
+
+
+def test_reflex_assist_mode_uses_classifier_tags_for_domain_note_matching(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    contents = [
+        "- Assistant outcome: Review handoff should keep explicit queue ownership.",
+        "- Assistant outcome: API review handoff works better with one approval queue.",
+    ]
+    for idx, content in enumerate(contents, start=1):
+        store.store(
+            namespace="project:alpha",
+            kind="memory",
+            title=f"[[Codex]] auto closeout 2026-04-1{idx}",
+            content=f"Automatic Codex closeout.\n\n## Durable Points\n\n{content}\n",
+            tags=["kind:summary", "project:alpha", "source:codex"],
+            session_id=f"session-assist-{idx}",
+            actor="codex",
+            correlation_id=f"thread-assist-{idx}",
+            source_app="codex-session-watcher",
+        )
+
+    reflex = ReflexEngine(
+        store,
+        ReflexConfig(
+            state_path=tmp_path / "reflex-state.json",
+            classifier_mode="assist",
+            classifier_command=_gateway_command(),
+        ),
+    )
+    result = reflex.run_once()
+
+    domain_notes = store.recall(namespace="global", tags_any=["kind:domain-note"], limit=10)
+    learns = store.recall(namespace="global", tags_any=["kind:learn"], limit=10)
+
+    assert result["classifier"]["prediction_count"] >= 2
+    assert any("domain:orchestration" in item["tags"] for item in domain_notes["items"])
+    assert any("topic:review-flow" in item["tags"] for item in learns["items"])

@@ -22,6 +22,7 @@ The benchmark report combines two layers:
 
 - deterministic proof for signal correctness, duplicate suppression, and recall timing
 - retrieval comparison for `precision@1`, `precision@3`, `expected_top1_accuracy`, and latency against a simple file-scan baseline
+- classifier-vs-fallback regression coverage in tests so learning-quality changes can roll out in shadow mode first
 
 The goal is not to win a leaderboard. It is to make regressions visible and keep the bridge honest as retrieval and signal semantics evolve.
 

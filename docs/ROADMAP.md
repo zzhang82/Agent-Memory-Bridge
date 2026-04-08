@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-04-06
+Last updated: 2026-04-07
 
-Agent Memory Bridge now covers the v0.4 foundation:
+Agent Memory Bridge now covers the v0.6 foundation:
 
 - two-channel state: `memory` and `signal`
 - inspectable MCP tools: `browse`, `stats`, `forget`, `promote`, `export`
@@ -11,28 +11,30 @@ Agent Memory Bridge now covers the v0.4 foundation:
 - `summary -> learn / gotcha / domain-note` promotion
 - first-pass domain consolidation
 - neutral core defaults with profile-shaped config on top
+- benchmarked retrieval with `expected_top1_accuracy`
+- classifier-assisted reflex enrichment with `shadow` and `assist` rollout modes plus deterministic rule fallback
 
-The next stage is about proof, selection, and composition.
+The next stage is about calibration, fairness, and broader learning quality.
 
 ## Near Term
 
-### Publish proof
+### Calibrate learning quality
 
-1. Add benchmark docs for recall quality, latency, duplicate suppression, and token efficiency.
-2. Show simple before/after cases where reusable memory reduces repeated work.
-3. Add coordination benchmarks for signal polling and claim latency.
+1. Compare classifier output against reviewed fixtures before expanding `assist` mode by default.
+2. Add clearer durable-event scoring for checkpoint and closeout lines.
+3. Add richer domain/topic synthesis over many sessions without dropping the deterministic fallback path.
 
-### Improve memory governance
+### Improve coordination fairness
 
-1. Add stronger durable-event scoring for checkpoint and closeout lines.
-2. Add clearer retention signals such as confidence, freshness, reuse, and support count.
-3. Add stale-handling and demotion rules so weak memory does not accumulate forever.
+1. Add claim-selection fairness so one polling consumer does not win by accident.
+2. Add retry boundaries before considering dead-letter handling.
+3. Add stronger coordination benchmarks for claim, extend, ack, and reclaim behavior under contention.
 
-### Finish storage reorganization
+### Broaden benchmark coverage
 
-1. Continue splitting storage around the new semantics.
-2. Pull signal-specific persistence and query logic into clearer modules.
-3. Reduce cross-cutting responsibilities inside `storage.py`.
+1. Expand the canonical fixture set beyond the current benchmark corpus.
+2. Keep tracking `precision@k` and `expected_top1_accuracy` together.
+3. Add more overlap-heavy retrieval cases so ranking does not overfit the small fixture set.
 
 ### Improve recall assembly
 

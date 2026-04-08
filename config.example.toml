@@ -27,5 +27,12 @@ checkpoint_min_messages = 2
 state_path = "reflex-state.json"
 scan_limit = 200
 
+[classifier]
+mode = "off"
+provider = "command"
+command = ""
+timeout_seconds = 10
+batch_size = 16
+
 [service]
 poll_seconds = 30

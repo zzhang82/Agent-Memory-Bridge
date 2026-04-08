@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .classifier import ClassifierConfig, EnrichmentCandidate, EnrichmentClassifier
 from .paths import (
+    resolve_classifier_batch_size,
+    resolve_classifier_command,
+    resolve_classifier_mode,
+    resolve_classifier_provider,
+    resolve_classifier_timeout_seconds,
     resolve_domain_title_prefix,
     resolve_learn_title_prefix,
     resolve_profile_namespace,
@@ -231,6 +237,11 @@ class ReflexConfig:
     learn_title_prefix: str = "[[Learn]]"
     domain_title_prefix: str = "[[Domain Note]]"
     scan_limit: int = 200
+    classifier_mode: str = "off"
+    classifier_provider: str = "command"
+    classifier_command: str = ""
+    classifier_timeout_seconds: float = 10.0
+    classifier_batch_size: int = 16
 
 
 GOTCHA_RULES: tuple[GotchaRule, ...] = (
@@ -413,33 +424,51 @@ class ReflexEngine:
         self.store = store
         self.config = config
         self.config.state_path.parent.mkdir(parents=True, exist_ok=True)
+        self.classifier = EnrichmentClassifier(
+            ClassifierConfig(
+                mode=config.classifier_mode,
+                provider=config.classifier_provider,
+                command=config.classifier_command,
+                timeout_seconds=config.classifier_timeout_seconds,
+                batch_size=config.classifier_batch_size,
+            )
+        )
+        self._classifier_stats = self._empty_classifier_stats()
 
     def run_once(self) -> dict[str, Any]:
+        self._classifier_stats = self._empty_classifier_stats()
         state = self._load_state()
         rows = self._load_recent_summary_rows(
             since_id=state.get("since_id"),
             limit=self.config.scan_limit,
         )
         if not rows:
-            return {"processed_count": 0, "stored": []}
+            return {"processed_count": 0, "stored": [], "classifier": dict(self._classifier_stats)}
 
         cycle_id = rows[-1]["id"]
         stored: list[dict[str, Any]] = []
+        row_predictions = self._classify_summary_rows(rows)
 
         for row in rows:
             stored.extend(self._promote_learns(row))
             stored.extend(self._promote_gotchas(row))
 
-        stored.extend(self._promote_domain_notes(rows, cycle_id))
+        stored.extend(self._promote_domain_notes(rows, cycle_id, row_predictions))
 
         state["since_id"] = cycle_id
         self._save_state(state)
-        return {"processed_count": len(stored), "stored": stored, "since_id": cycle_id}
+        return {
+            "processed_count": len(stored),
+            "stored": stored,
+            "since_id": cycle_id,
+            "classifier": dict(self._classifier_stats),
+        }
 
     def _promote_learns(self, row: sqlite3.Row) -> list[dict[str, Any]]:
         evidence = self._extract_evidence_fragments(row)
         stored: list[dict[str, Any]] = []
         seen_claims: set[str] = set()
+        prepared: list[dict[str, Any]] = []
         for index, line in enumerate(evidence, start=1):
             if not self._should_promote_learn(line):
                 continue
@@ -450,15 +479,41 @@ class ReflexEngine:
             if normalized_claim in seen_claims:
                 continue
             seen_claims.add(normalized_claim)
-            inferred_tags = self._infer_domain_tags(clean_line)
-            title = f"{self.config.learn_title_prefix} {self._truncate_title(clean_line)}"
+            fallback_tags = self._infer_domain_tags(clean_line)
+            prepared.append(
+                {
+                    "key": f"{row['id']}:{index}",
+                    "index": index,
+                    "claim": clean_line,
+                    "fallback_tags": fallback_tags,
+                }
+            )
+
+        predictions = self._classify_candidates(
+            [
+                EnrichmentCandidate(
+                    key=str(item["key"]),
+                    text=str(item["claim"]),
+                    fallback_tags=tuple(item["fallback_tags"]),
+                    title=str(row["title"] or ""),
+                    source_id=str(row["id"]),
+                )
+                for item in prepared
+            ]
+        )
+
+        for item in prepared:
+            prediction = predictions.get(str(item["key"]))
+            classifier_tags = list(prediction.tags) if prediction else []
+            inferred_tags = self._merge_inferred_tags(list(item["fallback_tags"]), classifier_tags)
+            title = f"{self.config.learn_title_prefix} {self._truncate_title(str(item['claim']))}"
             tags = self._base_tags_for_row(row)
             tags.extend(("kind:learn", "confidence:observed", f"source-summary:{row['id']}"))
             tags.extend(inferred_tags)
             content = self._build_structured_record(
                 {
                     "record_type": "learn",
-                    "claim": clean_line,
+                    "claim": str(item["claim"]),
                     "scope": "global",
                     "confidence": "observed",
                     "domains": self._joined_tags(inferred_tags, "domain:"),
@@ -476,7 +531,7 @@ class ReflexEngine:
                 correlation_id=row["correlation_id"],
                 source_app="agent-memory-bridge-reflex",
             )
-            stored.append({"type": "learn", "index": index, "result": result, "source_id": row["id"]})
+            stored.append({"type": "learn", "index": item["index"], "result": result, "source_id": row["id"]})
         return stored
 
     def _promote_gotchas(self, row: sqlite3.Row) -> list[dict[str, Any]]:
@@ -527,10 +582,20 @@ class ReflexEngine:
             stored.append({"type": "gotcha", "rule": rule.name, "result": result, "source_id": row["id"]})
         return stored
 
-    def _promote_domain_notes(self, rows: list[sqlite3.Row], cycle_id: str) -> list[dict[str, Any]]:
+    def _promote_domain_notes(
+        self,
+        rows: list[sqlite3.Row],
+        cycle_id: str,
+        row_predictions: dict[str, tuple[str, ...]],
+    ) -> list[dict[str, Any]]:
         stored: list[dict[str, Any]] = []
         for rule in DOMAIN_RULES:
-            matched = [row for row in rows if self._rule_matches_row(rule.keywords, row)]
+            matched = [
+                row
+                for row in rows
+                if self._rule_matches_row(rule.keywords, row)
+                or self._domain_rule_matches_prediction(rule, row_predictions.get(str(row["id"]), ()))
+            ]
             if len(matched) < rule.min_matches:
                 continue
             tags = list(rule.tags)
@@ -559,6 +624,51 @@ class ReflexEngine:
             )
             stored.append({"type": "domain-note", "rule": rule.name, "result": result, "match_count": len(matched)})
         return stored
+
+    def _classify_summary_rows(self, rows: list[sqlite3.Row]) -> dict[str, tuple[str, ...]]:
+        predictions = self._classify_candidates(
+            [
+                EnrichmentCandidate(
+                    key=str(row["id"]),
+                    text=self._row_text(row),
+                    fallback_tags=tuple(self._infer_domain_tags(self._row_text(row))),
+                    title=str(row["title"] or ""),
+                    source_id=str(row["id"]),
+                )
+                for row in rows
+            ]
+        )
+        return {key: prediction.tags for key, prediction in predictions.items()}
+
+    def _classify_candidates(
+        self,
+        candidates: list[EnrichmentCandidate],
+    ) -> dict[str, Any]:
+        if not candidates:
+            return {}
+        outcome = self.classifier.classify(candidates)
+        self._classifier_stats["request_count"] += outcome.requested_count
+        self._classifier_stats["prediction_count"] += len(outcome.predictions)
+        if outcome.error:
+            self._classifier_stats["error_count"] += 1
+            self._classifier_stats["last_error"] = outcome.error
+        return outcome.predictions
+
+    def _merge_inferred_tags(self, fallback_tags: list[str], classifier_tags: list[str]) -> list[str]:
+        fallback_unique = self._unique_tags(list(fallback_tags))
+        classifier_unique = self._unique_tags(list(classifier_tags))
+        if classifier_unique and any(tag.startswith("domain:") and tag != "domain:general" for tag in classifier_unique):
+            fallback_unique = [tag for tag in fallback_unique if tag != "domain:general"]
+        if classifier_unique and set(classifier_unique) != set(fallback_unique):
+            self._classifier_stats["divergence_count"] += 1
+        if self.config.classifier_mode == "assist" and classifier_unique:
+            return self._unique_tags(fallback_unique + classifier_unique)
+        return fallback_unique
+
+    @staticmethod
+    def _domain_rule_matches_prediction(rule: DomainRule, predicted_tags: tuple[str, ...]) -> bool:
+        domain_tag = next((tag for tag in rule.tags if tag.startswith("domain:")), "")
+        return bool(domain_tag and domain_tag in predicted_tags)
 
     def _load_recent_summary_rows(self, since_id: str | None, limit: int) -> list[sqlite3.Row]:
         params: list[Any] = [self.config.target_namespace, '%"kind:summary"%']
@@ -625,7 +735,20 @@ class ReflexEngine:
                 f"source-summary:{row['id']}",
             ]
         )
-        inferred_tags = self._infer_domain_tags(" ".join(fields.values()))
+        fallback_tags = self._infer_domain_tags(" ".join(fields.values()))
+        predictions = self._classify_candidates(
+            [
+                EnrichmentCandidate(
+                    key=str(row["id"]),
+                    text=" ".join(fields.values()),
+                    fallback_tags=tuple(fallback_tags),
+                    title=str(row["title"] or ""),
+                    source_id=str(row["id"]),
+                )
+            ]
+        )
+        prediction = predictions.get(str(row["id"]))
+        inferred_tags = self._merge_inferred_tags(fallback_tags, list(prediction.tags) if prediction else [])
         tags.extend(inferred_tags)
         fields_payload = {
             "record_type": "gotcha",
@@ -839,6 +962,16 @@ class ReflexEngine:
         suffix = rule.title.split("]]", 1)[-1].strip() if "]]" in rule.title else rule.title
         return f"{self.config.domain_title_prefix} {suffix}".strip()
 
+    def _empty_classifier_stats(self) -> dict[str, Any]:
+        return {
+            "mode": self.config.classifier_mode,
+            "request_count": 0,
+            "prediction_count": 0,
+            "divergence_count": 0,
+            "error_count": 0,
+            "last_error": None,
+        }
+
 
 def build_default_reflex_config(state_path: Path, scan_limit: int) -> ReflexConfig:
     return ReflexConfig(
@@ -848,4 +981,9 @@ def build_default_reflex_config(state_path: Path, scan_limit: int) -> ReflexConf
         learn_title_prefix=resolve_learn_title_prefix(),
         domain_title_prefix=resolve_domain_title_prefix(),
         scan_limit=scan_limit,
+        classifier_mode=resolve_classifier_mode(),
+        classifier_provider=resolve_classifier_provider(),
+        classifier_command=resolve_classifier_command(),
+        classifier_timeout_seconds=resolve_classifier_timeout_seconds(),
+        classifier_batch_size=resolve_classifier_batch_size(),
     )
