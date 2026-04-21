@@ -8,7 +8,7 @@ Set Theme "Builtin Solarized Dark"
 Set TypingSpeed 40ms
 Set MarginFill "#002b36"
 
-Type "cd D:\\playground\\MCPs\\mem-store\\cole-mem-bridge"
+Type "cd D:\\path\\to\\agent-memory-bridge"
 Enter
 Sleep 700ms
 

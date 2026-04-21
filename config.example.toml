@@ -1,6 +1,8 @@
 [codex]
 home = "~/.codex"
 
+# Optional profile-source helpers for curated startup overlays or migration work.
+# Basic bridge usage does not require a populated source_root.
 [profile]
 source_root = "~/.codex/mem-bridge/profile-source"
 namespace = "global"
@@ -9,11 +11,19 @@ consolidation_actor = "bridge-consolidation"
 learn_title_prefix = "[[Learn]]"
 domain_title_prefix = "[[Domain Note]]"
 
+# Core local bridge runtime.
 [bridge]
 home = "~/.codex/mem-bridge"
 db_path = "bridge.db"
 log_dir = "logs"
 
+# Optional metadata-only telemetry.
+[telemetry]
+mode = "off"
+log_dir = "telemetry"
+service_name = "agent-memory-bridge"
+
+# Optional watcher automation for Codex rollout/session capture.
 [watcher]
 sessions_root = "sessions"
 notes_root = "session-notes/auto"
@@ -27,6 +37,7 @@ checkpoint_min_messages = 2
 state_path = "reflex-state.json"
 scan_limit = 200
 
+# Optional classifier-assisted enrichment.
 [classifier]
 mode = "off"
 provider = "command"
@@ -35,5 +46,6 @@ timeout_seconds = 10
 batch_size = 16
 minimum_confidence = 0.6
 
+# Optional background polling loop.
 [service]
 poll_seconds = 30

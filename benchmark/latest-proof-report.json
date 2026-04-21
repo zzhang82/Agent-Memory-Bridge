@@ -1,0 +1,156 @@
+{
+  "summary": {
+    "check_count": 4,
+    "checks_passed": 4,
+    "signal_correctness_passed": true,
+    "relation_metadata_passed": true,
+    "recall_avg_latency_ms": 3.173,
+    "duplicate_suppression_rate": 1.0
+  },
+  "signal_correctness": {
+    "passed": true,
+    "checks": {
+      "claim_sets_claimed_state": true,
+      "owner_can_extend_lease": true,
+      "extend_rejects_wrong_consumer": true,
+      "ack_rejects_wrong_consumer": true,
+      "ack_marks_completion": true,
+      "acked_signal_cannot_extend": true,
+      "expired_signal_filters_as_expired": true,
+      "expired_signal_cannot_be_acked": true,
+      "expired_lease_cannot_be_extended": true,
+      "stale_lease_can_be_reclaimed": true,
+      "fair_claim_avoids_same_consumer_reclaim_bias": true,
+      "hard_expiry_caps_extended_lease": true
+    },
+    "latency_ms": {
+      "claim": 14.402,
+      "extend": 12.633,
+      "ack": 3.461,
+      "reclaim": 4.973
+    }
+  },
+  "recall_latency": {
+    "question_count": 11,
+    "hit_count": 11,
+    "avg_latency_ms": 3.173,
+    "max_latency_ms": 11.117,
+    "results": [
+      {
+        "id": "q1",
+        "query": "SQLite WAL",
+        "expected_title": "Storage Decision",
+        "hit": true,
+        "latency_ms": 11.117,
+        "count": 2,
+        "top_title": "Storage Decision"
+      },
+      {
+        "id": "q2",
+        "query": "values.yaml",
+        "expected_title": "FTS Sanitizer",
+        "hit": true,
+        "latency_ms": 2.481,
+        "count": 1,
+        "top_title": "FTS Sanitizer"
+      },
+      {
+        "id": "q3",
+        "query": "context compaction",
+        "expected_title": "Context Compaction Checklist",
+        "hit": true,
+        "latency_ms": 2.088,
+        "count": 3,
+        "top_title": "Context Compaction Checklist"
+      },
+      {
+        "id": "q4",
+        "query": "API handoff",
+        "expected_title": "Review Handoff",
+        "hit": true,
+        "latency_ms": 1.949,
+        "count": 2,
+        "top_title": "Review Handoff"
+      },
+      {
+        "id": "q5",
+        "query": "Obsidian-friendly structure",
+        "expected_title": "Codex Context Bridge",
+        "hit": true,
+        "latency_ms": 2.372,
+        "count": 1,
+        "top_title": "Codex Context Bridge"
+      },
+      {
+        "id": "q6",
+        "query": "sqlite sync timeout",
+        "expected_title": "SQLite Timeout Recovery",
+        "hit": true,
+        "latency_ms": 2.816,
+        "count": 2,
+        "top_title": "SQLite Timeout Recovery"
+      },
+      {
+        "id": "q7",
+        "query": "API review handoff",
+        "expected_title": "Review Handoff",
+        "hit": true,
+        "latency_ms": 2.302,
+        "count": 2,
+        "top_title": "Review Handoff"
+      },
+      {
+        "id": "q8",
+        "query": "Codex context handoff",
+        "expected_title": "Codex Context Bridge",
+        "hit": true,
+        "latency_ms": 2.684,
+        "count": 3,
+        "top_title": "Codex Context Bridge"
+      },
+      {
+        "id": "q9",
+        "query": "review queue ownership",
+        "expected_title": "Review Queue Policy",
+        "hit": true,
+        "latency_ms": 2.224,
+        "count": 1,
+        "top_title": "Review Queue Policy"
+      },
+      {
+        "id": "q10",
+        "query": "release cutover ready",
+        "expected_title": "Release Cutover Ready",
+        "hit": true,
+        "latency_ms": 2.427,
+        "count": 2,
+        "top_title": "Release Cutover Ready"
+      },
+      {
+        "id": "q11",
+        "query": "context compaction checklist",
+        "expected_title": "Context Compaction Checklist",
+        "hit": true,
+        "latency_ms": 2.444,
+        "count": 3,
+        "top_title": "Context Compaction Checklist"
+      }
+    ]
+  },
+  "duplicate_suppression": {
+    "attempt_count": 4,
+    "stored_count": 1,
+    "duplicate_count": 3,
+    "suppression_rate": 1.0
+  },
+  "relation_metadata": {
+    "passed": true,
+    "checks": {
+      "store_succeeds": true,
+      "recall_surfaces_relations": true,
+      "recall_surfaces_validity_status": true,
+      "stats_counts_relations_and_validity": true,
+      "export_mentions_relation_metadata": true
+    }
+  }
+}

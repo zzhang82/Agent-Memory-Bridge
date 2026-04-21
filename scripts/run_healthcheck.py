@@ -24,12 +24,14 @@ def main() -> None:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run bridge health checks and profile migration validation.")
+    parser = argparse.ArgumentParser(
+        description="Run bridge health checks, with optional profile-source parity validation."
+    )
     parser.add_argument(
         "source_root",
         nargs="?",
         type=Path,
-        help="Path to the profile source root. Defaults to configured [profile].source_root.",
+        help="Optional path to a profile source root. Defaults to configured [profile].source_root when parity checks are needed.",
     )
     parser.add_argument(
         "--skip-stdio",
@@ -40,7 +42,7 @@ def _parse_args() -> argparse.Namespace:
         "--compare-mode",
         choices=["auto", "full", "live", "snapshot-audit"],
         default="auto",
-        help="Comparison mode for source parity checks. Defaults to auto: live if a live manifest exists, otherwise full.",
+        help="Comparison mode for optional source parity checks. Defaults to auto: live if a live manifest exists, otherwise full.",
     )
     parser.add_argument(
         "--report-path",

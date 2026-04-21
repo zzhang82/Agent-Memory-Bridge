@@ -501,6 +501,7 @@ class ReflexEngine:
                 title=title,
                 correlation_id=row["correlation_id"],
                 source_app="agent-memory-bridge-reflex",
+                **self._origin_kwargs_from_row(row),
             )
             stored.append({"type": "learn", "index": item["index"], "result": result, "source_id": row["id"]})
         return stored
@@ -520,6 +521,7 @@ class ReflexEngine:
                 title=structured_gotcha["title"],
                 correlation_id=row["correlation_id"],
                 source_app="agent-memory-bridge-reflex",
+                **self._origin_kwargs_from_row(row),
             )
             stored.append({"type": "gotcha", "rule": "checkpoint-structured", "result": result, "source_id": row["id"]})
         for rule in GOTCHA_RULES:
@@ -549,6 +551,7 @@ class ReflexEngine:
                 title=rule.title,
                 correlation_id=row["correlation_id"],
                 source_app="agent-memory-bridge-reflex",
+                **self._origin_kwargs_from_row(row),
             )
             stored.append({"type": "gotcha", "rule": rule.name, "result": result, "source_id": row["id"]})
         return stored
@@ -592,6 +595,7 @@ class ReflexEngine:
                 title=self._domain_title_for_rule(rule),
                 correlation_id=cycle_id,
                 source_app="agent-memory-bridge-reflex",
+                **self._origin_kwargs_from_rows(matched),
             )
             stored.append({"type": "domain-note", "rule": rule.name, "result": result, "match_count": len(matched)})
         return stored
@@ -664,6 +668,11 @@ class ReflexEngine:
                 actor,
                 correlation_id,
                 source_app,
+                source_client,
+                source_model,
+                client_session_id,
+                client_workspace,
+                client_transport,
                 created_at
             FROM memories
             WHERE namespace != ?
@@ -815,6 +824,31 @@ class ReflexEngine:
         if row is None:
             return None
         return str(row["created_at"])
+
+    @staticmethod
+    def _uniform_origin_value(rows: list[sqlite3.Row], key: str) -> str | None:
+        values = {str(row[key]).strip() for row in rows if row[key]}
+        if len(values) == 1:
+            return next(iter(values))
+        return None
+
+    def _origin_kwargs_from_row(self, row: sqlite3.Row) -> dict[str, str | None]:
+        return {
+            "source_client": str(row["source_client"]).strip() if row["source_client"] else None,
+            "source_model": str(row["source_model"]).strip() if row["source_model"] else None,
+            "client_session_id": str(row["client_session_id"]).strip() if row["client_session_id"] else None,
+            "client_workspace": str(row["client_workspace"]).strip() if row["client_workspace"] else None,
+            "client_transport": str(row["client_transport"]).strip() if row["client_transport"] else None,
+        }
+
+    def _origin_kwargs_from_rows(self, rows: list[sqlite3.Row]) -> dict[str, str | None]:
+        return {
+            "source_client": self._uniform_origin_value(rows, "source_client"),
+            "source_model": self._uniform_origin_value(rows, "source_model"),
+            "client_session_id": self._uniform_origin_value(rows, "client_session_id"),
+            "client_workspace": self._uniform_origin_value(rows, "client_workspace"),
+            "client_transport": self._uniform_origin_value(rows, "client_transport"),
+        }
 
     @staticmethod
     def _row_text(row: sqlite3.Row) -> str:

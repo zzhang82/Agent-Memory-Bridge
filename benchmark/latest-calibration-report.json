@@ -1,0 +1,703 @@
+{
+  "summary": {
+    "sample_count": 16,
+    "classifier_prediction_count": 16,
+    "classifier_retained_prediction_count": 14,
+    "classifier_filtered_low_confidence_count": 2,
+    "classifier_error": null,
+    "classifier_exact_match_count": 14,
+    "classifier_exact_match_rate": 0.875,
+    "fallback_exact_match_count": 1,
+    "fallback_exact_match_rate": 0.062,
+    "classifier_avg_score": 0.875,
+    "fallback_avg_score": 0.547,
+    "classifier_missing_tag_total": 4,
+    "classifier_extra_tag_total": 0,
+    "fallback_missing_tag_total": 8,
+    "fallback_extra_tag_total": 26,
+    "classifier_false_negative_sample_count": 2,
+    "classifier_false_positive_sample_count": 0,
+    "fallback_false_negative_sample_count": 6,
+    "fallback_false_positive_sample_count": 13,
+    "classifier_better_count": 13,
+    "fallback_better_count": 2,
+    "tie_count": 1
+  },
+  "slice_summaries": {
+    "coordination": {
+      "sample_count": 4,
+      "classifier_prediction_count": 4,
+      "classifier_retained_prediction_count": 4,
+      "classifier_filtered_low_confidence_count": 0,
+      "classifier_exact_match_count": 4,
+      "classifier_exact_match_rate": 1.0,
+      "fallback_exact_match_count": 0,
+      "fallback_exact_match_rate": 0.0,
+      "classifier_avg_score": 1.0,
+      "fallback_avg_score": 0.534,
+      "classifier_missing_tag_total": 0,
+      "classifier_extra_tag_total": 0,
+      "fallback_missing_tag_total": 3,
+      "fallback_extra_tag_total": 3,
+      "classifier_false_negative_sample_count": 0,
+      "classifier_false_positive_sample_count": 0,
+      "fallback_false_negative_sample_count": 2,
+      "fallback_false_positive_sample_count": 3,
+      "classifier_better_count": 4,
+      "fallback_better_count": 0,
+      "tie_count": 0
+    },
+    "memory-shaping": {
+      "sample_count": 2,
+      "classifier_prediction_count": 2,
+      "classifier_retained_prediction_count": 2,
+      "classifier_filtered_low_confidence_count": 0,
+      "classifier_exact_match_count": 2,
+      "classifier_exact_match_rate": 1.0,
+      "fallback_exact_match_count": 1,
+      "fallback_exact_match_rate": 0.5,
+      "classifier_avg_score": 1.0,
+      "fallback_avg_score": 0.9,
+      "classifier_missing_tag_total": 0,
+      "classifier_extra_tag_total": 0,
+      "fallback_missing_tag_total": 0,
+      "fallback_extra_tag_total": 1,
+      "classifier_false_negative_sample_count": 0,
+      "classifier_false_positive_sample_count": 0,
+      "fallback_false_negative_sample_count": 0,
+      "fallback_false_positive_sample_count": 1,
+      "classifier_better_count": 1,
+      "fallback_better_count": 0,
+      "tie_count": 1
+    },
+    "model-routing": {
+      "sample_count": 2,
+      "classifier_prediction_count": 2,
+      "classifier_retained_prediction_count": 2,
+      "classifier_filtered_low_confidence_count": 0,
+      "classifier_exact_match_count": 2,
+      "classifier_exact_match_rate": 1.0,
+      "fallback_exact_match_count": 0,
+      "fallback_exact_match_rate": 0.0,
+      "classifier_avg_score": 1.0,
+      "fallback_avg_score": 0.667,
+      "classifier_missing_tag_total": 0,
+      "classifier_extra_tag_total": 0,
+      "fallback_missing_tag_total": 0,
+      "fallback_extra_tag_total": 2,
+      "classifier_false_negative_sample_count": 0,
+      "classifier_false_positive_sample_count": 0,
+      "fallback_false_negative_sample_count": 0,
+      "fallback_false_positive_sample_count": 2,
+      "classifier_better_count": 2,
+      "fallback_better_count": 0,
+      "tie_count": 0
+    },
+    "retrieval": {
+      "sample_count": 5,
+      "classifier_prediction_count": 5,
+      "classifier_retained_prediction_count": 3,
+      "classifier_filtered_low_confidence_count": 2,
+      "classifier_exact_match_count": 3,
+      "classifier_exact_match_rate": 0.6,
+      "fallback_exact_match_count": 0,
+      "fallback_exact_match_rate": 0.0,
+      "classifier_avg_score": 0.6,
+      "fallback_avg_score": 0.364,
+      "classifier_missing_tag_total": 4,
+      "classifier_extra_tag_total": 0,
+      "fallback_missing_tag_total": 3,
+      "fallback_extra_tag_total": 15,
+      "classifier_false_negative_sample_count": 2,
+      "classifier_false_positive_sample_count": 0,
+      "fallback_false_negative_sample_count": 2,
+      "fallback_false_positive_sample_count": 5,
+      "classifier_better_count": 3,
+      "fallback_better_count": 2,
+      "tie_count": 0
+    },
+    "runtime": {
+      "sample_count": 2,
+      "classifier_prediction_count": 2,
+      "classifier_retained_prediction_count": 2,
+      "classifier_filtered_low_confidence_count": 0,
+      "classifier_exact_match_count": 2,
+      "classifier_exact_match_rate": 1.0,
+      "fallback_exact_match_count": 0,
+      "fallback_exact_match_rate": 0.0,
+      "classifier_avg_score": 1.0,
+      "fallback_avg_score": 0.5,
+      "classifier_missing_tag_total": 0,
+      "classifier_extra_tag_total": 0,
+      "fallback_missing_tag_total": 1,
+      "fallback_extra_tag_total": 5,
+      "classifier_false_negative_sample_count": 0,
+      "classifier_false_positive_sample_count": 0,
+      "fallback_false_negative_sample_count": 1,
+      "fallback_false_positive_sample_count": 2,
+      "classifier_better_count": 2,
+      "fallback_better_count": 0,
+      "tie_count": 0
+    },
+    "storage": {
+      "sample_count": 1,
+      "classifier_prediction_count": 1,
+      "classifier_retained_prediction_count": 1,
+      "classifier_filtered_low_confidence_count": 0,
+      "classifier_exact_match_count": 1,
+      "classifier_exact_match_rate": 1.0,
+      "fallback_exact_match_count": 0,
+      "fallback_exact_match_rate": 0.0,
+      "classifier_avg_score": 1.0,
+      "fallback_avg_score": 0.667,
+      "classifier_missing_tag_total": 0,
+      "classifier_extra_tag_total": 0,
+      "fallback_missing_tag_total": 1,
+      "fallback_extra_tag_total": 0,
+      "classifier_false_negative_sample_count": 0,
+      "classifier_false_positive_sample_count": 0,
+      "fallback_false_negative_sample_count": 1,
+      "fallback_false_positive_sample_count": 0,
+      "classifier_better_count": 1,
+      "fallback_better_count": 0,
+      "tie_count": 0
+    }
+  },
+  "results": [
+    {
+      "id": "c1",
+      "slice": "coordination",
+      "text": "Review handoff should keep explicit queue ownership for the next reviewer.",
+      "expected_tags": [
+        "domain:orchestration",
+        "topic:review-flow"
+      ],
+      "fallback_tags": [
+        "domain:orchestration"
+      ],
+      "classifier_raw_tags": [
+        "domain:orchestration",
+        "topic:review-flow"
+      ],
+      "classifier_tags": [
+        "domain:orchestration",
+        "topic:review-flow"
+      ],
+      "classifier_confidence": 0.92,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.667,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [
+        "topic:review-flow"
+      ],
+      "fallback_extra": []
+    },
+    {
+      "id": "c2",
+      "slice": "storage",
+      "text": "SQLite WAL mode should stay enabled so readers can query during writes.",
+      "expected_tags": [
+        "domain:sqlite",
+        "topic:storage"
+      ],
+      "fallback_tags": [
+        "domain:sqlite"
+      ],
+      "classifier_raw_tags": [
+        "domain:sqlite",
+        "topic:storage"
+      ],
+      "classifier_tags": [
+        "domain:sqlite",
+        "topic:storage"
+      ],
+      "classifier_confidence": 0.9,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.667,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [
+        "topic:storage"
+      ],
+      "fallback_extra": []
+    },
+    {
+      "id": "c3",
+      "slice": "retrieval",
+      "text": "Context compaction should write a bridge note before details are lost.",
+      "expected_tags": [
+        "domain:retrieval",
+        "topic:context-assembly"
+      ],
+      "fallback_tags": [
+        "domain:memory-bridge"
+      ],
+      "classifier_raw_tags": [
+        "domain:retrieval",
+        "topic:context-assembly"
+      ],
+      "classifier_tags": [
+        "domain:retrieval",
+        "topic:context-assembly"
+      ],
+      "classifier_confidence": 0.86,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.0,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [
+        "domain:retrieval",
+        "topic:context-assembly"
+      ],
+      "fallback_extra": [
+        "domain:memory-bridge"
+      ]
+    },
+    {
+      "id": "c4",
+      "slice": "memory-shaping",
+      "text": "Store machine-readable, token-efficient records instead of narrative memory.",
+      "expected_tags": [
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ],
+      "fallback_tags": [
+        "domain:memory-bridge",
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ],
+      "classifier_raw_tags": [
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ],
+      "classifier_tags": [
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ],
+      "classifier_confidence": 0.79,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.8,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": [
+        "domain:memory-bridge"
+      ]
+    },
+    {
+      "id": "c5",
+      "slice": "runtime",
+      "text": "Wrong DB splits break trust in recall and need one canonical runtime path.",
+      "expected_tags": [
+        "domain:memory-bridge",
+        "topic:runtime-path"
+      ],
+      "fallback_tags": [
+        "domain:memory-bridge",
+        "domain:retrieval",
+        "domain:reliability",
+        "topic:runtime-path"
+      ],
+      "classifier_raw_tags": [
+        "domain:memory-bridge",
+        "topic:runtime-path"
+      ],
+      "classifier_tags": [
+        "domain:memory-bridge",
+        "topic:runtime-path"
+      ],
+      "classifier_confidence": 0.84,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.667,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": [
+        "domain:retrieval",
+        "domain:reliability"
+      ]
+    },
+    {
+      "id": "c6",
+      "slice": "model-routing",
+      "text": "High reasoning should stay on planning and validation work instead of bounded code edits.",
+      "expected_tags": [
+        "topic:model-routing"
+      ],
+      "fallback_tags": [
+        "domain:orchestration",
+        "topic:model-routing"
+      ],
+      "classifier_raw_tags": [
+        "topic:model-routing"
+      ],
+      "classifier_tags": [
+        "topic:model-routing"
+      ],
+      "classifier_confidence": 0.88,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.667,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": [
+        "domain:orchestration"
+      ]
+    },
+    {
+      "id": "c7",
+      "slice": "retrieval",
+      "text": "Cross-project gotchas should be recalled before external search so later projects reuse prior fixes.",
+      "expected_tags": [
+        "topic:cross-project-reuse"
+      ],
+      "fallback_tags": [
+        "domain:memory-bridge",
+        "domain:retrieval",
+        "domain:reliability",
+        "domain:agent-memory",
+        "topic:fts",
+        "topic:memory-shaping",
+        "topic:cross-project-reuse"
+      ],
+      "classifier_raw_tags": [
+        "topic:cross-project-reuse"
+      ],
+      "classifier_tags": [
+        "topic:cross-project-reuse"
+      ],
+      "classifier_confidence": 0.74,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.25,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": [
+        "domain:memory-bridge",
+        "domain:retrieval",
+        "domain:reliability",
+        "domain:agent-memory",
+        "topic:fts",
+        "topic:memory-shaping"
+      ]
+    },
+    {
+      "id": "c8",
+      "slice": "coordination",
+      "text": "Single ownership keeps subagent execution from drifting when the contract is still moving.",
+      "expected_tags": [
+        "domain:orchestration",
+        "topic:subagents"
+      ],
+      "fallback_tags": [
+        "domain:orchestration",
+        "domain:reliability",
+        "topic:subagents"
+      ],
+      "classifier_raw_tags": [
+        "domain:orchestration",
+        "topic:subagents"
+      ],
+      "classifier_tags": [
+        "domain:orchestration",
+        "topic:subagents"
+      ],
+      "classifier_confidence": 0.71,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.8,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": [
+        "domain:reliability"
+      ]
+    },
+    {
+      "id": "c9",
+      "slice": "retrieval",
+      "text": "Punctuation-heavy values.yaml queries need a safe FTS fallback instead of naive token parsing.",
+      "expected_tags": [
+        "domain:retrieval",
+        "topic:fts"
+      ],
+      "fallback_tags": [
+        "domain:sqlite",
+        "domain:retrieval",
+        "domain:agent-memory",
+        "topic:fts",
+        "topic:memory-shaping"
+      ],
+      "classifier_raw_tags": [
+        "domain:retrieval",
+        "topic:fts"
+      ],
+      "classifier_tags": [],
+      "classifier_confidence": 0.55,
+      "classifier_filtered_low_confidence": true,
+      "fallback_score": 0.571,
+      "classifier_score": 0.0,
+      "winner": "fallback",
+      "classifier_missing": [
+        "domain:retrieval",
+        "topic:fts"
+      ],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": [
+        "domain:sqlite",
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ]
+    },
+    {
+      "id": "c10",
+      "slice": "retrieval",
+      "text": "Check local bridge memory before external search for issue-like prompts.",
+      "expected_tags": [
+        "domain:memory-bridge",
+        "domain:retrieval"
+      ],
+      "fallback_tags": [
+        "domain:retrieval",
+        "topic:fts"
+      ],
+      "classifier_raw_tags": [
+        "domain:memory-bridge",
+        "domain:retrieval"
+      ],
+      "classifier_tags": [
+        "domain:memory-bridge",
+        "domain:retrieval"
+      ],
+      "classifier_confidence": 0.68,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.5,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [
+        "domain:memory-bridge"
+      ],
+      "fallback_extra": [
+        "topic:fts"
+      ]
+    },
+    {
+      "id": "c11",
+      "slice": "coordination",
+      "text": "Release cutover handoff should be claimed by one worker and acknowledged after the checklist is complete.",
+      "expected_tags": [
+        "domain:orchestration"
+      ],
+      "fallback_tags": [
+        "domain:orchestration",
+        "topic:subagents"
+      ],
+      "classifier_raw_tags": [
+        "domain:orchestration"
+      ],
+      "classifier_tags": [
+        "domain:orchestration"
+      ],
+      "classifier_confidence": 0.77,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.667,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": [
+        "topic:subagents"
+      ]
+    },
+    {
+      "id": "c12",
+      "slice": "runtime",
+      "text": "Keep one canonical bridge database path so the watcher and MCP server read the same database and logs.",
+      "expected_tags": [
+        "domain:memory-bridge",
+        "topic:runtime-path"
+      ],
+      "fallback_tags": [
+        "domain:sqlite",
+        "domain:reliability",
+        "topic:session-sync",
+        "topic:runtime-path"
+      ],
+      "classifier_raw_tags": [
+        "domain:memory-bridge",
+        "topic:runtime-path"
+      ],
+      "classifier_tags": [
+        "domain:memory-bridge",
+        "topic:runtime-path"
+      ],
+      "classifier_confidence": 0.84,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.333,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [
+        "domain:memory-bridge"
+      ],
+      "fallback_extra": [
+        "domain:sqlite",
+        "domain:reliability",
+        "topic:session-sync"
+      ]
+    },
+    {
+      "id": "c13",
+      "slice": "memory-shaping",
+      "text": "Domain notes should synthesize repeated learn records instead of storing one more noisy summary.",
+      "expected_tags": [
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ],
+      "fallback_tags": [
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ],
+      "classifier_raw_tags": [
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ],
+      "classifier_tags": [
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ],
+      "classifier_confidence": 0.79,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 1.0,
+      "classifier_score": 1.0,
+      "winner": "tie",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": []
+    },
+    {
+      "id": "c14",
+      "slice": "model-routing",
+      "text": "Use higher reasoning for architecture review and validation, not for bounded code edits.",
+      "expected_tags": [
+        "topic:model-routing"
+      ],
+      "fallback_tags": [
+        "domain:orchestration",
+        "topic:model-routing"
+      ],
+      "classifier_raw_tags": [
+        "topic:model-routing"
+      ],
+      "classifier_tags": [
+        "topic:model-routing"
+      ],
+      "classifier_confidence": 0.88,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.667,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": [
+        "domain:orchestration"
+      ]
+    },
+    {
+      "id": "c15",
+      "slice": "coordination",
+      "text": "Review queue ownership should survive claim and extend so the next reviewer sees who holds the work.",
+      "expected_tags": [
+        "domain:orchestration",
+        "topic:review-flow"
+      ],
+      "fallback_tags": [
+        "domain:general"
+      ],
+      "classifier_raw_tags": [
+        "domain:orchestration",
+        "topic:review-flow"
+      ],
+      "classifier_tags": [
+        "domain:orchestration",
+        "topic:review-flow"
+      ],
+      "classifier_confidence": 0.92,
+      "classifier_filtered_low_confidence": false,
+      "fallback_score": 0.0,
+      "classifier_score": 1.0,
+      "winner": "classifier",
+      "classifier_missing": [],
+      "classifier_extra": [],
+      "fallback_missing": [
+        "domain:orchestration",
+        "topic:review-flow"
+      ],
+      "fallback_extra": [
+        "domain:general"
+      ]
+    },
+    {
+      "id": "c16",
+      "slice": "retrieval",
+      "text": "If FTS tokenization breaks on punctuation, fall back to substring recall before declaring a miss.",
+      "expected_tags": [
+        "domain:retrieval",
+        "topic:fts"
+      ],
+      "fallback_tags": [
+        "domain:memory-bridge",
+        "domain:sqlite",
+        "domain:retrieval",
+        "domain:agent-memory",
+        "topic:fts",
+        "topic:memory-shaping"
+      ],
+      "classifier_raw_tags": [
+        "domain:retrieval",
+        "topic:fts"
+      ],
+      "classifier_tags": [],
+      "classifier_confidence": 0.55,
+      "classifier_filtered_low_confidence": true,
+      "fallback_score": 0.5,
+      "classifier_score": 0.0,
+      "winner": "fallback",
+      "classifier_missing": [
+        "domain:retrieval",
+        "topic:fts"
+      ],
+      "classifier_extra": [],
+      "fallback_missing": [],
+      "fallback_extra": [
+        "domain:memory-bridge",
+        "domain:sqlite",
+        "domain:agent-memory",
+        "topic:memory-shaping"
+      ]
+    }
+  ]
+}

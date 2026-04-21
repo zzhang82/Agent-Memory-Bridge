@@ -52,13 +52,20 @@ def run_benchmark(
                 "question_count": retrieval_summary["question_count"],
                 "memory_precision_at_1": retrieval_summary["memory_precision_at_1"],
                 "memory_precision_at_3": retrieval_summary["memory_precision_at_3"],
+                "memory_recall_at_1": retrieval_summary["memory_recall_at_1"],
+                "memory_recall_at_3": retrieval_summary["memory_recall_at_3"],
+                "memory_mrr": retrieval_summary["memory_mrr"],
                 "memory_expected_top1_accuracy": retrieval_summary["memory_expected_top1_accuracy"],
                 "memory_avg_latency_ms": retrieval_summary["memory_avg_latency_ms"],
                 "file_scan_precision_at_1": retrieval_summary["file_scan_precision_at_1"],
                 "file_scan_precision_at_3": retrieval_summary["file_scan_precision_at_3"],
+                "file_scan_recall_at_1": retrieval_summary["file_scan_recall_at_1"],
+                "file_scan_recall_at_3": retrieval_summary["file_scan_recall_at_3"],
+                "file_scan_mrr": retrieval_summary["file_scan_mrr"],
                 "file_scan_expected_top1_accuracy": retrieval_summary["file_scan_expected_top1_accuracy"],
                 "file_scan_avg_latency_ms": retrieval_summary["file_scan_avg_latency_ms"],
                 "signal_correctness_passed": proof_report["summary"]["signal_correctness_passed"],
+                "relation_metadata_passed": proof_report["summary"]["relation_metadata_passed"],
                 "duplicate_suppression_rate": proof_report["summary"]["duplicate_suppression_rate"],
             },
             "retrieval_summary": retrieval_summary,
@@ -144,6 +151,15 @@ def build_retrieval_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "memory_precision_at_1": average(memory_p1),
         "memory_precision_at_3": average(memory_p3),
+        "memory_recall_at_1": average(
+            [recall_at_k(result["memory"]["first_relevant_rank"], 1) for result in results]
+        ),
+        "memory_recall_at_3": average(
+            [recall_at_k(result["memory"]["first_relevant_rank"], 3) for result in results]
+        ),
+        "memory_mrr": average(
+            [reciprocal_rank(result["memory"]["first_relevant_rank"]) for result in results]
+        ),
         "memory_avg_latency_ms": average(memory_latency),
         "file_scan_hit_count": sum(1 for result in results if result["file_scan"]["hit"]),
         "file_scan_expected_top1_count": sum(1 for result in results if result["file_scan"]["expected_top1"]),
@@ -152,6 +168,15 @@ def build_retrieval_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "file_scan_precision_at_1": average(file_p1),
         "file_scan_precision_at_3": average(file_p3),
+        "file_scan_recall_at_1": average(
+            [recall_at_k(result["file_scan"]["first_relevant_rank"], 1) for result in results]
+        ),
+        "file_scan_recall_at_3": average(
+            [recall_at_k(result["file_scan"]["first_relevant_rank"], 3) for result in results]
+        ),
+        "file_scan_mrr": average(
+            [reciprocal_rank(result["file_scan"]["first_relevant_rank"]) for result in results]
+        ),
         "file_scan_avg_latency_ms": average(file_latency),
     }
 
@@ -177,6 +202,20 @@ def first_relevant_rank(top_titles: list[str], relevant_titles: list[str]) -> in
         if title in relevant:
             return index
     return None
+
+
+def recall_at_k(rank: int | None, k: int) -> float:
+    if k <= 0:
+        raise ValueError("k must be greater than 0")
+    if rank is None:
+        return 0.0
+    return 1.0 if rank <= k else 0.0
+
+
+def reciprocal_rank(rank: int | None) -> float:
+    if rank is None or rank <= 0:
+        return 0.0
+    return round(1.0 / rank, 3)
 
 
 def tokenize(text: str) -> list[str]:

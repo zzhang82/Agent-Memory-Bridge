@@ -1,0 +1,893 @@
+[
+  {
+    "id": "b1",
+    "slice": "startup-protocol",
+    "description": "Stable cross-session startup rule should promote from candidate to belief after repeated support.",
+    "target_domain": "domain:retrieval",
+    "target_claim": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] bundle first",
+            "record_type": "learn",
+            "claim": "Load compact startup records before older operating manuals.",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b1-s1",
+            "correlation_id": "b1-t1"
+          },
+          {
+            "title": "[[Learn]] compact startup stays small",
+            "record_type": "learn",
+            "claim": "Keep startup focused on core-policy, persona, soul, and project memory.",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b1-s2",
+            "correlation_id": "b1-t2"
+          },
+          {
+            "title": "[[Gotcha]] startup falls back too early",
+            "record_type": "gotcha",
+            "claim": "Old reference docs should not outrank the compact profile bundle.",
+            "trigger": "Startup retrieval reaches for legacy docs before checking record-tagged bundle rows.",
+            "symptom": "The agent leans on old structure even when the new bundle already covers the decision.",
+            "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+            "confidence": "validated",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b1-s3",
+            "correlation_id": "b1-t3"
+          },
+          {
+            "title": "[[Gotcha]] startup blob hides new layer",
+            "record_type": "gotcha",
+            "claim": "Legacy startup blobs should not displace compact record-tagged guidance.",
+            "trigger": "The system treats old operating docs as the first stop.",
+            "symptom": "Bundle-first startup never gets a clean chance to carry the decision.",
+            "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+            "confidence": "validated",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b1-s4",
+            "correlation_id": "b1-t4"
+          }
+        ]
+      },
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] fallback stays secondary",
+            "record_type": "learn",
+            "claim": "Keep old startup references as fallback instead of the default operating payload.",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b1-s5",
+            "correlation_id": "b1-t5"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": true,
+      "first_blocking_reason": null
+    }
+  },
+  {
+    "id": "b2",
+    "slice": "memory-governance",
+    "description": "A same-session burst should stay candidate-only and fail the distinct-session gate.",
+    "target_domain": "domain:agent-memory",
+    "target_claim": "Require repeated support across distinct sessions before promoting belief.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] burst compact 1",
+            "record_type": "learn",
+            "claim": "Keep startup rule #1 compact and inspectable.",
+            "domain": "domain:agent-memory",
+            "topic": "topic:startup-protocol",
+            "session_id": "b2-same",
+            "correlation_id": "b2-t1"
+          },
+          {
+            "title": "[[Learn]] burst compact 2",
+            "record_type": "learn",
+            "claim": "Keep startup rule #2 compact and inspectable.",
+            "domain": "domain:agent-memory",
+            "topic": "topic:startup-protocol",
+            "session_id": "b2-same",
+            "correlation_id": "b2-t2"
+          },
+          {
+            "title": "[[Learn]] burst compact 3",
+            "record_type": "learn",
+            "claim": "Keep startup rule #3 compact and inspectable.",
+            "domain": "domain:agent-memory",
+            "topic": "topic:startup-protocol",
+            "session_id": "b2-same",
+            "correlation_id": "b2-t3"
+          },
+          {
+            "title": "[[Learn]] burst compact 4",
+            "record_type": "learn",
+            "claim": "Keep startup rule #4 compact and inspectable.",
+            "domain": "domain:agent-memory",
+            "topic": "topic:startup-protocol",
+            "session_id": "b2-same",
+            "correlation_id": "b2-t4"
+          }
+        ]
+      },
+      {
+        "source_rows": [
+          {
+            "title": "[[Gotcha]] burst follow-up",
+            "record_type": "gotcha",
+            "claim": "A single session burst should not become a durable belief.",
+            "trigger": "Many similar observations arrive in one short burst.",
+            "symptom": "The system overfits one episode.",
+            "fix": "Require repeated support across distinct sessions before promoting belief.",
+            "confidence": "validated",
+            "domain": "domain:agent-memory",
+            "topic": "topic:startup-protocol",
+            "session_id": "b2-same",
+            "correlation_id": "b2-t5"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": false,
+      "first_blocking_reason": "blocked-low-support"
+    }
+  },
+  {
+    "id": "b3",
+    "slice": "runtime",
+    "description": "Contradictory runtime advice should remain candidate-only and be blocked by contradiction.",
+    "target_domain": "domain:memory-bridge",
+    "target_claim": "Move back to one canonical runtime path after the cutover window closes.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] canonical path",
+            "record_type": "learn",
+            "claim": "Keep one canonical runtime path for bridge state.",
+            "domain": "domain:memory-bridge",
+            "topic": "topic:runtime-path",
+            "session_id": "b3-s1",
+            "correlation_id": "b3-t1"
+          },
+          {
+            "title": "[[Learn]] temporary window",
+            "record_type": "learn",
+            "claim": "However, keep a temporary fallback path during cutover windows.",
+            "domain": "domain:memory-bridge",
+            "topic": "topic:runtime-path",
+            "session_id": "b3-s2",
+            "correlation_id": "b3-t2"
+          },
+          {
+            "title": "[[Gotcha]] split path drift",
+            "record_type": "gotcha",
+            "claim": "Split runtime paths break trust in recall.",
+            "trigger": "Interactive and automation paths write to different stores.",
+            "symptom": "Recall silently misses recent memories.",
+            "fix": "Move back to one canonical runtime path after the cutover window closes.",
+            "confidence": "validated",
+            "domain": "domain:memory-bridge",
+            "topic": "topic:runtime-path",
+            "session_id": "b3-s3",
+            "correlation_id": "b3-t3"
+          },
+          {
+            "title": "[[Learn]] runtime trust",
+            "record_type": "learn",
+            "claim": "Trust in recall depends on a shared runtime path.",
+            "domain": "domain:memory-bridge",
+            "topic": "topic:runtime-path",
+            "session_id": "b3-s4",
+            "correlation_id": "b3-t4"
+          }
+        ]
+      },
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] post-cutover cleanup",
+            "record_type": "learn",
+            "claim": "Re-unify runtime paths after temporary cutover windows close.",
+            "domain": "domain:memory-bridge",
+            "topic": "topic:runtime-path",
+            "session_id": "b3-s5",
+            "correlation_id": "b3-t5"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": false,
+      "first_blocking_reason": "blocked-contradiction"
+    }
+  },
+  {
+    "id": "b4",
+    "slice": "maintenance",
+    "description": "A once-strong candidate that goes stale should be visible as stale rather than promoted.",
+    "target_domain": "domain:retrieval",
+    "target_claim": "Prefer bundle-first retrieval, then use legacy docs only as fallback.",
+    "config_overrides": {
+      "belief_freshness_days": 7
+    },
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] bundle first retrieval",
+            "record_type": "learn",
+            "claim": "Load bundle-first retrieval before older startup manuals.",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b4-s1",
+            "correlation_id": "b4-t1"
+          },
+          {
+            "title": "[[Learn]] compact startup wins",
+            "record_type": "learn",
+            "claim": "Keep compact startup guidance ahead of legacy reference startup.",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b4-s2",
+            "correlation_id": "b4-t2"
+          },
+          {
+            "title": "[[Gotcha]] legacy docs outrank bundle",
+            "record_type": "gotcha",
+            "claim": "Legacy startup docs should not outrank the compact profile bundle.",
+            "trigger": "Startup retrieval reaches for old manuals before record-tagged rows.",
+            "symptom": "The agent keeps falling back to legacy startup material.",
+            "fix": "Prefer bundle-first retrieval, then use legacy docs only as fallback.",
+            "confidence": "validated",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b4-s3",
+            "correlation_id": "b4-t3"
+          },
+          {
+            "title": "[[Gotcha]] startup blob hides bundle",
+            "record_type": "gotcha",
+            "claim": "Legacy startup blobs should not displace compact record-tagged guidance.",
+            "trigger": "The system treats old operating docs as the first stop.",
+            "symptom": "Bundle-first startup never gets a clean chance to carry the decision.",
+            "fix": "Prefer bundle-first retrieval, then use legacy docs only as fallback.",
+            "confidence": "validated",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b4-s4",
+            "correlation_id": "b4-t4"
+          }
+        ],
+        "actions_after_run": [
+          {
+            "type": "age_latest_candidate_days",
+            "days": 30
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": false,
+      "first_blocking_reason": "stale"
+    }
+  },
+  {
+    "id": "b5",
+    "slice": "verification",
+    "description": "If the compressed claim shifts across runs, the ladder should block belief on stability grounds.",
+    "target_domain": "domain:agent-memory",
+    "target_claim": "Use executable proof as the first validation boundary.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] verify before done",
+            "record_type": "learn",
+            "claim": "Verify behavior before calling work done.",
+            "domain": "domain:agent-memory",
+            "topic": "topic:verification",
+            "session_id": "b5-s1",
+            "correlation_id": "b5-t1"
+          },
+          {
+            "title": "[[Gotcha]] skipped verification",
+            "record_type": "gotcha",
+            "claim": "Skipping verification weakens trust in memory.",
+            "trigger": "The agent marks work complete before checking behavior.",
+            "symptom": "Later sessions rediscover broken assumptions.",
+            "fix": "Verify the actual behavior before calling work done.",
+            "confidence": "validated",
+            "domain": "domain:agent-memory",
+            "topic": "topic:verification",
+            "session_id": "b5-s2",
+            "correlation_id": "b5-t2"
+          },
+          {
+            "title": "[[Learn]] preserve proof",
+            "record_type": "learn",
+            "claim": "Keep executable proof close to the claim.",
+            "domain": "domain:agent-memory",
+            "topic": "topic:verification",
+            "session_id": "b5-s3",
+            "correlation_id": "b5-t3"
+          },
+          {
+            "title": "[[Learn]] trust through verification",
+            "record_type": "learn",
+            "claim": "Trust grows when behavior is verified instead of guessed.",
+            "domain": "domain:agent-memory",
+            "topic": "topic:verification",
+            "session_id": "b5-s4",
+            "correlation_id": "b5-t4"
+          }
+        ]
+      },
+      {
+        "source_rows": [
+          {
+            "title": "[[Gotcha]] changed rule",
+            "record_type": "gotcha",
+            "claim": "Proof-first discipline beats intuition-only review.",
+            "trigger": "Review focuses on prose instead of behavior.",
+            "symptom": "A different operating rule wins the second cycle.",
+            "fix": "Use executable proof as the first validation boundary.",
+            "confidence": "validated",
+            "domain": "domain:agent-memory",
+            "topic": "topic:verification",
+            "session_id": "b5-s5",
+            "correlation_id": "b5-t5"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": false,
+      "first_blocking_reason": "blocked-stability"
+    }
+  },
+  {
+    "id": "b6",
+    "slice": "memory-shaping",
+    "description": "A real pattern with early support should stay candidate-only until the stronger gate is met.",
+    "target_domain": "domain:agent-memory",
+    "target_claim": "Store machine-readable, token-efficient records instead of narrative memory.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] machine readable records",
+            "record_type": "learn",
+            "claim": "Store machine-readable, token-efficient records instead of narrative memory.",
+            "domain": "domain:agent-memory",
+            "topic": "topic:memory-shaping",
+            "session_id": "b6-s1",
+            "correlation_id": "b6-t1"
+          },
+          {
+            "title": "[[Learn]] summaries are source material",
+            "record_type": "learn",
+            "claim": "Summaries should be source material rather than the final durable record.",
+            "domain": "domain:agent-memory",
+            "topic": "topic:memory-shaping",
+            "session_id": "b6-s2",
+            "correlation_id": "b6-t2"
+          },
+          {
+            "title": "[[Gotcha]] chat-shaped memory",
+            "record_type": "gotcha",
+            "claim": "Chat-shaped memory becomes expensive and hard to reuse.",
+            "trigger": "A summary keeps transcript wording instead of structured claims.",
+            "symptom": "Recall gets noisy and token-heavy.",
+            "fix": "Store machine-readable, token-efficient records instead of narrative memory.",
+            "confidence": "validated",
+            "domain": "domain:agent-memory",
+            "topic": "topic:memory-shaping",
+            "session_id": "b6-s3",
+            "correlation_id": "b6-t3"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": false,
+      "first_blocking_reason": "blocked-low-support"
+    }
+  },
+  {
+    "id": "b7",
+    "slice": "contradiction-quality",
+    "description": "Cross-domain spillover guidance with repeated caveats should remain candidate-only and surface contradiction pressure.",
+    "target_domain": "domain:memory-governance",
+    "target_claim": "Focused replay filtered to domain:retrieval still synthesizes adjacent domains early, especially domain:memory-bridge and then domain:reliability. That spillover is real on live-ish data and should be treated as part of domain-synthesis diagnostics, not as a harness bug.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] replay slice spillover",
+            "record_type": "learn",
+            "claim": "Focused replay should report out-of-filter domains alongside candidate totals.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:belief-replay",
+            "session_id": "b7-s1",
+            "correlation_id": "b7-t1"
+          },
+          {
+            "title": "[[Learn]] replay spillover caveat",
+            "record_type": "learn",
+            "claim": "However, a retrieval-focused replay can synthesize adjacent domains before it settles.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:belief-replay",
+            "session_id": "b7-s2",
+            "correlation_id": "b7-t2"
+          },
+          {
+            "title": "[[Gotcha]] replay spillover is real",
+            "record_type": "gotcha",
+            "claim": "Focused retrieval replay spills into adjacent domains on live-ish data.",
+            "trigger": "A domain-filtered replay still emits domain-note activity outside the target slice.",
+            "symptom": "Reviewers assume the harness is broken instead of reading the synthesis boundary.",
+            "fix": "Focused replay filtered to domain:retrieval still synthesizes adjacent domains early, especially domain:memory-bridge and then domain:reliability. That spillover is real on live-ish data and should be treated as part of domain-synthesis diagnostics, not as a harness bug.",
+            "confidence": "validated",
+            "domain": "domain:memory-governance",
+            "topic": "topic:belief-replay",
+            "session_id": "b7-s3",
+            "correlation_id": "b7-t3"
+          },
+          {
+            "title": "[[Learn]] replay spillover is signal",
+            "record_type": "learn",
+            "claim": "But cross-domain spillover is diagnostic signal rather than a harness failure.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:belief-replay",
+            "session_id": "b7-s4",
+            "correlation_id": "b7-t4"
+          },
+          {
+            "title": "[[Learn]] replay slice exceptions",
+            "record_type": "learn",
+            "claim": "Except for very narrow slices, replay often spills into memory-bridge before reliability.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:belief-replay",
+            "session_id": "b7-s5",
+            "correlation_id": "b7-t5"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": false,
+      "first_blocking_reason": "blocked-contradiction"
+    }
+  },
+  {
+    "id": "b8",
+    "slice": "contradiction-quality",
+    "description": "Candidate aging guidance with several qualified claims should stay blocked by contradiction even with cross-session support.",
+    "target_domain": "domain:memory-governance",
+    "target_claim": "Belief replay is more useful when it can age belief-candidate rows between windows. That lets us verify that stale candidate history does not count toward stability or promotion, instead of assuming freshness only from reviewed fixtures.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] replay aging hook",
+            "record_type": "learn",
+            "claim": "Belief replay should support aging candidate rows between windows.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:belief-replay",
+            "session_id": "b8-s1",
+            "correlation_id": "b8-t1"
+          },
+          {
+            "title": "[[Learn]] replay aging caution",
+            "record_type": "learn",
+            "claim": "However, age candidate rows only after a clear replay boundary so synthetic freshness does not leak across windows.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:belief-replay",
+            "session_id": "b8-s2",
+            "correlation_id": "b8-t2"
+          },
+          {
+            "title": "[[Gotcha]] stale candidate history",
+            "record_type": "gotcha",
+            "claim": "Fresh-looking candidate history can hide stale support unless replay can age candidates between windows.",
+            "trigger": "A replay keeps prior candidate timestamps fresh forever.",
+            "symptom": "Belief promotion looks stronger than the underlying evidence really is.",
+            "fix": "Belief replay is more useful when it can age belief-candidate rows between windows. That lets us verify that stale candidate history does not count toward stability or promotion, instead of assuming freshness only from reviewed fixtures.",
+            "confidence": "validated",
+            "domain": "domain:memory-governance",
+            "topic": "topic:belief-replay",
+            "session_id": "b8-s3",
+            "correlation_id": "b8-t3"
+          },
+          {
+            "title": "[[Learn]] replay aging qualifier",
+            "record_type": "learn",
+            "claim": "But stale candidate history should only count when the replay intentionally simulates time passing.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:belief-replay",
+            "session_id": "b8-s4",
+            "correlation_id": "b8-t4"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": false,
+      "first_blocking_reason": "blocked-contradiction"
+    }
+  },
+  {
+    "id": "b9",
+    "slice": "contradiction-quality",
+    "description": "The policy-boundary bridge case should remain candidate-only when support rows mix bridge language with explicit manual-policy caveats.",
+    "target_domain": "domain:startup-protocol",
+    "target_claim": "A conservative internal belief_candidate layer should sit between compressed domain patterns and core policy. It should require stronger support than ordinary domain-note synthesis, track contradiction_count and evidence_refs, and remain revisable instead of auto-promoting itself into policy.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] belief bridge",
+            "record_type": "learn",
+            "claim": "A belief_candidate layer should bridge domain-note compression and manual policy.",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:belief-candidate",
+            "session_id": "b9-s1",
+            "correlation_id": "b9-t1"
+          },
+          {
+            "title": "[[Learn]] policy stays manual",
+            "record_type": "learn",
+            "claim": "However, core policy should still stay manual while the new ladder is proving itself.",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:belief-candidate",
+            "session_id": "b9-s2",
+            "correlation_id": "b9-t2"
+          },
+          {
+            "title": "[[Gotcha]] bridge is not policy",
+            "record_type": "gotcha",
+            "claim": "A belief bridge becomes risky when the system treats it like auto-policy.",
+            "trigger": "The ladder jumps from compressed domain patterns straight into policy language.",
+            "symptom": "The system overclaims a belief candidate as if it were already a stable core rule.",
+            "fix": "A conservative internal belief_candidate layer should sit between compressed domain patterns and core policy. It should require stronger support than ordinary domain-note synthesis, track contradiction_count and evidence_refs, and remain revisable instead of auto-promoting itself into policy.",
+            "confidence": "validated",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:belief-candidate",
+            "session_id": "b9-s3",
+            "correlation_id": "b9-t3"
+          },
+          {
+            "title": "[[Learn]] bridge caveat",
+            "record_type": "learn",
+            "claim": "But belief_candidate remains a bridge layer, not a license to automate policy writing.",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:belief-candidate",
+            "session_id": "b9-s4",
+            "correlation_id": "b9-t4"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": false,
+      "first_blocking_reason": "blocked-contradiction"
+    }
+  },
+  {
+    "id": "b10",
+    "slice": "contradiction-quality",
+    "description": "Ordinary fallback-vs-default boundary wording should not be treated as contradiction when the overall rule still promotes bundle-first startup.",
+    "target_domain": "domain:retrieval",
+    "target_claim": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] bundle-first startup stays primary",
+            "record_type": "learn",
+            "claim": "Load compact startup records before older operating manuals.",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b10-s1",
+            "correlation_id": "b10-t1"
+          },
+          {
+            "title": "[[Learn]] fallback boundary wording",
+            "record_type": "learn",
+            "claim": "But keep old startup references as fallback instead of the default operating payload.",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b10-s2",
+            "correlation_id": "b10-t2"
+          },
+          {
+            "title": "[[Gotcha]] legacy docs outrank bundle again",
+            "record_type": "gotcha",
+            "claim": "Old reference docs should not outrank the compact profile bundle.",
+            "trigger": "Startup retrieval reaches for legacy docs before checking record-tagged bundle rows.",
+            "symptom": "The agent leans on old structure even when the new bundle already covers the decision.",
+            "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+            "confidence": "validated",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b10-s3",
+            "correlation_id": "b10-t3"
+          },
+          {
+            "title": "[[Gotcha]] bundle-first should lead",
+            "record_type": "gotcha",
+            "claim": "Legacy startup blobs should not displace compact record-tagged guidance.",
+            "trigger": "The system treats old operating docs as the first stop.",
+            "symptom": "Bundle-first startup never gets a clean chance to carry the decision.",
+            "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+            "confidence": "validated",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b10-s4",
+            "correlation_id": "b10-t4"
+          }
+        ]
+      },
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] fallback stays secondary",
+            "record_type": "learn",
+            "claim": "Keep old startup references as fallback rather than the default operating payload.",
+            "domain": "domain:retrieval",
+            "topic": "topic:startup-protocol",
+            "session_id": "b10-s5",
+            "correlation_id": "b10-t5"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": true,
+      "first_blocking_reason": null
+    }
+  },
+  {
+    "id": "b11",
+    "slice": "contradiction-quality",
+    "description": "Manual-policy boundary wording should stay compatible with belief promotion when it only narrows where policy changes happen, rather than disputing the bridge rule itself.",
+    "target_domain": "domain:startup-protocol",
+    "target_claim": "Use belief_candidate as the bridge between compressed domain patterns and manual core-policy review.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] belief bridge stays explicit",
+            "record_type": "learn",
+            "claim": "Use belief_candidate as the bridge between compressed domain patterns and manual core-policy review.",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:belief-candidate",
+            "session_id": "b11-s1",
+            "correlation_id": "b11-t1"
+          },
+          {
+            "title": "[[Learn]] policy boundary stays manual",
+            "record_type": "learn",
+            "claim": "However, keep core policy manual while belief evidence is still accumulating.",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:belief-candidate",
+            "session_id": "b11-s2",
+            "correlation_id": "b11-t2"
+          },
+          {
+            "title": "[[Gotcha]] bridge before policy rewrite",
+            "record_type": "gotcha",
+            "claim": "Skipping the belief bridge makes policy updates feel premature.",
+            "trigger": "Compressed patterns are treated like final policy before enough evidence accumulates.",
+            "symptom": "Core policy review gets noisy because every pattern looks policy-ready.",
+            "fix": "Use belief_candidate as the bridge between compressed domain patterns and manual core-policy review.",
+            "confidence": "validated",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:belief-candidate",
+            "session_id": "b11-s3",
+            "correlation_id": "b11-t3"
+          },
+          {
+            "title": "[[Gotcha]] bridge narrows policy changes",
+            "record_type": "gotcha",
+            "claim": "Policy changes become cleaner when belief_candidate absorbs pattern churn first.",
+            "trigger": "Every compressed pattern competes to rewrite policy directly.",
+            "symptom": "Manual policy review is flooded with unstable proposals.",
+            "fix": "Use belief_candidate as the bridge between compressed domain patterns and manual core-policy review.",
+            "confidence": "validated",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:belief-candidate",
+            "session_id": "b11-s4",
+            "correlation_id": "b11-t4"
+          }
+        ]
+      },
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] manual review remains downstream",
+            "record_type": "learn",
+            "claim": "Keep core policy review manual even after a belief has stabilized.",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:belief-candidate",
+            "session_id": "b11-s5",
+            "correlation_id": "b11-t5"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": true,
+      "first_blocking_reason": null
+    }
+  },
+  {
+    "id": "b12",
+    "slice": "contradiction-quality",
+    "description": "Project-vs-global placement wording should stay compatible with belief promotion when it only narrows memory placement scope instead of disputing the governance rule.",
+    "target_domain": "domain:memory-governance",
+    "target_claim": "Write project-specific durable lessons to project memory, and keep global core for durable operating lessons.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] project lessons stay local",
+            "record_type": "learn",
+            "claim": "Write project-specific durable lessons to project memory.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:writeback",
+            "session_id": "b12-s1",
+            "correlation_id": "b12-t1"
+          },
+          {
+            "title": "[[Learn]] global core stays narrow",
+            "record_type": "learn",
+            "claim": "However, keep project-specific workflow rules in project memory while the global core stays reserved for durable operating lessons.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:writeback",
+            "session_id": "b12-s2",
+            "correlation_id": "b12-t2"
+          },
+          {
+            "title": "[[Gotcha]] project drift in global core",
+            "record_type": "gotcha",
+            "claim": "Writing repo-specific workflow rules into the global core creates drift.",
+            "trigger": "A project lesson is stored into a cross-project operating namespace.",
+            "symptom": "The global core starts carrying workflow details that belong to one repository.",
+            "fix": "Write project-specific durable lessons to project memory, and keep global core for durable operating lessons.",
+            "confidence": "validated",
+            "domain": "domain:memory-governance",
+            "topic": "topic:writeback",
+            "session_id": "b12-s3",
+            "correlation_id": "b12-t3"
+          },
+          {
+            "title": "[[Gotcha]] global core gets noisy",
+            "record_type": "gotcha",
+            "claim": "The global core gets noisy when project-specific workflow rules accumulate there.",
+            "trigger": "Cross-project memory is used as the default landing zone for project-specific lessons.",
+            "symptom": "Startup carries local workflow baggage that does not belong in every session.",
+            "fix": "Write project-specific durable lessons to project memory, and keep global core for durable operating lessons.",
+            "confidence": "validated",
+            "domain": "domain:memory-governance",
+            "topic": "topic:writeback",
+            "session_id": "b12-s4",
+            "correlation_id": "b12-t4"
+          }
+        ]
+      },
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] writeback keeps scope clean",
+            "record_type": "learn",
+            "claim": "Keep project-specific workflow rules in project memory instead of teaching them to the global core.",
+            "domain": "domain:memory-governance",
+            "topic": "topic:writeback",
+            "session_id": "b12-s5",
+            "correlation_id": "b12-t5"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": true,
+      "first_blocking_reason": null
+    }
+  },
+  {
+    "id": "b13",
+    "slice": "contradiction-watchlist",
+    "description": "Startup-eligibility narrowing is worth watching, but for now it should stay blocked as contradiction until broader dogfood proves it is only a safe boundary and not a real counter-claim.",
+    "target_domain": "domain:startup-protocol",
+    "target_claim": "Keep transparency and resource-stewardship parked as a candidate until startup eligibility is proven by broader dogfood.",
+    "phases": [
+      {
+        "source_rows": [
+          {
+            "title": "[[Learn]] startup bundle already suppresses recklessness",
+            "record_type": "learn",
+            "claim": "The current startup bundle already suppresses reckless automation through manual-baseline and reversibility policies.",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:startup-eligibility",
+            "session_id": "b13-s1",
+            "correlation_id": "b13-t1"
+          },
+          {
+            "title": "[[Learn]] startup eligibility narrowing",
+            "record_type": "learn",
+            "claim": "But transparency and resource-stewardship still read more like orchestration guidance than universal profile identity.",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:startup-eligibility",
+            "session_id": "b13-s2",
+            "correlation_id": "b13-t2"
+          },
+          {
+            "title": "[[Gotcha]] eager startup promotion",
+            "record_type": "gotcha",
+            "claim": "Promoting startup-eligibility candidates too early can overload the bundle with guidance that has not proved itself yet.",
+            "trigger": "A new guidance pattern is treated as startup-default before broader dogfood.",
+            "symptom": "Startup carries more policy-like text than the current evidence supports.",
+            "fix": "Keep transparency and resource-stewardship parked as a candidate until startup eligibility is proven by broader dogfood.",
+            "confidence": "validated",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:startup-eligibility",
+            "session_id": "b13-s3",
+            "correlation_id": "b13-t3"
+          },
+          {
+            "title": "[[Learn]] startup eligibility remains provisional",
+            "record_type": "learn",
+            "claim": "Keep startup eligibility narrow while dogfood still decides what belongs in the eager bundle.",
+            "domain": "domain:startup-protocol",
+            "topic": "topic:startup-eligibility",
+            "session_id": "b13-s4",
+            "correlation_id": "b13-t4"
+          }
+        ]
+      }
+    ],
+    "expected": {
+      "domain_note": true,
+      "belief_candidate": true,
+      "belief": false,
+      "first_blocking_reason": "blocked-contradiction"
+    }
+  }
+]

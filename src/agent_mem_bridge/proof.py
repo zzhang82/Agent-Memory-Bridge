@@ -35,23 +35,27 @@ def run_deterministic_proof(
         signal_report = run_signal_correctness_check(runtime_dir / "signal-check.db")
         latency_report = run_recall_latency_check(recall_store, questions)
         duplicate_report = run_duplicate_suppression_check(runtime_dir / "duplicate-check.db")
+        relation_report = run_relation_metadata_check(runtime_dir / "relation-check.db")
 
         checks = {
             "signal_correctness": signal_report["passed"],
             "recall_latency": latency_report["question_count"] > 0,
             "duplicate_suppression": duplicate_report["suppression_rate"] == 1.0,
+            "relation_metadata": relation_report["passed"],
         }
         return {
             "summary": {
                 "check_count": len(checks),
                 "checks_passed": sum(1 for passed in checks.values() if passed),
                 "signal_correctness_passed": signal_report["passed"],
+                "relation_metadata_passed": relation_report["passed"],
                 "recall_avg_latency_ms": latency_report["avg_latency_ms"],
                 "duplicate_suppression_rate": duplicate_report["suppression_rate"],
             },
             "signal_correctness": signal_report,
             "recall_latency": latency_report,
             "duplicate_suppression": duplicate_report,
+            "relation_metadata": relation_report,
         }
     finally:
         shutil.rmtree(runtime_dir, ignore_errors=True)
@@ -233,6 +237,55 @@ def run_duplicate_suppression_check(db_path: Path) -> dict[str, Any]:
         "stored_count": stored_count,
         "duplicate_count": duplicate_count,
         "suppression_rate": suppression_rate,
+    }
+
+
+def run_relation_metadata_check(db_path: Path) -> dict[str, Any]:
+    store = MemoryStore(db_path, log_dir=db_path.parent / "logs-relation")
+    valid_from = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    valid_until = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+
+    created = store.store(
+        namespace="proof:relation",
+        kind="memory",
+        title="Relation proof memory",
+        tags=["domain:retrieval"],
+        content=(
+            "record_type: belief\n"
+            "claim: Compose task memory from procedure and support layers.\n"
+            "supports: mem-a | mem-b\n"
+            "contradicts: mem-c\n"
+            "depends_on: proc-checklist\n"
+            f"valid_from: {valid_from}\n"
+            f"valid_until: {valid_until}\n"
+        ),
+    )
+    recall = store.recall(namespace="proof:relation", tags_any=["relation:supports"], limit=5)
+    stats = store.stats(namespace="proof:relation")
+    exported = store.export(namespace="proof:relation", format="text")
+
+    item = recall["items"][0] if recall["items"] else None
+    checks = {
+        "store_succeeds": created["stored"] is True,
+        "recall_surfaces_relations": bool(item)
+        and item["relations"]["supports"] == ["mem-a", "mem-b"]
+        and item["relations"]["contradicts"] == ["mem-c"]
+        and item["relations"]["depends_on"] == ["proc-checklist"],
+        "recall_surfaces_validity_status": bool(item)
+        and item["valid_from"] == valid_from
+        and item["valid_until"] == valid_until
+        and item["validity_status"] == "current",
+        "stats_counts_relations_and_validity": stats["relation_counts"]["supports"] == 2
+        and stats["relation_counts"]["contradicts"] == 1
+        and stats["relation_counts"]["depends_on"] == 1
+        and stats["validity_counts"]["current"] == 1,
+        "export_mentions_relation_metadata": "relations: supports=mem-a, mem-b; contradicts=mem-c; depends_on=proc-checklist"
+        in exported["content"]
+        and "validity_status: current" in exported["content"],
+    }
+    return {
+        "passed": all(checks.values()),
+        "checks": checks,
     }
 
 

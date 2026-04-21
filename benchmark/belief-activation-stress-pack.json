@@ -1,0 +1,308 @@
+{
+  "reviewed_samples_path": "belief-reviewed-samples.json",
+  "cleanup_guidance": [
+    "Runs in isolated temporary stores and never mutates the live bridge database.",
+    "Keep durable regression cases only when they cover a stable failure boundary; do not backfill live history into this pack.",
+    "If a new scenario only helps one local shake-out, keep it in a temporary pack first and promote it into the durable suite only after it exposes a repeatable failure mode."
+  ],
+  "reviewed_cases": [
+    {
+      "sample_id": "b1",
+      "bucket": "promote",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b2",
+      "bucket": "candidate",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b3",
+      "bucket": "block",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b4",
+      "bucket": "block",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b5",
+      "bucket": "block",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b6",
+      "bucket": "candidate",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b7",
+      "bucket": "block",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b8",
+      "bucket": "block",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b9",
+      "bucket": "block",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b10",
+      "bucket": "promote",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b11",
+      "bucket": "promote",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b12",
+      "bucket": "promote",
+      "durability": "durable-regression"
+    },
+    {
+      "sample_id": "b13",
+      "bucket": "block",
+      "durability": "durable-regression"
+    }
+  ],
+  "replay_scenarios": [
+    {
+      "id": "r1",
+      "bucket": "red-flag",
+      "durability": "durable-regression",
+      "description": "Replay should surface a belief-to-domain-note ratio red flag once belief emerges too quickly in a tiny window.",
+      "source_rows": [
+        {
+          "title": "[[Learn]] bundle first",
+          "record_type": "learn",
+          "claim": "Load compact startup records before older operating manuals.",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "r1-s1",
+          "correlation_id": "r1-t1"
+        },
+        {
+          "title": "[[Learn]] startup stays compact",
+          "record_type": "learn",
+          "claim": "Keep startup focused on core-policy, persona, soul, and project memory.",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "r1-s2",
+          "correlation_id": "r1-t2"
+        },
+        {
+          "title": "[[Gotcha]] legacy docs outrank bundle",
+          "record_type": "gotcha",
+          "claim": "Old reference docs should not outrank the compact profile bundle.",
+          "trigger": "Startup retrieval reaches for legacy docs before checking record-tagged bundle rows.",
+          "symptom": "The agent leans on old structure even when the new bundle already covers the decision.",
+          "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+          "confidence": "validated",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "r1-s3",
+          "correlation_id": "r1-t3"
+        },
+        {
+          "title": "[[Gotcha]] startup blob hides new layer",
+          "record_type": "gotcha",
+          "claim": "Legacy startup blobs should not displace compact record-tagged guidance.",
+          "trigger": "The system treats old operating docs as the first stop.",
+          "symptom": "Bundle-first startup never gets a clean chance to carry the decision.",
+          "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+          "confidence": "validated",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "r1-s4",
+          "correlation_id": "r1-t4"
+        },
+        {
+          "title": "[[Learn]] fallback stays secondary",
+          "record_type": "learn",
+          "claim": "Keep old startup references as fallback instead of the default operating payload.",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "r1-s5",
+          "correlation_id": "r1-t5"
+        }
+      ],
+      "config": {
+        "window_size": 4,
+        "belief_to_domain_note_ratio_red_flag": 0.5,
+        "stop_on_red_flag": true
+      },
+      "expected": {
+        "first_candidate_window": 1,
+        "first_belief_window": 2,
+        "first_red_flag_window": 2,
+        "stopped_on_red_flag": true,
+        "final_belief_count": 1,
+        "min_final_candidate_count": 1,
+        "required_red_flags": [
+          "belief-to-domain-note-ratio"
+        ],
+        "required_candidate_statuses": [
+          "promoted"
+        ]
+      }
+    },
+    {
+      "id": "r2",
+      "bucket": "candidate",
+      "durability": "durable-regression",
+      "description": "A same-session replay burst should stay candidate-only and never trip a belief red flag.",
+      "source_rows": [
+        {
+          "title": "[[Learn]] burst 1",
+          "record_type": "learn",
+          "claim": "Keep startup compact and inspectable.",
+          "domain": "domain:startup-protocol",
+          "topic": "topic:startup-protocol",
+          "session_id": "burst-session",
+          "correlation_id": "burst-thread-1"
+        },
+        {
+          "title": "[[Learn]] burst 2",
+          "record_type": "learn",
+          "claim": "Prefer compact startup over bloated startup docs.",
+          "domain": "domain:startup-protocol",
+          "topic": "topic:startup-protocol",
+          "session_id": "burst-session",
+          "correlation_id": "burst-thread-2"
+        },
+        {
+          "title": "[[Learn]] burst 3",
+          "record_type": "learn",
+          "claim": "Treat old startup references as fallback, not default payload.",
+          "domain": "domain:startup-protocol",
+          "topic": "topic:startup-protocol",
+          "session_id": "burst-session",
+          "correlation_id": "burst-thread-3"
+        },
+        {
+          "title": "[[Learn]] burst 4",
+          "record_type": "learn",
+          "claim": "Keep startup records explicit and small.",
+          "domain": "domain:startup-protocol",
+          "topic": "topic:startup-protocol",
+          "session_id": "burst-session",
+          "correlation_id": "burst-thread-4"
+        },
+        {
+          "title": "[[Learn]] burst 5",
+          "record_type": "learn",
+          "claim": "Use compact startup records before older operating manuals.",
+          "domain": "domain:startup-protocol",
+          "topic": "topic:startup-protocol",
+          "session_id": "burst-session",
+          "correlation_id": "burst-thread-5"
+        }
+      ],
+      "config": {
+        "window_size": 3,
+        "stop_on_red_flag": false
+      },
+      "expected": {
+        "first_candidate_window": 1,
+        "first_belief_window": null,
+        "first_red_flag_window": null,
+        "stopped_on_red_flag": false,
+        "final_belief_count": 0,
+        "min_final_candidate_count": 1,
+        "required_candidate_statuses": [
+          "blocked-low-support"
+        ]
+      }
+    },
+    {
+      "id": "r3",
+      "bucket": "block",
+      "durability": "durable-regression",
+      "description": "Aged candidate history should suppress promotion and surface stability blocking instead of treating stale history as fresh support.",
+      "source_rows": [
+        {
+          "title": "[[Learn]] aging 1",
+          "record_type": "learn",
+          "claim": "Load compact startup records before older operating manuals.",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "aging-session-1",
+          "correlation_id": "aging-thread-1"
+        },
+        {
+          "title": "[[Learn]] aging 2",
+          "record_type": "learn",
+          "claim": "Keep startup focused on core-policy, persona, soul, and project memory.",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "aging-session-2",
+          "correlation_id": "aging-thread-2"
+        },
+        {
+          "title": "[[Learn]] aging 3",
+          "record_type": "gotcha",
+          "claim": "Old reference docs should not outrank the compact profile bundle.",
+          "trigger": "Startup retrieval reaches for legacy docs before checking record-tagged bundle rows.",
+          "symptom": "The agent leans on old structure even when the new bundle already covers the decision.",
+          "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+          "confidence": "validated",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "aging-session-3",
+          "correlation_id": "aging-thread-3"
+        },
+        {
+          "title": "[[Learn]] aging 4",
+          "record_type": "gotcha",
+          "claim": "Legacy startup blobs should not displace compact record-tagged guidance.",
+          "trigger": "The system treats old operating docs as the first stop.",
+          "symptom": "Bundle-first startup never gets a clean chance to carry the decision.",
+          "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+          "confidence": "validated",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "aging-session-4",
+          "correlation_id": "aging-thread-4"
+        },
+        {
+          "title": "[[Learn]] aging 5",
+          "record_type": "learn",
+          "claim": "Keep old startup references as fallback instead of the default operating payload.",
+          "domain": "domain:retrieval",
+          "topic": "topic:startup-protocol",
+          "session_id": "aging-session-5",
+          "correlation_id": "aging-thread-5"
+        }
+      ],
+      "config": {
+        "window_size": 4,
+        "stop_on_red_flag": false,
+        "age_candidates_after_windows": [
+          1
+        ],
+        "age_candidates_by_days": 30
+      },
+      "expected": {
+        "first_candidate_window": 1,
+        "first_belief_window": null,
+        "first_red_flag_window": null,
+        "stopped_on_red_flag": false,
+        "final_belief_count": 0,
+        "min_final_candidate_count": 1,
+        "required_actions_applied": [
+          "aged-candidates:30d"
+        ],
+        "required_candidate_statuses": [
+          "blocked-stability"
+        ]
+      }
+    }
+  ]
+}

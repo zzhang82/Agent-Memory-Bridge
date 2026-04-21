@@ -3,7 +3,7 @@ namespace: project:demo-app
 kind: signal
 title: Handoff for cache invalidation follow-up
 tags:
-  - source:codex
+  - source:agent-client
   - project:demo-app
   - handoff
   - next-step
@@ -11,7 +11,7 @@ tags:
 actor: orchestrator
 session_id: demo-session-001
 correlation_id: cache-follow-up
-source_app: codex
+source_app: agent-client
 ---
 
 Follow-up needed:

@@ -11,6 +11,7 @@ from .exporters import render_export
 from .paths import resolve_bridge_db_path, resolve_bridge_log_dir
 from .promotion import promote_entry
 from .query import build_tag_filter, recall_candidates
+from .relation_metadata import parse_relation_metadata
 from .repository import (
     ALLOWED_KINDS,
     MEMORY_ROW_SELECT,
@@ -22,19 +23,25 @@ from .repository import (
 )
 from .schema import init_db
 from .signals import ack_signal_entry, claim_signal_entry, extend_signal_lease_entry, normalize_signal_status_filter
+from .telemetry import Telemetry, hash_label
 
 
 class MemoryStore:
-    def __init__(self, db_path: Path, log_dir: Path | None = None) -> None:
+    def __init__(self, db_path: Path, log_dir: Path | None = None, telemetry: Telemetry | None = None) -> None:
         self.db_path = Path(db_path)
         self.log_dir = Path(log_dir) if log_dir is not None else self.db_path.parent / "logs"
+        self.telemetry = telemetry or Telemetry.from_env()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     @classmethod
     def from_env(cls) -> "MemoryStore":
-        return cls(db_path=resolve_bridge_db_path(), log_dir=resolve_bridge_log_dir())
+        return cls(
+            db_path=resolve_bridge_db_path(),
+            log_dir=resolve_bridge_log_dir(),
+            telemetry=Telemetry.from_env(),
+        )
 
     def store(
         self,
@@ -47,23 +54,63 @@ class MemoryStore:
         title: str | None = None,
         correlation_id: str | None = None,
         source_app: str | None = None,
+        source_client: str | None = None,
+        source_model: str | None = None,
+        client_session_id: str | None = None,
+        client_workspace: str | None = None,
+        client_transport: str | None = None,
         expires_at: str | None = None,
         ttl_seconds: int | None = None,
     ) -> dict[str, Any]:
-        return store_entry(
-            self,
-            namespace=namespace,
-            content=content,
-            kind=kind,
-            tags=tags,
-            session_id=session_id,
-            actor=actor,
-            title=title,
-            correlation_id=correlation_id,
-            source_app=source_app,
-            expires_at=expires_at,
-            ttl_seconds=ttl_seconds,
-        )
+        relation_metadata = parse_relation_metadata(content)
+        with self.telemetry.span(
+            "amb.store.write",
+            {
+                "namespace": namespace.strip(),
+                "kind": kind,
+                "tags_count": len(tags or []),
+                "has_session_id": bool(session_id),
+                "has_actor": bool(actor),
+                "has_correlation_id": bool(correlation_id),
+                "has_source_app": bool(source_app),
+                "has_source_client": bool(source_client),
+                "has_source_model": bool(source_model),
+                "has_client_session_id": bool(client_session_id),
+                "has_client_workspace": bool(client_workspace),
+                "client_transport": client_transport,
+                "has_expires_at": bool(expires_at),
+                "has_ttl_seconds": ttl_seconds is not None,
+                "has_relation_metadata": relation_metadata["has_relation_metadata"],
+                "has_validity_window": relation_metadata["has_validity_window"],
+            },
+        ) as span:
+            payload = store_entry(
+                self,
+                namespace=namespace,
+                content=content,
+                kind=kind,
+                tags=tags,
+                session_id=session_id,
+                actor=actor,
+                title=title,
+                correlation_id=correlation_id,
+                source_app=source_app,
+                source_client=source_client,
+                source_model=source_model,
+                client_session_id=client_session_id,
+                client_workspace=client_workspace,
+                client_transport=client_transport,
+                expires_at=expires_at,
+                ttl_seconds=ttl_seconds,
+            )
+            span.set_attributes(
+                {
+                    "stored": payload.get("stored"),
+                    "duplicate": payload.get("duplicate_of") is not None,
+                    "signal_status": payload.get("signal_status"),
+                }
+            )
+            return payload
 
     def recall(
         self,
@@ -85,33 +132,55 @@ class MemoryStore:
         query_text = query.strip()
         search_limit = max(1, min(limit, 100))
         normalized_signal_status = normalize_signal_status_filter(signal_status)
-        items = recall_candidates(
-            self,
-            namespace=cleaned_namespace,
-            query=query_text,
-            limit=search_limit,
-            kind=kind,
-            signal_status=normalized_signal_status,
-            tags_any=tags_any,
-            session_id=session_id,
-            actor=actor,
-            correlation_id=correlation_id,
-            since=since,
-        )
-        next_since = items[-1]["id"] if items else since
-        payload = {"count": len(items), "items": items, "next_since": next_since}
-        self._log(
-            "recall",
+        with self.telemetry.span(
+            "amb.store.recall",
             {
                 "namespace": cleaned_namespace,
-                "query": query_text,
-                "count": payload["count"],
+                "query_present": bool(query_text),
+                "query_length": len(query_text),
+                "limit": search_limit,
                 "kind": kind,
                 "signal_status": normalized_signal_status,
-                "since": since,
+                "tags_count": len(tags_any or []),
+                "has_session_id": bool(session_id),
+                "has_actor": bool(actor),
+                "has_correlation_id": bool(correlation_id),
+                "has_since": bool(since),
             },
-        )
-        return payload
+        ) as span:
+            items = recall_candidates(
+                self,
+                namespace=cleaned_namespace,
+                query=query_text,
+                limit=search_limit,
+                kind=kind,
+                signal_status=normalized_signal_status,
+                tags_any=tags_any,
+                session_id=session_id,
+                actor=actor,
+                correlation_id=correlation_id,
+                since=since,
+            )
+            next_since = items[-1]["id"] if items else since
+            payload = {"count": len(items), "items": items, "next_since": next_since}
+            span.set_attributes(
+                {
+                    "result_count": payload["count"],
+                    "advanced_since": bool(items) and next_since != since,
+                }
+            )
+            self._log(
+                "recall",
+                {
+                    "namespace": cleaned_namespace,
+                    "query": query_text,
+                    "count": payload["count"],
+                    "kind": kind,
+                    "signal_status": normalized_signal_status,
+                    "since": since,
+                },
+            )
+            return payload
 
     def browse(
         self,
@@ -130,44 +199,76 @@ class MemoryStore:
         search_limit = max(1, min(limit, 100))
         normalized_signal_status = normalize_signal_status_filter(signal_status)
         tags_any = [f"domain:{domain.strip()}"] if domain and domain.strip() else None
-        items = recall_candidates(
-            self,
-            namespace=cleaned_namespace,
-            query="",
-            limit=search_limit,
-            kind=kind,
-            signal_status=normalized_signal_status,
-            tags_any=tags_any,
-            session_id=None,
-            actor=None,
-            correlation_id=None,
-            since=None,
-        )
-        payload = {
-            "count": len(items),
-            "items": items,
-            "namespace": cleaned_namespace,
-            "domain": domain.strip() if domain and domain.strip() else None,
-            "kind": kind,
-            "signal_status": normalized_signal_status,
-        }
-        self._log(
-            "browse",
+        with self.telemetry.span(
+            "amb.store.browse",
             {
                 "namespace": cleaned_namespace,
-                "count": payload["count"],
+                "domain": domain.strip() if domain and domain.strip() else None,
                 "kind": kind,
-                "domain": payload["domain"],
                 "signal_status": normalized_signal_status,
+                "limit": search_limit,
             },
-        )
-        return payload
+        ) as span:
+            items = recall_candidates(
+                self,
+                namespace=cleaned_namespace,
+                query="",
+                limit=search_limit,
+                kind=kind,
+                signal_status=normalized_signal_status,
+                tags_any=tags_any,
+                session_id=None,
+                actor=None,
+                correlation_id=None,
+                since=None,
+            )
+            payload = {
+                "count": len(items),
+                "items": items,
+                "namespace": cleaned_namespace,
+                "domain": domain.strip() if domain and domain.strip() else None,
+                "kind": kind,
+                "signal_status": normalized_signal_status,
+            }
+            span.set_attribute("result_count", payload["count"])
+            self._log(
+                "browse",
+                {
+                    "namespace": cleaned_namespace,
+                    "count": payload["count"],
+                    "kind": kind,
+                    "domain": payload["domain"],
+                    "signal_status": normalized_signal_status,
+                },
+            )
+            return payload
 
     def forget(self, memory_id: str) -> dict[str, Any]:
-        return forget_entry(self, memory_id)
+        with self.telemetry.span(
+            "amb.store.forget",
+            {
+                "has_memory_id": bool(memory_id),
+            },
+        ) as span:
+            payload = forget_entry(self, memory_id)
+            span.set_attribute("deleted", payload.get("deleted"))
+            return payload
 
     def stats(self, namespace: str) -> dict[str, Any]:
-        return stats_for_namespace(self, namespace)
+        with self.telemetry.span(
+            "amb.store.stats",
+            {
+                "namespace": namespace.strip(),
+            },
+        ) as span:
+            payload = stats_for_namespace(self, namespace)
+            span.set_attributes(
+                {
+                    "total_count": payload.get("total_count"),
+                    "namespace_kind_count": len(payload.get("kind_counts", {})),
+                }
+            )
+            return payload
 
     def claim_signal(
         self,
@@ -178,41 +279,105 @@ class MemoryStore:
         tags_any: list[str] | None = None,
         correlation_id: str | None = None,
     ) -> dict[str, Any]:
-        return claim_signal_entry(
-            store=self,
-            namespace=namespace,
-            consumer=consumer,
-            lease_seconds=lease_seconds,
-            signal_id=signal_id,
-            tags_any=tags_any,
-            correlation_id=correlation_id,
-            row_select_sql=MEMORY_ROW_SELECT,
-            build_tag_filter=build_tag_filter,
-            fetch_row_by_id=fetch_row_by_id,
-            row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
-        )
+        with self.telemetry.span(
+            "amb.signal.claim",
+            {
+                "namespace": namespace.strip(),
+                "consumer_hash": hash_label(consumer),
+                "lease_seconds": lease_seconds,
+                "has_signal_id": bool(signal_id),
+                "tags_count": len(tags_any or []),
+                "has_correlation_id": bool(correlation_id),
+            },
+        ) as span:
+            payload = claim_signal_entry(
+                store=self,
+                namespace=namespace,
+                consumer=consumer,
+                lease_seconds=lease_seconds,
+                signal_id=signal_id,
+                tags_any=tags_any,
+                correlation_id=correlation_id,
+                row_select_sql=MEMORY_ROW_SELECT,
+                build_tag_filter=build_tag_filter,
+                fetch_row_by_id=fetch_row_by_id,
+                row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
+            )
+            span.set_attributes(
+                {
+                    "claimed": payload.get("claimed"),
+                    "reason": payload.get("reason"),
+                    "signal_status": (payload.get("item") or {}).get("signal_status"),
+                }
+            )
+            return payload
 
     def ack_signal(self, memory_id: str, consumer: str | None = None) -> dict[str, Any]:
-        return ack_signal_entry(
-            store=self,
-            memory_id=memory_id,
-            consumer=consumer,
-            fetch_row_by_id=fetch_row_by_id,
-            row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
-        )
+        with self.telemetry.span(
+            "amb.signal.ack",
+            {
+                "has_memory_id": bool(memory_id),
+                "consumer_hash": hash_label(consumer),
+            },
+        ) as span:
+            payload = ack_signal_entry(
+                store=self,
+                memory_id=memory_id,
+                consumer=consumer,
+                fetch_row_by_id=fetch_row_by_id,
+                row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
+            )
+            span.set_attributes(
+                {
+                    "acked": payload.get("acked"),
+                    "reason": payload.get("reason"),
+                    "signal_status": (payload.get("item") or {}).get("signal_status"),
+                }
+            )
+            return payload
 
     def extend_signal_lease(self, memory_id: str, consumer: str, lease_seconds: int) -> dict[str, Any]:
-        return extend_signal_lease_entry(
-            store=self,
-            memory_id=memory_id,
-            consumer=consumer,
-            lease_seconds=lease_seconds,
-            fetch_row_by_id=fetch_row_by_id,
-            row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
-        )
+        with self.telemetry.span(
+            "amb.signal.extend",
+            {
+                "has_memory_id": bool(memory_id),
+                "consumer_hash": hash_label(consumer),
+                "lease_seconds": lease_seconds,
+            },
+        ) as span:
+            payload = extend_signal_lease_entry(
+                store=self,
+                memory_id=memory_id,
+                consumer=consumer,
+                lease_seconds=lease_seconds,
+                fetch_row_by_id=fetch_row_by_id,
+                row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
+            )
+            span.set_attributes(
+                {
+                    "extended": payload.get("extended"),
+                    "reason": payload.get("reason"),
+                    "signal_status": (payload.get("item") or {}).get("signal_status"),
+                }
+            )
+            return payload
 
     def promote(self, memory_id: str, to_kind: str) -> dict[str, Any]:
-        return promote_entry(self, memory_id, to_kind)
+        with self.telemetry.span(
+            "amb.memory.promote",
+            {
+                "has_memory_id": bool(memory_id),
+                "to_kind": to_kind,
+            },
+        ) as span:
+            payload = promote_entry(self, memory_id, to_kind)
+            span.set_attributes(
+                {
+                    "changed": payload.get("changed"),
+                    "record_type": payload.get("record_type"),
+                }
+            )
+            return payload
 
     def export(
         self,
@@ -233,33 +398,49 @@ class MemoryStore:
         if kind is not None and kind not in ALLOWED_KINDS:
             raise ValueError(f"kind must be one of {sorted(ALLOWED_KINDS)}")
         normalized_signal_status = normalize_signal_status_filter(signal_status)
+        query_text = query.strip()
+        export_limit = max(1, min(limit, 500))
 
-        items = recall_candidates(
-            self,
-            namespace=cleaned_namespace,
-            query=query.strip(),
-            limit=max(1, min(limit, 500)),
-            kind=kind,
-            signal_status=normalized_signal_status,
-            tags_any=tags_any,
-            session_id=None,
-            actor=None,
-            correlation_id=None,
-            since=None,
-        )
-        rendered = render_export(items, namespace=cleaned_namespace, format=export_format)
-        payload = {"namespace": cleaned_namespace, "format": export_format, "count": len(items), "content": rendered}
-        self._log(
-            "export",
+        with self.telemetry.span(
+            "amb.store.export",
             {
                 "namespace": cleaned_namespace,
                 "format": export_format,
-                "count": len(items),
+                "query_present": bool(query_text),
+                "query_length": len(query_text),
                 "kind": kind,
                 "signal_status": normalized_signal_status,
+                "tags_count": len(tags_any or []),
+                "limit": export_limit,
             },
-        )
-        return payload
+        ) as span:
+            items = recall_candidates(
+                self,
+                namespace=cleaned_namespace,
+                query=query_text,
+                limit=export_limit,
+                kind=kind,
+                signal_status=normalized_signal_status,
+                tags_any=tags_any,
+                session_id=None,
+                actor=None,
+                correlation_id=None,
+                since=None,
+            )
+            rendered = render_export(items, namespace=cleaned_namespace, format=export_format)
+            payload = {"namespace": cleaned_namespace, "format": export_format, "count": len(items), "content": rendered}
+            span.set_attribute("result_count", len(items))
+            self._log(
+                "export",
+                {
+                    "namespace": cleaned_namespace,
+                    "format": export_format,
+                    "count": len(items),
+                    "kind": kind,
+                    "signal_status": normalized_signal_status,
+                },
+            )
+            return payload
 
     def store_memory(self, **kwargs: Any) -> dict[str, Any]:
         return self.store(**kwargs)

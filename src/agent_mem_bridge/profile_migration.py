@@ -2,9 +2,9 @@ from __future__ import annotations
 
 """Profile source migration helpers.
 
-These helpers import and compare markdown-based profile source trees. They keep
-compatibility with the original Cole source layout, but the public module shape
-is neutral so new users do not need to start from Cole-specific naming.
+These helpers import and compare markdown-based profile source trees. They are
+neutral by default, while still tolerating older personal source layouts where
+possible.
 """
 
 import json
@@ -25,16 +25,18 @@ from .storage import MemoryStore
 
 ROOT_MARKDOWN_FILES = {
     "architecture.md",
-    "HOW-TO-USE-COLE.md",
+    "PROFILE.md",
 }
 SKIP_RELATIVE_PARTS = {
     "__pycache__",
     "executors",
     "scripts",
 }
-IMPORT_TAG = "source:cole-files"
-IMPORT_ACTOR = "cole-importer"
+IMPORT_TAG = "source:profile-files"
+IMPORT_ACTOR = "profile-importer"
 IMPORT_SOURCE_APP = "agent-memory-bridge-importer"
+LEGACY_IMPORT_SOURCE_APP = "agent-memory-bridge-importer-v1"
+IMPORT_SOURCE_APPS = (IMPORT_SOURCE_APP, LEGACY_IMPORT_SOURCE_APP)
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,6 +242,10 @@ def iter_profile_markdown_files(source_root: Path) -> list[Path]:
         if candidate.is_file():
             files.append(candidate)
 
+    for path in sorted(root.glob("HOW-TO-USE-*.md")):
+        if path.is_file():
+            files.append(path)
+
     for subdir_name in ("memory", "skills"):
         subdir = root / subdir_name
         if not subdir.is_dir():
@@ -265,18 +271,18 @@ def classify_profile_namespace(relative_path: Path) -> str:
     as_posix = relative_path.as_posix()
 
     if as_posix in ROOT_MARKDOWN_FILES:
-        return "cole-core"
+        return "profile-core"
     if parts[:2] == ("memory", "core"):
-        return "cole-core"
+        return "profile-core"
     if parts[:2] == ("memory", "team"):
-        return "cole-team"
+        return "profile-team"
     if parts[:2] == ("memory", "workflows"):
-        return "cole-workflows"
+        return "profile-workflows"
     if parts[:2] == ("memory", "skills") or parts[:1] == ("skills",):
-        return "cole-skills"
+        return "profile-skills"
     if parts[:2] == ("memory", "workspace"):
-        return "cole-workspace"
-    return "cole-core"
+        return "profile-workspace"
+    return "profile-core"
 
 
 def extract_document_title(path: Path, relative_path: Path) -> str:
@@ -293,21 +299,21 @@ def build_document_tags(relative_path: Path, namespace: str) -> list[str]:
     section = relative_path.parts[1] if len(relative_path.parts) > 1 else "root"
     tags = [
         IMPORT_TAG,
-        "record:cole-doc",
-        "link:Cole",
-        f"cole-namespace:{namespace}",
-        f"cole-section:{section}",
+        "record:profile-doc",
+        "link:Profile",
+        f"profile-namespace:{namespace}",
+        f"profile-section:{section}",
         f"source-path:{relative_path.as_posix()}",
         f"source-file:{relative_path.name}",
     ]
     if relative_path.parts[:1] == ("skills",) or relative_path.parts[:2] == ("memory", "skills"):
-        tags.append("cole-doc-type:skill")
+        tags.append("profile-doc-type:skill")
     elif relative_path.parts[:2] == ("memory", "team"):
-        tags.append("cole-doc-type:team")
+        tags.append("profile-doc-type:team")
     elif relative_path.parts[:2] == ("memory", "workflows"):
-        tags.append("cole-doc-type:workflow")
+        tags.append("profile-doc-type:workflow")
     else:
-        tags.append("cole-doc-type:memory")
+        tags.append("profile-doc-type:memory")
     return tags
 
 
@@ -315,7 +321,7 @@ def render_document_content(path: Path, relative_path: Path, namespace: str) -> 
     raw = path.read_text(encoding="utf-8").strip()
     section = relative_path.parts[1] if len(relative_path.parts) > 1 else "root"
     return (
-        f"record_type: cole-doc\n"
+        f"record_type: profile-doc\n"
         f"source_path: {relative_path.as_posix()}\n"
         f"namespace: {namespace}\n"
         f"section: {section}\n"
@@ -325,14 +331,15 @@ def render_document_content(path: Path, relative_path: Path, namespace: str) -> 
 
 
 def _load_imported_rows(store: MemoryStore) -> list[Any]:
+    placeholders = ", ".join("?" for _ in IMPORT_SOURCE_APPS)
     with store._connect() as conn:
         return conn.execute(
-            """
+            f"""
             SELECT namespace, tags_json, content
             FROM memories
-            WHERE actor = ? AND source_app = ?
+            WHERE actor = ? AND source_app IN ({placeholders})
             """,
-            (IMPORT_ACTOR, IMPORT_SOURCE_APP),
+            (IMPORT_ACTOR, *IMPORT_SOURCE_APPS),
         ).fetchall()
 
 
@@ -341,18 +348,19 @@ def _delete_imported_rows_by_source_path(store: MemoryStore, relative_paths: lis
         return 0
 
     deleted_total = 0
+    placeholders = ", ".join("?" for _ in IMPORT_SOURCE_APPS)
     with store._connect() as conn:
         for relative_path in relative_paths:
             tag_json = json.dumps(f"source-path:{relative_path}")
             row_ids = [
                 row["id"]
                 for row in conn.execute(
-                    """
+                    f"""
                     SELECT id
                     FROM memories
-                    WHERE actor = ? AND source_app = ? AND tags_json LIKE ? ESCAPE '\\'
+                    WHERE actor = ? AND source_app IN ({placeholders}) AND tags_json LIKE ? ESCAPE '\\'
                     """,
-                    (IMPORT_ACTOR, IMPORT_SOURCE_APP, f"%{tag_json}%"),
+                    (IMPORT_ACTOR, *IMPORT_SOURCE_APPS, f"%{tag_json}%"),
                 ).fetchall()
             ]
             if not row_ids:
@@ -411,14 +419,3 @@ def _resolve_expected_documents(
         "snapshot_manifest_path": str(Path(manifest_path).resolve()),
         "snapshot_root": str(snapshot_root),
     }
-
-
-# Legacy compatibility aliases for older internal callers.
-ColeDocument = ProfileDocument
-import_cole_memory = import_profile_memory
-compare_cole_migration = compare_profile_migration
-prune_stale_cole_imports = prune_stale_profile_imports
-compare_cole_migration_with_mode = compare_profile_migration_with_mode
-build_cole_documents = build_profile_documents
-iter_cole_markdown_files = iter_profile_markdown_files
-classify_cole_namespace = classify_profile_namespace

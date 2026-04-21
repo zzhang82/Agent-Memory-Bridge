@@ -13,7 +13,7 @@ def main() -> None:
     parser.add_argument("query", help="Issue-like text to search for")
     parser.add_argument(
         "--namespace",
-        default="project:mem-store",
+        default="project:demo",
         help="Project namespace to search first",
     )
     parser.add_argument("--limit", type=int, default=5, help="Max hits per section")

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_mem_bridge.benchmarking import run_benchmark
+from agent_mem_bridge.recall_first import recall_first
 from agent_mem_bridge.storage import MemoryStore
 
 
@@ -16,87 +17,162 @@ def main() -> None:
     runtime_root.mkdir(parents=True, exist_ok=True)
 
     store = MemoryStore(runtime_root / "demo.db", log_dir=runtime_root / "logs")
-    namespace = "project:demo"
+    project_namespace = "project:demo"
+    global_namespace = "global"
 
-    memory = store.store(
-        namespace=namespace,
+    seed_release_memory(store, project_namespace=project_namespace, global_namespace=global_namespace)
+    walkthrough_signal_lifecycle(store, namespace=project_namespace)
+    show_later_recall(store, project_namespace=project_namespace, global_namespace=global_namespace)
+    show_benchmark_snapshot()
+
+
+def seed_release_memory(store: MemoryStore, *, project_namespace: str, global_namespace: str) -> None:
+    belief = store.store(
+        namespace=global_namespace,
         kind="memory",
-        title="Storage Decision",
-        content="Use WAL mode for concurrent readers.",
-        tags=["domain:storage", "topic:sqlite"],
+        title="[[Belief]] release handoff pattern",
+        content=(
+            "record_type: belief\n"
+            "claim: Verify benchmark and healthcheck before tagging a release handoff.\n"
+            "support_count: 5\n"
+            "distinct_session_count: 4\n"
+            "contradiction_count: 0\n"
+            "confidence: 0.82\n"
+            "status: active\n"
+        ),
+        tags=["kind:belief", "domain:release", "topic:handoff"],
     )
+    concept = store.store(
+        namespace=global_namespace,
+        kind="memory",
+        title="[[Concept Note]] release handoff verification loop",
+        content=(
+            "record_type: concept-note\n"
+            "concept: Release handoff verification loop.\n"
+            "claim: Release handoff stays calmer when verification stays explicit.\n"
+            "rule: Verify benchmark and healthcheck before tagging a release handoff.\n"
+            f"depends_on: {belief['id']}\n"
+        ),
+        tags=["kind:concept-note", "domain:release", "topic:handoff"],
+    )
+    procedure = store.store(
+        namespace=project_namespace,
+        kind="memory",
+        title="[[Procedure]] release handoff",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run release handoff safely.\n"
+            "when_to_use: Before tagging a release or asking for final review.\n"
+            "steps: run benchmark | run healthcheck | tag release | notify reviewer\n"
+            f"depends_on: {concept['id']}\n"
+            f"supports: {belief['id']}\n"
+        ),
+        tags=["kind:procedure", "domain:release", "topic:handoff"],
+    )
+
+    print_block(
+        "seed durable memory",
+        [
+            "stored 1 belief, 1 concept note, and 1 project procedure",
+            f"belief:  {belief['stored']} -> [[Belief]] release handoff pattern",
+            f"concept: {concept['stored']} -> [[Concept Note]] release handoff verification loop",
+            f"procedure: {procedure['stored']} -> [[Procedure]] release handoff",
+        ],
+    )
+
+
+def walkthrough_signal_lifecycle(store: MemoryStore, *, namespace: str) -> None:
     signal = store.store(
         namespace=namespace,
         kind="signal",
         title="Review Handoff",
-        content="release note review ready",
+        content="release handoff review ready",
         tags=["handoff:review", "topic:release"],
         ttl_seconds=600,
     )
-
-    print_step("store(memory)", memory)
-    print_step("store(signal)", signal)
-    print_step("stats(namespace)", store.stats(namespace))
-
     claimed = store.claim_signal(
         namespace=namespace,
         consumer="reviewer-a",
         lease_seconds=300,
         signal_id=signal["id"],
     )
-    print_step("claim_signal(...)", summarize_action(claimed, "claimed"))
-
     extended = store.extend_signal_lease(
         signal["id"],
         consumer="reviewer-a",
         lease_seconds=300,
     )
-    print_step("extend_signal_lease(...)", summarize_action(extended, "extended"))
-
     acked = store.ack_signal(signal["id"], consumer="reviewer-a")
-    print_step("ack_signal(...)", summarize_action(acked, "acked"))
 
-    acked_view = store.browse(namespace=namespace, kind="signal", signal_status="acked", limit=10)
-    print_step("browse(..., signal_status='acked')", acked_view)
+    print_block(
+        "signal lifecycle",
+        [
+            f"stored signal: {signal['stored']} -> Review Handoff",
+            "claim_signal -> claimed by reviewer-a",
+            f"extend_signal_lease -> {describe_lease_extension(claimed, extended)}",
+            f"ack_signal -> acknowledged={acked.get('acked') is True}",
+        ],
+    )
 
-    benchmark = run_benchmark()
-    print_step(
-        "benchmark snapshot",
+
+def show_later_recall(store: MemoryStore, *, project_namespace: str, global_namespace: str) -> None:
+    recall_report = recall_first(
+        store=store,
+        query="release handoff fix",
+        project_namespace=project_namespace,
+        global_namespace=global_namespace,
+        limit=5,
+    )
+
+    print_block(
+        "later task: recall_first('release handoff fix')",
+        [
+            f"recommended_action: {recall_report['recommended_action']}",
+            "",
+            *recall_report["task_memory_summary"].splitlines(),
+        ],
+    )
+
+    print_json(
+        "later task snapshot",
         {
-            "memory_expected_top1_accuracy": benchmark["summary"]["memory_expected_top1_accuracy"],
-            "file_scan_expected_top1_accuracy": benchmark["summary"]["file_scan_expected_top1_accuracy"],
-            "signal_correctness_passed": benchmark["summary"]["signal_correctness_passed"],
-            "duplicate_suppression_rate": benchmark["summary"]["duplicate_suppression_rate"],
+            "procedure_hits": len(recall_report["procedure_hits"]),
+            "concept_hits": len(recall_report["concept_hits"]),
+            "belief_hits": len(recall_report["belief_hits"]),
+            "supporting_hits": len(recall_report["supporting_hits"]),
         },
     )
 
 
-def summarize_action(payload: dict[str, Any], key: str) -> dict[str, Any]:
-    item = payload.get("item") or {}
-    result = {
-        key: payload.get(key),
-        "reason": payload.get("reason"),
-        "lease_expires_at": payload.get("lease_expires_at"),
-        "item": summarize_item(item) if item else None,
-    }
-    return {name: value for name, value in result.items() if value is not None}
+def show_benchmark_snapshot() -> None:
+    benchmark = run_benchmark()
+    print_json(
+        "benchmark snapshot",
+        {
+            "memory_expected_top1_accuracy": benchmark["summary"]["memory_expected_top1_accuracy"],
+            "memory_mrr": benchmark["summary"]["memory_mrr"],
+            "file_scan_expected_top1_accuracy": benchmark["summary"]["file_scan_expected_top1_accuracy"],
+            "signal_correctness_passed": benchmark["summary"]["signal_correctness_passed"],
+            "relation_metadata_passed": benchmark["summary"]["relation_metadata_passed"],
+        },
+    )
 
 
-def summarize_item(item: dict[str, Any]) -> dict[str, Any]:
-    keys = [
-        "id",
-        "title",
-        "kind",
-        "signal_status",
-        "claimed_by",
-        "lease_expires_at",
-        "expires_at",
-        "acknowledged_at",
-    ]
-    return {key: item.get(key) for key in keys if item.get(key) is not None}
+def describe_lease_extension(claimed: dict[str, Any], extended: dict[str, Any]) -> str:
+    first_expiry = str(claimed.get("lease_expires_at") or "")
+    second_expiry = str(extended.get("lease_expires_at") or "")
+    if first_expiry and second_expiry and second_expiry > first_expiry:
+        return "extended inside the signal lifetime window"
+    return "extended up to the signal's hard expiry"
 
 
-def print_step(title: str, payload: dict[str, Any]) -> None:
+def print_block(title: str, lines: list[str]) -> None:
+    print()
+    print(f"# {title}")
+    for line in lines:
+        print(line)
+
+
+def print_json(title: str, payload: dict[str, Any]) -> None:
     print()
     print(f"# {title}")
     print(json.dumps(payload, indent=2))

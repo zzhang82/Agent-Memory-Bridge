@@ -24,16 +24,19 @@ from .paths import (
 )
 from .reflex import ReflexEngine, build_default_reflex_config
 from .storage import MemoryStore
+from .telemetry import Telemetry
 from .watcher import CodexSessionWatcher, WatcherConfig
 
 
 def run_service() -> None:
     bridge_home = resolve_bridge_home()
     bridge_home.mkdir(parents=True, exist_ok=True)
+    telemetry = Telemetry.from_env()
 
     store = MemoryStore(
         db_path=resolve_bridge_db_path(),
         log_dir=resolve_bridge_log_dir(),
+        telemetry=telemetry,
     )
     watcher = CodexSessionWatcher(
         WatcherConfig(
@@ -67,18 +70,34 @@ def run_service() -> None:
     poll_seconds = resolve_poll_seconds()
 
     if once:
-        result = {
-            "watcher": watcher.run_once(),
-            "reflex": reflex.run_once(),
-            "consolidation": consolidation.run_once(),
-        }
+        with telemetry.span("amb.service.run_once", {"mode": "once"}) as span:
+            result = {
+                "watcher": watcher.run_once(),
+                "reflex": reflex.run_once(),
+                "consolidation": consolidation.run_once(),
+            }
+            span.set_attributes(
+                {
+                    "watcher_processed_count": result["watcher"].get("processed_count", 0),
+                    "reflex_processed_count": result["reflex"].get("processed_count", 0),
+                    "consolidation_processed_count": result["consolidation"].get("processed_count", 0),
+                }
+            )
         print(json.dumps(result, indent=2))
         return
 
     while True:
-        watcher_result = watcher.run_once()
-        reflex_result = reflex.run_once()
-        consolidation_result = consolidation.run_once()
+        with telemetry.span("amb.service.poll_cycle", {"poll_seconds": poll_seconds}) as span:
+            watcher_result = watcher.run_once()
+            reflex_result = reflex.run_once()
+            consolidation_result = consolidation.run_once()
+            span.set_attributes(
+                {
+                    "watcher_processed_count": watcher_result.get("processed_count", 0),
+                    "reflex_processed_count": reflex_result.get("processed_count", 0),
+                    "consolidation_processed_count": consolidation_result.get("processed_count", 0),
+                }
+            )
         if watcher_result["processed_count"] or reflex_result["processed_count"] or consolidation_result["processed_count"]:
             print(
                 json.dumps(

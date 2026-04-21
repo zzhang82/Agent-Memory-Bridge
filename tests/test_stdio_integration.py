@@ -16,6 +16,8 @@ async def _exercise_server(tmp_path: Path) -> None:
             **os.environ,
             "AGENT_MEMORY_BRIDGE_DB_PATH": str(tmp_path / "bridge.db"),
             "AGENT_MEMORY_BRIDGE_LOG_DIR": str(tmp_path / "logs"),
+            "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT": "antigravity",
+            "AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT": "stdio",
         },
     )
 
@@ -49,6 +51,9 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "actor": "cole",
                     "correlation_id": "handoff-1",
                     "source_app": "codex",
+                    "source_model": "gpt-5.4",
+                    "client_session_id": "codex-session-1",
+                    "client_workspace": "project:bridge",
                 },
             )
             assert first.structuredContent["stored"] is True
@@ -64,6 +69,9 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "actor": "cole",
                     "correlation_id": "handoff-1",
                     "source_app": "codex",
+                    "source_model": "gpt-5.4",
+                    "client_session_id": "codex-session-1",
+                    "client_workspace": "project:bridge",
                 },
             )
             assert duplicate.structuredContent["stored"] is False
@@ -95,6 +103,11 @@ async def _exercise_server(tmp_path: Path) -> None:
             )
             assert recall.structuredContent["count"] == 1
             assert recall.structuredContent["items"][0]["source_app"] == "codex"
+            assert recall.structuredContent["items"][0]["source_client"] == "antigravity"
+            assert recall.structuredContent["items"][0]["source_model"] == "gpt-5.4"
+            assert recall.structuredContent["items"][0]["client_session_id"] == "codex-session-1"
+            assert recall.structuredContent["items"][0]["client_workspace"] == "project:bridge"
+            assert recall.structuredContent["items"][0]["client_transport"] == "stdio"
 
             polling = await session.call_tool(
                 "recall",

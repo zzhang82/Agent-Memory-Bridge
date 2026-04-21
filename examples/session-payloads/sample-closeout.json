@@ -3,7 +3,7 @@
   "kind": "memory",
   "title": "Demo session closeout",
   "tags": [
-    "source:codex",
+    "source:agent-client",
     "project:demo-app",
     "phase:closeout",
     "topic:http",
@@ -12,7 +12,7 @@
   "actor": "orchestrator",
   "session_id": "demo-session-001",
   "correlation_id": "demo-closeout-001",
-  "source_app": "codex",
+  "source_app": "agent-client",
   "summary": "This payload shows the shape of a curated closeout that can be written into the bridge after a productive session.",
   "bullets": [
     "Added a retry policy for idempotent requests only.",

@@ -1,17 +1,17 @@
-Output examples/demo/v0.5-terminal-demo.gif
+Output examples/demo/terminal-demo.gif
 
 Set FontSize 18
 Set Width 1120
-Set Height 760
+Set Height 840
 Set Padding 20
 Set Theme "Builtin Solarized Dark"
 Set TypingSpeed 40ms
 Set MarginFill "#002b36"
 
-Type "cd D:\\playground\\MCPs\\mem-store\\cole-mem-bridge"
+Type "cd D:\\path\\to\\agent-memory-bridge"
 Enter
 Sleep 700ms
 
-Type ".\\.venv\\Scripts\\python.exe .\\scripts\\demo_v0_5.py"
+Type ".\\.venv\\Scripts\\python.exe .\\scripts\\demo_terminal.py"
 Enter
-Sleep 14s
+Sleep 18s

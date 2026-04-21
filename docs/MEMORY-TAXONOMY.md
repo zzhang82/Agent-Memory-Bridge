@@ -53,7 +53,7 @@ Characteristics:
 Typical tags:
 - `kind:summary`
 - `project:*`
-- `source:codex`
+- `source:agent-client`
 - `agent:*`
 - `session:*`
 
@@ -220,12 +220,12 @@ Tags should handle filtering.
 Wikilinks should handle conceptual connection.
 
 Recommended links:
-- `[[Codex]]`
+- `[[Agent Client]]`
 - `[[Memory Bridge]]`
 - `[[SQLite]]`
 - `[[FTS]]`
 - `[[Gotchas]]`
-- `[[Operator Core]]`
+- `[[Profile Core]]`
 
 Use tags for retrieval precision and wikilinks for navigation/synthesis.
 
