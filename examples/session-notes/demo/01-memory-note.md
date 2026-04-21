@@ -3,7 +3,7 @@ namespace: project:demo-app
 kind: memory
 title: [[API Client]] retry policy
 tags:
-  - source:codex
+  - source:agent-client
   - project:demo-app
   - phase:checkpoint
   - topic:http
@@ -11,7 +11,7 @@ tags:
 actor: orchestrator
 session_id: demo-session-001
 correlation_id: retry-policy
-source_app: codex
+source_app: agent-client
 ---
 
 The client now retries only idempotent requests.

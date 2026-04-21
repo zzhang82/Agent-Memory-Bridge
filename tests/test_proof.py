@@ -10,8 +10,8 @@ def test_run_deterministic_proof_returns_expected_sections() -> None:
         questions_path=root / "benchmark" / "questions.json",
     )
 
-    assert report["summary"]["check_count"] == 3
-    assert report["summary"]["checks_passed"] == 3
+    assert report["summary"]["check_count"] == 4
+    assert report["summary"]["checks_passed"] == 4
 
     signal_report = report["signal_correctness"]
     assert signal_report["passed"] is True
@@ -35,3 +35,11 @@ def test_run_deterministic_proof_returns_expected_sections() -> None:
     assert duplicate_report["stored_count"] == 1
     assert duplicate_report["duplicate_count"] == 3
     assert duplicate_report["suppression_rate"] == 1.0
+
+    relation_report = report["relation_metadata"]
+    assert report["summary"]["relation_metadata_passed"] is True
+    assert relation_report["passed"] is True
+    assert relation_report["checks"]["recall_surfaces_relations"] is True
+    assert relation_report["checks"]["recall_surfaces_validity_status"] is True
+    assert relation_report["checks"]["stats_counts_relations_and_validity"] is True
+    assert relation_report["checks"]["export_mentions_relation_metadata"] is True

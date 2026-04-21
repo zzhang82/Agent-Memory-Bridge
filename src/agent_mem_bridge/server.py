@@ -6,6 +6,13 @@ from pydantic import Field
 
 from mcp.server.fastmcp import FastMCP
 
+from .paths import (
+    resolve_default_client_session_id,
+    resolve_default_client_transport,
+    resolve_default_client_workspace,
+    resolve_default_source_client,
+    resolve_default_source_model,
+)
 from .storage import MemoryStore
 
 mcp = FastMCP("agent-memory-bridge", json_response=True)
@@ -46,7 +53,7 @@ def store(
         Field(
             description=(
                 "Optional stable labels for retrieval and filtering, for example "
-                "`kind:gotcha`, `domain:retrieval`, or `project:mem-store`."
+                "`kind:gotcha`, `domain:retrieval`, or `project:demo-app`."
             )
         ),
     ] = None,
@@ -94,6 +101,47 @@ def store(
             )
         ),
     ] = None,
+    source_client: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Optional external client identifier such as `codex`, `antigravity`, "
+                "or `claude-code`."
+            )
+        ),
+    ] = None,
+    source_model: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Optional external model identifier such as `gpt-5.4` or `gemini-2.5-pro`."
+            )
+        ),
+    ] = None,
+    client_session_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Optional external client session or thread identifier when the caller can provide one."
+            )
+        ),
+    ] = None,
+    client_workspace: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Optional external client workspace root or project label when useful for provenance."
+            )
+        ),
+    ] = None,
+    client_transport: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Optional transport label such as `stdio`, `http`, or `sse`."
+            )
+        ),
+    ] = None,
     expires_at: Annotated[
         str | None,
         Field(
@@ -123,6 +171,12 @@ def store(
     Returns the stored entry identifier, timestamp, and duplicate information. Repeated
     `memory` writes may deduplicate; `signal` writes are intended to remain append-like.
     """
+    source_client = source_client or resolve_default_source_client()
+    source_model = source_model or resolve_default_source_model()
+    client_session_id = client_session_id or resolve_default_client_session_id()
+    client_workspace = client_workspace or resolve_default_client_workspace()
+    client_transport = client_transport or resolve_default_client_transport()
+
     return bridge.store(
         namespace=namespace,
         content=content,
@@ -133,6 +187,11 @@ def store(
         title=title,
         correlation_id=correlation_id,
         source_app=source_app,
+        source_client=source_client,
+        source_model=source_model,
+        client_session_id=client_session_id,
+        client_workspace=client_workspace,
+        client_transport=client_transport,
         expires_at=expires_at,
         ttl_seconds=ttl_seconds,
     )

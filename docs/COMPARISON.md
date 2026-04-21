@@ -20,10 +20,14 @@ Agent Memory Bridge is optimized for:
 - a very small MCP surface
 - inspectable storage
 - turning session traces into reusable engineering memory
+- progressively more structured and applicable task-time memory without becoming a larger runtime platform
 
 The center of gravity is:
 
-`session -> summary -> learn -> gotcha -> domain-note`
+`session -> summary -> learn / gotcha -> domain-note -> belief -> concept-note`
+
+Procedures sit beside that ladder as curated durable artifacts that can be assembled
+at task time.
 
 ## What It Does Not Try To Be
 
@@ -38,8 +42,8 @@ This project is not trying to be:
 
 | Project | Primary shape | Best fit | Runtime bias |
 | --- | --- | --- | --- |
-| Agent Memory Bridge | MCP-native memory substrate for coding agents | Codex and coding-agent workflows that want reusable decisions, gotchas, and domain notes | local-first, intentionally small |
-| OpenMemory | broader long-term memory engine and platform | teams that want SDKs, server modes, dashboards, connectors, and a richer memory model | local-first plus platform/server surfaces |
+| Agent Memory Bridge | MCP-native memory substrate for coding agents | Codex and coding-agent workflows that want reusable decisions, gotchas, task-time guidance, and coordination signals | local-first, intentionally small |
+| OpenMemory | broader long-term memory engine and platform | teams that want SDKs, server modes, dashboards, connectors, and a richer memory model | local-first plus platform and server surfaces |
 | Mem0 | broad memory layer for AI apps and agents | teams that want a larger ecosystem, SDKs, hosted options, and generalized memory APIs | platform-oriented |
 
 ## Why The Surface Is Small
@@ -53,6 +57,7 @@ Agent Memory Bridge keeps the public MCP contract small on purpose:
 - `forget`
 - `promote`
 - `claim_signal`
+- `extend_signal_lease`
 - `ack_signal`
 - `export`
 
@@ -62,9 +67,11 @@ The complexity sits behind the bridge:
 - checkpoint and closeout sync
 - reflex promotion
 - consolidation
-- signal lifecycle with lease and acknowledgement
+- signal lifecycle with lease renewal, hard expiry, and acknowledgement
+- task-time assembly over procedures, concepts, beliefs, and linked support
 
-That makes the integration story simpler while still allowing the memory itself to improve over time.
+That keeps the integration contract simple while still allowing the memory engine
+to improve over time.
 
 ## The Wedge
 

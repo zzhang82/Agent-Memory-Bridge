@@ -1,0 +1,88 @@
+from pathlib import Path
+
+from agent_mem_bridge.storage import MemoryStore
+from agent_mem_bridge.task_memory import assemble_task_memory, render_task_memory_text
+
+
+def test_assemble_task_memory_composes_project_procedure_with_supporting_layers(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+
+    belief = store.store(
+        namespace="global",
+        kind="memory",
+        title="[[Belief]] release verification",
+        content=(
+            "record_type: belief\n"
+            "claim: Verify benchmark and healthcheck before release cutover.\n"
+            "support_count: 5\n"
+            "distinct_session_count: 4\n"
+            "contradiction_count: 0\n"
+            "confidence: 0.82\n"
+            "status: active\n"
+        ),
+        tags=["kind:belief", "domain:release", "topic:cutover"],
+    )
+    concept = store.store(
+        namespace="global",
+        kind="memory",
+        title="[[Concept Note]] release cutover pattern",
+        content=(
+            "record_type: concept-note\n"
+            "concept: Release cutover verification loop.\n"
+            "claim: Release cutover stays safer when verification stays explicit.\n"
+            "rule: Verify benchmark and healthcheck before release cutover.\n"
+            f"depends_on: {belief['id']}\n"
+        ),
+        tags=["kind:concept-note", "domain:release", "topic:cutover"],
+    )
+    store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="[[Procedure]] release cutover",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run release cutover safely.\n"
+            "when_to_use: Before tagging a release.\n"
+            "steps: run benchmark | run healthcheck | tag release\n"
+            f"depends_on: {concept['id']}\n"
+            f"supports: {belief['id']}\n"
+        ),
+        tags=["kind:procedure", "domain:release", "topic:cutover"],
+    )
+
+    report = assemble_task_memory(
+        store,
+        query="release cutover",
+        project_namespace="project:alpha",
+        global_namespace="global",
+    )
+
+    assert len(report["procedure_hits"]) == 1
+    assert report["procedure_hits"][0]["procedure"]["goal"] == "Run release cutover safely."
+    assert report["procedure_hits"][0]["procedure"]["when_to_use"] == "Before tagging a release."
+    assert report["procedure_hits"][0]["procedure"]["steps"] == [
+        "run benchmark",
+        "run healthcheck",
+        "tag release",
+    ]
+    assert len(report["concept_hits"]) == 1
+    assert len(report["belief_hits"]) == 1
+    assert {item["id"] for item in report["supporting_hits"]} == {belief["id"], concept["id"]}
+    assert "Procedures:" in report["summary"]
+    assert "steps: run benchmark | run healthcheck | tag release" in report["summary"]
+
+
+def test_render_task_memory_text_handles_empty_report(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+
+    report = assemble_task_memory(
+        store,
+        query="unseen task",
+        project_namespace="project:alpha",
+        global_namespace="global",
+    )
+    rendered = render_task_memory_text(report)
+
+    assert "Task memory for: unseen task" in rendered
+    assert "Procedures:" in rendered
+    assert "(none)" in rendered

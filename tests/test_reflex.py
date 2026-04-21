@@ -27,6 +27,11 @@ def test_reflex_promotes_summary_into_learn_and_gotcha(tmp_path: Path) -> None:
         actor="codex",
         correlation_id="thread-1",
         source_app="codex-session-watcher",
+        source_client="antigravity",
+        source_model="gemini-2.5-pro",
+        client_session_id="ag-session-1",
+        client_workspace="mem-store",
+        client_transport="stdio",
     )
 
     reflex = ReflexEngine(
@@ -42,10 +47,16 @@ def test_reflex_promotes_summary_into_learn_and_gotcha(tmp_path: Path) -> None:
     assert learns["count"] >= 1
     assert any("record_type: learn" in item["content"] for item in learns["items"])
     assert any("claim: Watcher and MCP server must share the same database." in item["content"] for item in learns["items"])
+    assert all(item["source_client"] == "antigravity" for item in learns["items"])
+    assert all(item["source_model"] == "gemini-2.5-pro" for item in learns["items"])
+    assert all(item["client_transport"] == "stdio" for item in learns["items"])
     assert gotchas["count"] == 1
     assert "fix:canonical-runtime-path" in gotchas["items"][0]["tags"]
     assert "record_type: gotcha" in gotchas["items"][0]["content"]
     assert "fix: use one canonical runtime path and one shared bridge.db" in gotchas["items"][0]["content"]
+    assert gotchas["items"][0]["source_client"] == "antigravity"
+    assert gotchas["items"][0]["source_model"] == "gemini-2.5-pro"
+    assert gotchas["items"][0]["client_session_id"] == "ag-session-1"
 
 
 def test_reflex_creates_domain_note_after_repeated_matches(tmp_path: Path) -> None:
@@ -67,6 +78,11 @@ def test_reflex_creates_domain_note_after_repeated_matches(tmp_path: Path) -> No
             actor="codex",
             correlation_id=f"thread-{idx}",
             source_app="codex-session-watcher",
+            source_client="antigravity",
+            source_model="gemini-2.5-pro",
+            client_session_id="ag-session-domain",
+            client_workspace="mem-store",
+            client_transport="stdio",
         )
 
     reflex = ReflexEngine(
@@ -80,6 +96,8 @@ def test_reflex_creates_domain_note_after_repeated_matches(tmp_path: Path) -> No
     assert domain_notes["count"] >= 1
     assert any("domain:orchestration" in item["tags"] for item in domain_notes["items"])
     assert any("record_type: domain-note" in item["content"] for item in domain_notes["items"])
+    assert all(item["source_client"] == "antigravity" for item in domain_notes["items"])
+    assert all(item["source_model"] == "gemini-2.5-pro" for item in domain_notes["items"])
 
 
 def test_reflex_promotes_machine_first_and_cross_project_memory_rules(tmp_path: Path) -> None:

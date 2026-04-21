@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .profile_assembly import StartupRecallLayer, build_startup_recall_plan
 from .storage import MemoryStore
+from .task_memory import assemble_task_memory
 
 
 ISSUE_MARKERS = (
@@ -79,6 +81,13 @@ def recall_first(
 ) -> dict[str, Any]:
     plan = plan_recall(query=query, project_namespace=project_namespace)
     target_global_namespace = (global_namespace or "global").strip()
+    profile_bundle_hits = _recall_profile_bundle_hits(
+        store=store,
+        global_namespace=target_global_namespace,
+        project_namespace=plan.project_namespace,
+        query=plan.query,
+        limit=min(max(limit, 1), 2),
+    )
     if not plan.should_search_local:
         return {
             "query": plan.query,
@@ -86,10 +95,12 @@ def recall_first(
             "global_namespace": target_global_namespace,
             "should_search_local": False,
             "tag_hints": list(plan.tag_hints),
+            "profile_bundle_hits": profile_bundle_hits,
             "project_hits": [],
             "learn_hits": [],
             "gotcha_hits": [],
             "domain_hits": [],
+            "reference_hits": [],
             "recommended_action": "No local-first trigger fired.",
         }
 
@@ -99,30 +110,14 @@ def recall_first(
         limit=limit,
     )["items"]
 
-    learn_hits = _filter_by_tag(
-        store.recall(
-            namespace=target_global_namespace,
-            query=plan.query,
-            limit=limit,
-        )["items"],
-        "kind:learn",
-    )
-    gotcha_hits = _filter_by_tag(
-        store.recall(
-            namespace=target_global_namespace,
-            query=plan.query,
-            limit=limit,
-        )["items"],
-        "kind:gotcha",
-    )
-    domain_hits = _filter_by_tag(
-        store.recall(
-            namespace=target_global_namespace,
-            query=plan.query,
-            limit=limit,
-        )["items"],
-        "kind:domain-note",
-    )
+    global_query_hits = store.recall(
+        namespace=target_global_namespace,
+        query=plan.query,
+        limit=max(limit * 3, 15),
+    )["items"]
+    learn_hits = _filter_by_tag(global_query_hits, "kind:learn")[:limit]
+    gotcha_hits = _filter_by_tag(global_query_hits, "kind:gotcha")[:limit]
+    domain_hits = _filter_by_tag(global_query_hits, "kind:domain-note")[:limit]
 
     if plan.tag_hints:
         tag_hint_hits = store.recall(
@@ -134,8 +129,39 @@ def recall_first(
         gotcha_hits = _merge_hits(gotcha_hits, _filter_by_tag(tag_hint_hits, "kind:gotcha"), limit)
         domain_hits = _merge_hits(domain_hits, _filter_by_tag(tag_hint_hits, "kind:domain-note"), limit)
 
+    task_memory = assemble_task_memory(
+        store,
+        query=plan.query,
+        project_namespace=plan.project_namespace,
+        global_namespace=target_global_namespace,
+        procedure_limit=max(1, min(limit, 3)),
+        concept_limit=max(1, min(limit, 3)),
+        belief_limit=max(1, min(limit, 3)),
+        domain_limit=max(1, min(limit, 2)),
+        support_limit=max(2, min(limit * 2, 6)),
+    )
+
+    reference_hits: list[dict[str, Any]] = []
+    if not _has_profile_bundle_signal(profile_bundle_hits) and not learn_hits and not gotcha_hits and not domain_hits:
+        reference_hits = _filter_reference_hits(
+            global_query_hits,
+            excluded_ids=_collect_ids(project_hits),
+            limit=limit,
+        )
+
     recommended_action = "Search local memory first."
-    if not project_hits and not learn_hits and not gotcha_hits and not domain_hits:
+    if task_memory["procedure_hits"]:
+        recommended_action = "Search local memory first, starting with applicable procedures and supporting concepts."
+    if reference_hits and not project_hits:
+        recommended_action = "Profile bundle missed; fallback reference memory may help before external search."
+    if (
+        not _has_profile_bundle_signal(profile_bundle_hits)
+        and not project_hits
+        and not learn_hits
+        and not gotcha_hits
+        and not domain_hits
+        and not reference_hits
+    ):
         recommended_action = "Local memory had no strong hits; external search may be needed."
 
     return {
@@ -144,12 +170,67 @@ def recall_first(
         "global_namespace": target_global_namespace,
         "should_search_local": True,
         "tag_hints": list(plan.tag_hints),
+        "profile_bundle_hits": profile_bundle_hits,
         "project_hits": project_hits,
         "learn_hits": learn_hits,
         "gotcha_hits": gotcha_hits,
         "domain_hits": domain_hits,
+        "procedure_hits": task_memory["procedure_hits"],
+        "concept_hits": task_memory["concept_hits"],
+        "belief_hits": task_memory["belief_hits"],
+        "supporting_hits": task_memory["supporting_hits"],
+        "task_memory_summary": task_memory["summary"],
+        "reference_hits": reference_hits,
         "recommended_action": recommended_action,
     }
+
+
+def _recall_profile_bundle_hits(
+    store: MemoryStore,
+    *,
+    global_namespace: str,
+    project_namespace: str,
+    query: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    startup_plan = build_startup_recall_plan(
+        global_namespace=global_namespace,
+        project_namespace=project_namespace,
+        issue_mode=False,
+    )
+    layers: list[dict[str, Any]] = []
+    for layer in startup_plan[:3]:
+        layers.append(
+            {
+                "label": layer.label,
+                "namespace": layer.namespace,
+                "tags_any": list(layer.tags_any),
+                "items": _recall_layer_hits(store, layer=layer, query=query, limit=limit),
+            }
+        )
+    return layers
+
+
+def _recall_layer_hits(
+    store: MemoryStore,
+    *,
+    layer: StartupRecallLayer,
+    query: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    query_hits = store.recall(
+        namespace=layer.namespace,
+        query=query,
+        tags_any=list(layer.tags_any) if layer.tags_any else None,
+        limit=limit,
+    )["items"]
+    if query_hits:
+        return query_hits
+    return store.recall(
+        namespace=layer.namespace,
+        tags_any=list(layer.tags_any) if layer.tags_any else None,
+        limit=limit,
+    )["items"]
 
 
 def _infer_tag_hints(normalized_query: str) -> tuple[str, ...]:
@@ -181,6 +262,38 @@ def _merge_hits(
         if len(merged) >= limit:
             break
     return merged
+
+
+def _has_profile_bundle_signal(profile_bundle_hits: list[dict[str, Any]]) -> bool:
+    return any(layer.get("items") for layer in profile_bundle_hits)
+
+
+def _collect_ids(items: list[dict[str, Any]]) -> set[str]:
+    return {
+        item_id
+        for item in items
+        if (item_id := str(item.get("id") or "").strip())
+    }
+
+
+def _filter_reference_hits(
+    items: list[dict[str, Any]],
+    *,
+    excluded_ids: set[str],
+    limit: int,
+) -> list[dict[str, Any]]:
+    reference_hits: list[dict[str, Any]] = []
+    for item in items:
+        item_id = str(item.get("id") or "").strip()
+        if item_id and item_id in excluded_ids:
+            continue
+        tags = item.get("tags", [])
+        if any(tag in tags for tag in ("kind:learn", "kind:gotcha", "kind:domain-note")):
+            continue
+        reference_hits.append(item)
+        if len(reference_hits) >= limit:
+            break
+    return reference_hits
 
 
 def _unique_strings(values: list[str]) -> list[str]:

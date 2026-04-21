@@ -116,6 +116,14 @@ def _resolve_str(env_names: str | tuple[str, ...], config_keys: tuple[str, ...],
     return default
 
 
+def _resolve_optional_env_str(*names: str) -> str | None:
+    raw = _first_env(*names)
+    if raw is None:
+        return None
+    value = raw.strip()
+    return value or None
+
+
 def resolve_codex_home() -> Path:
     return _resolve_path("CODEX_HOME", ("codex", "home"), _default_codex_home)
 
@@ -145,6 +153,26 @@ def resolve_cole_source_root() -> Path:
 
 def resolve_profile_namespace() -> str:
     return _resolve_str("AGENT_MEMORY_BRIDGE_PROFILE_NAMESPACE", ("profile", "namespace"), "global")
+
+
+def resolve_default_source_client() -> str | None:
+    return _resolve_optional_env_str("AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT")
+
+
+def resolve_default_source_model() -> str | None:
+    return _resolve_optional_env_str("AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_MODEL")
+
+
+def resolve_default_client_session_id() -> str | None:
+    return _resolve_optional_env_str("AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_SESSION_ID")
+
+
+def resolve_default_client_workspace() -> str | None:
+    return _resolve_optional_env_str("AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_WORKSPACE")
+
+
+def resolve_default_client_transport() -> str | None:
+    return _resolve_optional_env_str("AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT")
 
 
 def resolve_reflex_actor() -> str:
@@ -186,6 +214,27 @@ def resolve_bridge_log_dir() -> Path:
         ("bridge", "log_dir"),
         lambda: resolve_bridge_home() / "logs",
         config_base_factory=resolve_bridge_home,
+    )
+
+
+def resolve_telemetry_mode() -> str:
+    return _resolve_str("AGENT_MEMORY_BRIDGE_TELEMETRY_MODE", ("telemetry", "mode"), "off").lower()
+
+
+def resolve_telemetry_log_dir() -> Path:
+    return _resolve_path(
+        "AGENT_MEMORY_BRIDGE_TELEMETRY_LOG_DIR",
+        ("telemetry", "log_dir"),
+        lambda: resolve_bridge_home() / "telemetry",
+        config_base_factory=resolve_bridge_home,
+    )
+
+
+def resolve_telemetry_service_name() -> str:
+    return _resolve_str(
+        "AGENT_MEMORY_BRIDGE_TELEMETRY_SERVICE_NAME",
+        ("telemetry", "service_name"),
+        "agent-memory-bridge",
     )
 
 

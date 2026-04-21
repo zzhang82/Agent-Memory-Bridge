@@ -1,51 +1,57 @@
 # Benchmark Plan
 
-This directory is the proof track for Agent Memory Bridge.
+This directory holds the proof and benchmark track for Agent Memory Bridge.
 
-The first goal is not a big benchmark suite. It is a small, repeatable set of checks that prove the bridge is useful as a coding-agent memory layer.
+The goal is not a big leaderboard suite. It is a small, repeatable set of checks
+that tell us whether the bridge stays useful as a coding-agent memory layer while
+the engine gets more expressive.
 
-Initial proof order:
-
-1. signal coordination latency / correctness
-2. recall latency
-3. duplicate suppression rate
-4. recall relevance / precision@k
-
-The point of this benchmark set is to show more than "the tools work." It should show whether the bridge improves retrieval quality, keeps noise down, and makes coordination signals fast enough to use in real workflows.
-
-Current runnable entrypoints:
+## Runnable Entry Points
 
 - `python .\\scripts\\run_benchmark.py`
 - `python .\\scripts\\run_deterministic_proof.py`
 - `python .\\scripts\\run_classifier_calibration.py`
 - `python .\\scripts\\run_classifier_calibration.py --fixture-gateway`
+- `python .\\scripts\\run_activation_stress_pack.py`
 
-The benchmark report combines two layers:
+## What The Reports Cover
 
-- deterministic proof for signal correctness, duplicate suppression, and recall timing
-- deterministic proof also checks that generic claim selection does not immediately favor reclaiming the same consumer's stale signal when other pending work exists
-- retrieval comparison for `precision@1`, `precision@3`, `expected_top1_accuracy`, and latency against a simple file-scan baseline
-- classifier-vs-fallback regression coverage in tests so learning-quality changes can roll out in shadow mode first
-- reviewed-sample calibration that compares expected tags, keyword fallback tags, raw classifier tags, retained classifier tags, and low-confidence filtering side by side
-- slice-aware summaries so coordination, retrieval, runtime, memory-shaping, storage, and model-routing can be compared separately
+The checked-in proof and benchmark flow covers:
 
-The goal is not to win a leaderboard. It is to make regressions visible and keep the bridge honest as retrieval and signal semantics evolve.
+- deterministic signal lifecycle checks for `claim`, `extend`, `ack`, expiry, reclaim, and fairness
+- duplicate suppression
+- recall timing
+- relation metadata surfaced through recall, export, stats, and proof
+- retrieval comparison against a simple file-scan baseline
+- `precision@1`, `precision@3`, `recall@1`, `recall@3`, `MRR`, and `expected_top1_accuracy`
+- reviewed classifier-vs-fallback calibration
+- isolated learning-ladder activation stress cases
 
-Classifier calibration is intentionally narrow. It is there to answer:
+The current canonical retrieval fixture has `11` questions, including overlap-heavy
+review queue, release cutover, and context-compaction cases.
+
+## Current Public Snapshot
+
+The release-facing snapshot currently reports:
+
+- `memory_expected_top1_accuracy = 1.0`
+- `memory_mrr = 1.0`
+- `file_scan_expected_top1_accuracy = 0.636`
+- `file_scan_mrr = 0.909`
+- `relation_metadata_passed = true`
+- `duplicate_suppression_rate = 1.0`
+
+These numbers are meant to keep regressions visible. They are not meant to imply
+that the benchmark is broad enough to compare against unrelated systems.
+
+## Classifier Calibration
+
+Classifier calibration is intentionally narrow. It answers:
 
 - where the classifier already beats keyword fallback
 - where fallback still wins
-- where low-confidence classifier output should stay out of assist-mode enrichment
-- whether widening `assist` mode would be justified
-
-The current fixture set now includes:
-
-- exact-match retrieval checks
-- punctuation-heavy fallback checks
-- multi-relevant memory queries
-- multi-relevant signal queries
-- overlap-heavy review queue and release-cutover cases
-- context-compaction checklist vs bridge-note ambiguity
+- where low-confidence classifier output should stay out of assist mode
+- whether widening assist usage would be justified
 
 The current reviewed calibration slices are:
 
@@ -56,4 +62,12 @@ The current reviewed calibration slices are:
 - model-routing
 - storage
 
-If no classifier command is configured, `run_classifier_calibration.py` will now say that it is running fallback-only calibration. Use `--fixture-gateway` for the deterministic bundled calibration path, or pass a real classifier command with `--command`.
+If no classifier command is configured, `run_classifier_calibration.py` reports
+fallback-only calibration. Use `--fixture-gateway` for the deterministic bundled
+calibration path, or pass a real classifier command with `--command`.
+
+## Activation Stress
+
+The activation stress pack is intentionally conservative. It reuses reviewed belief
+cases plus isolated replay scenarios so we can shake the learning ladder without
+replaying a live bridge back into itself.

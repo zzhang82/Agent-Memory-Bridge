@@ -21,6 +21,11 @@ def test_store_and_recall_round_trip(tmp_path: Path) -> None:
         title="Storage decision",
         correlation_id="task-123",
         source_app="codex",
+        source_client="codex",
+        source_model="gpt-5.4",
+        client_session_id="client-session-1",
+        client_workspace="project:agent-memory-bridge",
+        client_transport="stdio",
     )
 
     duplicate = store.store(
@@ -46,6 +51,55 @@ def test_store_and_recall_round_trip(tmp_path: Path) -> None:
     assert recall["count"] == 1
     assert recall["items"][0]["kind"] == "memory"
     assert recall["items"][0]["correlation_id"] == "task-123"
+    assert recall["items"][0]["source_client"] == "codex"
+    assert recall["items"][0]["source_model"] == "gpt-5.4"
+    assert recall["items"][0]["client_session_id"] == "client-session-1"
+    assert recall["items"][0]["client_workspace"] == "project:agent-memory-bridge"
+    assert recall["items"][0]["client_transport"] == "stdio"
+
+
+def test_store_and_recall_relation_metadata_and_validity_window(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    valid_from = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    valid_until = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+
+    created = store.store(
+        namespace="agent-memory-bridge",
+        content=(
+            "record_type: belief\n"
+            "claim: Prefer bundle-first startup.\n"
+            "supports: mem-1 | mem-2\n"
+            "contradicts: mem-legacy\n"
+            "depends_on: policy-core\n"
+            f"valid_from: {valid_from}\n"
+            f"valid_until: {valid_until}\n"
+        ),
+        kind="memory",
+        tags=["domain:retrieval"],
+        title="Startup relation metadata",
+    )
+
+    recall = store.recall(
+        namespace="agent-memory-bridge",
+        tags_any=["relation:supports"],
+        limit=5,
+    )
+
+    assert created["stored"] is True
+    assert recall["count"] == 1
+    item = recall["items"][0]
+    assert item["id"] == created["id"]
+    assert item["relations"]["supports"] == ["mem-1", "mem-2"]
+    assert item["relations"]["contradicts"] == ["mem-legacy"]
+    assert item["relations"]["depends_on"] == ["policy-core"]
+    assert item["relations"]["supersedes"] == []
+    assert item["valid_from"] == valid_from
+    assert item["valid_until"] == valid_until
+    assert item["validity_status"] == "current"
+    assert "relation:supports" in item["tags"]
+    assert "relation:contradicts" in item["tags"]
+    assert "relation:depends_on" in item["tags"]
+    assert "validity:bounded" in item["tags"]
 
 
 def test_signal_entries_are_not_deduplicated(tmp_path: Path) -> None:
@@ -519,6 +573,55 @@ def test_stats_returns_kind_counts_and_top_domains(tmp_path: Path) -> None:
     assert stats["newest_entry_at"] == signal["created_at"]
 
 
+def test_stats_surface_relation_counts_and_validity_statuses(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    current_from = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    current_until = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    future_from = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    expired_until = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+
+    store.store(
+        namespace="project:bridge",
+        content=(
+            "claim: Current retrieval rule.\n"
+            "supports: mem-1 | mem-2\n"
+            f"valid_from: {current_from}\n"
+            f"valid_until: {current_until}\n"
+        ),
+        kind="memory",
+        tags=["domain:retrieval"],
+    )
+    store.store(
+        namespace="project:bridge",
+        content=(
+            "claim: Future orchestration dependency.\n"
+            "depends_on: signal-policy\n"
+            f"valid_from: {future_from}\n"
+        ),
+        kind="memory",
+        tags=["domain:orchestration"],
+    )
+    store.store(
+        namespace="project:bridge",
+        content=(
+            "claim: Expired superseded note.\n"
+            "supersedes: mem-old\n"
+            f"valid_until: {expired_until}\n"
+        ),
+        kind="memory",
+        tags=["domain:retrieval"],
+    )
+
+    stats = store.stats(namespace="project:bridge")
+
+    assert stats["relation_counts"]["supports"] == 2
+    assert stats["relation_counts"]["depends_on"] == 1
+    assert stats["relation_counts"]["supersedes"] == 1
+    assert stats["validity_counts"]["current"] == 1
+    assert stats["validity_counts"]["future"] == 1
+    assert stats["validity_counts"]["expired"] == 1
+
+
 def test_forget_removes_existing_item_and_returns_deleted_metadata(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
     created = store.store(
@@ -576,6 +679,35 @@ def test_promote_reclassifies_memory_in_place(tmp_path: Path) -> None:
     assert browse["items"][0]["title"].startswith("[[Gotcha]]")
 
 
+def test_promote_rederives_relation_tags_after_content_rewrite(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content=(
+            "record_type: learn\n"
+            "claim: Keep startup relation metadata explicit.\n"
+            "supports: mem-a | mem-b\n"
+            "valid_until: 2099-01-01T00:00:00+00:00\n"
+        ),
+        kind="memory",
+        tags=["kind:learn", "domain:retrieval"],
+        title="[[Learn]] Keep startup relation metadata explicit.",
+    )
+
+    before = store.recall(namespace="project:bridge", tags_any=["relation:supports"], limit=10)
+    promoted = store.promote(created["id"], "gotcha")
+    after = store.recall(namespace="project:bridge", tags_any=["relation:supports"], limit=10)
+
+    assert before["count"] == 1
+    assert promoted["changed"] is True
+    assert promoted["record_type"] == "gotcha"
+    assert "relation:supports" not in promoted["item"]["tags"]
+    assert "validity:bounded" not in promoted["item"]["tags"]
+    assert promoted["item"]["relations"]["supports"] == []
+    assert promoted["item"]["validity_status"] == "unbounded"
+    assert after["count"] == 0
+
+
 def test_promote_returns_changed_false_when_already_target_kind(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
     created = store.store(
@@ -601,6 +733,11 @@ def test_export_returns_markdown_json_and_text(tmp_path: Path) -> None:
         kind="memory",
         tags=["kind:learn", "domain:memory-bridge"],
         title="[[Learn]] Keep one bridge DB.",
+        source_client="antigravity",
+        source_model="gemini-2.5-pro",
+        client_session_id="ag-session-1",
+        client_workspace="file_my_g_home_Drive_obsidian_Wanders",
+        client_transport="stdio",
     )
 
     markdown_export = store.export(namespace="project:bridge", format="markdown")
@@ -609,10 +746,42 @@ def test_export_returns_markdown_json_and_text(tmp_path: Path) -> None:
 
     assert markdown_export["format"] == "markdown"
     assert "# Memory Export: project:bridge" in markdown_export["content"]
+    assert "- Source Client: `antigravity`" in markdown_export["content"]
     assert json_export["format"] == "json"
     assert "\"namespace\": \"project:bridge\"" in json_export["content"]
+    assert "\"source_model\": \"gemini-2.5-pro\"" in json_export["content"]
     assert text_export["format"] == "text"
     assert "namespace: project:bridge" in text_export["content"]
+    assert "client_transport: stdio" in text_export["content"]
+
+
+def test_export_includes_relation_metadata_and_validity_status(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    valid_from = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+    valid_until = (datetime.now(UTC) + timedelta(days=7)).isoformat()
+    store.store(
+        namespace="project:bridge",
+        content=(
+            "claim: Relation-aware startup memory.\n"
+            "supports: mem-a | mem-b\n"
+            "contradicts: mem-c\n"
+            f"valid_from: {valid_from}\n"
+            f"valid_until: {valid_until}\n"
+        ),
+        kind="memory",
+        tags=["domain:retrieval"],
+        title="Relation-aware startup",
+    )
+
+    markdown_export = store.export(namespace="project:bridge", format="markdown")
+    json_export = store.export(namespace="project:bridge", format="json")
+    text_export = store.export(namespace="project:bridge", format="text")
+
+    assert "- Relations: `supports` -> `mem-a`, `mem-b`; `contradicts` -> `mem-c`" in markdown_export["content"]
+    assert f"- Valid From: `{valid_from}`" in markdown_export["content"]
+    assert "\"validity_status\": \"current\"" in json_export["content"]
+    assert "relations: supports=mem-a, mem-b; contradicts=mem-c" in text_export["content"]
+    assert "validity_status: current" in text_export["content"]
 
 
 def test_store_rejects_signal_expiry_for_memory_kind(tmp_path: Path) -> None:

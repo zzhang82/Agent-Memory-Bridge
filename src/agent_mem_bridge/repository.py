@@ -7,6 +7,7 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any
 
+from .relation_metadata import extract_relation_tags, parse_relation_metadata
 from .signals import SignalSnapshot, effective_signal_status, resolve_signal_expiry
 
 
@@ -24,6 +25,11 @@ session_id,
 actor,
 correlation_id,
 source_app,
+source_client,
+source_model,
+client_session_id,
+client_workspace,
+client_transport,
 signal_status,
 claimed_by,
 claimed_at,
@@ -46,6 +52,11 @@ class MemoryRow:
     actor: str | None
     correlation_id: str | None
     source_app: str | None
+    source_client: str | None
+    source_model: str | None
+    client_session_id: str | None
+    client_workspace: str | None
+    client_transport: str | None
     signal_status: str | None
     claimed_by: str | None
     claimed_at: str | None
@@ -67,6 +78,11 @@ class MemoryRow:
             actor=row["actor"],
             correlation_id=row["correlation_id"],
             source_app=row["source_app"],
+            source_client=row["source_client"],
+            source_model=row["source_model"],
+            client_session_id=row["client_session_id"],
+            client_workspace=row["client_workspace"],
+            client_transport=row["client_transport"],
             signal_status=row["signal_status"],
             claimed_by=row["claimed_by"],
             claimed_at=row["claimed_at"],
@@ -78,6 +94,7 @@ class MemoryRow:
 
     def as_dict(self) -> dict[str, Any]:
         signal_status = effective_signal_status(SignalSnapshot.from_row(self.as_sql_row()))
+        relation_metadata = parse_relation_metadata(self.content)
         return {
             "id": self.id,
             "namespace": self.namespace,
@@ -89,6 +106,11 @@ class MemoryRow:
             "actor": self.actor,
             "correlation_id": self.correlation_id,
             "source_app": self.source_app,
+            "source_client": self.source_client,
+            "source_model": self.source_model,
+            "client_session_id": self.client_session_id,
+            "client_workspace": self.client_workspace,
+            "client_transport": self.client_transport,
             "signal_status": signal_status,
             "claimed_by": self.claimed_by,
             "claimed_at": self.claimed_at,
@@ -96,6 +118,10 @@ class MemoryRow:
             "expires_at": self.expires_at,
             "acknowledged_at": self.acknowledged_at,
             "created_at": self.created_at,
+            "relations": relation_metadata["relations"],
+            "valid_from": relation_metadata["valid_from"],
+            "valid_until": relation_metadata["valid_until"],
+            "validity_status": relation_metadata["validity_status"],
         }
 
     def as_sql_row(self) -> dict[str, Any]:
@@ -122,6 +148,11 @@ def store_entry(
     title: str | None = None,
     correlation_id: str | None = None,
     source_app: str | None = None,
+    source_client: str | None = None,
+    source_model: str | None = None,
+    client_session_id: str | None = None,
+    client_workspace: str | None = None,
+    client_transport: str | None = None,
     expires_at: str | None = None,
     ttl_seconds: int | None = None,
 ) -> dict[str, Any]:
@@ -191,6 +222,11 @@ def store_entry(
                     actor,
                     correlation_id,
                     source_app,
+                    source_client,
+                    source_model,
+                    client_session_id,
+                    client_workspace,
+                    client_transport,
                     signal_status,
                     claimed_by,
                     claimed_at,
@@ -199,7 +235,7 @@ def store_entry(
                     acknowledged_at,
                     content_hash,
                     created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -212,6 +248,11 @@ def store_entry(
                     actor,
                     correlation_id,
                     source_app,
+                    source_client,
+                    source_model,
+                    client_session_id,
+                    client_workspace,
+                    client_transport,
                     signal_status,
                     None,
                     None,
@@ -321,6 +362,8 @@ def stats_for_namespace(store: Any, namespace: str) -> dict[str, Any]:
 
     kind_counts = {kind: 0 for kind in sorted(ALLOWED_KINDS)}
     signal_status_counts = {status: 0 for status in ("pending", "claimed", "acked", "expired")}
+    relation_counts = {relation: 0 for relation in ("supports", "contradicts", "supersedes", "depends_on")}
+    validity_counts = {status: 0 for status in ("unbounded", "current", "future", "expired", "invalid")}
     domain_counts: dict[str, int] = {}
     oldest_entry_at = rows[0]["created_at"] if rows else None
     newest_entry_at = rows[-1]["created_at"] if rows else None
@@ -332,6 +375,11 @@ def stats_for_namespace(store: Any, namespace: str) -> dict[str, Any]:
             effective_status = effective_signal_status(SignalSnapshot.from_row(row))
             if effective_status:
                 signal_status_counts[effective_status] = signal_status_counts.get(effective_status, 0) + 1
+        relation_metadata = parse_relation_metadata(str(row["content"]))
+        for relation, targets in relation_metadata["relations"].items():
+            relation_counts[relation] = relation_counts.get(relation, 0) + len(targets)
+        validity_status = relation_metadata["validity_status"]
+        validity_counts[validity_status] = validity_counts.get(validity_status, 0) + 1
         for tag in json.loads(row["tags_json"] or "[]"):
             if not isinstance(tag, str) or not tag.startswith("domain:"):
                 continue
@@ -350,6 +398,8 @@ def stats_for_namespace(store: Any, namespace: str) -> dict[str, Any]:
         "total_count": len(rows),
         "kind_counts": kind_counts,
         "signal_status_counts": signal_status_counts,
+        "relation_counts": relation_counts,
+        "validity_counts": validity_counts,
         "top_domains": top_domains,
         "oldest_entry_at": oldest_entry_at,
         "newest_entry_at": newest_entry_at,
@@ -392,7 +442,8 @@ def normalize_tags(tags: list[str] | None) -> list[str]:
 def merge_tags(tags: list[str] | None, *, title: str | None, content: str) -> list[str]:
     explicit = normalize_tags(tags)
     extracted = extract_obsidian_tags(title=title, content=content)
-    return normalize_tags([*explicit, *extracted])
+    relation_tags = extract_relation_tags(content)
+    return normalize_tags([*explicit, *extracted, *relation_tags])
 
 
 def extract_obsidian_tags(*, title: str | None, content: str) -> list[str]:

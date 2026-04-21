@@ -1,0 +1,617 @@
+{
+  "summary": {
+    "question_count": 11,
+    "memory_precision_at_1": 1.0,
+    "memory_precision_at_3": 0.545,
+    "memory_recall_at_1": 1.0,
+    "memory_recall_at_3": 1.0,
+    "memory_mrr": 1.0,
+    "memory_expected_top1_accuracy": 1.0,
+    "memory_avg_latency_ms": 3.264,
+    "file_scan_precision_at_1": 0.818,
+    "file_scan_precision_at_3": 0.545,
+    "file_scan_recall_at_1": 0.818,
+    "file_scan_recall_at_3": 1.0,
+    "file_scan_mrr": 0.909,
+    "file_scan_expected_top1_accuracy": 0.636,
+    "file_scan_avg_latency_ms": 0.039,
+    "signal_correctness_passed": true,
+    "relation_metadata_passed": true,
+    "duplicate_suppression_rate": 1.0
+  },
+  "retrieval_summary": {
+    "question_count": 11,
+    "memory_hit_count": 11,
+    "memory_expected_top1_count": 11,
+    "memory_expected_top1_accuracy": 1.0,
+    "memory_precision_at_1": 1.0,
+    "memory_precision_at_3": 0.545,
+    "memory_recall_at_1": 1.0,
+    "memory_recall_at_3": 1.0,
+    "memory_mrr": 1.0,
+    "memory_avg_latency_ms": 3.264,
+    "file_scan_hit_count": 9,
+    "file_scan_expected_top1_count": 7,
+    "file_scan_expected_top1_accuracy": 0.636,
+    "file_scan_precision_at_1": 0.818,
+    "file_scan_precision_at_3": 0.545,
+    "file_scan_recall_at_1": 0.818,
+    "file_scan_recall_at_3": 1.0,
+    "file_scan_mrr": 0.909,
+    "file_scan_avg_latency_ms": 0.039
+  },
+  "deterministic_proof_summary": {
+    "check_count": 4,
+    "checks_passed": 4,
+    "signal_correctness_passed": true,
+    "relation_metadata_passed": true,
+    "recall_avg_latency_ms": 3.119,
+    "duplicate_suppression_rate": 1.0
+  },
+  "results": [
+    {
+      "id": "q1",
+      "query": "SQLite WAL",
+      "expected_title": "Storage Decision",
+      "relevant_titles": [
+        "Storage Decision"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 10.099,
+        "count": 2,
+        "top_title": "Storage Decision",
+        "top_titles": [
+          "Storage Decision",
+          "SQLite Timeout Recovery"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": false,
+        "expected_top1": false,
+        "latency_ms": 0.043,
+        "count": 2,
+        "top_title": "SQLite Timeout Recovery",
+        "top_titles": [
+          "SQLite Timeout Recovery",
+          "Storage Decision"
+        ],
+        "precision_at_1": 0.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 2
+      }
+    },
+    {
+      "id": "q2",
+      "query": "values.yaml",
+      "expected_title": "FTS Sanitizer",
+      "relevant_titles": [
+        "FTS Sanitizer"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 2.39,
+        "count": 1,
+        "top_title": "FTS Sanitizer",
+        "top_titles": [
+          "FTS Sanitizer"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 0.038,
+        "count": 1,
+        "top_title": "FTS Sanitizer",
+        "top_titles": [
+          "FTS Sanitizer"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 1
+      }
+    },
+    {
+      "id": "q3",
+      "query": "context compaction",
+      "expected_title": "Context Compaction Checklist",
+      "relevant_titles": [
+        "Context Compaction Checklist",
+        "Codex Context Bridge"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 2.617,
+        "count": 3,
+        "top_title": "Context Compaction Checklist",
+        "top_titles": [
+          "Context Compaction Checklist",
+          "Codex Context Bridge",
+          "Context Handoff Guide"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 0.037,
+        "count": 3,
+        "top_title": "Context Compaction Checklist",
+        "top_titles": [
+          "Context Compaction Checklist",
+          "Codex Context Bridge",
+          "Context Handoff Guide"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      }
+    },
+    {
+      "id": "q4",
+      "query": "API handoff",
+      "expected_title": "Review Handoff",
+      "relevant_titles": [
+        "Review Handoff"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 2.495,
+        "count": 2,
+        "top_title": "Review Handoff",
+        "top_titles": [
+          "Review Handoff",
+          "API Review Ready"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": false,
+        "expected_top1": false,
+        "latency_ms": 0.037,
+        "count": 3,
+        "top_title": "API Review Ready",
+        "top_titles": [
+          "API Review Ready",
+          "Review Handoff",
+          "Release Cutover Ready"
+        ],
+        "precision_at_1": 0.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 2
+      }
+    },
+    {
+      "id": "q5",
+      "query": "Obsidian-friendly structure",
+      "expected_title": "Codex Context Bridge",
+      "relevant_titles": [
+        "Codex Context Bridge"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 2.817,
+        "count": 1,
+        "top_title": "Codex Context Bridge",
+        "top_titles": [
+          "Codex Context Bridge"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 0.034,
+        "count": 1,
+        "top_title": "Codex Context Bridge",
+        "top_titles": [
+          "Codex Context Bridge"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 1
+      }
+    },
+    {
+      "id": "q6",
+      "query": "sqlite sync timeout",
+      "expected_title": "SQLite Timeout Recovery",
+      "relevant_titles": [
+        "SQLite Timeout Recovery",
+        "Storage Decision"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 2.483,
+        "count": 2,
+        "top_title": "SQLite Timeout Recovery",
+        "top_titles": [
+          "SQLite Timeout Recovery",
+          "Storage Decision"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 0.038,
+        "count": 2,
+        "top_title": "SQLite Timeout Recovery",
+        "top_titles": [
+          "SQLite Timeout Recovery",
+          "Storage Decision"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      }
+    },
+    {
+      "id": "q7",
+      "query": "API review handoff",
+      "expected_title": "Review Handoff",
+      "relevant_titles": [
+        "Review Handoff",
+        "API Review Ready"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 2.469,
+        "count": 2,
+        "top_title": "Review Handoff",
+        "top_titles": [
+          "Review Handoff",
+          "API Review Ready"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": true,
+        "expected_top1": false,
+        "latency_ms": 0.04,
+        "count": 3,
+        "top_title": "API Review Ready",
+        "top_titles": [
+          "API Review Ready",
+          "Review Handoff",
+          "Release Cutover Ready"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      }
+    },
+    {
+      "id": "q8",
+      "query": "Codex context handoff",
+      "expected_title": "Codex Context Bridge",
+      "relevant_titles": [
+        "Codex Context Bridge",
+        "Context Handoff Guide"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 3.513,
+        "count": 3,
+        "top_title": "Codex Context Bridge",
+        "top_titles": [
+          "Codex Context Bridge",
+          "Context Handoff Guide",
+          "Context Compaction Checklist"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": true,
+        "expected_top1": false,
+        "latency_ms": 0.043,
+        "count": 5,
+        "top_title": "Context Handoff Guide",
+        "top_titles": [
+          "Context Handoff Guide",
+          "Codex Context Bridge",
+          "Context Compaction Checklist",
+          "Storage Decision",
+          "Review Queue Policy"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      }
+    },
+    {
+      "id": "q9",
+      "query": "review queue ownership",
+      "expected_title": "Review Queue Policy",
+      "relevant_titles": [
+        "Review Queue Policy",
+        "Review Handoff"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 2.334,
+        "count": 1,
+        "top_title": "Review Queue Policy",
+        "top_titles": [
+          "Review Queue Policy"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 0.038,
+        "count": 1,
+        "top_title": "Review Queue Policy",
+        "top_titles": [
+          "Review Queue Policy"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.333,
+        "first_relevant_rank": 1
+      }
+    },
+    {
+      "id": "q10",
+      "query": "release cutover ready",
+      "expected_title": "Release Cutover Ready",
+      "relevant_titles": [
+        "Release Cutover Ready",
+        "API Review Ready"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 2.329,
+        "count": 2,
+        "top_title": "Release Cutover Ready",
+        "top_titles": [
+          "Release Cutover Ready",
+          "API Review Ready"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 0.041,
+        "count": 2,
+        "top_title": "Release Cutover Ready",
+        "top_titles": [
+          "Release Cutover Ready",
+          "API Review Ready"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 0.667,
+        "first_relevant_rank": 1
+      }
+    },
+    {
+      "id": "q11",
+      "query": "context compaction checklist",
+      "expected_title": "Context Compaction Checklist",
+      "relevant_titles": [
+        "Context Compaction Checklist",
+        "Codex Context Bridge",
+        "Context Handoff Guide"
+      ],
+      "memory": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 2.355,
+        "count": 3,
+        "top_title": "Context Compaction Checklist",
+        "top_titles": [
+          "Context Compaction Checklist",
+          "Context Handoff Guide",
+          "Codex Context Bridge"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 1.0,
+        "first_relevant_rank": 1
+      },
+      "file_scan": {
+        "hit": true,
+        "expected_top1": true,
+        "latency_ms": 0.039,
+        "count": 3,
+        "top_title": "Context Compaction Checklist",
+        "top_titles": [
+          "Context Compaction Checklist",
+          "Codex Context Bridge",
+          "Context Handoff Guide"
+        ],
+        "precision_at_1": 1.0,
+        "precision_at_3": 1.0,
+        "first_relevant_rank": 1
+      }
+    }
+  ],
+  "deterministic_proof": {
+    "summary": {
+      "check_count": 4,
+      "checks_passed": 4,
+      "signal_correctness_passed": true,
+      "relation_metadata_passed": true,
+      "recall_avg_latency_ms": 3.119,
+      "duplicate_suppression_rate": 1.0
+    },
+    "signal_correctness": {
+      "passed": true,
+      "checks": {
+        "claim_sets_claimed_state": true,
+        "owner_can_extend_lease": true,
+        "extend_rejects_wrong_consumer": true,
+        "ack_rejects_wrong_consumer": true,
+        "ack_marks_completion": true,
+        "acked_signal_cannot_extend": true,
+        "expired_signal_filters_as_expired": true,
+        "expired_signal_cannot_be_acked": true,
+        "expired_lease_cannot_be_extended": true,
+        "stale_lease_can_be_reclaimed": true,
+        "fair_claim_avoids_same_consumer_reclaim_bias": true,
+        "hard_expiry_caps_extended_lease": true
+      },
+      "latency_ms": {
+        "claim": 14.427,
+        "extend": 11.15,
+        "ack": 3.418,
+        "reclaim": 3.293
+      }
+    },
+    "recall_latency": {
+      "question_count": 11,
+      "hit_count": 11,
+      "avg_latency_ms": 3.119,
+      "max_latency_ms": 9.855,
+      "results": [
+        {
+          "id": "q1",
+          "query": "SQLite WAL",
+          "expected_title": "Storage Decision",
+          "hit": true,
+          "latency_ms": 9.855,
+          "count": 2,
+          "top_title": "Storage Decision"
+        },
+        {
+          "id": "q2",
+          "query": "values.yaml",
+          "expected_title": "FTS Sanitizer",
+          "hit": true,
+          "latency_ms": 2.282,
+          "count": 1,
+          "top_title": "FTS Sanitizer"
+        },
+        {
+          "id": "q3",
+          "query": "context compaction",
+          "expected_title": "Context Compaction Checklist",
+          "hit": true,
+          "latency_ms": 2.778,
+          "count": 3,
+          "top_title": "Context Compaction Checklist"
+        },
+        {
+          "id": "q4",
+          "query": "API handoff",
+          "expected_title": "Review Handoff",
+          "hit": true,
+          "latency_ms": 2.445,
+          "count": 2,
+          "top_title": "Review Handoff"
+        },
+        {
+          "id": "q5",
+          "query": "Obsidian-friendly structure",
+          "expected_title": "Codex Context Bridge",
+          "hit": true,
+          "latency_ms": 2.127,
+          "count": 1,
+          "top_title": "Codex Context Bridge"
+        },
+        {
+          "id": "q6",
+          "query": "sqlite sync timeout",
+          "expected_title": "SQLite Timeout Recovery",
+          "hit": true,
+          "latency_ms": 1.827,
+          "count": 2,
+          "top_title": "SQLite Timeout Recovery"
+        },
+        {
+          "id": "q7",
+          "query": "API review handoff",
+          "expected_title": "Review Handoff",
+          "hit": true,
+          "latency_ms": 2.45,
+          "count": 2,
+          "top_title": "Review Handoff"
+        },
+        {
+          "id": "q8",
+          "query": "Codex context handoff",
+          "expected_title": "Codex Context Bridge",
+          "hit": true,
+          "latency_ms": 2.903,
+          "count": 3,
+          "top_title": "Codex Context Bridge"
+        },
+        {
+          "id": "q9",
+          "query": "review queue ownership",
+          "expected_title": "Review Queue Policy",
+          "hit": true,
+          "latency_ms": 2.239,
+          "count": 1,
+          "top_title": "Review Queue Policy"
+        },
+        {
+          "id": "q10",
+          "query": "release cutover ready",
+          "expected_title": "Release Cutover Ready",
+          "hit": true,
+          "latency_ms": 2.432,
+          "count": 2,
+          "top_title": "Release Cutover Ready"
+        },
+        {
+          "id": "q11",
+          "query": "context compaction checklist",
+          "expected_title": "Context Compaction Checklist",
+          "hit": true,
+          "latency_ms": 2.967,
+          "count": 3,
+          "top_title": "Context Compaction Checklist"
+        }
+      ]
+    },
+    "duplicate_suppression": {
+      "attempt_count": 4,
+      "stored_count": 1,
+      "duplicate_count": 3,
+      "suppression_rate": 1.0
+    },
+    "relation_metadata": {
+      "passed": true,
+      "checks": {
+        "store_succeeds": true,
+        "recall_surfaces_relations": true,
+        "recall_surfaces_validity_status": true,
+        "stats_counts_relations_and_validity": true,
+        "export_mentions_relation_metadata": true
+      }
+    }
+  }
+}

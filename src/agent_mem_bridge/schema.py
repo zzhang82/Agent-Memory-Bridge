@@ -17,6 +17,11 @@ def init_db(conn: sqlite3.Connection) -> None:
             actor TEXT,
             correlation_id TEXT,
             source_app TEXT,
+            source_client TEXT,
+            source_model TEXT,
+            client_session_id TEXT,
+            client_workspace TEXT,
+            client_transport TEXT,
             signal_status TEXT,
             claimed_by TEXT,
             claimed_at TEXT,
@@ -31,6 +36,11 @@ def init_db(conn: sqlite3.Connection) -> None:
     ensure_column(conn, "memories", "title", "ALTER TABLE memories ADD COLUMN title TEXT")
     ensure_column(conn, "memories", "actor", "ALTER TABLE memories ADD COLUMN actor TEXT")
     ensure_column(conn, "memories", "correlation_id", "ALTER TABLE memories ADD COLUMN correlation_id TEXT")
+    ensure_column(conn, "memories", "source_client", "ALTER TABLE memories ADD COLUMN source_client TEXT")
+    ensure_column(conn, "memories", "source_model", "ALTER TABLE memories ADD COLUMN source_model TEXT")
+    ensure_column(conn, "memories", "client_session_id", "ALTER TABLE memories ADD COLUMN client_session_id TEXT")
+    ensure_column(conn, "memories", "client_workspace", "ALTER TABLE memories ADD COLUMN client_workspace TEXT")
+    ensure_column(conn, "memories", "client_transport", "ALTER TABLE memories ADD COLUMN client_transport TEXT")
     ensure_column(conn, "memories", "signal_status", "ALTER TABLE memories ADD COLUMN signal_status TEXT")
     ensure_column(conn, "memories", "claimed_by", "ALTER TABLE memories ADD COLUMN claimed_by TEXT")
     ensure_column(conn, "memories", "claimed_at", "ALTER TABLE memories ADD COLUMN claimed_at TEXT")
@@ -57,6 +67,12 @@ def init_db(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_memories_correlation_id_created_at
         ON memories (correlation_id, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_memories_source_client_created_at
+        ON memories (source_client, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_memories_source_model_created_at
+        ON memories (source_model, created_at DESC);
 
         CREATE INDEX IF NOT EXISTS idx_memories_signal_status_created_at
         ON memories (namespace, signal_status, created_at DESC);

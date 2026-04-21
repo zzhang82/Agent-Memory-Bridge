@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CAST_PATH = ROOT / "examples" / "demo" / "terminal-demo.cast"
 COMMAND = r".\.venv\Scripts\python.exe .\scripts\demo_terminal.py"
+DISPLAY_ROOT = r"D:\path\to\agent-memory-bridge"
 
 
 def main() -> None:
@@ -22,8 +23,8 @@ def main() -> None:
 
     header = {
         "version": 2,
-        "width": 100,
-        "height": 30,
+        "width": 112,
+        "height": 34,
         "timestamp": int(time.time()),
         "env": {
             "TERM": "xterm-256color",
@@ -34,12 +35,20 @@ def main() -> None:
     timeline: list[str] = [json.dumps(header)]
     current_time = 0.2
 
-    prompt = f"PS {ROOT}> {COMMAND}\r\n"
+    prompt = f"PS {DISPLAY_ROOT}> {COMMAND}\r\n"
     timeline.append(json.dumps([round(current_time, 3), "o", prompt]))
     current_time += 0.35
 
     for line in completed.stdout.splitlines(keepends=True):
-        delay = 0.5 if line.startswith("# ") else 0.08
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            delay = 0.5
+        elif stripped.startswith("recommended_action:") or stripped.startswith("Task memory for:"):
+            delay = 0.18
+        elif stripped in {"Procedures:", "Concepts:", "Beliefs:", "Supporting:"}:
+            delay = 0.16
+        else:
+            delay = 0.08
         timeline.append(json.dumps([round(current_time, 3), "o", line.replace("\n", "\r\n")]))
         current_time += delay
 

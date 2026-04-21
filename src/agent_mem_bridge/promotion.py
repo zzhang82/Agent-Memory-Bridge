@@ -4,7 +4,7 @@ import hashlib
 import json
 from typing import Any
 
-from .repository import MemoryRow, fetch_row_by_id, normalize_content, normalize_tags
+from .repository import MemoryRow, fetch_row_by_id, merge_tags, normalize_content
 
 
 PROMOTABLE_RECORD_TYPES = {"learn", "gotcha", "domain-note"}
@@ -196,21 +196,26 @@ def build_promoted_item(row: MemoryRow, *, target_kind: str, current_record_type
         }
         title = f"[[Domain Note]] {truncate_title(claim)}"
 
-    tags = [
+    explicit_tags = [
         tag
         for tag in row.tags
-        if not tag.startswith("kind:") and not tag.startswith("confidence:") and not tag.startswith("promoted-from:")
+        if not tag.startswith("kind:")
+        and not tag.startswith("confidence:")
+        and not tag.startswith("promoted-from:")
+        and not tag.startswith("relation:")
+        and not tag.startswith("validity:")
     ]
-    tags.extend([f"kind:{target_kind}", "confidence:manual"])
+    explicit_tags.extend([f"kind:{target_kind}", "confidence:manual"])
     if current_record_type in PROMOTABLE_RECORD_TYPES:
-        tags.append(f"promoted-from:{current_record_type}")
+        explicit_tags.append(f"promoted-from:{current_record_type}")
+    promoted_content = build_structured_record(promoted_fields)
     return {
         "id": row.id,
         "namespace": row.namespace,
         "kind": row.kind,
         "title": title,
-        "content": build_structured_record(promoted_fields),
-        "tags": normalize_tags(tags),
+        "content": promoted_content,
+        "tags": merge_tags(explicit_tags, title=title, content=promoted_content),
         "session_id": row.session_id,
         "actor": row.actor,
         "correlation_id": row.correlation_id,

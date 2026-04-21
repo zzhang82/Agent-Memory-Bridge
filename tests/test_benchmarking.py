@@ -6,6 +6,8 @@ from agent_mem_bridge.benchmarking import (
     DEFAULT_QUESTIONS_PATH,
     first_relevant_rank,
     precision_at_k,
+    recall_at_k,
+    reciprocal_rank,
     run_benchmark,
 )
 
@@ -18,6 +20,10 @@ def test_precision_at_k_and_rank_helpers() -> None:
     assert precision_at_k(top_titles, relevant, 3) == 0.667
     assert precision_at_k(["B"], relevant, 3) == 0.333
     assert first_relevant_rank(top_titles, relevant) == 2
+    assert recall_at_k(2, 1) == 0.0
+    assert recall_at_k(2, 3) == 1.0
+    assert reciprocal_rank(2) == 0.5
+    assert reciprocal_rank(None) == 0.0
 
 
 def test_build_retrieval_summary_aggregates_precision_and_latency() -> None:
@@ -29,6 +35,7 @@ def test_build_retrieval_summary_aggregates_precision_and_latency() -> None:
                     "expected_top1": True,
                     "precision_at_1": 1.0,
                     "precision_at_3": 0.667,
+                    "first_relevant_rank": 1,
                     "latency_ms": 1.0,
                 },
                 "file_scan": {
@@ -36,6 +43,7 @@ def test_build_retrieval_summary_aggregates_precision_and_latency() -> None:
                     "expected_top1": False,
                     "precision_at_1": 0.0,
                     "precision_at_3": 0.333,
+                    "first_relevant_rank": 2,
                     "latency_ms": 3.0,
                 },
             },
@@ -45,6 +53,7 @@ def test_build_retrieval_summary_aggregates_precision_and_latency() -> None:
                     "expected_top1": False,
                     "precision_at_1": 0.0,
                     "precision_at_3": 0.333,
+                    "first_relevant_rank": 2,
                     "latency_ms": 2.0,
                 },
                 "file_scan": {
@@ -52,6 +61,7 @@ def test_build_retrieval_summary_aggregates_precision_and_latency() -> None:
                     "expected_top1": True,
                     "precision_at_1": 1.0,
                     "precision_at_3": 0.667,
+                    "first_relevant_rank": 1,
                     "latency_ms": 5.0,
                 },
             },
@@ -64,12 +74,18 @@ def test_build_retrieval_summary_aggregates_precision_and_latency() -> None:
     assert summary["memory_expected_top1_accuracy"] == 0.5
     assert summary["memory_precision_at_1"] == 0.5
     assert summary["memory_precision_at_3"] == 0.5
+    assert summary["memory_recall_at_1"] == 0.5
+    assert summary["memory_recall_at_3"] == 1.0
+    assert summary["memory_mrr"] == 0.75
     assert summary["memory_avg_latency_ms"] == 1.5
     assert summary["file_scan_hit_count"] == 1
     assert summary["file_scan_expected_top1_count"] == 1
     assert summary["file_scan_expected_top1_accuracy"] == 0.5
     assert summary["file_scan_precision_at_1"] == 0.5
     assert summary["file_scan_precision_at_3"] == 0.5
+    assert summary["file_scan_recall_at_1"] == 0.5
+    assert summary["file_scan_recall_at_3"] == 1.0
+    assert summary["file_scan_mrr"] == 0.75
     assert summary["file_scan_avg_latency_ms"] == 4.0
 
 
@@ -136,9 +152,12 @@ Reviewer needed for the API handoff.
 
     assert report["summary"]["question_count"] == 2
     assert "memory_precision_at_1" in report["summary"]
+    assert "memory_mrr" in report["summary"]
     assert "memory_expected_top1_accuracy" in report["summary"]
+    assert "file_scan_recall_at_3" in report["summary"]
     assert "file_scan_precision_at_3" in report["summary"]
     assert "signal_correctness_passed" in report["summary"]
+    assert "relation_metadata_passed" in report["summary"]
     assert "deterministic_proof_summary" in report
     assert len(report["results"]) == 2
     assert report["results"][0]["memory"]["top_titles"][0] == "Storage Decision"
