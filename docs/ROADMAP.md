@@ -106,9 +106,7 @@ without turning relation-lite metadata into a graph-platform story.
 
 ### 0.11 = governed procedure memory
 
-Status: local/in-progress. This is stacked on the local `0.10` task-memory
-assembly work and should remain unreleased until both layers are validated
-together.
+Status: shipped in `v0.11.0`.
 
 #### Thesis
 

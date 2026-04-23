@@ -24,7 +24,7 @@ governed ladder. Works with any MCP-compatible client over stdio.
 > 30-second demo: store memory + signal → claim → extend → ack → later recall from the same project.
 > Local, inspectable, and still small enough to debug.
 
-`0.10.0` — relation-aware task memory on the same small MCP surface.
+`0.11.0` — governed procedure memory and relation-aware task assembly on the same small MCP surface.
 
 Most memory tools put everything into one bucket. Agent Memory Bridge keeps two
 different kinds of state separate:
@@ -72,6 +72,9 @@ memory stack, see [docs/COMPARISON.md](docs/COMPARISON.md).
    conservative belief and concept-note layer.
 4. Applicable task-time memory. Procedures, concept notes, beliefs, and linked
    support can now be assembled into one issue-oriented local context.
+5. Governed procedure memory. Validated procedures are preferred, draft and
+   legacy procedures stay eligible with warnings, and stale/replaced/unsafe
+   procedures are suppressed from governed task packets.
 
 ## Task-Memory Micro-Example
 
@@ -99,8 +102,29 @@ supporting_hits:
 - watcher-db-mismatch gotcha
 ```
 
-That is emerging `0.10` engine behavior, not a new top-level MCP tool, but it is
-the clearest example of where procedures, concepts, beliefs, and support now meet.
+That is now bridge-internal task-memory behavior, not a new top-level MCP tool,
+but it is the clearest example of where procedures, concepts, beliefs, and
+support now meet.
+
+## Procedure Governance Micro-Example
+
+Procedure records can now carry explicit governance fields:
+
+```text
+record_type: procedure
+procedure_status: validated
+goal: Run release cutover with proof before tagging.
+when_to_use: Before a public release.
+when_not_to_use: For local-only spike branches.
+prerequisites: clean working tree | current benchmark report
+steps: run benchmark | run release contract | tag release
+failure_mode: stale docs or benchmark numbers can mislead users
+rollback_path: stop release, update docs/report, rerun checks
+```
+
+At task time, the governed packet prefers `validated` procedures, keeps `draft`
+and legacy no-status procedures visible with warnings, and suppresses `stale`,
+`replaced`, and `unsafe` procedures from the selected task context.
 
 ## Evidence
 
@@ -129,9 +153,19 @@ Optional classifier enrichment (`sample_count = 16`):
 | `classifier_better_count = 13` | classifier wins |
 | `fallback_better_count = 2` | fallback wins |
 
+Procedure governance benchmark (`case_count = 7`):
+
+| Metric | Score |
+|---|---|
+| `flat_case_pass_rate = 0.429` | flat packet |
+| `governed_case_pass_rate = 1.0` | governed packet |
+| `flat_blocked_procedure_leak_rate = 1.0` | flat packet |
+| `governed_blocked_procedure_leak_rate = 0.0` | governed packet |
+| `governed_governance_field_completeness = 1.0` | governed packet |
+
 ## Honest Boundaries
 
-`0.10.0` is deliberately scoped. It is not:
+`0.11.0` is deliberately scoped. It is not:
 
 - a graph database
 - capable of full relation-aware traversal or ranking across the whole store

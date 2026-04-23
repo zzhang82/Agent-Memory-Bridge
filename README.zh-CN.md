@@ -14,12 +14,13 @@
 
 桥本身不绑定 Codex。任何能通过 stdio 启动 MCP server 的客户端都可以接入；Codex 只是这个仓库当前最完整的集成路径。
 
-`0.10.0` 的重点是：在不扩大公开 MCP surface 的前提下，让 task-time memory 更会使用关系信息，既能保留相关支持，也能压住过期、冲突或被取代的记录。
+`0.11.0` 的重点是：在不扩大公开 MCP surface 的前提下，让 procedure memory 更受治理：validated procedure 会被优先使用，draft / legacy procedure 仍可见但带 warning，stale / replaced / unsafe procedure 会从 governed task packet 里被压住。
 
 - 公开 MCP 工具仍然只有 `10` 个，复杂度主要留在桥内部
 - relation-lite 结构化记忆已经出现在 recall、export、stats、proof 和 health tooling 里
 - retrieval 现在有 `precision@k`、`recall@k`、`MRR`、`expected_top1_accuracy` 这些可重复运行的指标
 - 已经有第一版 task-time memory assembly，可以把 procedure、concept note、belief 和 supporting records 组合起来
+- procedure governance 已经能区分 validated / draft / stale / replaced / unsafe，并在任务时组装中影响选择和 suppression
 
 ![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
 
@@ -102,7 +103,7 @@ Agent Memory Bridge 走的是更克制的一条路：
 
 ## 诚实边界
 
-Agent Memory Bridge `0.10.0` 仍然不是：
+Agent Memory Bridge `0.11.0` 仍然不是：
 
 - 图数据库
 - 面向全库的 relation-aware traversal 或 ranking
