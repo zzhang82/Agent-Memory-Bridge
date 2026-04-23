@@ -205,6 +205,123 @@ def test_recall_first_surfaces_procedures_and_supporting_task_memory(tmp_path: P
     ]
     assert len(result["concept_hits"]) == 1
     assert len(result["belief_hits"]) == 1
-    assert len(result["supporting_hits"]) == 2
+    assert result["supporting_hits"] == []
     assert result["recommended_action"] == "Search local memory first, starting with applicable procedures and supporting concepts."
     assert "review handoff" in result["task_memory_summary"].lower()
+
+
+def test_recall_first_returns_relation_filtered_task_packet(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    old_belief = store.store(
+        namespace="global",
+        kind="memory",
+        title="[[Belief]] implicit release handoff owner",
+        content=(
+            "record_type: belief\n"
+            "claim: Release handoff owner can stay implicit when the checklist is short.\n"
+            "status: active\n"
+        ),
+        tags=["kind:belief", "domain:release", "topic:handoff"],
+    )
+    contradicted_belief = store.store(
+        namespace="global",
+        kind="memory",
+        title="[[Belief]] optional release handoff owner",
+        content=(
+            "record_type: belief\n"
+            "claim: Release handoff owner assignment is optional during routine releases.\n"
+            "status: active\n"
+        ),
+        tags=["kind:belief", "domain:release", "topic:handoff"],
+    )
+    current_belief = store.store(
+        namespace="global",
+        kind="memory",
+        title="[[Belief]] explicit release handoff owner",
+        content=(
+            "record_type: belief\n"
+            "claim: Release handoff needs one explicit owner before execution.\n"
+            "status: active\n"
+            f"supersedes: {old_belief['id']}\n"
+            f"contradicts: {contradicted_belief['id']}\n"
+        ),
+        tags=["kind:belief", "domain:release", "topic:handoff"],
+    )
+    current_concept = store.store(
+        namespace="global",
+        kind="memory",
+        title="[[Concept Note]] current release handoff checklist",
+        content=(
+            "record_type: concept-note\n"
+            "concept: Current release handoff checklist.\n"
+            "claim: Release handoff should confirm owner, queue, and rollback contact.\n"
+        ),
+        tags=["kind:concept-note", "domain:release", "topic:handoff"],
+    )
+    expired_concept = store.store(
+        namespace="global",
+        kind="memory",
+        title="[[Concept Note]] expired release handoff checklist",
+        content=(
+            "record_type: concept-note\n"
+            "concept: Expired release handoff checklist.\n"
+            "claim: Release handoff can skip owner confirmation after merge.\n"
+            "valid_until: 2020-01-01T00:00:00Z\n"
+        ),
+        tags=["kind:concept-note", "domain:release", "topic:handoff"],
+    )
+    future_concept = store.store(
+        namespace="global",
+        kind="memory",
+        title="[[Concept Note]] future release handoff checklist",
+        content=(
+            "record_type: concept-note\n"
+            "concept: Future release handoff checklist.\n"
+            "claim: Release handoff will use the upcoming reviewer rotation policy.\n"
+            "valid_from: 2099-01-01T00:00:00Z\n"
+        ),
+        tags=["kind:concept-note", "domain:release", "topic:handoff"],
+    )
+    store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="[[Procedure]] release handoff",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run release handoff with a clear owner.\n"
+            "steps: assign owner | confirm queue | document rollback contact\n"
+            f"depends_on: {current_concept['id']} | {expired_concept['id']} | {future_concept['id']}\n"
+            f"supports: {current_belief['id']}\n"
+        ),
+        tags=["kind:procedure", "domain:release", "topic:handoff"],
+    )
+
+    result = recall_first(
+        store=store,
+        query="release handoff owner",
+        project_namespace="project:alpha",
+        limit=5,
+    )
+
+    packet_titles = _task_packet_titles(result)
+    assert "[[Procedure]] release handoff" in packet_titles
+    assert "[[Concept Note]] current release handoff checklist" in packet_titles
+    assert "[[Belief]] explicit release handoff owner" in packet_titles
+    assert "[[Belief]] implicit release handoff owner" not in packet_titles
+    assert "[[Belief]] optional release handoff owner" not in packet_titles
+    assert "[[Concept Note]] expired release handoff checklist" not in packet_titles
+    assert "[[Concept Note]] future release handoff checklist" not in packet_titles
+    assert "implicit release handoff owner" not in result["task_memory_summary"]
+    assert "optional release handoff owner" not in result["task_memory_summary"]
+    assert "expired release handoff checklist" not in result["task_memory_summary"]
+    assert "future release handoff checklist" not in result["task_memory_summary"]
+    assert result["recommended_action"] == "Search local memory first, starting with applicable procedures and supporting concepts."
+
+
+def _task_packet_titles(result: dict[str, object]) -> set[str]:
+    titles: set[str] = set()
+    for key in ("procedure_hits", "concept_hits", "belief_hits", "domain_hits", "supporting_hits"):
+        for item in result.get(key, []) or []:  # type: ignore[union-attr]
+            if isinstance(item, dict) and item.get("title"):
+                titles.add(str(item["title"]))
+    return titles

@@ -1,0 +1,273 @@
+{
+  "schema_version": 1,
+  "description": "Reviewed task-memory packet cases. These compare current flat assembly with relation-aware assembly; they do not claim broad retrieval quality or graph reasoning.",
+  "cases": [
+    {
+      "id": "support-chain-completion",
+      "query": "release cutover verification",
+      "project_namespace": "project:release-demo",
+      "global_namespace": "global",
+      "notes": "A clean support-chain case where both modes should find the anchor, while relation-aware assembly should preserve the direct support chain.",
+      "expectations": {
+        "expected_top_primary_title": "[[Procedure]] release cutover verification",
+        "required_primary_titles": [
+          "[[Procedure]] release cutover verification"
+        ],
+        "required_support_titles": [
+          "[[Concept Note]] release cutover pattern",
+          "[[Belief]] release verification baseline"
+        ],
+        "blocked_titles": []
+      },
+      "records": [
+        {
+          "local_id": "belief_release_verification",
+          "namespace": "global",
+          "kind": "memory",
+          "title": "[[Belief]] release verification baseline",
+          "tags": [
+            "kind:belief",
+            "domain:release",
+            "topic:cutover"
+          ],
+          "content": "record_type: belief\nclaim: Release cutover should verify benchmark and healthcheck before tagging.\nsupport_count: 4\ndistinct_session_count: 3\ncontradiction_count: 0\nconfidence: 0.82\nstatus: active\n"
+        },
+        {
+          "local_id": "concept_release_cutover",
+          "namespace": "global",
+          "kind": "memory",
+          "title": "[[Concept Note]] release cutover pattern",
+          "tags": [
+            "kind:concept-note",
+            "domain:release",
+            "topic:cutover"
+          ],
+          "content": "record_type: concept-note\nconcept: Release cutover verification loop.\nclaim: Release cutover stays safer when verification remains explicit.\nrule: Verify benchmark and healthcheck before tagging.\ndepends_on: {{belief_release_verification}}\n"
+        },
+        {
+          "local_id": "domain_release_safety",
+          "namespace": "global",
+          "kind": "memory",
+          "title": "[[Domain]] release safety",
+          "tags": [
+            "kind:domain-note",
+            "domain:release",
+            "topic:cutover"
+          ],
+          "content": "record_type: domain-note\ndomain: domain:release\nclaim: Release cutover benefits from explicit proof and rollback checks.\n"
+        },
+        {
+          "local_id": "procedure_release_cutover",
+          "namespace": "project:release-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] release cutover verification",
+          "tags": [
+            "kind:procedure",
+            "domain:release",
+            "topic:cutover"
+          ],
+          "content": "record_type: procedure\ngoal: Run release cutover verification safely.\nwhen_to_use: Before tagging a release.\nsteps: run benchmark | run healthcheck | tag release\ndepends_on: {{concept_release_cutover}}\nsupports: {{belief_release_verification}}\n"
+        }
+      ]
+    },
+    {
+      "id": "superseded-procedure-suppression",
+      "query": "release cutover procedure",
+      "project_namespace": "project:release-demo",
+      "global_namespace": "global",
+      "notes": "The old and new procedures both match lexically; relation-aware assembly should keep the superseding current procedure and suppress the legacy one.",
+      "expectations": {
+        "expected_top_primary_title": "[[Procedure]] release cutover current",
+        "required_primary_titles": [
+          "[[Procedure]] release cutover current"
+        ],
+        "required_support_titles": [],
+        "blocked_titles": [
+          "[[Procedure]] release cutover legacy"
+        ]
+      },
+      "records": [
+        {
+          "local_id": "legacy_release_cutover",
+          "namespace": "project:release-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] release cutover legacy",
+          "tags": [
+            "kind:procedure",
+            "domain:release",
+            "topic:cutover"
+          ],
+          "content": "record_type: procedure\ngoal: Run the older release cutover procedure.\nwhen_to_use: Legacy cutover only.\nsteps: skip proof | tag release\n"
+        },
+        {
+          "local_id": "current_release_cutover",
+          "namespace": "project:release-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] release cutover current",
+          "tags": [
+            "kind:procedure",
+            "domain:release",
+            "topic:cutover"
+          ],
+          "content": "record_type: procedure\ngoal: Run the current release cutover procedure.\nwhen_to_use: Normal release cutover.\nsteps: run benchmark | run release contract | tag release\nsupersedes: {{legacy_release_cutover}}\n"
+        }
+      ]
+    },
+    {
+      "id": "contradiction-leakage-control",
+      "query": "release safety healthcheck",
+      "project_namespace": "project:release-demo",
+      "global_namespace": "global",
+      "notes": "Two beliefs match the task, but the newer supported belief contradicts the shortcut belief. The default packet should not include both.",
+      "expectations": {
+        "expected_top_primary_title": "[[Belief]] release safety requires healthcheck",
+        "required_primary_titles": [
+          "[[Belief]] release safety requires healthcheck"
+        ],
+        "required_support_titles": [],
+        "blocked_titles": [
+          "[[Belief]] release safety can skip healthcheck"
+        ]
+      },
+      "records": [
+        {
+          "local_id": "weak_skip_healthcheck",
+          "namespace": "global",
+          "kind": "memory",
+          "title": "[[Belief]] release safety can skip healthcheck",
+          "tags": [
+            "kind:belief",
+            "domain:release",
+            "topic:safety"
+          ],
+          "content": "record_type: belief\nclaim: Release safety can skip healthcheck when the change looks small.\nsupport_count: 1\ndistinct_session_count: 1\ncontradiction_count: 2\nconfidence: 0.31\nstatus: active\n"
+        },
+        {
+          "local_id": "strong_requires_healthcheck",
+          "namespace": "global",
+          "kind": "memory",
+          "title": "[[Belief]] release safety requires healthcheck",
+          "tags": [
+            "kind:belief",
+            "domain:release",
+            "topic:safety"
+          ],
+          "content": "record_type: belief\nclaim: Release safety requires healthcheck even when the change looks small.\nsupport_count: 5\ndistinct_session_count: 4\ncontradiction_count: 0\nconfidence: 0.86\nstatus: active\ncontradicts: {{weak_skip_healthcheck}}\n"
+        }
+      ]
+    },
+    {
+      "id": "validity-window-filtering",
+      "query": "context compaction checklist",
+      "project_namespace": "project:context-demo",
+      "global_namespace": "global",
+      "notes": "The procedure points at expired, future, and current context-compaction support. Relation-aware assembly should keep current support only.",
+      "expectations": {
+        "expected_top_primary_title": "[[Procedure]] context compaction checklist",
+        "required_primary_titles": [
+          "[[Procedure]] context compaction checklist"
+        ],
+        "required_support_titles": [
+          "[[Concept Note]] current context compaction checkpoint"
+        ],
+        "blocked_titles": [
+          "[[Concept Note]] expired context compaction checklist",
+          "[[Belief]] future context compaction policy"
+        ]
+      },
+      "records": [
+        {
+          "local_id": "expired_compaction",
+          "namespace": "global",
+          "kind": "memory",
+          "title": "[[Concept Note]] expired context compaction checklist",
+          "tags": [
+            "kind:concept-note",
+            "domain:context",
+            "topic:compaction"
+          ],
+          "content": "record_type: concept-note\nconcept: Old context compaction checklist.\nclaim: The expired checklist used a stale handoff format.\nvalid_until: 2020-01-01T00:00:00+00:00\n"
+        },
+        {
+          "local_id": "future_compaction",
+          "namespace": "global",
+          "kind": "memory",
+          "title": "[[Belief]] future context compaction policy",
+          "tags": [
+            "kind:belief",
+            "domain:context",
+            "topic:compaction"
+          ],
+          "content": "record_type: belief\nclaim: Future context compaction will require a schema not available yet.\nvalid_from: 2099-01-01T00:00:00+00:00\nstatus: active\n"
+        },
+        {
+          "local_id": "current_compaction",
+          "namespace": "global",
+          "kind": "memory",
+          "title": "[[Concept Note]] current context compaction checkpoint",
+          "tags": [
+            "kind:concept-note",
+            "domain:context",
+            "topic:compaction"
+          ],
+          "content": "record_type: concept-note\nconcept: Current context compaction checkpoint.\nclaim: The current checklist should preserve decisions, open risks, changed files, and next commands.\nvalid_from: 2026-01-01T00:00:00+00:00\n"
+        },
+        {
+          "local_id": "procedure_context_compaction",
+          "namespace": "project:context-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] context compaction checklist",
+          "tags": [
+            "kind:procedure",
+            "domain:context",
+            "topic:compaction"
+          ],
+          "content": "record_type: procedure\ngoal: Prepare a context compaction handoff.\nwhen_to_use: Before a long session is paused.\nsteps: summarize decisions | list changed files | record next commands\ndepends_on: {{expired_compaction}} | {{future_compaction}} | {{current_compaction}}\n"
+        }
+      ]
+    },
+    {
+      "id": "project-expired-global-current",
+      "query": "triage review queue procedure",
+      "project_namespace": "project:review-demo",
+      "global_namespace": "global",
+      "notes": "A stale project-local procedure should not outrank a current global procedure purely because project hits are merged first.",
+      "expectations": {
+        "expected_top_primary_title": "[[Procedure]] triage review queue current",
+        "required_primary_titles": [
+          "[[Procedure]] triage review queue current"
+        ],
+        "required_support_titles": [],
+        "blocked_titles": [
+          "[[Procedure]] triage review queue stale project override"
+        ]
+      },
+      "records": [
+        {
+          "local_id": "project_stale_review_queue",
+          "namespace": "project:review-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] triage review queue stale project override",
+          "tags": [
+            "kind:procedure",
+            "domain:coordination",
+            "topic:review-queue"
+          ],
+          "content": "record_type: procedure\ngoal: Triage review queue using the stale project override.\nwhen_to_use: Old project workflow only.\nsteps: take all pending reviews | skip ownership check\nvalid_until: 2020-01-01T00:00:00+00:00\n"
+        },
+        {
+          "local_id": "global_current_review_queue",
+          "namespace": "global",
+          "kind": "memory",
+          "title": "[[Procedure]] triage review queue current",
+          "tags": [
+            "kind:procedure",
+            "domain:coordination",
+            "topic:review-queue"
+          ],
+          "content": "record_type: procedure\ngoal: Triage review queue using current ownership rules.\nwhen_to_use: Any review queue handoff.\nsteps: inspect ownership | claim eligible item | leave owned work alone\nvalid_from: 2026-01-01T00:00:00+00:00\n"
+        }
+      ]
+    }
+  ]
+}

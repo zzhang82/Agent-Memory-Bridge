@@ -1,0 +1,622 @@
+{
+  "summary": {
+    "case_count": 5,
+    "flat_case_pass_rate": 0.2,
+    "relation_aware_case_pass_rate": 1.0,
+    "flat_required_primary_hit_rate": 1.0,
+    "relation_aware_required_primary_hit_rate": 1.0,
+    "flat_required_support_hit_rate": 1.0,
+    "relation_aware_required_support_hit_rate": 1.0,
+    "flat_blocked_item_leak_rate": 1.0,
+    "relation_aware_blocked_item_leak_rate": 0.0,
+    "flat_avg_packet_size": 3.8,
+    "relation_aware_avg_packet_size": 1.8
+  },
+  "metadata": {
+    "case_count": 5,
+    "cases_path": "benchmark\\task-memory-cases.json",
+    "elapsed_ms": 493.819,
+    "comparison": "flat_current_vs_relation_aware_packet",
+    "baseline": "current assemble_task_memory with relation_aware=false",
+    "relation_aware_supported": true,
+    "notes": "This slice measures task-memory packet quality, not broad retrieval quality or graph reasoning."
+  },
+  "results": [
+    {
+      "id": "support-chain-completion",
+      "query": "release cutover verification",
+      "notes": "A clean support-chain case where both modes should find the anchor, while relation-aware assembly should preserve the direct support chain.",
+      "seeded_records": {
+        "count": 4,
+        "local_ids": [
+          "belief_release_verification",
+          "concept_release_cutover",
+          "domain_release_safety",
+          "procedure_release_cutover"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": true,
+          "required_primary": {
+            "expected": [
+              "[[Procedure]] release cutover verification"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [
+              "[[Concept Note]] release cutover pattern",
+              "[[Belief]] release verification baseline"
+            ],
+            "hit_count": 2,
+            "total": 2,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_primary_title": "[[Procedure]] release cutover verification",
+          "top_primary_title": "[[Procedure]] release cutover verification",
+          "top_primary_matches": true,
+          "packet_size": 6,
+          "visible_titles": [
+            "[[Procedure]] release cutover verification",
+            "[[Concept Note]] release cutover pattern",
+            "[[Belief]] release verification baseline",
+            "[[Domain]] release safety",
+            "[[Concept Note]] release cutover pattern",
+            "[[Belief]] release verification baseline"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [
+            "[[Procedure]] release cutover verification"
+          ],
+          "concept_titles": [
+            "[[Concept Note]] release cutover pattern"
+          ],
+          "belief_titles": [
+            "[[Belief]] release verification baseline"
+          ],
+          "domain_titles": [
+            "[[Domain]] release safety"
+          ],
+          "supporting_titles": [
+            "[[Concept Note]] release cutover pattern",
+            "[[Belief]] release verification baseline"
+          ],
+          "suppressed_titles": [],
+          "summary": "Task memory for: release cutover verification\n\nProcedures:\n- [[Procedure]] release cutover verification\n  goal: Run release cutover verification safely.\n  when_to_use: Before tagging a release.\n  steps: run benchmark | run healthcheck | tag release\n\nConcepts:\n- [[Concept Note]] release cutover pattern\n\nBeliefs:\n- [[Belief]] release verification baseline\n\nDomains:\n- [[Domain]] release safety\n\nSupporting:\n- [[Concept Note]] release cutover pattern\n- [[Belief]] release verification baseline"
+        }
+      },
+      "relation_aware": {
+        "score": {
+          "case_passed": true,
+          "required_primary": {
+            "expected": [
+              "[[Procedure]] release cutover verification"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [
+              "[[Concept Note]] release cutover pattern",
+              "[[Belief]] release verification baseline"
+            ],
+            "hit_count": 2,
+            "total": 2,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_primary_title": "[[Procedure]] release cutover verification",
+          "top_primary_title": "[[Procedure]] release cutover verification",
+          "top_primary_matches": true,
+          "packet_size": 4,
+          "visible_titles": [
+            "[[Procedure]] release cutover verification",
+            "[[Concept Note]] release cutover pattern",
+            "[[Belief]] release verification baseline",
+            "[[Domain]] release safety"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [
+            "[[Procedure]] release cutover verification"
+          ],
+          "concept_titles": [
+            "[[Concept Note]] release cutover pattern"
+          ],
+          "belief_titles": [
+            "[[Belief]] release verification baseline"
+          ],
+          "domain_titles": [
+            "[[Domain]] release safety"
+          ],
+          "supporting_titles": [],
+          "suppressed_titles": [],
+          "summary": "Task memory for: release cutover verification\n\nProcedures:\n- [[Procedure]] release cutover verification\n  selected_as: procedure-anchor score=109.0\n  goal: Run release cutover verification safely.\n  when_to_use: Before tagging a release.\n  steps: run benchmark | run healthcheck | tag release\n\nConcepts:\n- [[Concept Note]] release cutover pattern\n\nBeliefs:\n- [[Belief]] release verification baseline\n\nDomains:\n- [[Domain]] release safety\n\nSupporting:\n(none)"
+        }
+      }
+    },
+    {
+      "id": "superseded-procedure-suppression",
+      "query": "release cutover procedure",
+      "notes": "The old and new procedures both match lexically; relation-aware assembly should keep the superseding current procedure and suppress the legacy one.",
+      "seeded_records": {
+        "count": 2,
+        "local_ids": [
+          "current_release_cutover",
+          "legacy_release_cutover"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": false,
+          "required_primary": {
+            "expected": [
+              "[[Procedure]] release cutover current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [
+              "[[Procedure]] release cutover legacy"
+            ],
+            "leaked": [
+              "[[Procedure]] release cutover legacy"
+            ],
+            "suppressed": []
+          },
+          "expected_top_primary_title": "[[Procedure]] release cutover current",
+          "top_primary_title": "[[Procedure]] release cutover current",
+          "top_primary_matches": true,
+          "packet_size": 2,
+          "visible_titles": [
+            "[[Procedure]] release cutover current",
+            "[[Procedure]] release cutover legacy"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [
+            "[[Procedure]] release cutover current",
+            "[[Procedure]] release cutover legacy"
+          ],
+          "concept_titles": [],
+          "belief_titles": [],
+          "domain_titles": [],
+          "supporting_titles": [],
+          "suppressed_titles": [],
+          "summary": "Task memory for: release cutover procedure\n\nProcedures:\n- [[Procedure]] release cutover current\n  goal: Run the current release cutover procedure.\n  when_to_use: Normal release cutover.\n  steps: run benchmark | run release contract | tag release\n- [[Procedure]] release cutover legacy\n  goal: Run the older release cutover procedure.\n  when_to_use: Legacy cutover only.\n  steps: skip proof | tag release\n\nConcepts:\n(none)\n\nBeliefs:\n(none)\n\nDomains:\n(none)\n\nSupporting:\n(none)"
+        }
+      },
+      "relation_aware": {
+        "score": {
+          "case_passed": true,
+          "required_primary": {
+            "expected": [
+              "[[Procedure]] release cutover current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [
+              "[[Procedure]] release cutover legacy"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Procedure]] release cutover legacy"
+            ]
+          },
+          "expected_top_primary_title": "[[Procedure]] release cutover current",
+          "top_primary_title": "[[Procedure]] release cutover current",
+          "top_primary_matches": true,
+          "packet_size": 1,
+          "visible_titles": [
+            "[[Procedure]] release cutover current"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [
+            "[[Procedure]] release cutover current"
+          ],
+          "concept_titles": [],
+          "belief_titles": [],
+          "domain_titles": [],
+          "supporting_titles": [],
+          "suppressed_titles": [
+            "[[Procedure]] release cutover legacy"
+          ],
+          "summary": "Task memory for: release cutover procedure\n\nProcedures:\n- [[Procedure]] release cutover current\n  selected_as: procedure-anchor score=109.0\n  goal: Run the current release cutover procedure.\n  when_to_use: Normal release cutover.\n  steps: run benchmark | run release contract | tag release\n\nConcepts:\n(none)\n\nBeliefs:\n(none)\n\nDomains:\n(none)\n\nSupporting:\n(none)\n\nRelation Decisions:\n- suppressed: 1"
+        }
+      }
+    },
+    {
+      "id": "contradiction-leakage-control",
+      "query": "release safety healthcheck",
+      "notes": "Two beliefs match the task, but the newer supported belief contradicts the shortcut belief. The default packet should not include both.",
+      "seeded_records": {
+        "count": 2,
+        "local_ids": [
+          "strong_requires_healthcheck",
+          "weak_skip_healthcheck"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": false,
+          "required_primary": {
+            "expected": [
+              "[[Belief]] release safety requires healthcheck"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [
+              "[[Belief]] release safety can skip healthcheck"
+            ],
+            "leaked": [
+              "[[Belief]] release safety can skip healthcheck"
+            ],
+            "suppressed": []
+          },
+          "expected_top_primary_title": "[[Belief]] release safety requires healthcheck",
+          "top_primary_title": "[[Belief]] release safety requires healthcheck",
+          "top_primary_matches": true,
+          "packet_size": 2,
+          "visible_titles": [
+            "[[Belief]] release safety requires healthcheck",
+            "[[Belief]] release safety can skip healthcheck"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [],
+          "concept_titles": [],
+          "belief_titles": [
+            "[[Belief]] release safety requires healthcheck",
+            "[[Belief]] release safety can skip healthcheck"
+          ],
+          "domain_titles": [],
+          "supporting_titles": [],
+          "suppressed_titles": [],
+          "summary": "Task memory for: release safety healthcheck\n\nProcedures:\n(none)\n\nConcepts:\n(none)\n\nBeliefs:\n- [[Belief]] release safety requires healthcheck\n- [[Belief]] release safety can skip healthcheck\n\nDomains:\n(none)\n\nSupporting:\n(none)"
+        }
+      },
+      "relation_aware": {
+        "score": {
+          "case_passed": true,
+          "required_primary": {
+            "expected": [
+              "[[Belief]] release safety requires healthcheck"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [
+              "[[Belief]] release safety can skip healthcheck"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Belief]] release safety can skip healthcheck"
+            ]
+          },
+          "expected_top_primary_title": "[[Belief]] release safety requires healthcheck",
+          "top_primary_title": "[[Belief]] release safety requires healthcheck",
+          "top_primary_matches": true,
+          "packet_size": 1,
+          "visible_titles": [
+            "[[Belief]] release safety requires healthcheck"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [],
+          "concept_titles": [],
+          "belief_titles": [
+            "[[Belief]] release safety requires healthcheck"
+          ],
+          "domain_titles": [],
+          "supporting_titles": [],
+          "suppressed_titles": [
+            "[[Belief]] release safety can skip healthcheck"
+          ],
+          "summary": "Task memory for: release safety healthcheck\n\nProcedures:\n(none)\n\nConcepts:\n(none)\n\nBeliefs:\n- [[Belief]] release safety requires healthcheck\n\nDomains:\n(none)\n\nSupporting:\n(none)\n\nRelation Decisions:\n- suppressed: 1"
+        }
+      }
+    },
+    {
+      "id": "validity-window-filtering",
+      "query": "context compaction checklist",
+      "notes": "The procedure points at expired, future, and current context-compaction support. Relation-aware assembly should keep current support only.",
+      "seeded_records": {
+        "count": 4,
+        "local_ids": [
+          "current_compaction",
+          "expired_compaction",
+          "future_compaction",
+          "procedure_context_compaction"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": false,
+          "required_primary": {
+            "expected": [
+              "[[Procedure]] context compaction checklist"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [
+              "[[Concept Note]] current context compaction checkpoint"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [
+              "[[Concept Note]] expired context compaction checklist",
+              "[[Belief]] future context compaction policy"
+            ],
+            "leaked": [
+              "[[Concept Note]] expired context compaction checklist",
+              "[[Belief]] future context compaction policy"
+            ],
+            "suppressed": []
+          },
+          "expected_top_primary_title": "[[Procedure]] context compaction checklist",
+          "top_primary_title": "[[Procedure]] context compaction checklist",
+          "top_primary_matches": true,
+          "packet_size": 7,
+          "visible_titles": [
+            "[[Procedure]] context compaction checklist",
+            "[[Concept Note]] expired context compaction checklist",
+            "[[Concept Note]] current context compaction checkpoint",
+            "[[Belief]] future context compaction policy",
+            "[[Concept Note]] expired context compaction checklist",
+            "[[Belief]] future context compaction policy",
+            "[[Concept Note]] current context compaction checkpoint"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [
+            "[[Procedure]] context compaction checklist"
+          ],
+          "concept_titles": [
+            "[[Concept Note]] expired context compaction checklist",
+            "[[Concept Note]] current context compaction checkpoint"
+          ],
+          "belief_titles": [
+            "[[Belief]] future context compaction policy"
+          ],
+          "domain_titles": [],
+          "supporting_titles": [
+            "[[Concept Note]] expired context compaction checklist",
+            "[[Belief]] future context compaction policy",
+            "[[Concept Note]] current context compaction checkpoint"
+          ],
+          "suppressed_titles": [],
+          "summary": "Task memory for: context compaction checklist\n\nProcedures:\n- [[Procedure]] context compaction checklist\n  goal: Prepare a context compaction handoff.\n  when_to_use: Before a long session is paused.\n  steps: summarize decisions | list changed files | record next commands\n\nConcepts:\n- [[Concept Note]] expired context compaction checklist\n- [[Concept Note]] current context compaction checkpoint\n\nBeliefs:\n- [[Belief]] future context compaction policy\n\nDomains:\n(none)\n\nSupporting:\n- [[Concept Note]] expired context compaction checklist\n- [[Belief]] future context compaction policy\n- [[Concept Note]] current context compaction checkpoint"
+        }
+      },
+      "relation_aware": {
+        "score": {
+          "case_passed": true,
+          "required_primary": {
+            "expected": [
+              "[[Procedure]] context compaction checklist"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [
+              "[[Concept Note]] current context compaction checkpoint"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [
+              "[[Concept Note]] expired context compaction checklist",
+              "[[Belief]] future context compaction policy"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Concept Note]] expired context compaction checklist",
+              "[[Belief]] future context compaction policy"
+            ]
+          },
+          "expected_top_primary_title": "[[Procedure]] context compaction checklist",
+          "top_primary_title": "[[Procedure]] context compaction checklist",
+          "top_primary_matches": true,
+          "packet_size": 2,
+          "visible_titles": [
+            "[[Procedure]] context compaction checklist",
+            "[[Concept Note]] current context compaction checkpoint"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [
+            "[[Procedure]] context compaction checklist"
+          ],
+          "concept_titles": [
+            "[[Concept Note]] current context compaction checkpoint"
+          ],
+          "belief_titles": [],
+          "domain_titles": [],
+          "supporting_titles": [],
+          "suppressed_titles": [
+            "[[Concept Note]] expired context compaction checklist",
+            "[[Belief]] future context compaction policy"
+          ],
+          "summary": "Task memory for: context compaction checklist\n\nProcedures:\n- [[Procedure]] context compaction checklist\n  selected_as: procedure-anchor score=109.0\n  goal: Prepare a context compaction handoff.\n  when_to_use: Before a long session is paused.\n  steps: summarize decisions | list changed files | record next commands\n\nConcepts:\n- [[Concept Note]] current context compaction checkpoint\n\nBeliefs:\n(none)\n\nDomains:\n(none)\n\nSupporting:\n(none)\n\nRelation Decisions:\n- suppressed: 2"
+        }
+      }
+    },
+    {
+      "id": "project-expired-global-current",
+      "query": "triage review queue procedure",
+      "notes": "A stale project-local procedure should not outrank a current global procedure purely because project hits are merged first.",
+      "seeded_records": {
+        "count": 2,
+        "local_ids": [
+          "global_current_review_queue",
+          "project_stale_review_queue"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": false,
+          "required_primary": {
+            "expected": [
+              "[[Procedure]] triage review queue current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [
+              "[[Procedure]] triage review queue stale project override"
+            ],
+            "leaked": [
+              "[[Procedure]] triage review queue stale project override"
+            ],
+            "suppressed": []
+          },
+          "expected_top_primary_title": "[[Procedure]] triage review queue current",
+          "top_primary_title": "[[Procedure]] triage review queue stale project override",
+          "top_primary_matches": false,
+          "packet_size": 2,
+          "visible_titles": [
+            "[[Procedure]] triage review queue stale project override",
+            "[[Procedure]] triage review queue current"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [
+            "[[Procedure]] triage review queue stale project override",
+            "[[Procedure]] triage review queue current"
+          ],
+          "concept_titles": [],
+          "belief_titles": [],
+          "domain_titles": [],
+          "supporting_titles": [],
+          "suppressed_titles": [],
+          "summary": "Task memory for: triage review queue procedure\n\nProcedures:\n- [[Procedure]] triage review queue stale project override\n  goal: Triage review queue using the stale project override.\n  when_to_use: Old project workflow only.\n  steps: take all pending reviews | skip ownership check\n- [[Procedure]] triage review queue current\n  goal: Triage review queue using current ownership rules.\n  when_to_use: Any review queue handoff.\n  steps: inspect ownership | claim eligible item | leave owned work alone\n\nConcepts:\n(none)\n\nBeliefs:\n(none)\n\nDomains:\n(none)\n\nSupporting:\n(none)"
+        }
+      },
+      "relation_aware": {
+        "score": {
+          "case_passed": true,
+          "required_primary": {
+            "expected": [
+              "[[Procedure]] triage review queue current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "required_support": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "blocked_items": {
+            "expected_absent": [
+              "[[Procedure]] triage review queue stale project override"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Procedure]] triage review queue stale project override"
+            ]
+          },
+          "expected_top_primary_title": "[[Procedure]] triage review queue current",
+          "top_primary_title": "[[Procedure]] triage review queue current",
+          "top_primary_matches": true,
+          "packet_size": 1,
+          "visible_titles": [
+            "[[Procedure]] triage review queue current"
+          ]
+        },
+        "packet": {
+          "relation_aware_supported": true,
+          "procedure_titles": [
+            "[[Procedure]] triage review queue current"
+          ],
+          "concept_titles": [],
+          "belief_titles": [],
+          "domain_titles": [],
+          "supporting_titles": [],
+          "suppressed_titles": [
+            "[[Procedure]] triage review queue stale project override"
+          ],
+          "summary": "Task memory for: triage review queue procedure\n\nProcedures:\n- [[Procedure]] triage review queue current\n  selected_as: procedure-anchor score=100.0\n  goal: Triage review queue using current ownership rules.\n  when_to_use: Any review queue handoff.\n  steps: inspect ownership | claim eligible item | leave owned work alone\n\nConcepts:\n(none)\n\nBeliefs:\n(none)\n\nDomains:\n(none)\n\nSupporting:\n(none)\n\nRelation Decisions:\n- suppressed: 1"
+        }
+      }
+    }
+  ]
+}

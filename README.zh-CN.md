@@ -82,7 +82,7 @@ Agent Memory Bridge 走的是更克制的一条路：
 
 这个仓库现在有一套真实的验证面，而不是只有功能列表：
 
-- `pytest` 当前结果是 `152 passed`
+- `pytest` 当前结果是 `159 passed`
 - deterministic proof 当前结果是 `4/4` checks passed
 - canonical retrieval benchmark 当前结果是：
   - `question_count = 11`
@@ -342,7 +342,7 @@ docker --context desktop-linux run --rm -i agent-memory-bridge:local
 - watcher health check 会验证 Codex rollout 文件是否还能被解析成可用 summary
 - metadata-only telemetry 可以做摘要，不暴露存储的 memory 正文
 - classifier 的 shadow / assist 行为有基于 fixture 的回归测试覆盖
-- 当前测试套件结果是 `152 passed`
+- 当前测试套件结果是 `159 passed`
 
 常用命令：
 

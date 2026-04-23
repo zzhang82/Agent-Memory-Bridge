@@ -13,6 +13,7 @@ the engine gets more expressive.
 - `python .\\scripts\\run_classifier_calibration.py`
 - `python .\\scripts\\run_classifier_calibration.py --fixture-gateway`
 - `python .\\scripts\\run_activation_stress_pack.py`
+- `python .\\scripts\\run_task_memory_benchmark.py`
 
 ## What The Reports Cover
 
@@ -26,6 +27,7 @@ The checked-in proof and benchmark flow covers:
 - `precision@1`, `precision@3`, `recall@1`, `recall@3`, `MRR`, and `expected_top1_accuracy`
 - reviewed classifier-vs-fallback calibration
 - isolated learning-ladder activation stress cases
+- reviewed task-memory packet comparison between flat/current assembly and relation-aware assembly
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.
@@ -65,6 +67,30 @@ The current reviewed calibration slices are:
 If no classifier command is configured, `run_classifier_calibration.py` reports
 fallback-only calibration. Use `--fixture-gateway` for the deterministic bundled
 calibration path, or pass a real classifier command with `--command`.
+
+## Task-Memory Packet Benchmark
+
+The task-memory benchmark is separate from the canonical retrieval benchmark. It
+answers a narrower 0.10 question:
+
+> Given the same records and task query, does relation-aware assembly produce a
+> cleaner packet than the current flat/current assembler?
+
+The reviewed cases live in `benchmark/task-memory-cases.json`. They exercise
+support-chain completion, superseded-record suppression, contradiction leakage,
+validity-window filtering, and project-vs-global precedence under stale project
+overrides.
+
+The report is written to `benchmark/latest-task-memory-report.json` and tracks:
+
+- `flat_case_pass_rate`
+- `relation_aware_case_pass_rate`
+- required primary/support hit rates
+- blocked-item leak rates
+- average packet size
+
+These metrics are packet-quality checks. They are not retrieval benchmarks, graph
+reasoning claims, or productivity claims.
 
 ## Activation Stress
 

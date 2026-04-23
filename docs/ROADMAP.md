@@ -67,28 +67,33 @@ These are intentionally still outside the shipped `0.9.0` scope:
 - active signal consumer loops
 - pre-compaction capture before model-side loss
 
-## Planned Release Ladder After 0.9.0
+## Active Release Direction After 0.9.0
 
 ### 0.10 = relation-aware task memory
+
+Status: local/in-progress. This is the active post-`0.9.0` direction, not a
+released capability yet.
 
 #### Thesis
 
 `0.10` should make task-time memory feel more connected and more explainable,
 without turning relation-lite metadata into a graph-platform story.
 
-#### What it should cover
+#### What local work should cover first
 
-- relation-aware recall expansion beyond simple supporting-ID fetch
-- relation-weighted task assembly and ranking
+- eligibility filtering for expired, future, and invalid relation targets before packet assembly
+- anchor-first task assembly, with relation expansion happening after surviving anchors are chosen
+- relation-weighted task assembly and ranking over the existing recall pool
 - clearer use of `supports`, `contradicts`, `supersedes`, `depends_on`,
   `valid_from`, and `valid_until` during assembly
-- a first careful pass at cross-domain concept synthesis
+- packet-level suppression for superseded or contradicted records
+- explainable inclusion/suppression reasons if the packet needs debugging
 
 #### What must prove out
 
 - reviewed relation-aware task-memory fixtures
-- comparison cases where relation-weighted assembly beats flatter packets
-- contradiction-aware recall cases
+- comparison cases where relation-aware packets beat flatter `0.9` packets
+- contradiction, supersession, and validity-window leakage tests through `recall_first(...)`
 - no MCP surface expansion required for the user-visible win
 
 #### What it is not
@@ -96,6 +101,8 @@ without turning relation-lite metadata into a graph-platform story.
 - not a graph database
 - not graph traversal
 - not a new traversal-oriented MCP API
+- not a claim that general retrieval ranking improved
+- not cross-domain concept synthesis as the main `0.10` thesis
 
 ### 0.11 = governed procedure memory
 
@@ -172,7 +179,7 @@ as they become stable and portable.
 
 ## What 1.0 Should Mean
 
-`1.0` should not mean “we added more features.” It should mean the current shape
+`1.0` should not mean "we added more features." It should mean the current shape
 is trustworthy enough to stabilize.
 
 Before that label makes sense, the bridge should have:
