@@ -118,7 +118,7 @@ def test_assemble_task_memory_suppresses_stale_and_replaced_procedures(tmp_path:
             "record_type: procedure\n"
             "procedure_status: stale\n"
             "goal: Sync skills using the stale path.\n"
-            "steps: use junction\n"
+            "steps: use old shared link\n"
         ),
         tags=["kind:procedure", "domain:skills", "topic:sync"],
     )
