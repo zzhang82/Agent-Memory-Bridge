@@ -14,7 +14,7 @@
 
 桥本身不绑定 Codex。任何能通过 stdio 启动 MCP server 的客户端都可以接入；Codex 只是这个仓库当前最完整的集成路径。
 
-`0.9.0` 的重点是：在不扩大公开 MCP surface 的前提下，让记忆既更有结构，也更能在任务发生时直接派上用场。
+`0.10.0` 的重点是：在不扩大公开 MCP surface 的前提下，让 task-time memory 更会使用关系信息，既能保留相关支持，也能压住过期、冲突或被取代的记录。
 
 - 公开 MCP 工具仍然只有 `10` 个，复杂度主要留在桥内部
 - relation-lite 结构化记忆已经出现在 recall、export、stats、proof 和 health tooling 里
@@ -102,7 +102,7 @@ Agent Memory Bridge 走的是更克制的一条路：
 
 ## 诚实边界
 
-Agent Memory Bridge `0.9.0` 仍然不是：
+Agent Memory Bridge `0.10.0` 仍然不是：
 
 - 图数据库
 - 面向全库的 relation-aware traversal 或 ranking

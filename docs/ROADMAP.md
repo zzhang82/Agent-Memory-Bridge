@@ -71,8 +71,7 @@ These are intentionally still outside the shipped `0.9.0` scope:
 
 ### 0.10 = relation-aware task memory
 
-Status: local/in-progress. This is the active post-`0.9.0` direction, not a
-released capability yet.
+Status: shipped in `v0.10.0`.
 
 #### Thesis
 

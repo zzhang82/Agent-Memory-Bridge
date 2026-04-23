@@ -24,8 +24,7 @@ governed ladder. Works with any MCP-compatible client over stdio.
 > 30-second demo: store memory + signal → claim → extend → ack → later recall from the same project.
 > Local, inspectable, and still small enough to debug.
 
-`0.9.0` — relation-lite structured memory, benchmarked retrieval, and task-time
-assembly on the same small MCP surface.
+`0.10.0` — relation-aware task memory on the same small MCP surface.
 
 Most memory tools put everything into one bucket. Agent Memory Bridge keeps two
 different kinds of state separate:
@@ -100,7 +99,7 @@ supporting_hits:
 - watcher-db-mismatch gotcha
 ```
 
-That is emerging `0.9` engine behavior, not a new top-level MCP tool, but it is
+That is emerging `0.10` engine behavior, not a new top-level MCP tool, but it is
 the clearest example of where procedures, concepts, beliefs, and support now meet.
 
 ## Evidence
@@ -132,7 +131,7 @@ Optional classifier enrichment (`sample_count = 16`):
 
 ## Honest Boundaries
 
-`0.9.0` is deliberately scoped. It is not:
+`0.10.0` is deliberately scoped. It is not:
 
 - a graph database
 - capable of full relation-aware traversal or ranking across the whole store
