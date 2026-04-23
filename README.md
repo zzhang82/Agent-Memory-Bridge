@@ -108,7 +108,7 @@ Runnable, not just claimed.
 
 | Gate | Result |
 |---|---|
-| `pytest` | `159 passed` |
+| `pytest` | `175 passed` |
 | deterministic proof | `4/4` checks |
 
 Retrieval benchmark (`question_count = 11`):
@@ -352,7 +352,7 @@ The bridge is meant to be inspectable, not magical:
 - watcher health checks verify that Codex rollout files still parse into usable summaries
 - metadata-only telemetry can be summarized without exposing stored memory bodies
 - classifier shadow and assist behavior is covered by fixture-based regression tests
-- the current test suite passes with `159 passed`
+- the current test suite passes with `175 passed`
 
 Useful commands (run from an active virtual environment):
 

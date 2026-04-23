@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .relation_metadata import parse_content_fields
+from .procedure_governance import (
+    INELIGIBLE_PROCEDURE_STATUSES,
+    parse_procedure_artifact,
+    procedure_governance_status,
+    procedure_score_adjustment,
+)
 from .repository import MemoryRow, fetch_row_by_id
 from .storage import MemoryStore
 
@@ -215,6 +220,7 @@ def _assemble_relation_aware_task_memory(
     suppressed: list[dict[str, Any]] = []
     active_ids = set(candidates)
     _apply_validity_suppression(candidates, active_ids, suppressed)
+    _apply_procedure_governance_suppression(candidates, active_ids, suppressed)
     scores = _score_candidates(candidates, relation_edges, active_ids)
     _apply_supersession(candidates, active_ids, scores, relation_edges, suppressed)
     scores = _score_candidates(candidates, relation_edges, active_ids)
@@ -308,8 +314,19 @@ def render_task_memory_text(report: dict[str, Any]) -> str:
             lines.append(f"  goal: {procedure['goal']}")
         if procedure.get("when_to_use"):
             lines.append(f"  when_to_use: {procedure['when_to_use']}")
+        if procedure.get("when_not_to_use"):
+            lines.append(f"  when_not_to_use: {procedure['when_not_to_use']}")
+        if procedure.get("prerequisites"):
+            lines.append(f"  prerequisites: {' | '.join(procedure['prerequisites'])}")
         if procedure.get("steps"):
             lines.append(f"  steps: {' | '.join(procedure['steps'])}")
+        if procedure.get("failure_mode"):
+            lines.append(f"  failure_mode: {procedure['failure_mode']}")
+        if procedure.get("rollback_path"):
+            lines.append(f"  rollback_path: {procedure['rollback_path']}")
+        governance = procedure.get("governance") or {}
+        if governance and governance.get("status") != "unspecified":
+            lines.append(f"  procedure_status: {governance['status']}")
 
     lines.extend(["", "Concepts:"])
     concept_hits = report.get("concept_hits") or []
@@ -391,14 +408,9 @@ def _merge_hits(primary: list[dict[str, Any]], secondary: list[dict[str, Any]], 
 
 
 def _enrich_procedure_hit(item: dict[str, Any]) -> dict[str, Any]:
-    fields = parse_content_fields(item.get("content") or "")
     return {
         **item,
-        "procedure": {
-            "goal": fields.get("goal", ""),
-            "when_to_use": fields.get("when_to_use", "") or fields.get("applies_when", ""),
-            "steps": _split_pipe_list(fields.get("steps", "") or fields.get("checklist", "")),
-        },
+        "procedure": parse_procedure_artifact(item.get("content") or ""),
     }
 
 
@@ -535,6 +547,26 @@ def _apply_validity_suppression(
             suppressed.append(_suppressed_payload(candidate, reason=f"validity:{validity}"))
 
 
+def _apply_procedure_governance_suppression(
+    candidates: dict[str, TaskCandidate],
+    active_ids: set[str],
+    suppressed: list[dict[str, Any]],
+) -> None:
+    for item_id, candidate in candidates.items():
+        if candidate.section != "procedure" or item_id not in active_ids:
+            continue
+        status = procedure_governance_status(candidate.item)
+        if status not in INELIGIBLE_PROCEDURE_STATUSES:
+            continue
+        active_ids.remove(item_id)
+        suppressed.append(
+            _suppressed_payload(
+                candidate,
+                reason=f"procedure_status:{status}",
+            )
+        )
+
+
 def _score_candidates(
     candidates: dict[str, TaskCandidate],
     relation_edges: list[dict[str, str]],
@@ -565,12 +597,20 @@ def _base_score(candidate: TaskCandidate) -> float:
     rank_penalty = 5.0 if candidate.section in {"procedure", "concept", "belief"} else 4.0
     namespace_bonus = 4.0 if candidate.namespace_role == "project" else 0.0
     direct_bonus = 5.0 if candidate.direct else 0.0
+    procedure_governance_bonus = _procedure_governance_score(candidate)
     return (
         SECTION_BASE_SCORES[candidate.section]
         - (rank_penalty * max(candidate.raw_rank - 1, 0))
         + namespace_bonus
         + direct_bonus
+        + procedure_governance_bonus
     )
+
+
+def _procedure_governance_score(candidate: TaskCandidate) -> float:
+    if candidate.section != "procedure":
+        return 0.0
+    return procedure_score_adjustment(candidate.item)
 
 
 def _apply_supersession(
@@ -713,7 +753,7 @@ def _annotate_candidate(candidate: TaskCandidate, *, selected_as: str, score: fl
         "task_memory": {
             "selected_as": selected_as,
             "score": round(score, 3),
-            "reasons": list(candidate.reasons),
+            "reasons": list(_candidate_reasons(candidate)),
         },
     }
 
@@ -739,6 +779,15 @@ def _suppressed_payload(
 
 def _item_id(item: dict[str, Any]) -> str:
     return str(item.get("id") or "").strip()
+
+
+def _candidate_reasons(candidate: TaskCandidate) -> tuple[str, ...]:
+    reasons = list(candidate.reasons)
+    if candidate.section == "procedure":
+        status = procedure_governance_status(candidate.item)
+        if status != "unspecified":
+            reasons.append(f"procedure_status:{status}")
+    return tuple(reasons)
 
 
 def _collect_ids(items: list[dict[str, Any]]) -> set[str]:

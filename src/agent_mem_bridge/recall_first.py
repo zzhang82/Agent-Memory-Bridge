@@ -30,6 +30,9 @@ ISSUE_MARKERS = (
     "token",
     "human readable",
     "machine-readable",
+    "procedure",
+    "checklist",
+    "runbook",
 )
 
 ISSUE_TAG_HINTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (

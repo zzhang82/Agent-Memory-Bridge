@@ -44,7 +44,12 @@ def test_assemble_task_memory_composes_project_procedure_with_supporting_layers(
             "record_type: procedure\n"
             "goal: Run release cutover safely.\n"
             "when_to_use: Before tagging a release.\n"
+            "when_not_to_use: When benchmark or healthcheck cannot run.\n"
+            "prerequisites: clean worktree | release owner assigned\n"
             "steps: run benchmark | run healthcheck | tag release\n"
+            "failure_mode: Tagging without proof can ship stale behavior.\n"
+            "rollback_path: delete tag | reopen release checklist\n"
+            "procedure_status: validated\n"
             f"depends_on: {concept['id']}\n"
             f"supports: {belief['id']}\n"
         ),
@@ -61,11 +66,25 @@ def test_assemble_task_memory_composes_project_procedure_with_supporting_layers(
     assert len(report["procedure_hits"]) == 1
     assert report["procedure_hits"][0]["procedure"]["goal"] == "Run release cutover safely."
     assert report["procedure_hits"][0]["procedure"]["when_to_use"] == "Before tagging a release."
+    assert report["procedure_hits"][0]["procedure"]["when_not_to_use"] == (
+        "When benchmark or healthcheck cannot run."
+    )
+    assert report["procedure_hits"][0]["procedure"]["prerequisites"] == [
+        "clean worktree",
+        "release owner assigned",
+    ]
     assert report["procedure_hits"][0]["procedure"]["steps"] == [
         "run benchmark",
         "run healthcheck",
         "tag release",
     ]
+    assert report["procedure_hits"][0]["procedure"]["failure_mode"] == (
+        "Tagging without proof can ship stale behavior."
+    )
+    assert report["procedure_hits"][0]["procedure"]["rollback_path"] == (
+        "delete tag | reopen release checklist"
+    )
+    assert report["procedure_hits"][0]["procedure"]["governance"]["status"] == "validated"
     assert len(report["concept_hits"]) == 1
     assert len(report["belief_hits"]) == 1
     assert report["assembly_mode"] == "relation-aware"
@@ -74,6 +93,7 @@ def test_assemble_task_memory_composes_project_procedure_with_supporting_layers(
     assert "Procedures:" in report["summary"]
     assert "Domains:" in report["summary"]
     assert "steps: run benchmark | run healthcheck | tag release" in report["summary"]
+    assert "procedure_status: validated" in report["summary"]
 
     flat_report = assemble_task_memory(
         store,
@@ -141,6 +161,96 @@ def test_assemble_task_memory_skips_expired_project_procedure_for_current_global
     assert "[[Procedure]] release handoff current global path" in titles
     assert "[[Procedure]] release handoff stale project path" not in titles
     assert any(item["reason"] == "validity:expired" for item in report["suppressed_items"])
+
+
+def test_assemble_task_memory_prefers_validated_procedure_over_draft_project_hit(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+
+    store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="[[Procedure]] release cutover draft shortcut",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run release cutover using an unreviewed shortcut.\n"
+            "when_to_use: Draft experiment only.\n"
+            "steps: skip benchmark | tag release\n"
+            "procedure_status: draft\n"
+        ),
+        tags=["kind:procedure", "domain:release", "topic:cutover"],
+    )
+    store.store(
+        namespace="global",
+        kind="memory",
+        title="[[Procedure]] release cutover validated path",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run release cutover using validated proof gates.\n"
+            "when_to_use: Normal release cutover.\n"
+            "steps: run benchmark | run release contract | tag release\n"
+            "procedure_status: validated\n"
+        ),
+        tags=["kind:procedure", "domain:release", "topic:cutover"],
+    )
+
+    report = assemble_task_memory(
+        store,
+        query="release cutover procedure",
+        project_namespace="project:alpha",
+        global_namespace="global",
+        procedure_limit=1,
+    )
+
+    assert [item["title"] for item in report["procedure_hits"]] == [
+        "[[Procedure]] release cutover validated path"
+    ]
+    assert report["procedure_hits"][0]["procedure"]["governance"]["status"] == "validated"
+
+
+def test_assemble_task_memory_suppresses_stale_replaced_and_unsafe_procedures(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+
+    for status in ("stale", "replaced", "unsafe"):
+        store.store(
+            namespace="project:alpha",
+            kind="memory",
+            title=f"[[Procedure]] release cutover {status}",
+            content=(
+                "record_type: procedure\n"
+                f"goal: Run the {status} release cutover procedure.\n"
+                "steps: skip proof | tag release\n"
+                f"procedure_status: {status}\n"
+            ),
+            tags=["kind:procedure", "domain:release", "topic:cutover"],
+        )
+    store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="[[Procedure]] release cutover safe current",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run the safe current release cutover procedure.\n"
+            "steps: run benchmark | run release contract | tag release\n"
+            "procedure_status: validated\n"
+        ),
+        tags=["kind:procedure", "domain:release", "topic:cutover"],
+    )
+
+    report = assemble_task_memory(
+        store,
+        query="release cutover procedure",
+        project_namespace="project:alpha",
+        global_namespace="global",
+    )
+
+    assert [item["title"] for item in report["procedure_hits"]] == [
+        "[[Procedure]] release cutover safe current"
+    ]
+    assert {item["reason"] for item in report["suppressed_items"]} >= {
+        "procedure_status:stale",
+        "procedure_status:replaced",
+        "procedure_status:unsafe",
+    }
 
 
 def test_assemble_task_memory_suppresses_superseded_and_contradicted_beliefs(tmp_path: Path) -> None:

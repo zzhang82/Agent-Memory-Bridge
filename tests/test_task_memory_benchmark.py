@@ -135,6 +135,7 @@ def test_bundled_task_memory_cases_are_reviewed_and_loadable() -> None:
         "superseded-procedure-suppression",
         "contradiction-leakage-control",
         "validity-window-filtering",
+        "project-expired-global-current",
     }
     for case in cases:
         expectations = case["expectations"]

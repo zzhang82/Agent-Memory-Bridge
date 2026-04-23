@@ -1,0 +1,326 @@
+{
+  "schema_version": 1,
+  "description": "Reviewed procedure-governance packet cases. These measure procedure packet quality and governance only; they do not claim productivity gains, procedure execution, or automatic learning.",
+  "cases": [
+    {
+      "id": "validated-beats-draft",
+      "query": "release checklist procedure",
+      "project_namespace": "project:release-demo",
+      "global_namespace": "global",
+      "limits": {
+        "procedure_limit": 1
+      },
+      "notes": "A draft and a validated procedure both match. The governed packet should prefer the validated procedure without needing a new MCP tool.",
+      "expectations": {
+        "expected_top_procedure_title": "[[Procedure]] release checklist validated",
+        "required_procedure_titles": [
+          "[[Procedure]] release checklist validated"
+        ],
+        "blocked_procedure_titles": [],
+        "blocked_stale_unsafe_titles": [],
+        "expected_governance_status_by_title": {
+          "[[Procedure]] release checklist validated": "validated"
+        },
+        "required_fields_by_title": {
+          "[[Procedure]] release checklist validated": [
+            "goal",
+            "when_to_use",
+            "when_not_to_use",
+            "prerequisites",
+            "steps",
+            "failure_mode",
+            "rollback_path"
+          ]
+        }
+      },
+      "records": [
+        {
+          "local_id": "release_checklist_draft",
+          "namespace": "project:release-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] release checklist draft",
+          "tags": [
+            "kind:procedure",
+            "domain:release",
+            "topic:checklist"
+          ],
+          "content": "record_type: procedure\nprocedure_status: draft\ngoal: Draft release checklist.\nwhen_to_use: Before tagging a release.\nsteps: run quick smoke | tag release\n"
+        },
+        {
+          "local_id": "release_checklist_validated",
+          "namespace": "project:release-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] release checklist validated",
+          "tags": [
+            "kind:procedure",
+            "domain:release",
+            "topic:checklist"
+          ],
+          "content": "record_type: procedure\nprocedure_status: validated\ngoal: Run release checklist with proof before tagging.\nwhen_to_use: Before tagging a public release.\nwhen_not_to_use: For local-only spike branches.\nprerequisites: clean working tree | benchmark report current\nsteps: run benchmark | run release contract | run public surface check | tag release\nfailure_mode: stale README or benchmark numbers can make the release misleading.\nrollback_path: stop release, update docs or report, rerun checks.\n"
+        }
+      ]
+    },
+    {
+      "id": "stale-status-suppression",
+      "query": "dependency audit procedure",
+      "project_namespace": "project:dependency-demo",
+      "global_namespace": "global",
+      "notes": "A stale procedure can still match lexically. Procedure governance should suppress it even without a validity window.",
+      "expectations": {
+        "expected_top_procedure_title": "[[Procedure]] dependency audit current",
+        "required_procedure_titles": [
+          "[[Procedure]] dependency audit current"
+        ],
+        "blocked_procedure_titles": [
+          "[[Procedure]] dependency audit stale"
+        ],
+        "blocked_stale_unsafe_titles": [
+          "[[Procedure]] dependency audit stale"
+        ],
+        "expected_governance_status_by_title": {
+          "[[Procedure]] dependency audit current": "validated"
+        }
+      },
+      "records": [
+        {
+          "local_id": "dependency_audit_stale",
+          "namespace": "project:dependency-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] dependency audit stale",
+          "tags": [
+            "kind:procedure",
+            "domain:dependencies",
+            "topic:audit"
+          ],
+          "content": "record_type: procedure\nprocedure_status: stale\ngoal: Audit dependencies with an obsolete manual checklist.\nwhen_to_use: Old dependency audit process.\nsteps: inspect lockfile only | skip release contract\n"
+        },
+        {
+          "local_id": "dependency_audit_current",
+          "namespace": "project:dependency-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] dependency audit current",
+          "tags": [
+            "kind:procedure",
+            "domain:dependencies",
+            "topic:audit"
+          ],
+          "content": "record_type: procedure\nprocedure_status: validated\ngoal: Audit dependency changes with contract and smoke checks.\nwhen_to_use: Before merging dependency updates.\nsteps: inspect lockfile | run tests | run release contract\n"
+        }
+      ]
+    },
+    {
+      "id": "unsafe-status-suppression",
+      "query": "emergency migration procedure",
+      "project_namespace": "project:migration-demo",
+      "global_namespace": "global",
+      "notes": "Unsafe procedures can remain auditable but should not leak into selected task packets.",
+      "expectations": {
+        "expected_top_procedure_title": "[[Procedure]] emergency migration current",
+        "required_procedure_titles": [
+          "[[Procedure]] emergency migration current"
+        ],
+        "blocked_procedure_titles": [
+          "[[Procedure]] emergency migration unsafe"
+        ],
+        "blocked_stale_unsafe_titles": [
+          "[[Procedure]] emergency migration unsafe"
+        ],
+        "expected_governance_status_by_title": {
+          "[[Procedure]] emergency migration current": "validated"
+        }
+      },
+      "records": [
+        {
+          "local_id": "emergency_migration_unsafe",
+          "namespace": "project:migration-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] emergency migration unsafe",
+          "tags": [
+            "kind:procedure",
+            "domain:migration",
+            "topic:emergency"
+          ],
+          "content": "record_type: procedure\nprocedure_status: unsafe\ngoal: Force migrate all memory records without review.\nwhen_to_use: Never for normal release work.\nsteps: rewrite live database | delete old records | skip rollback snapshot\n"
+        },
+        {
+          "local_id": "emergency_migration_current",
+          "namespace": "project:migration-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] emergency migration current",
+          "tags": [
+            "kind:procedure",
+            "domain:migration",
+            "topic:emergency"
+          ],
+          "content": "record_type: procedure\nprocedure_status: validated\ngoal: Run emergency migration through reversible checkpoints.\nwhen_to_use: Only when a live migration is blocked and the rollback path is known.\nsteps: snapshot database | run dry-run migration | inspect diff | cut over only if checks pass\nrollback_path: restore snapshot and keep old path as fallback.\n"
+        }
+      ]
+    },
+    {
+      "id": "replaced-status-with-supersedes",
+      "query": "skill sync procedure",
+      "project_namespace": "project:skills-demo",
+      "global_namespace": "global",
+      "notes": "Replaced procedure status and supersedes relation should point users at the current workflow while keeping the old record auditable.",
+      "expectations": {
+        "expected_top_procedure_title": "[[Procedure]] skill sync current",
+        "required_procedure_titles": [
+          "[[Procedure]] skill sync current"
+        ],
+        "blocked_procedure_titles": [
+          "[[Procedure]] skill sync old shared-link path"
+        ],
+        "blocked_stale_unsafe_titles": [
+          "[[Procedure]] skill sync old shared-link path"
+        ],
+        "expected_governance_status_by_title": {
+          "[[Procedure]] skill sync current": "validated"
+        }
+      },
+      "records": [
+        {
+          "local_id": "skill_sync_old",
+          "namespace": "project:skills-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] skill sync old shared-link path",
+          "tags": [
+            "kind:procedure",
+            "domain:skills",
+            "topic:sync"
+          ],
+          "content": "record_type: procedure\nprocedure_status: replaced\ngoal: Sync skills through an old shared-link path.\nwhen_to_use: Historical reference only.\nsteps: overwrite live skills from a shared-folder link\n"
+        },
+        {
+          "local_id": "skill_sync_current",
+          "namespace": "project:skills-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] skill sync current",
+          "tags": [
+            "kind:procedure",
+            "domain:skills",
+            "topic:sync"
+          ],
+          "content": "record_type: procedure\nprocedure_status: validated\ngoal: Sync live skills by importing local global updates back into the repo.\nwhen_to_use: When local global skills drift from the repo copy.\nwhen_not_to_use: When the repo copy is newer than the local global skill.\nsteps: compare local and repo skills | import local deltas into repo | commit and push repo changes\nrollback_path: leave local skills untouched and reset only the repo import if review fails.\nsupersedes: {{skill_sync_old}}\n"
+        }
+      ]
+    },
+    {
+      "id": "complete-fields-surface",
+      "query": "subagent review handoff procedure",
+      "project_namespace": "project:team-demo",
+      "global_namespace": "global",
+      "notes": "A complete procedure should expose use boundary, prerequisites, failure mode, and rollback path in the packet.",
+      "expectations": {
+        "expected_top_procedure_title": "[[Procedure]] subagent review handoff",
+        "required_procedure_titles": [
+          "[[Procedure]] subagent review handoff"
+        ],
+        "blocked_procedure_titles": [],
+        "blocked_stale_unsafe_titles": [],
+        "expected_governance_status_by_title": {
+          "[[Procedure]] subagent review handoff": "validated"
+        },
+        "required_fields_by_title": {
+          "[[Procedure]] subagent review handoff": [
+            "goal",
+            "when_to_use",
+            "when_not_to_use",
+            "prerequisites",
+            "steps",
+            "failure_mode",
+            "rollback_path"
+          ]
+        }
+      },
+      "records": [
+        {
+          "local_id": "subagent_review_handoff",
+          "namespace": "project:team-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] subagent review handoff",
+          "tags": [
+            "kind:procedure",
+            "domain:orchestration",
+            "topic:subagents"
+          ],
+          "content": "record_type: procedure\nprocedure_status: validated\ngoal: Run a bounded subagent review and make the commander decide.\nwhen_to_use: Before merging broad or risky changes.\nwhen_not_to_use: For one-line edits or commands with obvious output.\nprerequisites: scoped task prompt | no private data in task | commander review budget\nsteps: assign focused lanes | collect findings | fact-check against repo | accept or reject changes\nfailure_mode: subagents can overclaim or miss local context.\nrollback_path: discard subagent output and rerun commander-only validation.\n"
+        }
+      ]
+    },
+    {
+      "id": "legacy-unspecified-status-compatible",
+      "query": "legacy debug procedure",
+      "project_namespace": "project:legacy-demo",
+      "global_namespace": "global",
+      "notes": "Older procedure records without explicit status should remain eligible but carry a governance warning.",
+      "expectations": {
+        "expected_top_procedure_title": "[[Procedure]] legacy debug procedure",
+        "required_procedure_titles": [
+          "[[Procedure]] legacy debug procedure"
+        ],
+        "blocked_procedure_titles": [],
+        "blocked_stale_unsafe_titles": [],
+        "expected_governance_status_by_title": {
+          "[[Procedure]] legacy debug procedure": "unspecified"
+        },
+        "required_warnings_by_title": {
+          "[[Procedure]] legacy debug procedure": [
+            "missing-procedure-status"
+          ]
+        }
+      },
+      "records": [
+        {
+          "local_id": "legacy_debug_procedure",
+          "namespace": "project:legacy-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] legacy debug procedure",
+          "tags": [
+            "kind:procedure",
+            "domain:debugging",
+            "topic:legacy"
+          ],
+          "content": "record_type: procedure\ngoal: Debug an older local issue.\nwhen_to_use: When no newer procedure exists.\nsteps: inspect logs | rerun failing command | record fix\n"
+        }
+      ]
+    },
+    {
+      "id": "transcript-like-procedure-warning",
+      "query": "messy transcript procedure",
+      "project_namespace": "project:messy-demo",
+      "global_namespace": "global",
+      "notes": "Transcript-like procedure content should stay selectable when it is the only option, but the packet should make the quality warning visible for review.",
+      "expectations": {
+        "expected_top_procedure_title": "[[Procedure]] messy transcript procedure",
+        "required_procedure_titles": [
+          "[[Procedure]] messy transcript procedure"
+        ],
+        "blocked_procedure_titles": [],
+        "blocked_stale_unsafe_titles": [],
+        "expected_governance_status_by_title": {
+          "[[Procedure]] messy transcript procedure": "draft"
+        },
+        "required_warnings_by_title": {
+          "[[Procedure]] messy transcript procedure": [
+            "draft-procedure",
+            "transcript-like-procedure"
+          ]
+        }
+      },
+      "records": [
+        {
+          "local_id": "messy_transcript_procedure",
+          "namespace": "project:messy-demo",
+          "kind": "memory",
+          "title": "[[Procedure]] messy transcript procedure",
+          "tags": [
+            "kind:procedure",
+            "domain:quality",
+            "topic:transcript"
+          ],
+          "content": "record_type: procedure\nprocedure_status: draft\ngoal: Convert a messy transcript into a real procedure later.\nwhen_to_use: Only while reviewing raw session notes.\nsteps: User: asks for a quick fix | Assistant: applies patch | User: says it worked\n"
+        }
+      ]
+    }
+  ]
+}

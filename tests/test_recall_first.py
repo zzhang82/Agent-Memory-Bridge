@@ -183,7 +183,12 @@ def test_recall_first_surfaces_procedures_and_supporting_task_memory(tmp_path: P
         content=(
             "record_type: procedure\n"
             "goal: Hand off review work cleanly.\n"
+            "when_not_to_use: When no reviewer is available.\n"
+            "prerequisites: review queue exists | owner is known\n"
             "steps: assign owner | confirm queue | notify reviewer\n"
+            "failure_mode: Ambiguous ownership leaves reviews stale.\n"
+            "rollback_path: return item to queue | notify requester\n"
+            "procedure_status: validated\n"
             f"depends_on: {concept['id']}\n"
             f"supports: {belief['id']}\n"
         ),
@@ -203,6 +208,18 @@ def test_recall_first_surfaces_procedures_and_supporting_task_memory(tmp_path: P
         "confirm queue",
         "notify reviewer",
     ]
+    assert result["procedure_hits"][0]["procedure"]["when_not_to_use"] == "When no reviewer is available."
+    assert result["procedure_hits"][0]["procedure"]["prerequisites"] == [
+        "review queue exists",
+        "owner is known",
+    ]
+    assert result["procedure_hits"][0]["procedure"]["failure_mode"] == (
+        "Ambiguous ownership leaves reviews stale."
+    )
+    assert result["procedure_hits"][0]["procedure"]["rollback_path"] == (
+        "return item to queue | notify requester"
+    )
+    assert result["procedure_hits"][0]["procedure"]["governance"]["status"] == "validated"
     assert len(result["concept_hits"]) == 1
     assert len(result["belief_hits"]) == 1
     assert result["supporting_hits"] == []
@@ -316,6 +333,46 @@ def test_recall_first_returns_relation_filtered_task_packet(tmp_path: Path) -> N
     assert "expired release handoff checklist" not in result["task_memory_summary"]
     assert "future release handoff checklist" not in result["task_memory_summary"]
     assert result["recommended_action"] == "Search local memory first, starting with applicable procedures and supporting concepts."
+
+
+def test_recall_first_suppresses_stale_procedure_status(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="[[Procedure]] release handoff stale shortcut",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run release handoff with stale shortcut.\n"
+            "steps: skip owner | merge release\n"
+            "procedure_status: stale\n"
+        ),
+        tags=["kind:procedure", "domain:release", "topic:handoff"],
+    )
+    store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="[[Procedure]] release handoff validated path",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run release handoff with explicit owner.\n"
+            "steps: assign owner | confirm queue | merge release\n"
+            "procedure_status: validated\n"
+        ),
+        tags=["kind:procedure", "domain:release", "topic:handoff"],
+    )
+
+    result = recall_first(
+        store=store,
+        query="release handoff procedure",
+        project_namespace="project:alpha",
+        limit=5,
+    )
+
+    assert [item["title"] for item in result["procedure_hits"]] == [
+        "[[Procedure]] release handoff validated path"
+    ]
+    assert "stale shortcut" not in result["task_memory_summary"]
 
 
 def _task_packet_titles(result: dict[str, object]) -> set[str]:

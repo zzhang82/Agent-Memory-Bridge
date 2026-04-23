@@ -1,0 +1,1378 @@
+{
+  "summary": {
+    "case_count": 7,
+    "flat_case_pass_rate": 0.429,
+    "governed_case_pass_rate": 1.0,
+    "flat_validated_procedure_hit_rate": 0.8,
+    "governed_validated_procedure_hit_rate": 1.0,
+    "flat_top_procedure_match_rate": 0.857,
+    "governed_top_procedure_match_rate": 1.0,
+    "flat_required_procedure_hit_rate": 0.857,
+    "governed_required_procedure_hit_rate": 1.0,
+    "flat_blocked_procedure_leak_rate": 1.0,
+    "governed_blocked_procedure_leak_rate": 0.0,
+    "flat_blocked_stale_unsafe_leak_rate": 1.0,
+    "governed_blocked_stale_unsafe_leak_rate": 0.0,
+    "flat_governance_status_match_rate": 0.857,
+    "governed_governance_status_match_rate": 1.0,
+    "flat_governance_field_completeness": 0.5,
+    "governed_governance_field_completeness": 1.0,
+    "flat_required_field_hit_rate": 0.5,
+    "governed_required_field_hit_rate": 1.0,
+    "flat_required_warning_hit_rate": 1.0,
+    "governed_required_warning_hit_rate": 1.0,
+    "flat_avg_visible_procedures": 1.429,
+    "governed_avg_visible_procedures": 1.0
+  },
+  "metadata": {
+    "case_count": 7,
+    "cases_path": "benchmark\\procedure-governance-cases.json",
+    "elapsed_ms": 573.962,
+    "comparison": "flat_packet_vs_governed_procedure_packet",
+    "baseline": "assemble_task_memory with relation_aware=false",
+    "governed_packet": "assemble_task_memory with relation_aware=true and procedure governance",
+    "notes": "This slice measures procedure packet quality and governance. It does not claim productivity gains, procedure execution, or automatic learning."
+  },
+  "results": [
+    {
+      "id": "validated-beats-draft",
+      "query": "release checklist procedure",
+      "notes": "A draft and a validated procedure both match. The governed packet should prefer the validated procedure without needing a new MCP tool.",
+      "seeded_records": {
+        "count": 2,
+        "local_ids": [
+          "release_checklist_draft",
+          "release_checklist_validated"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": false,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] release checklist validated"
+            ],
+            "hit_count": 0,
+            "total": 1,
+            "missing": [
+              "[[Procedure]] release checklist validated"
+            ]
+          },
+          "blocked_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] release checklist validated",
+          "top_procedure_title": "[[Procedure]] release checklist draft",
+          "top_procedure_matches": false,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] release checklist validated"
+            ],
+            "hit_count": 0,
+            "total": 1,
+            "missing": [
+              "[[Procedure]] release checklist validated"
+            ]
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] release checklist validated": "validated"
+            },
+            "hit_count": 0,
+            "total": 1,
+            "missing": {
+              "[[Procedure]] release checklist validated": {
+                "expected": "validated",
+                "actual": null
+              }
+            }
+          },
+          "required_fields": {
+            "expected": {
+              "[[Procedure]] release checklist validated": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "prerequisites",
+                "steps",
+                "failure_mode",
+                "rollback_path"
+              ]
+            },
+            "hit_count": 0,
+            "total": 7,
+            "missing": {
+              "[[Procedure]] release checklist validated": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "prerequisites",
+                "steps",
+                "failure_mode",
+                "rollback_path"
+              ]
+            }
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] release checklist draft"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] release checklist draft"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] release checklist draft",
+              "status": "draft",
+              "warnings": [
+                "draft-procedure"
+              ],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            }
+          ]
+        }
+      },
+      "governed": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] release checklist validated"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] release checklist validated",
+          "top_procedure_title": "[[Procedure]] release checklist validated",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] release checklist validated"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] release checklist validated": "validated"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {
+              "[[Procedure]] release checklist validated": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "prerequisites",
+                "steps",
+                "failure_mode",
+                "rollback_path"
+              ]
+            },
+            "hit_count": 7,
+            "total": 7,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] release checklist validated"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] release checklist validated"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] release checklist validated",
+              "status": "validated",
+              "warnings": [],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "prerequisites",
+                "steps",
+                "failure_mode",
+                "rollback_path"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "stale-status-suppression",
+      "query": "dependency audit procedure",
+      "notes": "A stale procedure can still match lexically. Procedure governance should suppress it even without a validity window.",
+      "seeded_records": {
+        "count": 2,
+        "local_ids": [
+          "dependency_audit_current",
+          "dependency_audit_stale"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": false,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] dependency audit current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [
+              "[[Procedure]] dependency audit stale"
+            ],
+            "leaked": [
+              "[[Procedure]] dependency audit stale"
+            ],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [
+              "[[Procedure]] dependency audit stale"
+            ],
+            "leaked": [
+              "[[Procedure]] dependency audit stale"
+            ],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] dependency audit current",
+          "top_procedure_title": "[[Procedure]] dependency audit current",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] dependency audit current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] dependency audit current": "validated"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 2,
+          "visible_procedure_titles": [
+            "[[Procedure]] dependency audit current",
+            "[[Procedure]] dependency audit stale"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] dependency audit current",
+            "[[Procedure]] dependency audit stale"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] dependency audit current",
+              "status": "validated",
+              "warnings": [],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            },
+            {
+              "title": "[[Procedure]] dependency audit stale",
+              "status": "stale",
+              "warnings": [
+                "ineligible-procedure-status:stale"
+              ],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            }
+          ]
+        }
+      },
+      "governed": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] dependency audit current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [
+              "[[Procedure]] dependency audit stale"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Procedure]] dependency audit stale"
+            ]
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [
+              "[[Procedure]] dependency audit stale"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Procedure]] dependency audit stale"
+            ]
+          },
+          "expected_top_procedure_title": "[[Procedure]] dependency audit current",
+          "top_procedure_title": "[[Procedure]] dependency audit current",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] dependency audit current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] dependency audit current": "validated"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] dependency audit current"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] dependency audit current"
+          ],
+          "suppressed_titles": [
+            "[[Procedure]] dependency audit stale"
+          ],
+          "procedures": [
+            {
+              "title": "[[Procedure]] dependency audit current",
+              "status": "validated",
+              "warnings": [],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "unsafe-status-suppression",
+      "query": "emergency migration procedure",
+      "notes": "Unsafe procedures can remain auditable but should not leak into selected task packets.",
+      "seeded_records": {
+        "count": 2,
+        "local_ids": [
+          "emergency_migration_current",
+          "emergency_migration_unsafe"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": false,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] emergency migration current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [
+              "[[Procedure]] emergency migration unsafe"
+            ],
+            "leaked": [
+              "[[Procedure]] emergency migration unsafe"
+            ],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [
+              "[[Procedure]] emergency migration unsafe"
+            ],
+            "leaked": [
+              "[[Procedure]] emergency migration unsafe"
+            ],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] emergency migration current",
+          "top_procedure_title": "[[Procedure]] emergency migration current",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] emergency migration current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] emergency migration current": "validated"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 2,
+          "visible_procedure_titles": [
+            "[[Procedure]] emergency migration current",
+            "[[Procedure]] emergency migration unsafe"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] emergency migration current",
+            "[[Procedure]] emergency migration unsafe"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] emergency migration current",
+              "status": "validated",
+              "warnings": [],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps",
+                "rollback_path"
+              ]
+            },
+            {
+              "title": "[[Procedure]] emergency migration unsafe",
+              "status": "unsafe",
+              "warnings": [
+                "ineligible-procedure-status:unsafe"
+              ],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            }
+          ]
+        }
+      },
+      "governed": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] emergency migration current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [
+              "[[Procedure]] emergency migration unsafe"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Procedure]] emergency migration unsafe"
+            ]
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [
+              "[[Procedure]] emergency migration unsafe"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Procedure]] emergency migration unsafe"
+            ]
+          },
+          "expected_top_procedure_title": "[[Procedure]] emergency migration current",
+          "top_procedure_title": "[[Procedure]] emergency migration current",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] emergency migration current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] emergency migration current": "validated"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] emergency migration current"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] emergency migration current"
+          ],
+          "suppressed_titles": [
+            "[[Procedure]] emergency migration unsafe"
+          ],
+          "procedures": [
+            {
+              "title": "[[Procedure]] emergency migration current",
+              "status": "validated",
+              "warnings": [],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps",
+                "rollback_path"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "replaced-status-with-supersedes",
+      "query": "skill sync procedure",
+      "notes": "Replaced procedure status and supersedes relation should point users at the current workflow while keeping the old record auditable.",
+      "seeded_records": {
+        "count": 2,
+        "local_ids": [
+          "skill_sync_current",
+          "skill_sync_old"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": false,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] skill sync current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [
+              "[[Procedure]] skill sync old shared-link path"
+            ],
+            "leaked": [
+              "[[Procedure]] skill sync old shared-link path"
+            ],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [
+              "[[Procedure]] skill sync old shared-link path"
+            ],
+            "leaked": [
+              "[[Procedure]] skill sync old shared-link path"
+            ],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] skill sync current",
+          "top_procedure_title": "[[Procedure]] skill sync current",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] skill sync current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] skill sync current": "validated"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 2,
+          "visible_procedure_titles": [
+            "[[Procedure]] skill sync current",
+            "[[Procedure]] skill sync old shared-link path"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] skill sync current",
+            "[[Procedure]] skill sync old shared-link path"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] skill sync current",
+              "status": "validated",
+              "warnings": [],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "steps",
+                "rollback_path"
+              ]
+            },
+            {
+              "title": "[[Procedure]] skill sync old shared-link path",
+              "status": "replaced",
+              "warnings": [
+                "ineligible-procedure-status:replaced"
+              ],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            }
+          ]
+        }
+      },
+      "governed": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] skill sync current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [
+              "[[Procedure]] skill sync old shared-link path"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Procedure]] skill sync old shared-link path"
+            ]
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [
+              "[[Procedure]] skill sync old shared-link path"
+            ],
+            "leaked": [],
+            "suppressed": [
+              "[[Procedure]] skill sync old shared-link path"
+            ]
+          },
+          "expected_top_procedure_title": "[[Procedure]] skill sync current",
+          "top_procedure_title": "[[Procedure]] skill sync current",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] skill sync current"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] skill sync current": "validated"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] skill sync current"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] skill sync current"
+          ],
+          "suppressed_titles": [
+            "[[Procedure]] skill sync old shared-link path"
+          ],
+          "procedures": [
+            {
+              "title": "[[Procedure]] skill sync current",
+              "status": "validated",
+              "warnings": [],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "steps",
+                "rollback_path"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "complete-fields-surface",
+      "query": "subagent review handoff procedure",
+      "notes": "A complete procedure should expose use boundary, prerequisites, failure mode, and rollback path in the packet.",
+      "seeded_records": {
+        "count": 1,
+        "local_ids": [
+          "subagent_review_handoff"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] subagent review handoff"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] subagent review handoff",
+          "top_procedure_title": "[[Procedure]] subagent review handoff",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] subagent review handoff"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] subagent review handoff": "validated"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {
+              "[[Procedure]] subagent review handoff": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "prerequisites",
+                "steps",
+                "failure_mode",
+                "rollback_path"
+              ]
+            },
+            "hit_count": 7,
+            "total": 7,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] subagent review handoff"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] subagent review handoff"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] subagent review handoff",
+              "status": "validated",
+              "warnings": [],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "prerequisites",
+                "steps",
+                "failure_mode",
+                "rollback_path"
+              ]
+            }
+          ]
+        }
+      },
+      "governed": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] subagent review handoff"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] subagent review handoff",
+          "top_procedure_title": "[[Procedure]] subagent review handoff",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [
+              "[[Procedure]] subagent review handoff"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] subagent review handoff": "validated"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {
+              "[[Procedure]] subagent review handoff": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "prerequisites",
+                "steps",
+                "failure_mode",
+                "rollback_path"
+              ]
+            },
+            "hit_count": 7,
+            "total": 7,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] subagent review handoff"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] subagent review handoff"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] subagent review handoff",
+              "status": "validated",
+              "warnings": [],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "when_not_to_use",
+                "prerequisites",
+                "steps",
+                "failure_mode",
+                "rollback_path"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "legacy-unspecified-status-compatible",
+      "query": "legacy debug procedure",
+      "notes": "Older procedure records without explicit status should remain eligible but carry a governance warning.",
+      "seeded_records": {
+        "count": 1,
+        "local_ids": [
+          "legacy_debug_procedure"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] legacy debug procedure"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] legacy debug procedure",
+          "top_procedure_title": "[[Procedure]] legacy debug procedure",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] legacy debug procedure": "unspecified"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {
+              "[[Procedure]] legacy debug procedure": [
+                "missing-procedure-status"
+              ]
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] legacy debug procedure"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] legacy debug procedure"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] legacy debug procedure",
+              "status": "unspecified",
+              "warnings": [
+                "missing-procedure-status"
+              ],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            }
+          ]
+        }
+      },
+      "governed": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] legacy debug procedure"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] legacy debug procedure",
+          "top_procedure_title": "[[Procedure]] legacy debug procedure",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] legacy debug procedure": "unspecified"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {
+              "[[Procedure]] legacy debug procedure": [
+                "missing-procedure-status"
+              ]
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] legacy debug procedure"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] legacy debug procedure"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] legacy debug procedure",
+              "status": "unspecified",
+              "warnings": [
+                "missing-procedure-status"
+              ],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "transcript-like-procedure-warning",
+      "query": "messy transcript procedure",
+      "notes": "Transcript-like procedure content should stay selectable when it is the only option, but the packet should make the quality warning visible for review.",
+      "seeded_records": {
+        "count": 1,
+        "local_ids": [
+          "messy_transcript_procedure"
+        ]
+      },
+      "flat": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] messy transcript procedure"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] messy transcript procedure",
+          "top_procedure_title": "[[Procedure]] messy transcript procedure",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] messy transcript procedure": "draft"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {
+              "[[Procedure]] messy transcript procedure": [
+                "draft-procedure",
+                "transcript-like-procedure"
+              ]
+            },
+            "hit_count": 2,
+            "total": 2,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] messy transcript procedure"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] messy transcript procedure"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] messy transcript procedure",
+              "status": "draft",
+              "warnings": [
+                "draft-procedure",
+                "transcript-like-procedure"
+              ],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            }
+          ]
+        }
+      },
+      "governed": {
+        "score": {
+          "case_passed": true,
+          "required_procedures": {
+            "expected": [
+              "[[Procedure]] messy transcript procedure"
+            ],
+            "hit_count": 1,
+            "total": 1,
+            "missing": []
+          },
+          "blocked_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "blocked_stale_unsafe_procedures": {
+            "expected_absent": [],
+            "leaked": [],
+            "suppressed": []
+          },
+          "expected_top_procedure_title": "[[Procedure]] messy transcript procedure",
+          "top_procedure_title": "[[Procedure]] messy transcript procedure",
+          "top_procedure_matches": true,
+          "validated_procedures": {
+            "expected": [],
+            "hit_count": 0,
+            "total": 0,
+            "missing": []
+          },
+          "governance_statuses": {
+            "expected": {
+              "[[Procedure]] messy transcript procedure": "draft"
+            },
+            "hit_count": 1,
+            "total": 1,
+            "missing": {}
+          },
+          "required_fields": {
+            "expected": {},
+            "hit_count": 0,
+            "total": 0,
+            "missing": {}
+          },
+          "required_warnings": {
+            "expected": {
+              "[[Procedure]] messy transcript procedure": [
+                "draft-procedure",
+                "transcript-like-procedure"
+              ]
+            },
+            "hit_count": 2,
+            "total": 2,
+            "missing": {}
+          },
+          "visible_procedure_count": 1,
+          "visible_procedure_titles": [
+            "[[Procedure]] messy transcript procedure"
+          ]
+        },
+        "packet": {
+          "procedure_titles": [
+            "[[Procedure]] messy transcript procedure"
+          ],
+          "suppressed_titles": [],
+          "procedures": [
+            {
+              "title": "[[Procedure]] messy transcript procedure",
+              "status": "draft",
+              "warnings": [
+                "draft-procedure",
+                "transcript-like-procedure"
+              ],
+              "fields_present": [
+                "goal",
+                "when_to_use",
+                "steps"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

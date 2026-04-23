@@ -1,9 +1,10 @@
 # Roadmap
 
-Last updated: 2026-04-19 (America/New_York)
+Last updated: 2026-04-23 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.9.0` and the next
-likely pressure points after it.
+This maintainer note tracks the shipped ladder through `0.9.0`, plus local
+post-0.9 work that should not be treated as released until the release branch is
+cut.
 
 ## Shipped Ladder
 
@@ -105,10 +106,31 @@ without turning relation-lite metadata into a graph-platform story.
 
 ### 0.11 = governed procedure memory
 
+Status: local/in-progress. This is stacked on the local `0.10` task-memory
+assembly work and should remain unreleased until both layers are validated
+together.
+
 #### Thesis
 
 Once task memory is more relation-aware, the next step is to make procedural
 memory more trustworthy and less ad hoc.
+
+#### Current local implementation
+
+- procedure records now parse boundary and recovery fields:
+  - `when_not_to_use`
+  - `prerequisites`
+  - `failure_mode`
+  - `rollback_path`
+- procedure governance status affects task packet assembly:
+  - `validated` procedures receive a selection boost
+  - `draft` procedures remain eligible but lower priority
+  - `stale`, `replaced`, and `unsafe` procedures are suppressed
+- a separate reviewed procedure-governance benchmark compares flat packets with
+  governed procedure packets
+
+This is a task-time governance layer, not a procedure execution engine or a
+transcript-to-procedure autopromotion system.
 
 #### What it should cover
 
@@ -122,6 +144,8 @@ memory more trustworthy and less ad hoc.
   - `rollback_path`
   - `supersedes`
 - clearer procedure governance states such as draft, validated, stale, or replaced
+- packet-level suppression for stale, replaced, and unsafe procedures
+- backward-compatible warnings for older procedures without explicit status
 
 #### What must prove out
 

@@ -14,6 +14,7 @@ the engine gets more expressive.
 - `python .\\scripts\\run_classifier_calibration.py --fixture-gateway`
 - `python .\\scripts\\run_activation_stress_pack.py`
 - `python .\\scripts\\run_task_memory_benchmark.py`
+- `python .\\scripts\\run_procedure_governance_benchmark.py`
 
 ## What The Reports Cover
 
@@ -28,6 +29,7 @@ The checked-in proof and benchmark flow covers:
 - reviewed classifier-vs-fallback calibration
 - isolated learning-ladder activation stress cases
 - reviewed task-memory packet comparison between flat/current assembly and relation-aware assembly
+- reviewed procedure-governance packet comparison between flat/current assembly and governed procedure assembly
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.
@@ -91,6 +93,35 @@ The report is written to `benchmark/latest-task-memory-report.json` and tracks:
 
 These metrics are packet-quality checks. They are not retrieval benchmarks, graph
 reasoning claims, or productivity claims.
+
+## Procedure-Governance Benchmark
+
+The procedure-governance benchmark is separate from the broader retrieval and
+task-memory packet benchmarks. It answers a narrower 0.11 question:
+
+> Given the same procedure records and task query, does governed procedure
+> assembly keep validated/current procedures visible while suppressing stale,
+> replaced, or unsafe procedures?
+
+The reviewed cases live in `benchmark/procedure-governance-cases.json`. They
+exercise validated-vs-draft selection, stale/replaced/unsafe procedure
+suppression, complete procedure field surfacing, backward-compatible legacy
+procedures without explicit status, and transcript-like draft warnings.
+
+The report is written to `benchmark/latest-procedure-governance-report.json` and
+tracks:
+
+- `flat_case_pass_rate`
+- `governed_case_pass_rate`
+- top procedure match rates
+- required procedure hit rates
+- blocked procedure leak rates
+- governance status match rates
+- required field and warning hit rates
+- average visible procedure counts
+
+These metrics are procedure packet-quality checks. They are not productivity
+claims, automatic procedure-learning claims, or procedure execution claims.
 
 ## Activation Stress
 
