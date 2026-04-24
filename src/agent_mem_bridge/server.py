@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any, Literal
 
 from pydantic import Field
@@ -14,6 +15,9 @@ from .paths import (
     resolve_default_source_model,
 )
 from .storage import MemoryStore
+
+mcp_logger = logging.getLogger("mcp.server.lowlevel.server")
+mcp_logger.setLevel(logging.WARNING)
 
 mcp = FastMCP("agent-memory-bridge", json_response=True)
 bridge = MemoryStore.from_env()

@@ -1,73 +1,106 @@
 # Configuration Guide
 
-Configuration guide for the sections most public installs will actually touch.
 Copy [config.example.toml](../config.example.toml) to a local path you control,
-then adjust the sections below. Advanced runtime defaults and maintainer-only
-helpers still live in the sample config and codebase.
+then edit only the sections you actually need. Basic bridge usage does not require
+watchers, profile imports, telemetry, or classifier assistance.
+
+A clean starting point is:
+
+```text
+~/.config/agent-memory-bridge/config.toml
+```
+
+For client registration examples, see [INTEGRATIONS.md](INTEGRATIONS.md).
 
 ## `[bridge]`
 
-Paths and settings for the local SQLite database.
+Core local runtime settings.
+
+- `home`: root directory for the bridge database and logs
+- `db_path`: SQLite database file name or path relative to `home`
+- `log_dir`: log directory relative to `home`
+
+The sample config uses neutral defaults under `~/.local/share/agent-memory-bridge`.
 
 ## `[classifier]`
 
-Optional enrichment layer that annotates stored records with inferred tags.
+Optional enrichment layer that adds inferred tags to stored records.
 
-| Mode | Behaviour |
+| Mode | Behavior |
 |---|---|
-| `mode = "off"` | deterministic rule path only — no classifier involved |
+| `mode = "off"` | deterministic rule path only |
 | `mode = "shadow"` | classifier runs and divergence is recorded, but stored tags are unchanged |
-| `mode = "assist"` | classifier tags enrich reflex output; keyword and rule logic remains the fallback |
+| `mode = "assist"` | classifier tags enrich reflex output while keyword and rule logic remain the fallback |
 
-`minimum_confidence = 0.6` prevents assist mode from merging low-confidence
-classifier tags into the final record.
+`minimum_confidence = 0.6` prevents assist mode from merging low-confidence tags
+into the final record.
 
-Shadow mode is the safe starting point. Assist mode is worth enabling once you
-have reviewed the shadow divergence log and trust the classifier on your corpus.
+Shadow mode is the safe starting point. Assist mode makes sense after you trust
+the classifier on your own corpus.
 
 ## `[telemetry]`
 
-Metadata-only observability spans. No raw memory content, no recall query text,
-no export bodies are written.
+Metadata-only observability spans.
 
-| Mode | Behaviour |
+| Mode | Behavior |
 |---|---|
 | `mode = "off"` | lightweight local logs only |
 | `mode = "jsonl"` | writes metadata-only spans to `$AGENT_MEMORY_BRIDGE_HOME/telemetry/spans.jsonl` |
 
-Spans are safe to share for benchmarking purposes because they contain only
-structural metadata (record kind, tag counts, timing) and not memory payloads.
+Telemetry intentionally excludes raw memory content, recall query text, and export
+bodies. It is meant for local proof, benchmark summaries, and runtime diagnostics,
+not transcript capture.
 
 ## `[watcher]` and `[service]`
 
-Optional background automation. The watcher captures Codex rollout files and
-promotes session output on a configurable interval. The service wrapper keeps
-that Codex-oriented watcher running as a background process.
+Optional background automation.
 
-Neither is required for basic MCP usage.
+- `[watcher]` controls local rollout and session-file capture helpers
+- `[service]` controls the lightweight polling wrapper around that watcher
+
+These helpers are not required for basic MCP usage. The current watcher workflow is
+best developed around Codex-style rollout files, but the bridge itself does not
+depend on Codex.
 
 ## `[reflex]`
 
 Controls the promotion scanner that advances records through the governed ladder:
 
-`session → summary → learn / gotcha → domain-note → belief → concept-note`
+`session -> summary -> learn / gotcha -> domain-note -> belief -> concept-note`
 
 ## `[profile]`
 
-Optional profile import and migration helpers. Not required for basic bridge usage.
-The example config includes `~/.codex/mem-bridge/profile-source` as a sample
-optional path for import and migration helpers.
+Optional profile import and migration helpers.
 
-## Runtime paths
+The sample config points `source_root` at a neutral local path so imports and
+migration helpers do not assume a Codex-specific home layout. You can leave this
+section alone if you only want the basic bridge runtime.
+
+## Runtime Environment Variables
 
 | Variable | Purpose |
 |---|---|
 | `AGENT_MEMORY_BRIDGE_HOME` | root directory for the bridge database and logs |
 | `AGENT_MEMORY_BRIDGE_CONFIG` | path to the active `config.toml` |
+| `AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT` | optional provenance default for the launching client |
+| `AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT` | optional transport default, usually `stdio` |
 
-### Multi-machine note
+## Onboarding Checks
 
-Keep the live SQLite database local on each machine. Shared SQLite is acceptable
-as a transition or backup path but is not a strong multi-writer live backend.
+Use the CLI when you want to validate a fresh install instead of inspecting files
+by hand:
+
+```bash
+agent-memory-bridge doctor
+agent-memory-bridge verify
+```
+
+- `doctor` checks Python, SQLite FTS5, config parsing, and writable runtime paths
+- `verify` runs an isolated stdio smoke test without touching your live bridge state
+
+## Multi-Machine Note
+
+Keep the live SQLite database local on each machine. Shared SQLite can be useful as
+a transition or backup path, but it is not a strong multi-writer live backend.
 Move to a hosted backend only if you genuinely need concurrent writes from multiple
 machines.

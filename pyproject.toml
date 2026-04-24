@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-bridge"
-version = "0.11.0"
+version = "0.12.0"
 description = "Two-channel MCP memory for coding agents: durable knowledge plus coordination signals"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
-keywords = ["mcp", "memory", "agents", "codex", "sqlite", "fts"]
+keywords = ["mcp", "memory", "agents", "sqlite", "fts", "local-first", "stdio"]
 classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
@@ -28,7 +28,7 @@ dev = [
 ]
 
 [project.scripts]
-agent-memory-bridge = "agent_mem_bridge.server:main"
+agent-memory-bridge = "agent_mem_bridge.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

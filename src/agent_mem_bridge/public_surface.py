@@ -13,9 +13,11 @@ PUBLIC_DOC_PATHS = (
     Path("docs/CLIENT-PROVENANCE.md"),
     Path("docs/COMPARISON.md"),
     Path("docs/CONFIGURATION.md"),
+    Path("docs/INTEGRATIONS.md"),
     Path("docs/MEMORY-TAXONOMY.md"),
     Path("docs/PROMOTION-RULES.md"),
     Path("examples/README.md"),
+    Path("examples/diagrams/amb-overview.svg"),
     Path("examples/demo/README.md"),
     Path("examples/session-notes/demo/01-memory-note.md"),
     Path("examples/session-notes/demo/02-signal-note.md"),
@@ -49,8 +51,24 @@ BLOCKED_DOC_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         "Maintainer workstation path leaked into a public doc.",
     ),
     (
+        re.compile(r"C:/Users/frank", re.IGNORECASE),
+        "Maintainer workstation path leaked into a public doc.",
+    ),
+    (
+        re.compile(r"D:\\playground", re.IGNORECASE),
+        "Maintainer workspace path leaked into a public doc.",
+    ),
+    (
+        re.compile(r"D:/playground", re.IGNORECASE),
+        "Maintainer workspace path leaked into a public doc.",
+    ),
+    (
         re.compile(r"\bMy-G\b"),
         "Maintainer network path leaked into a public doc.",
+    ),
+    (
+        re.compile(r"\bxwechat\b", re.IGNORECASE),
+        "Private app path leaked into a public doc.",
     ),
 )
 

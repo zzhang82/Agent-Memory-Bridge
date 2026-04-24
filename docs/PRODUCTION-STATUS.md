@@ -1,11 +1,11 @@
 # Production Status
 
-Last updated: 2026-04-19 (America/New_York)
+Last updated: 2026-04-23 (America/New_York)
 
-This maintainer note describes the released `0.9.0` shape plus the validation
+This maintainer note describes the released `0.12.0` shape plus the validation
 snapshot used to support it.
 
-## Released 0.9.0 Runtime Shape
+## Released 0.12.0 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -13,16 +13,16 @@ snapshot used to support it.
 2. shared SQLite/WAL + FTS5 bridge storage
 3. session watcher and checkpoint/closeout capture
 4. reflex promotion into machine-first durable artifacts
-5. consolidation with compression-aware `domain-note`, `belief-candidate`, and `belief` generation
+5. consolidation with compression-aware `domain-note`, `belief-candidate`, `belief`, and `concept-note` generation
 6. relation-lite metadata parsing and surfacing
 7. profile/control-layer startup assembly
 8. local metadata-only telemetry
-9. `concept-note` emission from stable beliefs
-10. task-time assembly over procedures, concepts, beliefs, and linked supporting records
+9. task-time assembly over procedures, concepts, beliefs, and linked supporting records
+10. onboarding and integration hardening through platform-neutral docs, rendered client configs, and local `doctor` / `verify` checks
 
-## Verified On 2026-04-19
+## Verified On 2026-04-23
 
-- `pytest` passes: `152 passed`
+- `pytest` passes: `185 passed`
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
 - benchmark summary reports:
@@ -40,6 +40,7 @@ snapshot used to support it.
   - `fallback_better_count = 2`
   - `classifier_filtered_low_confidence_count = 2`
 - healthcheck includes a relation-metadata smoke path
+- onboarding contract passes for required docs, README linkage, generated config parsing, and placeholder-safe public examples
 - relation-lite metadata is available on recall, export, and stats for:
   - `supports`
   - `contradicts`
@@ -55,13 +56,16 @@ snapshot used to support it.
   - `kind:belief`
   - linked supporting records via relation metadata
 - `recall_first(...)` can surface procedure, concept, belief, and supporting layers alongside project/global gotcha and domain retrieval
+- the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, and Antigravity
+- `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.9.0 Actually Means
+## What 0.12.0 Actually Means
 
 - the public MCP surface is still the same small bridge
 - relation-lite structure is now real and auditable
 - retrieval claims are benchmarked instead of guessed
 - the engine can assemble task-time memory over procedures, concepts, beliefs, and linked support without exposing a larger MCP API
+- onboarding now treats generic stdio MCP as the stable contract, with client-specific docs layered on top
 
 ## Honest Boundaries
 
@@ -73,21 +77,23 @@ The release still does **not** mean:
 - a full agent runtime or scheduler
 - pre-compaction capture before model-side context loss
 - active pubsub or consumer execution on top of stored signals
+- that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.9.0
+## Pressure Points After 0.12.0
 
 The most important remaining gaps are:
 
-1. pre-compaction capture before model-side loss
+1. coordination semantics under real contention
 2. broader reviewed retrieval fixtures so credibility does not overfit the current corpus
 3. stronger write-side calibration for promotion quality
 4. cross-domain concept synthesis beyond the current domain-local concept-note step
 5. more deliberate procedure curation or promotion instead of only manual procedure records
-6. richer coordination semantics only after the memory/governance lane is fully stable
+6. pre-compaction capture before model-side loss
 
 ## Maintainer Read
 
-`0.9.0` is the point where the project reads as more than foundation work.
+`0.12.0` is the point where the project reads as a real general MCP memory
+product, not only a strong dogfood runtime.
 
 It now behaves like:
 
@@ -95,5 +101,6 @@ It now behaves like:
 - a governed learning layer
 - a structured relation-lite memory layer
 - a first pass at applicable/compositional task memory
+- a platform-neutral stdio bridge with real install confidence
 
 The next work should protect those gains instead of widening the public surface too fast.

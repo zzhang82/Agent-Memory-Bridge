@@ -21,22 +21,48 @@ def _default_codex_home() -> Path:
     return Path.home() / ".codex"
 
 
+def _default_neutral_bridge_home() -> Path:
+    return Path.home() / ".local" / "share" / "agent-memory-bridge"
+
+
+def _default_neutral_config_root() -> Path:
+    return Path.home() / ".config" / "agent-memory-bridge"
+
+
 def _default_bridge_home() -> Path:
     raw = _first_env("AGENT_MEMORY_BRIDGE_HOME")
     if raw:
         return Path(raw).expanduser()
-    return _default_codex_home() / "mem-bridge"
+    neutral_home = _default_neutral_bridge_home()
+    legacy_codex_home = _default_codex_home() / "mem-bridge"
+    if neutral_home.exists():
+        return neutral_home
+    if legacy_codex_home.exists():
+        return legacy_codex_home
+    return neutral_home
 
 
 def _default_profile_source_root() -> Path:
-    return _default_bridge_home() / "profile-source"
+    legacy_profile_source = _default_codex_home() / "mem-bridge" / "profile-source"
+    neutral_profile_source = _default_neutral_config_root() / "profile-source"
+    if neutral_profile_source.exists():
+        return neutral_profile_source
+    if legacy_profile_source.exists():
+        return legacy_profile_source
+    return neutral_profile_source
 
 
 def resolve_config_path() -> Path:
     raw = _first_env("AGENT_MEMORY_BRIDGE_CONFIG")
     if raw:
         return Path(raw).expanduser()
-    return _default_bridge_home() / "config.toml"
+    neutral_config = _default_neutral_config_root() / "config.toml"
+    legacy_config = _default_codex_home() / "mem-bridge" / "config.toml"
+    if neutral_config.is_file():
+        return neutral_config
+    if legacy_config.is_file():
+        return legacy_config
+    return neutral_config
 
 
 def _load_config() -> dict[str, Any]:

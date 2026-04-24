@@ -4,42 +4,44 @@ Thanks for helping improve Agent Memory Bridge.
 
 ## Development Setup
 
-```powershell
+```bash
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e .[dev]
+source .venv/bin/activate
+python -m pip install -e .[dev]
 ```
+
+If your shell uses a different activation command, use that instead.
 
 ## Useful Commands
 
 Run tests:
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest
+```bash
+python -m pytest
 ```
 
 Run deterministic proof:
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_deterministic_proof.py
+```bash
+python ./scripts/run_deterministic_proof.py
 ```
 
 Run the benchmark:
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_benchmark.py
+```bash
+python ./scripts/run_benchmark.py
 ```
 
 Run the stdio smoke test:
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\verify_stdio.py
+```bash
+python ./scripts/verify_stdio.py
 ```
 
 Run the health check:
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\run_healthcheck.py --report-path .\.runtime\healthcheck-report.json
+```bash
+python ./scripts/run_healthcheck.py --report-path ./.runtime/healthcheck-report.json
 ```
 
 ## Project Shape
@@ -74,9 +76,9 @@ Private lab or maintainer-only:
 
 Before a public tag or push, run both checks:
 
-```powershell
-.\.venv\Scripts\python.exe .\scripts\check_release_contract.py
-.\.venv\Scripts\python.exe .\scripts\check_public_surface.py
+```bash
+python ./scripts/check_release_contract.py
+python ./scripts/check_public_surface.py
 ```
 
 If a file needs personal operator names, local migration assumptions, or machine

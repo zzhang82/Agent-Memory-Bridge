@@ -25,3 +25,12 @@ benchmark/latest-report.json
 benchmark/latest-proof-report.json
 benchmark/latest-calibration-report.json
 docs/archive/
+docs/0.7-*.md
+docs/0.8-*.md
+docs/*-OUTLINE.md
+docs/PROFILE-CONTROL-ARCHITECTURE.md
+scripts/import_profile_bundle_shadow.py
+scripts/preview_profile_bundle.py
+scripts/preview_startup_assembly.py
+scripts/run_belief_*.py
+scripts/run_cutover_dashboard.py

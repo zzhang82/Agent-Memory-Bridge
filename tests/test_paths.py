@@ -96,7 +96,7 @@ def test_env_overrides_config_values(tmp_path: Path, monkeypatch) -> None:
     assert resolve_telemetry_service_name() == "amb-env"
 
 
-def test_profile_source_root_defaults_to_neutral_bridge_path(tmp_path: Path, monkeypatch) -> None:
+def test_profile_source_root_defaults_to_neutral_config_path(tmp_path: Path, monkeypatch) -> None:
     config_path = tmp_path / "config.toml"
     config_path.write_text("", encoding="utf-8")
 
@@ -105,7 +105,7 @@ def test_profile_source_root_defaults_to_neutral_bridge_path(tmp_path: Path, mon
     monkeypatch.delenv("AGENT_MEMORY_BRIDGE_PROFILE_SOURCE_ROOT", raising=False)
     monkeypatch.delenv("COLE_SOURCE_ROOT", raising=False)
 
-    assert resolve_profile_source_root() == tmp_path / "bridge-home" / "profile-source"
+    assert resolve_profile_source_root() == Path.home() / ".config" / "agent-memory-bridge" / "profile-source"
 
 
 

@@ -1,21 +1,18 @@
-[codex]
-home = "~/.codex"
+# Core local bridge runtime.
+[bridge]
+home = "~/.local/share/agent-memory-bridge"
+db_path = "bridge.db"
+log_dir = "logs"
 
 # Optional profile-source helpers for curated startup overlays or migration work.
 # Basic bridge usage does not require a populated source_root.
 [profile]
-source_root = "~/.codex/mem-bridge/profile-source"
+source_root = "~/.config/agent-memory-bridge/profile-source"
 namespace = "global"
 reflex_actor = "bridge-reflex"
 consolidation_actor = "bridge-consolidation"
 learn_title_prefix = "[[Learn]]"
 domain_title_prefix = "[[Domain Note]]"
-
-# Core local bridge runtime.
-[bridge]
-home = "~/.codex/mem-bridge"
-db_path = "bridge.db"
-log_dir = "logs"
 
 # Optional metadata-only telemetry.
 [telemetry]
@@ -23,7 +20,9 @@ mode = "off"
 log_dir = "telemetry"
 service_name = "agent-memory-bridge"
 
-# Optional watcher automation for Codex rollout/session capture.
+# Optional rollout/session capture helpers.
+# Current watcher workflows are most mature around Codex-style rollout files,
+# but basic MCP bridge usage does not require them.
 [watcher]
 sessions_root = "sessions"
 notes_root = "session-notes/auto"

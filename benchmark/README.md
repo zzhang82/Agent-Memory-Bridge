@@ -8,13 +8,13 @@ the engine gets more expressive.
 
 ## Runnable Entry Points
 
-- `python .\\scripts\\run_benchmark.py`
-- `python .\\scripts\\run_deterministic_proof.py`
-- `python .\\scripts\\run_classifier_calibration.py`
-- `python .\\scripts\\run_classifier_calibration.py --fixture-gateway`
-- `python .\\scripts\\run_activation_stress_pack.py`
-- `python .\\scripts\\run_task_memory_benchmark.py`
-- `python .\\scripts\\run_procedure_governance_benchmark.py`
+- `python ./scripts/run_benchmark.py`
+- `python ./scripts/run_deterministic_proof.py`
+- `python ./scripts/run_classifier_calibration.py`
+- `python ./scripts/run_classifier_calibration.py --fixture-gateway`
+- `python ./scripts/run_activation_stress_pack.py`
+- `python ./scripts/run_task_memory_benchmark.py`
+- `python ./scripts/run_procedure_governance_benchmark.py`
 
 ## What The Reports Cover
 

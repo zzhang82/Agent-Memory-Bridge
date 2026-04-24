@@ -157,13 +157,45 @@ transcript-to-procedure autopromotion system.
 - not broad transcript-to-procedure autopromotion
 - not a hidden agent runtime
 
-### 0.12 = coordination under contention
+### 0.12 = onboarding and integration hardening
+
+Status: shipped in `v0.12.0`.
 
 #### Thesis
 
-After memory becomes more connected and more actionable, the next release should
-strengthen coordination semantics under real multi-agent pressure without turning
-the bridge into a task-queue platform.
+After the memory engine becomes deeper and more governed, the next release should
+make the first 5 minutes much easier for people who are not already inside the
+Codex dogfood path.
+
+#### What it shipped
+
+- platform-neutral install and configuration docs
+- a client support matrix with careful `verified`, `documented`, `locally tested`, and `supported` labels
+- reusable config rendering for common MCP clients
+- local `doctor` and `verify` commands for install confidence
+- onboarding contract checks for docs, generated config fragments, and leak safety
+
+#### What proved out
+
+- a new user can install and verify the bridge without prior maintainer context
+- generated client config fragments stay parseable and placeholder-safe
+- the generic stdio path remains the stable lowest-common-denominator contract
+- docs stop reading as Codex-only even while Codex stays the strongest reference workflow
+
+#### What it is not
+
+- not a new MCP tool surface
+- not IDE plugin development
+- not automatic client-config mutation
+- not a claim that every client is verified just because the MCP shape is generic
+
+### 0.13 = coordination under contention
+
+#### Thesis
+
+Once onboarding is credible, the next release should strengthen coordination
+semantics under real multi-agent pressure without turning the bridge into a
+task-queue platform.
 
 #### What it should cover
 
@@ -195,7 +227,7 @@ release immediately:
 - broader reviewed retrieval fixtures to keep credibility from overfitting the current corpus
 - stronger write-side calibration for promotion quality
 
-Treat these as cross-cutting tracks that can land in `0.10.x` through `0.12.x`
+Treat these as cross-cutting tracks that can land in `0.10.x` through `0.13.x`
 as they become stable and portable.
 
 ## What 1.0 Should Mean
@@ -207,6 +239,7 @@ Before that label makes sense, the bridge should have:
 
 - stable relation-aware task assembly
 - measurable and governed procedure memory
+- onboarding and install confidence for general MCP clients
 - coordination semantics that survive contention
 - a believable story for pre-compaction capture or its deliberate absence
 - a still-small public MCP surface with a clear identity
