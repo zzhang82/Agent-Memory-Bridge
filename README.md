@@ -20,11 +20,11 @@ Session output can be promoted through a governed ladder:
 
 `session -> summary -> learn / gotcha -> domain-note -> belief -> concept-note`
 
-Codex is the reference client, not the product boundary. If a client can launch a
-local stdio MCP server, it can use Agent Memory Bridge.
+Codex is our reference workflow today. Agent Memory Bridge is a generic local
+stdio MCP server, with documented support for other compatible clients.
 
 <p align="center">
-  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge overview: clients connect to a 10-tool MCP surface, which fronts the local-first core and local proof layer." width="1000">
+  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge overview: clients connect to the 10-tool MCP surface, which fronts the local-first core and the local proof layer." width="1000">
 </p>
 
 ![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
@@ -32,9 +32,9 @@ local stdio MCP server, it can use Agent Memory Bridge.
 > 30-second demo: store memory + signal -> claim -> extend -> ack -> later recall
 > from the same project.
 
-`0.12.0` makes the first five minutes easier: platform-neutral setup docs,
-documented client snippets, and local `doctor` / `verify` checks, while the
-public MCP surface stays at the same `10` tools.
+`0.12.1` keeps the `0.12` onboarding work intact and refreshes the first-screen
+overview so the public story matches the actual runtime layers: clients, MCP
+surface, core, and local proof.
 
 ## Client Support
 
@@ -313,7 +313,7 @@ Procedure governance benchmark (`case_count = 7`):
 
 ## Honest Boundaries
 
-`0.12.0` is deliberately scoped. It is not:
+`0.12.1` is deliberately scoped. It is not:
 
 - a graph database
 - capable of full relation-aware traversal or ranking across the whole store

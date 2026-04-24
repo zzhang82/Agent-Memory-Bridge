@@ -1,122 +1,144 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1220" viewBox="0 0 1280 1220" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1360" viewBox="0 0 1280 1360" role="img" aria-labelledby="title desc">
   <title id="title">Agent Memory Bridge overview</title>
-  <desc id="desc">Clients connect to a 10-tool MCP surface, which fronts the local-first Agent Memory Bridge core and a local proof layer.</desc>
+  <desc id="desc">A local-first memory system for coding agents: clients connect to a 10-tool MCP surface, which fronts the Agent Memory Bridge core and a local proof layer.</desc>
   <defs>
     <style>
-      .bg { fill: #fbfbfd; }
-      .panel { fill: #ffffff; stroke: #2f6fe4; stroke-width: 2; }
-      .panel-muted { fill: #ffffff; stroke: #cfd9ee; stroke-width: 2; }
-      .panel-soft { fill: #f5f8ff; stroke: #8db5ff; stroke-width: 2; }
-      .panel-proof { fill: #fffdfa; stroke: #d7d7d7; stroke-width: 2; }
-      .panel-bottom { fill: #f8fdf9; stroke: #8fc6a0; stroke-width: 2; }
-      .chip { fill: #ffffff; stroke: #cfd9ee; stroke-width: 1.5; }
-      .chip-blue { fill: #ffffff; stroke: #9fc0ff; stroke-width: 1.5; }
-      .title { font: 700 34px 'Segoe UI', Arial, sans-serif; fill: #0f2d6b; }
-      .subtitle { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #2962d6; }
-      .text { font: 400 16px 'Segoe UI', Arial, sans-serif; fill: #1c2434; }
-      .text-small { font: 400 15px 'Segoe UI', Arial, sans-serif; fill: #4a5568; }
-      .text-muted { font: 400 14px 'Segoe UI', Arial, sans-serif; fill: #5d6678; }
-      .text-bold { font: 700 20px 'Segoe UI', Arial, sans-serif; fill: #102b69; }
-      .text-chip { font: 500 15px 'Segoe UI', Arial, sans-serif; fill: #142033; }
-      .bullet { font: 400 20px 'Segoe UI', Arial, sans-serif; fill: #2f8a45; }
-      .arrow { stroke: #2f6fe4; stroke-width: 3; fill: none; stroke-linecap: round; }
+      .bg { fill: #fcfbf8; }
+      .panel { fill: #ffffff; stroke-width: 2; }
+      .panel-blue { stroke: #98b6eb; }
+      .panel-orange { stroke: #e8a873; }
+      .panel-proof { stroke: #b7c8ea; }
+      .panel-key { stroke: #f1c7a0; }
+      .card { fill: #fffdfa; stroke: #ead9c8; stroke-width: 1.5; }
+      .chip { fill: #ffffff; stroke: #b6c9ed; stroke-width: 1.5; }
+      .proof-card { fill: #ffffff; stroke: #ccd8ee; stroke-width: 1.5; }
+      .title { font: 700 42px Georgia, 'Times New Roman', serif; fill: #12295e; }
+      .hero { font: 700 78px Georgia, 'Times New Roman', serif; fill: #102659; }
+      .subtitle { font: 400 18px 'Segoe UI', Arial, sans-serif; fill: #4c638d; }
+      .section { font: 700 34px Georgia, 'Times New Roman', serif; fill: #16356f; }
+      .section-orange { font: 700 34px Georgia, 'Times New Roman', serif; fill: #cd5a12; }
+      .smallcaps { font: 600 16px 'Segoe UI', Arial, sans-serif; fill: #2962d6; letter-spacing: 0.8px; }
+      .body { font: 400 16px 'Segoe UI', Arial, sans-serif; fill: #253247; }
+      .body-muted { font: 400 15px 'Segoe UI', Arial, sans-serif; fill: #56657d; }
+      .chip-text { font: 500 16px 'Segoe UI', Arial, sans-serif; fill: #17315e; }
+      .card-title { font: 700 18px 'Courier New', monospace; fill: #122b5f; }
+      .card-title-orange { font: 700 18px 'Courier New', monospace; fill: #ad4a0a; }
+      .card-body { font: 400 14px 'Segoe UI', Arial, sans-serif; fill: #445166; }
+      .key-title { font: 700 22px Georgia, 'Times New Roman', serif; fill: #b45516; }
+      .bullet { fill: #b45516; }
+      .check-fill { fill: #eef8f0; stroke: #99c6a4; stroke-width: 2; }
+      .check-stroke { fill: none; stroke: #2f8f4e; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+      .arrow { stroke: #214fbb; stroke-width: 3; fill: none; stroke-linecap: round; }
     </style>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#d7dce8" flood-opacity="0.35" />
+    </filter>
     <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto">
-      <polygon points="0 0, 7 3.5, 0 7" fill="#2f6fe4" />
+      <polygon points="0 0, 7 3.5, 0 7" fill="#214fbb" />
     </marker>
   </defs>
 
-  <rect class="bg" x="0" y="0" width="1280" height="1220" />
+  <rect class="bg" x="0" y="0" width="1280" height="1360" />
 
-  <rect class="panel-muted" x="52" y="24" rx="18" ry="18" width="1176" height="210" />
-  <text class="title" x="640" y="78" text-anchor="middle">Clients</text>
-  <g>
-    <rect class="chip" x="130" y="116" rx="14" ry="14" width="176" height="54" />
-    <rect class="chip" x="326" y="116" rx="14" ry="14" width="176" height="54" />
-    <rect class="chip" x="522" y="116" rx="14" ry="14" width="176" height="54" />
-    <rect class="chip" x="718" y="116" rx="14" ry="14" width="176" height="54" />
-    <rect class="chip" x="914" y="116" rx="14" ry="14" width="176" height="54" />
-    <text class="text-chip" x="218" y="149" text-anchor="middle">Codex</text>
-    <text class="text-chip" x="414" y="149" text-anchor="middle">Claude</text>
-    <text class="text-chip" x="610" y="149" text-anchor="middle">Cursor</text>
-    <text class="text-chip" x="806" y="149" text-anchor="middle">Antigravity</text>
-    <text class="text-chip" x="1002" y="149" text-anchor="middle">Cline</text>
-  </g>
-  <text class="text-muted" x="640" y="202" text-anchor="middle">Support varies by client. Codex is the reference workflow; others are documented or locally tested in integrations docs.</text>
+  <text class="hero" x="640" y="112" text-anchor="middle">Agent Memory Bridge</text>
+  <text class="subtitle" x="640" y="152" text-anchor="middle">A local-first memory system for coding agents</text>
 
-  <line class="arrow" x1="640" y1="234" x2="640" y2="306" marker-end="url(#arrowhead)" />
+  <rect class="panel panel-blue" x="76" y="206" width="1128" height="218" rx="22" filter="url(#softShadow)" />
+  <text class="section" x="640" y="292" text-anchor="middle">1. Clients / IDEs</text>
+  <rect class="chip" x="108" y="332" width="180" height="58" rx="14" />
+  <rect class="chip" x="320" y="332" width="180" height="58" rx="14" />
+  <rect class="chip" x="532" y="332" width="180" height="58" rx="14" />
+  <rect class="chip" x="744" y="332" width="180" height="58" rx="14" />
+  <rect class="chip" x="956" y="332" width="180" height="58" rx="14" />
+  <text class="chip-text" x="198" y="367" text-anchor="middle">Codex</text>
+  <text class="chip-text" x="410" y="367" text-anchor="middle">Claude</text>
+  <text class="chip-text" x="622" y="367" text-anchor="middle">Cursor</text>
+  <text class="chip-text" x="834" y="367" text-anchor="middle">Antigravity</text>
+  <text class="chip-text" x="1046" y="367" text-anchor="middle">Cline</text>
+  <text class="body-muted" x="640" y="422" text-anchor="middle">Support varies by client. Codex is the reference workflow; others are documented or locally tested in integrations docs.</text>
 
-  <rect class="panel-soft" x="52" y="308" rx="18" ry="18" width="1176" height="198" />
-  <text class="title" x="640" y="378" text-anchor="middle">10-tool MCP Surface</text>
-  <g>
-    <rect class="chip-blue" x="76" y="412" rx="14" ry="14" width="142" height="68" />
-    <rect class="chip-blue" x="232" y="412" rx="14" ry="14" width="142" height="68" />
-    <rect class="chip-blue" x="388" y="412" rx="14" ry="14" width="142" height="68" />
-    <rect class="chip-blue" x="544" y="412" rx="14" ry="14" width="142" height="68" />
-    <rect class="chip-blue" x="700" y="412" rx="14" ry="14" width="156" height="68" />
-    <rect class="chip-blue" x="870" y="412" rx="14" ry="14" width="166" height="68" />
-    <rect class="chip-blue" x="1050" y="412" rx="14" ry="14" width="142" height="68" />
-    <text class="text-chip" x="147" y="452" text-anchor="middle">store</text>
-    <text class="text-chip" x="303" y="452" text-anchor="middle">recall</text>
-    <text class="text-chip" x="459" y="452" text-anchor="middle">browse</text>
-    <text class="text-chip" x="615" y="452" text-anchor="middle">stats</text>
-    <text class="text-chip" x="778" y="444" text-anchor="middle">forget /</text>
-    <text class="text-chip" x="778" y="464" text-anchor="middle">promote</text>
-    <text class="text-chip" x="953" y="444" text-anchor="middle">claim /</text>
-    <text class="text-chip" x="953" y="464" text-anchor="middle">extend / ack</text>
-    <text class="text-chip" x="1121" y="452" text-anchor="middle">export</text>
-  </g>
+  <line class="arrow" x1="640" y1="424" x2="640" y2="484" marker-end="url(#arrowhead)" />
 
-  <line class="arrow" x1="640" y1="506" x2="640" y2="582" marker-end="url(#arrowhead)" />
+  <rect class="panel panel-blue" x="76" y="470" width="1128" height="186" rx="22" filter="url(#softShadow)" />
+  <text class="section" x="640" y="544" text-anchor="middle">2. MCP Surface</text>
+  <text class="smallcaps" x="640" y="574" text-anchor="middle">Public tools and actions</text>
+  <rect class="chip" x="106" y="596" width="104" height="46" rx="12" />
+  <rect class="chip" x="222" y="596" width="118" height="46" rx="12" />
+  <rect class="chip" x="352" y="596" width="110" height="46" rx="12" />
+  <rect class="chip" x="474" y="596" width="96" height="46" rx="12" />
+  <rect class="chip" x="582" y="596" width="188" height="46" rx="12" />
+  <rect class="chip" x="782" y="596" width="212" height="46" rx="12" />
+  <rect class="chip" x="1006" y="596" width="124" height="46" rx="12" />
+  <text class="chip-text" x="158" y="625" text-anchor="middle">store</text>
+  <text class="chip-text" x="281" y="625" text-anchor="middle">recall</text>
+  <text class="chip-text" x="407" y="625" text-anchor="middle">browse</text>
+  <text class="chip-text" x="522" y="625" text-anchor="middle">stats</text>
+  <text class="chip-text" x="676" y="625" text-anchor="middle">forget/promote</text>
+  <text class="chip-text" x="888" y="625" text-anchor="middle">claim/extend/ack</text>
+  <text class="chip-text" x="1068" y="625" text-anchor="middle">export</text>
 
-  <rect class="panel" x="52" y="582" rx="20" ry="20" width="1176" height="334" />
-  <text class="title" x="640" y="648" text-anchor="middle">Agent Memory Bridge Core</text>
-  <text class="subtitle" x="640" y="684" text-anchor="middle">Local-first MCP memory system for coding agents</text>
-  <g>
-    <rect class="chip" x="94" y="734" rx="18" ry="18" width="206" height="168" />
-    <rect class="chip" x="324" y="734" rx="18" ry="18" width="206" height="168" />
-    <rect class="chip" x="554" y="734" rx="18" ry="18" width="206" height="168" />
-    <rect class="chip" x="784" y="734" rx="18" ry="18" width="206" height="168" />
-    <rect class="chip" x="1014" y="734" rx="18" ry="18" width="170" height="168" />
+  <line class="arrow" x1="640" y1="656" x2="640" y2="716" marker-end="url(#arrowhead)" />
 
-    <text class="text-bold" x="197" y="812" text-anchor="middle">SQLite + FTS5</text>
-    <text class="text-small" x="197" y="846" text-anchor="middle">local-first runtime</text>
+  <rect class="panel panel-orange" x="76" y="702" width="1128" height="350" rx="22" filter="url(#softShadow)" />
+  <text class="section-orange" x="640" y="792" text-anchor="middle">3. Agent Memory Bridge Core</text>
+  <rect class="card" x="98" y="830" width="184" height="190" rx="18" />
+  <rect class="card" x="294" y="830" width="206" height="190" rx="18" />
+  <rect class="card" x="512" y="830" width="206" height="190" rx="18" />
+  <rect class="card" x="730" y="830" width="206" height="190" rx="18" />
+  <rect class="card" x="948" y="830" width="224" height="190" rx="18" />
+  <text class="card-title-orange" x="190" y="900" text-anchor="middle">SQLite + FTS</text>
+  <text class="card-body" x="190" y="940" text-anchor="middle">Local, fast, and</text>
+  <text class="card-body" x="190" y="962" text-anchor="middle">searchable memory.</text>
 
-    <text class="text-bold" x="427" y="794" text-anchor="middle">Two-channel</text>
-    <text class="text-bold" x="427" y="822" text-anchor="middle">memory</text>
-    <text class="text-small" x="427" y="856" text-anchor="middle">durable memory +</text>
-    <text class="text-small" x="427" y="880" text-anchor="middle">short-lived signals</text>
+  <text class="card-title-orange" x="397" y="892" text-anchor="middle">two-channel</text>
+  <text class="card-title-orange" x="397" y="918" text-anchor="middle">memory</text>
+  <text class="card-body" x="397" y="956" text-anchor="middle">Recall channel vs.</text>
+  <text class="card-body" x="397" y="978" text-anchor="middle">governed learning.</text>
 
-    <text class="text-bold" x="657" y="800" text-anchor="middle">Governed</text>
-    <text class="text-bold" x="657" y="828" text-anchor="middle">learning ladder</text>
+  <text class="card-title-orange" x="615" y="892" text-anchor="middle">governed</text>
+  <text class="card-title-orange" x="615" y="918" text-anchor="middle">learning ladder</text>
+  <text class="card-body" x="615" y="956" text-anchor="middle">From observation to</text>
+  <text class="card-body" x="615" y="978" text-anchor="middle">promotion with checks.</text>
 
-    <text class="text-bold" x="887" y="800" text-anchor="middle">Task-time</text>
-    <text class="text-bold" x="887" y="828" text-anchor="middle">memory assembly</text>
+  <text class="card-title-orange" x="833" y="892" text-anchor="middle">relation-aware</text>
+  <text class="card-title-orange" x="833" y="918" text-anchor="middle">task assembly</text>
+  <text class="card-body" x="833" y="956" text-anchor="middle">Leverage links and</text>
+  <text class="card-body" x="833" y="978" text-anchor="middle">context to assemble</text>
+  <text class="card-body" x="833" y="1000" text-anchor="middle">the right memory.</text>
 
-    <text class="text-bold" x="1099" y="800" text-anchor="middle">Procedure</text>
-    <text class="text-bold" x="1099" y="828" text-anchor="middle">governance</text>
-  </g>
+  <text class="card-title-orange" x="1060" y="892" text-anchor="middle">procedure</text>
+  <text class="card-title-orange" x="1060" y="918" text-anchor="middle">governance</text>
+  <text class="card-body" x="1060" y="956" text-anchor="middle">Claims and extensions</text>
+  <text class="card-body" x="1060" y="978" text-anchor="middle">with acknowledgement</text>
+  <text class="card-body" x="1060" y="1000" text-anchor="middle">and policy.</text>
 
-  <line class="arrow" x1="640" y1="916" x2="640" y2="986" marker-end="url(#arrowhead)" />
+  <line class="arrow" x1="640" y1="1052" x2="640" y2="1112" marker-end="url(#arrowhead)" />
 
-  <rect class="panel-proof" x="52" y="988" rx="18" ry="18" width="1176" height="156" />
-  <text class="title" x="640" y="1050" text-anchor="middle">Local Proof Layer</text>
-  <g>
-    <rect class="chip" x="126" y="1086" rx="14" ry="14" width="220" height="48" />
-    <rect class="chip" x="366" y="1086" rx="14" ry="14" width="220" height="48" />
-    <rect class="chip" x="606" y="1086" rx="14" ry="14" width="220" height="48" />
-    <rect class="chip" x="846" y="1086" rx="14" ry="14" width="256" height="48" />
-    <text class="text-chip" x="236" y="1116" text-anchor="middle">benchmarks</text>
-    <text class="text-chip" x="476" y="1116" text-anchor="middle">doctor / verify</text>
-    <text class="text-chip" x="716" y="1116" text-anchor="middle">release contract</text>
-    <text class="text-chip" x="974" y="1116" text-anchor="middle">public-surface checks</text>
-  </g>
+  <rect class="panel panel-proof" x="76" y="1098" width="808" height="196" rx="22" filter="url(#softShadow)" />
+  <text class="section" x="480" y="1176" text-anchor="middle">4. Local Proof Layer</text>
+  <rect class="proof-card" x="96" y="1204" width="176" height="70" rx="14" />
+  <rect class="proof-card" x="284" y="1204" width="176" height="70" rx="14" />
+  <rect class="proof-card" x="472" y="1204" width="176" height="70" rx="14" />
+  <rect class="proof-card" x="660" y="1204" width="196" height="70" rx="14" />
+  <text class="chip-text" x="184" y="1244" text-anchor="middle">benchmarks</text>
+  <text class="chip-text" x="372" y="1244" text-anchor="middle">doctor / verify</text>
+  <text class="chip-text" x="560" y="1244" text-anchor="middle">release contract</text>
+  <text class="chip-text" x="758" y="1244" text-anchor="middle">public-surface checks</text>
 
-  <rect class="panel-bottom" x="52" y="1162" rx="18" ry="18" width="1176" height="44" />
-  <text class="bullet" x="86" y="1190">-</text>
-  <text class="text" x="112" y="1191">Separates durable knowledge from short-lived coordination</text>
-  <text class="bullet" x="510" y="1190">-</text>
-  <text class="text" x="536" y="1191">Turns session output into reusable engineering memory</text>
-  <text class="bullet" x="923" y="1190">-</text>
-  <text class="text" x="949" y="1191">Stays inspectable with local proof and benchmark checks</text>
+  <rect class="panel panel-key" x="914" y="1098" width="290" height="196" rx="22" filter="url(#softShadow)" />
+  <text class="key-title" x="952" y="1174">Key ideas</text>
+  <circle class="bullet" cx="942" cy="1208" r="4" />
+  <circle class="bullet" cx="942" cy="1240" r="4" />
+  <circle class="bullet" cx="942" cy="1272" r="4" />
+  <text class="body" x="960" y="1214">Local-first memory bridge</text>
+  <text class="body" x="960" y="1234">for coding agents</text>
+  <text class="body" x="960" y="1246">Separates recall, learning,</text>
+  <text class="body" x="960" y="1266">and governance</text>
+  <text class="body" x="960" y="1278">Adds proof-oriented checks</text>
+  <text class="body" x="960" y="1298">before release</text>
+
+  <rect x="76" y="1316" width="1128" height="24" rx="12" fill="#f4fbf5" stroke="#a6d0af" stroke-width="2" />
+  <circle class="check-fill" cx="114" cy="1328" r="18" />
+  <path class="check-stroke" d="M106 1328 L112 1334 L123 1321" />
+  <text class="body" x="148" y="1334">Separates durable knowledge from short-lived coordination, promotes session output into reusable engineering memory, and keeps quality honest with local proof.</text>
 </svg>
