@@ -2,10 +2,10 @@
 
 Last updated: 2026-04-24 (America/New_York)
 
-This maintainer note describes the released `0.12.1` shape plus the validation
+This maintainer note describes the released `0.12.2` shape plus the validation
 snapshot used to support it.
 
-## Released 0.12.1 Runtime Shape
+## Released 0.12.2 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -59,7 +59,7 @@ snapshot used to support it.
 - the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, and Antigravity
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.12.1 Actually Means
+## What 0.12.2 Actually Means
 
 - the public MCP surface is still the same small bridge
 - relation-lite structure is now real and auditable
@@ -79,7 +79,7 @@ The release still does **not** mean:
 - active pubsub or consumer execution on top of stored signals
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.12.1
+## Pressure Points After 0.12.2
 
 The most important remaining gaps are:
 
@@ -92,8 +92,8 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.12.1` keeps the `0.12.0` runtime shape intact while tightening the public
-first-screen story. The project now reads as a real general MCP memory
+`0.12.2` keeps the `0.12.0` runtime shape intact while correcting the README
+overview artwork to the intended public version. The project now reads as a real general MCP memory
 product, not only a strong dogfood runtime.
 
 It now behaves like:

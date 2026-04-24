@@ -216,7 +216,7 @@ def build_demo_assets_check(project_root: Path) -> dict[str, Any]:
     required_assets = {
         demo_dir / "terminal-demo.cast",
         demo_dir / "terminal-demo.gif",
-        project_root / "examples" / "diagrams" / "amb-overview.svg",
+        project_root / "examples" / "diagrams" / "amb-overview.png",
     }
 
     demo_readme = demo_dir / "README.md"

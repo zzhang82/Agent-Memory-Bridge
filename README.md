@@ -24,7 +24,7 @@ Codex is our reference workflow today. Agent Memory Bridge is a generic local
 stdio MCP server, with documented support for other compatible clients.
 
 <p align="center">
-  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge overview: clients connect to the 10-tool MCP surface, which fronts the local-first core and the local proof layer." width="1000">
+  <img src="examples/diagrams/amb-overview.png" alt="Agent Memory Bridge overview: clients connect to the 10-tool MCP surface, which fronts the local-first core and the local proof layer." width="1000">
 </p>
 
 ![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
@@ -32,9 +32,9 @@ stdio MCP server, with documented support for other compatible clients.
 > 30-second demo: store memory + signal -> claim -> extend -> ack -> later recall
 > from the same project.
 
-`0.12.1` keeps the `0.12` onboarding work intact and refreshes the first-screen
-overview so the public story matches the actual runtime layers: clients, MCP
-surface, core, and local proof.
+`0.12.2` keeps the `0.12` onboarding work intact and replaces the overview with
+the intended first-screen artwork so the README matches the released public
+story.
 
 ## Client Support
 
@@ -313,7 +313,7 @@ Procedure governance benchmark (`case_count = 7`):
 
 ## Honest Boundaries
 
-`0.12.1` is deliberately scoped. It is not:
+`0.12.2` is deliberately scoped. It is not:
 
 - a graph database
 - capable of full relation-aware traversal or ranking across the whole store

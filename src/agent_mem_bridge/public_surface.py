@@ -17,11 +17,14 @@ PUBLIC_DOC_PATHS = (
     Path("docs/MEMORY-TAXONOMY.md"),
     Path("docs/PROMOTION-RULES.md"),
     Path("examples/README.md"),
-    Path("examples/diagrams/amb-overview.svg"),
     Path("examples/demo/README.md"),
     Path("examples/session-notes/demo/01-memory-note.md"),
     Path("examples/session-notes/demo/02-signal-note.md"),
     Path("examples/session-payloads/sample-closeout.json"),
+)
+
+PUBLIC_BINARY_ASSETS = (
+    Path("examples/diagrams/amb-overview.png"),
 )
 
 README_PATHS = (
@@ -113,6 +116,19 @@ def run_public_surface_check(root: Path) -> dict[str, Any]:
         checked_files.append(str(relative_path))
         text = absolute_path.read_text(encoding="utf-8")
         violations.extend(scan_text_for_blocked_patterns(relative_path, text))
+
+    for relative_path in PUBLIC_BINARY_ASSETS:
+        absolute_path = project_root / relative_path
+        if not absolute_path.exists():
+            violations.append(
+                {
+                    "path": str(relative_path),
+                    "kind": "missing-binary-asset",
+                    "reason": "Expected public binary asset is missing.",
+                }
+            )
+            continue
+        checked_files.append(str(relative_path))
 
     for relative_path in README_PATHS:
         absolute_path = project_root / relative_path

@@ -4,7 +4,7 @@ This folder contains small public demo artifacts for Agent Memory Bridge.
 
 It is intentionally limited to sanitized examples that show the shape of:
 
-- a high-level bridge overview diagram in [diagrams/amb-overview.svg](diagrams/amb-overview.svg)
+- a high-level bridge overview diagram in [diagrams/amb-overview.png](diagrams/amb-overview.png)
 - a closeout payload
 - a durable memory note
 - a handoff signal note

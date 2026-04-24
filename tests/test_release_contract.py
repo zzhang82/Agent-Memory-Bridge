@@ -210,12 +210,7 @@ def create_release_fixture(root: Path) -> Path:
     write_file(root / "examples" / "demo" / "terminal-demo.cast", "cast\n")
     write_file(root / "examples" / "demo" / "terminal-demo.gif", "gif\n")
     write_file(root / "examples" / "demo" / "terminal-demo.tape", "tape\n")
-    write_file(
-        root / "examples" / "diagrams" / "amb-overview.svg",
-        """
-        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"></svg>
-        """,
-    )
+    write_file(root / "examples" / "diagrams" / "amb-overview.png", "png\n")
     sample_tests = "\n".join(
         f"def test_release_contract_sample_{index:03d}() -> None:\n    assert True\n"
         for index in range(146)
