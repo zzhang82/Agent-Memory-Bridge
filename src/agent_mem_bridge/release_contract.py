@@ -27,6 +27,25 @@ REQUIRED_CALIBRATION_KEYS = (
     "fallback_better_count",
     "classifier_filtered_low_confidence_count",
 )
+REQUIRED_PROCEDURE_KEYS = (
+    "case_count",
+    "flat_case_pass_rate",
+    "governed_case_pass_rate",
+    "flat_blocked_procedure_leak_rate",
+    "governed_blocked_procedure_leak_rate",
+    "governed_governance_field_completeness",
+)
+REQUIRED_SIGNAL_CONTENTION_KEYS = (
+    "signal_contention_case_count",
+    "signal_contention_case_pass_rate",
+    "unique_active_claim_rate",
+    "duplicate_active_claim_count",
+    "active_reclaim_block_rate",
+    "stale_ack_blocked_rate",
+    "stale_reclaim_success_rate",
+    "pending_under_pressure_claim_rate",
+    "initial_hard_expiry_cap_rate",
+)
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -96,6 +115,7 @@ def run_release_contract_check(
         "pyproject_version": pyproject_version,
         "server_tool_count": len(server_tools),
         "test_count": test_count,
+        "test_count_source": "pytest_collect_only",
         "checks": checks,
     }
 
@@ -126,7 +146,12 @@ def build_version_check(pyproject_version: str, readme_paths: list[Path]) -> dic
 
 
 def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | float]) -> dict[str, Any]:
-    required_keys = REQUIRED_BENCHMARK_KEYS + REQUIRED_CALIBRATION_KEYS
+    required_keys = (
+        REQUIRED_BENCHMARK_KEYS
+        + REQUIRED_CALIBRATION_KEYS
+        + REQUIRED_PROCEDURE_KEYS
+        + REQUIRED_SIGNAL_CONTENTION_KEYS
+    )
     mismatches: list[dict[str, Any]] = []
     ok = True
     for path in readme_paths:
@@ -167,9 +192,10 @@ def build_test_count_check(readme_paths: list[Path], expected_test_count: int) -
                 }
             )
     return {
-        "name": "readme_test_count_is_aligned",
+        "name": "readme_test_count_matches_collected_suite",
         "ok": ok,
         "expected_test_count": expected_test_count,
+        "source": "pytest --collect-only -q tests",
         "mismatches": mismatches,
     }
 
@@ -245,13 +271,28 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float]:
     calibration_report = json.loads(
         (project_root / "benchmark" / "latest-calibration-report.json").read_text(encoding="utf-8")
     )
+    procedure_report = json.loads(
+        (project_root / "benchmark" / "latest-procedure-governance-report.json").read_text(encoding="utf-8")
+    )
+    signal_contention_report = json.loads(
+        (project_root / "benchmark" / "latest-signal-contention-report.json").read_text(encoding="utf-8")
+    )
     benchmark_summary = benchmark_report["summary"]
     calibration_summary = calibration_report["summary"]
+    procedure_summary = procedure_report["summary"]
+    signal_contention_summary = signal_contention_report["summary"]
     expected: dict[str, int | float] = {}
     for key in REQUIRED_BENCHMARK_KEYS:
         expected[key] = benchmark_summary[key]
     for key in REQUIRED_CALIBRATION_KEYS:
         expected[key] = calibration_summary[key]
+    for key in REQUIRED_PROCEDURE_KEYS:
+        expected[key] = procedure_summary[key]
+    expected["signal_contention_case_count"] = signal_contention_summary["case_count"]
+    expected["signal_contention_case_pass_rate"] = signal_contention_summary["case_pass_rate"]
+    for key in REQUIRED_SIGNAL_CONTENTION_KEYS:
+        if key not in expected:
+            expected[key] = signal_contention_summary[key]
     return expected
 
 

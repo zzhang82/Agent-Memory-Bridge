@@ -17,7 +17,7 @@ def test_store_and_recall_round_trip(tmp_path: Path) -> None:
         kind="memory",
         tags=["project:agent-memory-bridge", "topic:storage"],
         session_id="session-1",
-        actor="cole",
+        actor="operator",
         title="Storage decision",
         correlation_id="task-123",
         source_app="codex",
@@ -34,7 +34,7 @@ def test_store_and_recall_round_trip(tmp_path: Path) -> None:
         kind="memory",
         tags=["project:agent-memory-bridge", "topic:storage"],
         session_id="session-1",
-        actor="cole",
+        actor="operator",
         source_app="codex",
     )
 
@@ -42,7 +42,7 @@ def test_store_and_recall_round_trip(tmp_path: Path) -> None:
         namespace="agent-memory-bridge",
         query="SQLite WAL",
         limit=5,
-        actor="cole",
+        actor="operator",
     )
 
     assert first["stored"] is True
@@ -110,14 +110,14 @@ def test_signal_entries_are_not_deduplicated(tmp_path: Path) -> None:
         content="Reviewer needed for API handoff.",
         kind="signal",
         tags=["handoff", "review"],
-        actor="cole",
+        actor="operator",
     )
     second = store.store(
         namespace="bridge",
         content="Reviewer needed for API handoff.",
         kind="signal",
         tags=["handoff", "review"],
-        actor="cole",
+        actor="operator",
     )
 
     assert first["stored"] is True
@@ -153,7 +153,7 @@ def test_store_extracts_obsidian_tags_and_wikilinks(tmp_path: Path) -> None:
         content="Use #memory/bridge with [[Codex]] and [[Obsidian Vault|Vault]].",
         kind="memory",
         tags=["manual:seed"],
-        actor="cole",
+        actor="operator",
     )
 
     by_tag = store.recall(
@@ -183,14 +183,14 @@ def test_polling_with_since_returns_only_new_items(tmp_path: Path) -> None:
         content="Task ready for review.",
         kind="signal",
         tags=["review"],
-        actor="cole",
+        actor="operator",
     )
     second = store.store(
         namespace="bridge",
         content="Security review also needed.",
         kind="signal",
         tags=["review", "security"],
-        actor="cole",
+        actor="operator",
     )
 
     polled = store.recall(
@@ -396,6 +396,35 @@ def test_claim_signal_reuses_stale_lease(tmp_path: Path) -> None:
     assert reclaimed["item"]["signal_status"] == "claimed"
 
 
+def test_claim_signal_does_not_renew_active_same_consumer_claim(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="Active claims should be renewed through extend, not claim.",
+        kind="signal",
+        tags=["handoff:review"],
+    )
+    first_claim = store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-a",
+        lease_seconds=60,
+        signal_id=created["id"],
+    )
+
+    second_claim = store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-a",
+        lease_seconds=60,
+        signal_id=created["id"],
+    )
+    extended = store.extend_signal_lease(created["id"], consumer="worker-a", lease_seconds=60)
+
+    assert first_claim["claimed"] is True
+    assert second_claim["claimed"] is False
+    assert second_claim["reason"] == "already-claimed"
+    assert extended["extended"] is True
+
+
 def test_claim_signal_prefers_other_pending_work_before_reclaiming_same_consumer_stale_item(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
     stale = store.store(
@@ -434,6 +463,130 @@ def test_claim_signal_prefers_other_pending_work_before_reclaiming_same_consumer
     assert claimed["claimed"] is True
     assert claimed["signal_id"] == fresh["id"]
     assert claimed["item"]["claimed_by"] == "worker-a"
+
+
+def test_claim_signal_filters_claimable_rows_before_contention_limit(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    for index in range(55):
+        active = store.store(
+            namespace="project:bridge",
+            content=f"Active claimed handoff {index}.",
+            kind="signal",
+            tags=["handoff:contention"],
+        )
+        store.claim_signal(
+            namespace="project:bridge",
+            consumer=f"other-worker-{index}",
+            lease_seconds=600,
+            signal_id=active["id"],
+        )
+    pending = store.store(
+        namespace="project:bridge",
+        content="Pending handoff should not be starved by active claims.",
+        kind="signal",
+        tags=["handoff:contention"],
+    )
+
+    claimed = store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-ready",
+        lease_seconds=60,
+        tags_any=["handoff:contention"],
+    )
+
+    assert claimed["claimed"] is True
+    assert claimed["signal_id"] == pending["id"]
+
+
+def test_contention_claims_assign_unique_active_signals(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    for index in range(6):
+        store.store(
+            namespace="project:bridge",
+            content=f"Parallel review item {index}.",
+            kind="signal",
+            tags=["handoff:contention"],
+        )
+
+    claimed_ids = []
+    for index in range(6):
+        claimed = store.claim_signal(
+            namespace="project:bridge",
+            consumer=f"worker-{index}",
+            lease_seconds=60,
+            tags_any=["handoff:contention"],
+        )
+        assert claimed["claimed"] is True
+        claimed_ids.append(claimed["signal_id"])
+
+    exhausted = store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-extra",
+        lease_seconds=60,
+        tags_any=["handoff:contention"],
+    )
+
+    assert len(set(claimed_ids)) == 6
+    assert exhausted["claimed"] is False
+    assert exhausted["reason"] == "no-eligible-signal"
+
+
+def test_claim_signal_caps_initial_lease_at_hard_expiry(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    hard_expiry = datetime.now(UTC) + timedelta(seconds=30)
+    created = store.store(
+        namespace="project:bridge",
+        content="Initial claim should not outrun hard expiry.",
+        kind="signal",
+        tags=["handoff:capped"],
+        expires_at=hard_expiry.isoformat(),
+    )
+
+    claimed = store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-a",
+        lease_seconds=600,
+        signal_id=created["id"],
+    )
+
+    assert claimed["claimed"] is True
+    assert datetime.fromisoformat(claimed["lease_expires_at"]) <= hard_expiry
+
+
+def test_stale_owner_cannot_ack_after_lease_expiry(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:bridge",
+        content="A stale owner should reclaim before acknowledging.",
+        kind="signal",
+        tags=["handoff:contention"],
+    )
+    store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-a",
+        lease_seconds=60,
+        signal_id=created["id"],
+    )
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE memories SET lease_expires_at = ? WHERE id = ?",
+            ("2000-01-01T00:00:00+00:00", created["id"]),
+        )
+        conn.commit()
+
+    stale_ack = store.ack_signal(created["id"], consumer="worker-a")
+    reclaimed = store.claim_signal(
+        namespace="project:bridge",
+        consumer="worker-b",
+        lease_seconds=60,
+        signal_id=created["id"],
+    )
+    acked = store.ack_signal(created["id"], consumer="worker-b")
+
+    assert stale_ack["acked"] is False
+    assert stale_ack["reason"] == "lease-expired"
+    assert reclaimed["claimed"] is True
+    assert acked["acked"] is True
 
 
 def test_fair_claim_offset_is_deterministic_and_consumer_specific() -> None:
@@ -477,6 +630,29 @@ def test_recall_can_filter_by_effective_signal_status(tmp_path: Path) -> None:
     assert [item["id"] for item in pending_hits["items"]] == [pending["id"]]
     assert [item["id"] for item in claimed_hits["items"]] == [claimed["id"]]
     assert [item["id"] for item in acked_hits["items"]] == [acked["id"]]
+
+
+def test_signal_status_filter_applies_before_limit(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    pending = store.store(
+        namespace="project:bridge",
+        content="Old pending handoff.",
+        kind="signal",
+        tags=["handoff:open"],
+    )
+    for index in range(5):
+        acked = store.store(
+            namespace="project:bridge",
+            content=f"Newer completed handoff {index}.",
+            kind="signal",
+            tags=["handoff:done"],
+        )
+        store.ack_signal(acked["id"])
+
+    pending_hits = store.recall(namespace="project:bridge", kind="signal", signal_status="pending", limit=1)
+
+    assert pending_hits["count"] == 1
+    assert pending_hits["items"][0]["id"] == pending["id"]
 
 
 def test_filter_only_recall_returns_newest_first(tmp_path: Path) -> None:
@@ -736,7 +912,7 @@ def test_export_returns_markdown_json_and_text(tmp_path: Path) -> None:
         source_client="antigravity",
         source_model="gemini-2.5-pro",
         client_session_id="ag-session-1",
-        client_workspace="file_my_g_home_Drive_obsidian_Wanders",
+        client_workspace="project_demo_workspace",
         client_transport="stdio",
     )
 

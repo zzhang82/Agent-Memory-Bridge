@@ -15,6 +15,7 @@ the engine gets more expressive.
 - `python ./scripts/run_activation_stress_pack.py`
 - `python ./scripts/run_task_memory_benchmark.py`
 - `python ./scripts/run_procedure_governance_benchmark.py`
+- `python ./scripts/run_signal_contention_benchmark.py`
 
 ## What The Reports Cover
 
@@ -30,6 +31,7 @@ The checked-in proof and benchmark flow covers:
 - isolated learning-ladder activation stress cases
 - reviewed task-memory packet comparison between flat/current assembly and relation-aware assembly
 - reviewed procedure-governance packet comparison between flat/current assembly and governed procedure assembly
+- reviewed signal contention lifecycle cases for unique claims, stale-owner avoidance, reclaim, and done/expired leakage
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.
@@ -122,6 +124,35 @@ tracks:
 
 These metrics are procedure packet-quality checks. They are not productivity
 claims, automatic procedure-learning claims, or procedure execution claims.
+
+## Signal Contention Benchmark
+
+The signal contention benchmark is separate from the deterministic lifecycle
+proof. It answers a narrower 0.13 question:
+
+> Given several workers polling the same namespace, do signal claims stay unique,
+> avoid stale same-owner bias, reclaim expired leases, and keep acked/expired
+> signals out of generic claim selection?
+
+The reviewed cases are implemented in the signal contention runner and exercise
+multi-consumer unique claims, active claim-vs-renewal separation, stale lease
+ack blocking, expired lease reclaim, pending work under active-claim pressure,
+and initial hard-expiry lease caps.
+
+The report is written to `benchmark/latest-signal-contention-report.json` and
+tracks:
+
+- `case_pass_rate`
+- `unique_active_claim_rate`
+- `duplicate_active_claim_count`
+- `active_reclaim_block_rate`
+- `stale_ack_blocked_rate`
+- `stale_reclaim_success_rate`
+- `pending_under_pressure_claim_rate`
+- `initial_hard_expiry_cap_rate`
+
+These metrics are local lifecycle checks. They are not a distributed queue,
+scheduling, or throughput benchmark.
 
 ## Activation Stress
 

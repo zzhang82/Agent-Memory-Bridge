@@ -32,9 +32,10 @@ stdio MCP server, with documented support for other compatible clients.
 > 30-second demo: store memory + signal -> claim -> extend -> ack -> later recall
 > from the same project.
 
-`0.12.2` keeps the `0.12` onboarding work intact and replaces the overview with
-the intended first-screen artwork so the README matches the released public
-story.
+`0.13.0` strengthens coordination under contention: `claim_signal(...)` assigns
+work, `extend_signal_lease(...)` renews ownership, and stale work must be
+reclaimed before it can be acknowledged. The public MCP surface stays at `10`
+tools.
 
 ## Client Support
 
@@ -83,7 +84,7 @@ memory stack, see [docs/COMPARISON.md](docs/COMPARISON.md).
 ## Core Capabilities
 
 1. Small public MCP surface. The bridge still exposes `10` public MCP tools while richer behavior stays behind that surface.
-2. Two-channel memory with a real signal lifecycle. Signals follow `claim -> extend -> ack / expire / reclaim`.
+2. Two-channel memory with a real signal lifecycle. Signals follow `claim -> extend -> ack / expire / reclaim`, with contention checks for repeated polling and stale ownership.
 3. Governed structured memory. Raw session output is promoted into compact, machine-readable artifacts with relation-lite metadata.
 4. Applicable task-time memory. Procedures, concept notes, beliefs, and linked support can be assembled into one issue-oriented local context.
 5. Governed procedure memory. `validated` procedures are preferred, `draft` and legacy procedures stay visible with warnings, and `stale`, `replaced`, and `unsafe` procedures are suppressed from governed task packets.
@@ -280,7 +281,7 @@ Runnable, not just claimed.
 
 | Gate | Result |
 |---|---|
-| `pytest` | `185 passed` |
+| `pytest` | `194 passed` |
 | deterministic proof | `4/4` checks |
 
 Retrieval benchmark (`question_count = 11`):
@@ -311,14 +312,28 @@ Procedure governance benchmark (`case_count = 7`):
 | `governed_blocked_procedure_leak_rate = 0.0` | governed packet |
 | `governed_governance_field_completeness = 1.0` | governed packet |
 
+Signal contention benchmark (`signal_contention_case_count = 5`):
+
+| Metric | Score |
+|---|---|
+| `signal_contention_case_pass_rate = 1.0` | contention contract |
+| `unique_active_claim_rate = 1.0` | no duplicate active claims |
+| `duplicate_active_claim_count = 0` | contention contract |
+| `active_reclaim_block_rate = 1.0` | claim is not lease renewal |
+| `stale_ack_blocked_rate = 1.0` | stale owner must reclaim before ack |
+| `stale_reclaim_success_rate = 1.0` | stale leases can be reclaimed |
+| `pending_under_pressure_claim_rate = 1.0` | pending work is not starved by active claims |
+| `initial_hard_expiry_cap_rate = 1.0` | initial claim respects hard expiry |
+
 ## Honest Boundaries
 
-`0.12.2` is deliberately scoped. It is not:
+`0.13.0` is deliberately scoped. It is not:
 
 - a graph database
 - capable of full relation-aware traversal or ranking across the whole store
-- a scheduler or agent runtime
+- a scheduler, queue platform, distributed lock, or agent runtime
 - active worker execution on top of stored signals
+- exactly-once distributed coordination
 - automatic procedure learning from raw transcripts
 - cross-domain concept synthesis yet
 
@@ -360,7 +375,7 @@ The bridge is meant to be inspectable, not magical:
 - watcher health checks verify that rollout files still parse into usable summaries
 - metadata-only telemetry can be summarized without exposing stored memory bodies
 - classifier shadow and assist behavior is covered by fixture-based regression tests
-- the current test suite passes with `185 passed`
+- the current test suite passes with `194 passed`
 
 Useful commands from an active virtual environment:
 
@@ -369,6 +384,7 @@ python -m pytest
 python ./scripts/verify_stdio.py
 python ./scripts/run_deterministic_proof.py
 python ./scripts/run_benchmark.py
+python ./scripts/run_signal_contention_benchmark.py
 python ./scripts/run_healthcheck.py --report-path ./.runtime/healthcheck-report.json
 python ./scripts/run_watcher_healthcheck.py --report-path ./.runtime/watcher-health-report.json
 ```
@@ -383,6 +399,7 @@ The bridge ships with a small proof and benchmark harness:
 - retrieval benchmark tracks `precision@1`, `precision@3`, `recall@1`, `recall@3`, `MRR`, and `expected_top1_accuracy`
 - the retrieval report compares bridge recall against a simple file-scan baseline
 - reviewed classifier calibration compares expected tags, fallback tags, raw classifier tags, retained classifier tags, and low-confidence filtering
+- signal contention fixtures check multi-consumer claim/reclaim/ack semantics without pretending to be a scheduler benchmark
 - activation stress fixtures shake the learning ladder without touching live bridge state
 
 On the current canonical fixture:
@@ -404,10 +421,23 @@ On the current reviewed calibration set:
 - `fallback_better_count = 2`
 - `classifier_filtered_low_confidence_count = 2`
 
+On the current signal contention set:
+
+- `signal_contention_case_count = 5`
+- `signal_contention_case_pass_rate = 1.0`
+- `unique_active_claim_rate = 1.0`
+- `duplicate_active_claim_count = 0`
+- `active_reclaim_block_rate = 1.0`
+- `stale_ack_blocked_rate = 1.0`
+- `stale_reclaim_success_rate = 1.0`
+- `pending_under_pressure_claim_rate = 1.0`
+- `initial_hard_expiry_cap_rate = 1.0`
+
 For deterministic local replays of the published snapshots:
 
 ```bash
 python ./scripts/run_classifier_calibration.py --fixture-gateway
+python ./scripts/run_signal_contention_benchmark.py
 python ./scripts/run_activation_stress_pack.py
 ```
 

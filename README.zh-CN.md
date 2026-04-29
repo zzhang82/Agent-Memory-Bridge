@@ -28,7 +28,7 @@ Codex 是我们当前最完整的参考工作流。Agent Memory Bridge 本身是
 
 > 30 秒 demo：写入 memory 和 signal，再走一遍 claim -> extend -> ack，随后在同项目里把有用记忆再召回出来。
 
-`0.12.2` 保留了 `0.12` 这一轮 onboarding 和 integration hardening 的运行时形状，并把首页结构图修正成预期那一版，让 README 和实际 public story 对齐。
+`0.13.0` 强化了 contention 下的协同语义：`claim_signal(...)` 负责分配工作，`extend_signal_lease(...)` 负责续租所有权，过期 lease 必须先 reclaim 才能 ack。公开 MCP surface 仍然保持 `10` 个工具。
 
 ## 客户端支持
 
@@ -76,7 +76,7 @@ Agent Memory Bridge 走的是更克制的一条路：
 ## 核心能力
 
 1. 小而稳的公开 MCP surface。桥现在仍然只暴露 `10` 个 public MCP tools，更复杂的行为留在桥内部演进。
-2. 双通道记忆和完整的 signal 生命周期。signal 遵循 `claim -> extend -> ack / expire / reclaim`。
+2. 双通道记忆和完整的 signal 生命周期。signal 遵循 `claim -> extend -> ack / expire / reclaim`，并补了 repeated polling 和 stale ownership 的 contention 检查。
 3. 受治理的结构化记忆。原始会话输出会被提升成紧凑、机器可读的 artifact，并带着 relation-lite metadata。
 4. 可直接用于任务的记忆组装。procedure、concept note、belief 和 supporting records 可以被组装成一次 issue-oriented 本地上下文。
 5. 受治理的 procedure memory。`validated` procedure 会被优先使用；`draft` 和 legacy procedure 仍可见但带 warning；`stale`、`replaced`、`unsafe` procedure 会被压出 governed task packet。
@@ -261,7 +261,7 @@ rollback_path: stop release, update docs/report, rerun checks
 
 | Gate | Result |
 |---|---|
-| `pytest` | `185 passed` |
+| `pytest` | `194 passed` |
 | deterministic proof | `4/4` checks |
 
 retrieval benchmark（`question_count = 11`）：
@@ -282,14 +282,38 @@ retrieval benchmark（`question_count = 11`）：
 | `classifier_better_count = 13` | classifier wins |
 | `fallback_better_count = 2` | fallback wins |
 
+procedure governance benchmark（`case_count = 7`）：
+
+| Metric | Score |
+|---|---|
+| `flat_case_pass_rate = 0.429` | flat packet |
+| `governed_case_pass_rate = 1.0` | governed packet |
+| `flat_blocked_procedure_leak_rate = 1.0` | flat packet |
+| `governed_blocked_procedure_leak_rate = 0.0` | governed packet |
+| `governed_governance_field_completeness = 1.0` | governed packet |
+
+signal contention benchmark（`signal_contention_case_count = 5`）：
+
+| Metric | Score |
+|---|---|
+| `signal_contention_case_pass_rate = 1.0` | contention contract |
+| `unique_active_claim_rate = 1.0` | no duplicate active claims |
+| `duplicate_active_claim_count = 0` | contention contract |
+| `active_reclaim_block_rate = 1.0` | claim 不是 lease renewal |
+| `stale_ack_blocked_rate = 1.0` | stale owner 必须先 reclaim 才能 ack |
+| `stale_reclaim_success_rate = 1.0` | stale lease 可以被 reclaim |
+| `pending_under_pressure_claim_rate = 1.0` | pending work 不会被大量 active claims 饿死 |
+| `initial_hard_expiry_cap_rate = 1.0` | 初次 claim 遵守 hard expiry |
+
 ## 诚实边界
 
-`0.12.2` 仍然不是：
+`0.13.0` 仍然不是：
 
 - 图数据库
 - 面向全库的 relation-aware traversal 或 ranking
-- scheduler 或 agent runtime
+- scheduler、queue platform、distributed lock 或 agent runtime
 - 构建在 signal 之上的 active worker execution
+- exactly-once distributed coordination
 - 从原始 transcript 自动学出 procedure
 - 跨 domain 的 concept synthesis
 
@@ -330,7 +354,7 @@ retrieval benchmark（`question_count = 11`）：
 - watcher health check 会验证 rollout 文件是否还能解析成可用 summary
 - metadata-only telemetry 可以做摘要，但不暴露存储内容正文
 - classifier 的 shadow / assist 行为有 fixture-based 回归测试覆盖
-- 当前测试套件结果是 `185 passed`
+- 当前测试套件结果是 `194 passed`
 
 常用命令：
 
@@ -339,6 +363,7 @@ python -m pytest
 python ./scripts/verify_stdio.py
 python ./scripts/run_deterministic_proof.py
 python ./scripts/run_benchmark.py
+python ./scripts/run_signal_contention_benchmark.py
 python ./scripts/run_healthcheck.py --report-path ./.runtime/healthcheck-report.json
 python ./scripts/run_watcher_healthcheck.py --report-path ./.runtime/watcher-health-report.json
 ```
@@ -353,6 +378,7 @@ retrieval 质量现在是可以 benchmark 的，不是靠感觉猜。
 - retrieval benchmark：`precision@1`、`precision@3`、`recall@1`、`recall@3`、`MRR`、`expected_top1_accuracy`
 - bridge recall 和 file-scan baseline 的对照
 - reviewed classifier calibration：expected tags、fallback tags、classifier tags、low-confidence filtering
+- signal contention fixtures：检查多 consumer 下的 claim / reclaim / ack 语义，但不把它包装成 scheduler benchmark
 - activation stress fixtures：在不碰 live bridge 的前提下摇一摇 learning ladder
 
 当前 canonical fixture：
@@ -374,10 +400,23 @@ retrieval 质量现在是可以 benchmark 的，不是靠感觉猜。
 - `fallback_better_count = 2`
 - `classifier_filtered_low_confidence_count = 2`
 
+当前 signal contention set：
+
+- `signal_contention_case_count = 5`
+- `signal_contention_case_pass_rate = 1.0`
+- `unique_active_claim_rate = 1.0`
+- `duplicate_active_claim_count = 0`
+- `active_reclaim_block_rate = 1.0`
+- `stale_ack_blocked_rate = 1.0`
+- `stale_reclaim_success_rate = 1.0`
+- `pending_under_pressure_claim_rate = 1.0`
+- `initial_hard_expiry_cap_rate = 1.0`
+
 如果你想本地做确定性的 snapshot replay：
 
 ```bash
 python ./scripts/run_classifier_calibration.py --fixture-gateway
+python ./scripts/run_signal_contention_benchmark.py
 python ./scripts/run_activation_stress_pack.py
 ```
 

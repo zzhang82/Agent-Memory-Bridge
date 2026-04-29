@@ -13,7 +13,7 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     root = create_release_fixture(tmp_path)
 
     # 146 is the fixture-internal count declared in create_release_fixture below.
-    # It is intentionally not the live test count (149). The fixture is a synthetic
+    # It is intentionally not the live test count. The fixture is a synthetic
     # tree where the README, report JSON, and test_count_provider are all set to the
     # same fixed value so the contract check passes deterministically without running
     # pytest on the real suite.
@@ -22,6 +22,7 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert report["ok"] is True
     assert report["pyproject_version"] == "0.9.0"
     assert report["server_tool_count"] == 10
+    assert report["test_count_source"] == "pytest_collect_only"
     assert all(check["ok"] for check in report["checks"])
 
 
@@ -48,7 +49,7 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
     check_names = {check["name"]: check for check in report["checks"]}
     assert check_names["pyproject_version_matches_readmes"]["ok"] is False
     assert check_names["readme_facts_match_snapshot_reports"]["ok"] is False
-    assert check_names["readme_test_count_is_aligned"]["ok"] is False
+    assert check_names["readme_test_count_matches_collected_suite"]["ok"] is False
     assert check_names["public_mcp_tool_count_matches_server_surface"]["ok"] is False
     assert check_names["current_demo_assets_exist"]["ok"] is False
 
@@ -105,6 +106,21 @@ def create_release_fixture(root: Path) -> Path:
         - `classifier_better_count = 13`
         - `fallback_better_count = 2`
         - `classifier_filtered_low_confidence_count = 2`
+        - `case_count = 7`
+        - `flat_case_pass_rate = 0.429`
+        - `governed_case_pass_rate = 1.0`
+        - `flat_blocked_procedure_leak_rate = 1.0`
+        - `governed_blocked_procedure_leak_rate = 0.0`
+        - `governed_governance_field_completeness = 1.0`
+        - `signal_contention_case_count = 5`
+        - `signal_contention_case_pass_rate = 1.0`
+        - `unique_active_claim_rate = 1.0`
+        - `duplicate_active_claim_count = 0`
+        - `active_reclaim_block_rate = 1.0`
+        - `stale_ack_blocked_rate = 1.0`
+        - `stale_reclaim_success_rate = 1.0`
+        - `pending_under_pressure_claim_rate = 1.0`
+        - `initial_hard_expiry_cap_rate = 1.0`
 
         ## MCP Tools
 
@@ -144,6 +160,41 @@ def create_release_fixture(root: Path) -> Path:
                     "classifier_better_count": 13,
                     "fallback_better_count": 2,
                     "classifier_filtered_low_confidence_count": 2,
+                }
+            },
+            indent=2,
+        ),
+    )
+    write_file(
+        root / "benchmark" / "latest-procedure-governance-report.json",
+        json.dumps(
+            {
+                "summary": {
+                    "case_count": 7,
+                    "flat_case_pass_rate": 0.429,
+                    "governed_case_pass_rate": 1.0,
+                    "flat_blocked_procedure_leak_rate": 1.0,
+                    "governed_blocked_procedure_leak_rate": 0.0,
+                    "governed_governance_field_completeness": 1.0,
+                }
+            },
+            indent=2,
+        ),
+    )
+    write_file(
+        root / "benchmark" / "latest-signal-contention-report.json",
+        json.dumps(
+            {
+                "summary": {
+                    "case_count": 5,
+                    "case_pass_rate": 1.0,
+                    "unique_active_claim_rate": 1.0,
+                    "duplicate_active_claim_count": 0,
+                    "active_reclaim_block_rate": 1.0,
+                    "stale_ack_blocked_rate": 1.0,
+                    "stale_reclaim_success_rate": 1.0,
+                    "pending_under_pressure_claim_rate": 1.0,
+                    "initial_hard_expiry_cap_rate": 1.0,
                 }
             },
             indent=2,

@@ -1,6 +1,6 @@
 ﻿# Memory Taxonomy
 
-Last updated: 2026-04-04
+Last updated: 2026-04-25
 
 ## Purpose
 
@@ -12,6 +12,8 @@ Its long-term value comes from storing the right kinds of memory at the right le
 - project-level learning for continuity
 - cross-project gotchas for reuse
 - domain-level synthesis for reflex and judgment
+- belief and concept-note records for governed learning
+- procedure records for task-time reuse without becoming an execution engine
 
 This document defines the memory shapes the bridge should support as the product grows beyond the v1 journal foundation.
 
@@ -137,7 +139,97 @@ Examples:
 - `domain:sqlite`
 - `domain:obsidian`
 
-### 5. Signal
+### 5. Belief Candidate
+
+Purpose:
+- hold a conservative, reviewable bridge between compressed domain patterns and stronger beliefs
+
+What it contains:
+- claim
+- boundary
+- support count
+- distinct session count
+- contradiction count
+- confidence
+- evidence references
+
+Characteristics:
+- not startup authority by default
+- must stay sparse
+- can be blocked by weak support, contradictions, stale evidence, or unstable wording
+
+Typical tags:
+- `kind:belief-candidate`
+- `domain:*`
+- `topic:*`
+
+### 6. Belief
+
+Purpose:
+- capture a stronger, revisable operating assumption backed by repeated evidence
+
+What it contains:
+- stable claim and boundary
+- evidence references across sessions
+- contradiction and supersede metadata
+- staleness policy
+
+Characteristics:
+- stronger than a domain note, weaker than core policy
+- should remain much rarer than domain notes
+- should not automatically rewrite policy
+
+Typical tags:
+- `kind:belief`
+- `domain:*`
+- `confidence:validated`
+
+### 7. Concept Note
+
+Purpose:
+- compress stable beliefs and domain patterns into a concept-shaped artifact that can help task-time assembly
+
+What it contains:
+- anchor
+- boundary
+- rule
+- failure mode
+- compact epiphany or takeaway
+
+Characteristics:
+- useful for task framing
+- not a broad cross-domain synthesis engine yet
+- should reduce repetition rather than produce longer prose
+
+Typical tags:
+- `kind:concept-note`
+- `domain:*`
+
+### 8. Procedure
+
+Purpose:
+- store reusable "how to do this safely" patterns as durable task memory
+
+What it contains:
+- goal
+- `procedure_status`
+- when to use / when not to use
+- prerequisites
+- steps
+- failure mode
+- rollback path
+
+Characteristics:
+- selected for task-time packets, not executed by the bridge
+- governed by status: `validated`, `draft`, `stale`, `replaced`, or `unsafe`
+- suppressed from governed packets when stale, replaced, or unsafe
+
+Typical tags:
+- `kind:procedure`
+- `domain:*`
+- `procedure_status:*`
+
+### 9. Signal
 
 Purpose:
 - lightweight coordination and polling
@@ -267,4 +359,8 @@ It should be:
 2. promote durable items to `learn`
 3. promote repeated fixes to `gotcha`
 4. synthesize recurring patterns into `domain-note`
+5. create conservative `belief-candidate` records only when evidence and boundaries are explicit
+6. promote very few candidates into `belief` after cross-session support and contradiction checks
+7. derive compact `concept-note` records from stable beliefs
+8. curate `procedure` records separately from raw transcript storage
 

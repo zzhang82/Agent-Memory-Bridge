@@ -66,12 +66,11 @@ def effective_signal_status(snapshot: SignalSnapshot, now: datetime | None = Non
 
 
 def is_signal_claimable(snapshot: SignalSnapshot, *, consumer: str | None = None, now: datetime | None = None) -> bool:
+    del consumer
     status = effective_signal_status(snapshot, now=now)
     if status in {"acked", "expired"}:
         return False
     if status == "pending":
-        return True
-    if status == "claimed" and consumer and snapshot.claimed_by == consumer:
         return True
     return False
 
@@ -111,6 +110,25 @@ def select_claimable_signal(
     if tag_filter_sql:
         clauses.append(tag_filter_sql)
         params.extend(tag_params)
+    now_iso = now.isoformat()
+    clauses.append(
+        """
+        (
+            (acknowledged_at IS NULL AND COALESCE(signal_status, '') != 'acked')
+            AND (expires_at IS NULL OR datetime(expires_at) > datetime(?))
+            AND (
+                signal_status IS NULL
+                OR signal_status = 'pending'
+                OR (
+                    signal_status = 'claimed'
+                    AND lease_expires_at IS NOT NULL
+                    AND datetime(lease_expires_at) <= datetime(?)
+                )
+            )
+        )
+        """
+    )
+    params.extend([now_iso, now_iso])
 
     rows = conn.execute(
         f"""
@@ -118,10 +136,21 @@ def select_claimable_signal(
             {row_select_sql}
         FROM memories
         WHERE {' AND '.join(clauses)}
-        ORDER BY created_at ASC
+        ORDER BY
+            CASE
+                WHEN signal_status IS NULL OR signal_status = 'pending' THEN 0
+                WHEN signal_status = 'claimed'
+                    AND (lease_expires_at IS NOT NULL AND datetime(lease_expires_at) <= datetime(?))
+                    AND COALESCE(claimed_by, '') != ? THEN 1
+                WHEN signal_status = 'claimed'
+                    AND (lease_expires_at IS NOT NULL AND datetime(lease_expires_at) <= datetime(?))
+                    AND claimed_by = ? THEN 2
+                ELSE 4
+            END,
+            created_at ASC
         LIMIT 50
         """,
-        params,
+        (*params, now_iso, consumer, now_iso, consumer),
     ).fetchall()
     claimable_rows = [
         row
@@ -161,7 +190,6 @@ def claim_signal_entry(
 
     now = datetime.now(UTC)
     claimed_at = now.isoformat()
-    lease_expires_at = (now + timedelta(seconds=lease_seconds)).isoformat()
 
     with store._connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -177,6 +205,15 @@ def claim_signal_entry(
             build_tag_filter=build_tag_filter,
         )
         if candidate is None:
+            reason = "no-eligible-signal"
+            if cleaned_signal_id:
+                row = fetch_row_by_id(conn, cleaned_signal_id)
+                reason = explain_claim_failure(
+                    row=row,
+                    namespace=cleaned_namespace,
+                    consumer=cleaned_consumer,
+                    now=now,
+                )
             conn.rollback()
             store._log(
                 "claim_signal",
@@ -185,6 +222,7 @@ def claim_signal_entry(
                     "consumer": cleaned_consumer,
                     "claimed": False,
                     "signal_id": cleaned_signal_id,
+                    "reason": reason,
                 },
             )
             return {
@@ -192,9 +230,11 @@ def claim_signal_entry(
                 "signal_id": cleaned_signal_id,
                 "namespace": cleaned_namespace,
                 "consumer": cleaned_consumer,
+                "reason": reason,
                 "item": None,
             }
 
+        lease_expires_at = _resolve_initial_lease_expiry(candidate, now=now, lease_seconds=lease_seconds)
         conn.execute(
             """
             UPDATE memories
@@ -263,6 +303,9 @@ def ack_signal_entry(
         if status == "acked":
             conn.rollback()
             return {"id": cleaned_id, "acked": False, "reason": "already-acked", "item": row_to_item(row)}
+        if _is_expired(snapshot.lease_expires_at, now):
+            conn.rollback()
+            return {"id": cleaned_id, "acked": False, "reason": "lease-expired", "item": row_to_item(row)}
         if cleaned_consumer and snapshot.claimed_by and snapshot.claimed_by != cleaned_consumer and status == "claimed":
             conn.rollback()
             return {"id": cleaned_id, "acked": False, "reason": "claimed-by-other", "item": row_to_item(row)}
@@ -380,6 +423,33 @@ def choose_fair_claim_candidate(rows: list[sqlite3.Row], *, consumer: str) -> sq
     return pool[offset]
 
 
+def explain_claim_failure(
+    *,
+    row: sqlite3.Row | None,
+    namespace: str,
+    consumer: str,
+    now: datetime,
+) -> str:
+    if row is None:
+        return "missing"
+    if row["namespace"] != namespace:
+        return "namespace-mismatch"
+    if row["kind"] != "signal":
+        return "not-signal"
+
+    snapshot = SignalSnapshot.from_row(row)
+    status = effective_signal_status(snapshot, now=now)
+    if status == "acked":
+        return "already-acked"
+    if status == "expired":
+        return "expired"
+    if status == "claimed" and snapshot.claimed_by and snapshot.claimed_by != consumer:
+        return "claimed-by-other"
+    if status == "claimed" and snapshot.claimed_by == consumer:
+        return "already-claimed"
+    return "not-claimable"
+
+
 def fair_claim_offset(consumer: str, pool_size: int) -> int:
     if pool_size <= 0:
         raise ValueError("pool_size must be greater than 0")
@@ -401,6 +471,14 @@ def _resolve_extended_lease_expiry(*, snapshot: SignalSnapshot, now: datetime, l
     if hard_expiry is not None and extended > hard_expiry:
         extended = hard_expiry
     return extended.isoformat()
+
+
+def _resolve_initial_lease_expiry(row: sqlite3.Row, *, now: datetime, lease_seconds: int) -> str:
+    hard_expiry = _parse_iso_utc(row["expires_at"])
+    lease_expires_at = now + timedelta(seconds=lease_seconds)
+    if hard_expiry is not None and lease_expires_at > hard_expiry:
+        lease_expires_at = hard_expiry
+    return lease_expires_at.isoformat()
 
 
 def _parse_iso_utc(raw_value: str | None) -> datetime | None:

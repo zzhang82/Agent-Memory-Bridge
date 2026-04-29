@@ -1,0 +1,64 @@
+{
+  "summary": {
+    "case_count": 5,
+    "case_pass_rate": 1.0,
+    "unique_active_claim_rate": 1.0,
+    "duplicate_active_claim_count": 0,
+    "active_reclaim_block_rate": 1.0,
+    "stale_ack_blocked_rate": 1.0,
+    "stale_reclaim_success_rate": 1.0,
+    "pending_under_pressure_claim_rate": 1.0,
+    "initial_hard_expiry_cap_rate": 1.0
+  },
+  "metadata": {
+    "comparison": "serialized_multi_consumer_signal_contention_contract",
+    "notes": "This slice checks repeatable signal ownership and reclaim semantics under contention. It is not a scheduler, throughput, exactly-once, or distributed-lock benchmark."
+  },
+  "cases": [
+    {
+      "id": "unique-active-claims",
+      "passed": true,
+      "metrics": {
+        "unique_active_claims": true,
+        "duplicate_active_claim_count": 0,
+        "exhausted_reason": "no-eligible-signal"
+      }
+    },
+    {
+      "id": "claim-is-not-renew",
+      "passed": true,
+      "metrics": {
+        "active_reclaim_blocked": true,
+        "extend_still_renews": true,
+        "blocked_reason": "already-claimed"
+      }
+    },
+    {
+      "id": "stale-reclaim-before-ack",
+      "passed": true,
+      "metrics": {
+        "stale_ack_blocked": true,
+        "stale_reclaim_succeeded": true,
+        "stale_ack_reason": "lease-expired"
+      }
+    },
+    {
+      "id": "pending-not-starved-by-active-claims",
+      "passed": true,
+      "metrics": {
+        "pending_under_pressure_claimed": true,
+        "claimed_signal_id": "20260429022052580004-c6f7b5d4",
+        "expected_signal_id": "20260429022052580004-c6f7b5d4"
+      }
+    },
+    {
+      "id": "initial-claim-hard-expiry-cap",
+      "passed": true,
+      "metrics": {
+        "initial_hard_expiry_capped": true,
+        "expires_at": "2026-04-29T02:21:22.612467+00:00",
+        "lease_expires_at": "2026-04-29T02:21:22.612467+00:00"
+      }
+    }
+  ]
+}

@@ -1,14 +1,18 @@
 # Promotion Rules
 
-Last updated: 2026-04-04
+Last updated: 2026-04-25
 
 ## Purpose
 
 The bridge becomes useful when it promotes memory upward instead of storing everything at the same level.
 
-This document defines the promotion ladder:
+This document defines the governed promotion ladder:
 
-- `summary -> learn -> gotcha -> domain-note`
+- `summary -> learn / gotcha -> domain-note -> belief-candidate -> belief -> concept-note`
+
+Procedure records are a related durable memory shape, but they are curated as
+task-time "how to do this" artifacts rather than automatically promoted from the
+same ladder.
 
 ## Core Rule
 
@@ -110,6 +114,81 @@ It should summarize:
 
 Domain notes should be slower-moving and reviewed more carefully than summaries or learns.
 
+## Stage 5: Belief Candidate
+
+Promote a compressed domain pattern into a `belief-candidate` only when it has an
+explicit claim, boundary, and evidence trail.
+
+Require:
+
+- support count
+- distinct session count
+- contradiction count
+- confidence
+- evidence references
+- staleness or supersede policy
+
+Do not promote when:
+
+- all support comes from one bursty session
+- the boundary is unclear
+- contradictions are unresolved
+- the claim wording is unstable
+
+## Stage 6: Belief
+
+Promote `belief-candidate -> belief` conservatively.
+
+The current preferred gate is:
+
+- enough support
+- evidence spans multiple sessions
+- contradiction count stays below the threshold
+- freshness window is still valid
+- claim and boundary remain stable
+
+This creates a stronger operating assumption, not a policy rewrite. A `belief`
+can support startup or task-time judgment later, but it should stay rarer than
+domain notes and remain revisable through contradictions or supersede metadata.
+
+## Stage 7: Concept Note
+
+Create `concept-note` records from stable beliefs or repeated domain patterns
+when a shorter concept-shaped artifact helps task-time assembly.
+
+A good concept note contains:
+
+- anchor
+- boundary
+- rule
+- failure mode
+- epiphany or compact takeaway
+
+It should reduce repetition. It should not become a longer domain note with a
+new label.
+
+## Procedure Governance
+
+Procedure memory is not auto-executed by the bridge. It is selected or
+suppressed during task-time assembly based on governance metadata.
+
+Useful fields:
+
+- `procedure_status`
+- `when_to_use`
+- `when_not_to_use`
+- `prerequisites`
+- `failure_mode`
+- `rollback_path`
+- `supersedes`
+
+Status behavior:
+
+- `validated`: preferred when relevant
+- `draft`: visible with lower confidence
+- legacy no-status procedures: visible with warnings
+- `stale`, `replaced`, `unsafe`: suppressed from governed task packets
+
 ## Confidence Rules
 
 Promotion should be shaped by confidence.
@@ -126,6 +205,9 @@ Rules:
 - `learn` should usually be at least `observed`
 - `gotcha` should usually be `validated`
 - `domain-note` should be built from mostly validated items
+- `belief-candidate` must include explicit evidence and boundary fields
+- `belief` must be cross-session and contradiction-aware
+- `concept-note` should be derived from stable lower layers, not raw transcript text
 
 ## Scope Rules
 
@@ -203,6 +285,15 @@ Learn -> Gotcha:
 
 Gotcha -> Domain Note:
 - require multiple related gotchas or learns under the same domain
+
+Domain Note -> Belief Candidate:
+- require an explicit claim, boundary, evidence refs, support count, and contradiction count
+
+Belief Candidate -> Belief:
+- require cross-session support and stable claim/boundary wording
+
+Belief -> Concept Note:
+- derive compact concept anchors only when they improve task-time assembly
 
 Do not require embeddings for this phase.
 

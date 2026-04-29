@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from datetime import UTC, datetime
 from typing import Any
 
 from .repository import MEMORY_ROW_SELECT, MemoryRow, normalize_tags
@@ -214,7 +215,6 @@ def build_filters(
     since: str | None,
     alias: str | None = None,
 ) -> tuple[str, list[Any]]:
-    del signal_status
     prefix = f"{alias}." if alias else ""
     clauses = [f"{prefix}namespace = ?"]
     params: list[Any] = [namespace]
@@ -232,6 +232,11 @@ def build_filters(
         clauses.append(f"{prefix}correlation_id = ?")
         params.append(correlation_id)
 
+    signal_filter_sql, signal_filter_params = build_signal_status_filter(signal_status, prefix=prefix)
+    if signal_filter_sql:
+        clauses.append(signal_filter_sql)
+        params.extend(signal_filter_params)
+
     tag_filter_sql, tag_params = build_tag_filter(tags_any, prefix=prefix)
     if tag_filter_sql:
         clauses.append(tag_filter_sql)
@@ -244,6 +249,46 @@ def build_filters(
             params.extend(since_params)
 
     return " AND ".join(clauses), params
+
+
+def build_signal_status_filter(signal_status: str | None, prefix: str = "") -> tuple[str, list[str]]:
+    if signal_status is None:
+        return "", []
+
+    now = datetime.now(UTC).isoformat()
+    not_acked = f"({prefix}acknowledged_at IS NULL AND COALESCE({prefix}signal_status, '') != 'acked')"
+    not_hard_expired = f"({prefix}expires_at IS NULL OR datetime({prefix}expires_at) > datetime(?))"
+
+    if signal_status == "acked":
+        return (
+            f"({prefix}kind = 'signal' AND "
+            f"({prefix}acknowledged_at IS NOT NULL OR {prefix}signal_status = 'acked'))",
+            [],
+        )
+    if signal_status == "expired":
+        return (
+            f"({prefix}kind = 'signal' AND {not_acked} AND "
+            f"(({prefix}expires_at IS NOT NULL AND datetime({prefix}expires_at) <= datetime(?)) "
+            f"OR {prefix}signal_status = 'expired'))",
+            [now],
+        )
+    if signal_status == "claimed":
+        return (
+            f"({prefix}kind = 'signal' AND {not_acked} AND {not_hard_expired} AND "
+            f"{prefix}signal_status = 'claimed' AND "
+            f"({prefix}lease_expires_at IS NULL OR datetime({prefix}lease_expires_at) > datetime(?)))",
+            [now, now],
+        )
+    if signal_status == "pending":
+        return (
+            f"({prefix}kind = 'signal' AND {not_acked} AND {not_hard_expired} AND "
+            f"({prefix}signal_status IS NULL OR {prefix}signal_status = 'pending' OR "
+            f"({prefix}signal_status = 'claimed' AND {prefix}lease_expires_at IS NOT NULL "
+            f"AND datetime({prefix}lease_expires_at) <= datetime(?))))",
+            [now, now],
+        )
+
+    return "", []
 
 
 def build_tag_filter(tags_any: list[str] | None, prefix: str = "") -> tuple[str, list[str]]:

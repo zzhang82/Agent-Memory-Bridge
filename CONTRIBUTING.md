@@ -74,12 +74,20 @@ Private lab or maintainer-only:
 - local cutover and migration helpers
 - archived release notes, planning notes, and private rollout scratch work
 
-Before a public tag or push, run both checks:
+Before a public tag or push, run the full release hygiene set:
 
 ```bash
+python -m pytest -q
+python ./scripts/run_benchmark.py
+python ./scripts/run_deterministic_proof.py
 python ./scripts/check_release_contract.py
 python ./scripts/check_public_surface.py
+python ./scripts/check_onboarding_contract.py
 ```
+
+`check_release_contract.py` verifies that README versions, benchmark snapshots,
+calibration snapshots, public MCP tools, demo assets, and the collected test
+suite count stay aligned. It does not replace the full `pytest -q` run above.
 
 If a file needs personal operator names, local migration assumptions, or machine
 paths to make sense, keep it out of the public docs index and out of the public

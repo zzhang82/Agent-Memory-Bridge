@@ -1,10 +1,10 @@
 # Roadmap
 
-Last updated: 2026-04-23 (America/New_York)
+Last updated: 2026-04-28 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.9.0`, plus local
-post-0.9 work that should not be treated as released until the release branch is
-cut.
+This maintainer note tracks the shipped ladder through `0.13.0`, plus likely
+post-0.13 research tracks. Treat it as a maintainer planning document, not as the
+public release contract.
 
 ## Shipped Ladder
 
@@ -15,7 +15,7 @@ cut.
 The planned `0.8` work shipped as part of the direct `0.9.0` release rather than
 as a separate public tag.
 
-## What 0.9.0 Now Covers
+## What 0.9.0 Established
 
 ### 0.7 Governed Learning Layer
 
@@ -191,32 +191,50 @@ Codex dogfood path.
 
 ### 0.13 = coordination under contention
 
+Status: shipped in `v0.13.0`.
+
 #### Thesis
 
-Once onboarding is credible, the next release should strengthen coordination
-semantics under real multi-agent pressure without turning the bridge into a
-task-queue platform.
+Once onboarding is credible, the bridge should strengthen coordination semantics
+under multi-consumer pressure without turning into a task-queue platform.
 
-#### What it should cover
+#### What it shipped
 
-- retry boundaries
-- contention benchmarks
-- clearer reclaim / retry / abandon semantics
-- stronger provenance around multi-agent handoff and ownership transitions
-- only if pressure justifies it: narrow dead-letter-lite or retry-reason support
+- `claim_signal(...)` is no longer a same-owner heartbeat path; active owners use `extend_signal_lease(...)`
+- initial claims are capped by signal hard expiry, matching lease-extension behavior
+- stale owners cannot `ack_signal(...)` after lease expiry; stale work must be reclaimed first
+- generic claim selection filters eligible rows before the contention window so active claims do not starve later pending work
+- failed explicit claims now return clearer reason codes such as `already-claimed`, `claimed-by-other`, `expired`, or `lease-expired`
+- a signal contention benchmark covers unique active claims, stale ack blocking, stale reclaim, pending work under active-claim pressure, and hard-expiry lease caps
 
-#### What must prove out
+#### What proved out
 
-- contention harnesses with multiple consumers
-- retry and reclaim regression coverage
-- fairness behavior stays legible under repeated polling
-- subagent or multi-client handoff examples are real enough to matter
+- serialized multi-consumer contention fixtures pass with `signal_contention_case_pass_rate = 1.0`
+- no duplicate active claims leak in the benchmark slice
+- stale ownership boundaries are now explicit and test-covered
+- public MCP surface stays at `10` tools
 
 #### What it is not
 
 - not a scheduler
 - not an active consumer loop by default
 - not a general queue platform
+- not a distributed lock
+- not exactly-once coordination
+
+### 0.14 = likely next direction
+
+Status: candidate direction, not committed scope.
+
+The strongest remaining candidates are:
+
+- pre-compaction capture before model-side context loss
+- broader reviewed retrieval fixtures so credibility does not overfit the current corpus
+- deeper real multi-client contention dogfood beyond serialized benchmark cases
+- stronger write-side calibration for promotion quality
+
+Pick one thesis when the next release starts. Do not bundle all of these into one
+release unless they share a clear proof story.
 
 ## Parallel Research Track
 
@@ -227,7 +245,7 @@ release immediately:
 - broader reviewed retrieval fixtures to keep credibility from overfitting the current corpus
 - stronger write-side calibration for promotion quality
 
-Treat these as cross-cutting tracks that can land in `0.10.x` through `0.13.x`
+Treat these as cross-cutting tracks that can land in `0.14.x` and later
 as they become stable and portable.
 
 ## What 1.0 Should Mean

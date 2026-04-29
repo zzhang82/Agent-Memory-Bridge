@@ -30,12 +30,6 @@ To regenerate the cast:
 python ./scripts/build_demo_cast.py
 ```
 
-Windows PowerShell:
-
-```powershell
-.\.venv\Scripts\python.exe .\scripts\build_demo_cast.py
-```
-
 The checked-in cast uses a scrubbed placeholder prompt path so the public demo
 does not expose a maintainer workstation path.
 
@@ -43,10 +37,4 @@ To render the cast to GIF after installing `agg`:
 
 ```bash
 agg ./examples/demo/terminal-demo.cast ./examples/demo/terminal-demo.gif
-```
-
-Windows PowerShell:
-
-```powershell
-agg .\examples\demo\terminal-demo.cast .\examples\demo\terminal-demo.gif
 ```

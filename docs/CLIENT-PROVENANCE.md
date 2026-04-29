@@ -1,18 +1,18 @@
 # Client And Model Provenance
 
-Last updated: 2026-04-09 (America/New_York)
+Last updated: 2026-04-25 (America/New_York)
 
 ## Why This Exists
 
-Agent Memory Bridge now has real evidence that multiple MCP clients can connect
-to the same bridge and write into the same namespace.
+Agent Memory Bridge has real evidence that multiple MCP clients can connect to
+the same bridge and write into the same namespace.
 
 That is good news, but it exposed a real gap:
 
 - the bridge can prove that a record was written
 - it cannot always prove which external client or model caused that write
 
-Today, AMB already stores internal writer metadata such as:
+AMB stores internal writer metadata such as:
 
 - `actor`
 - `source_app`
@@ -56,9 +56,9 @@ Do not overload:
 Those shortcuts become ambiguous as soon as multiple clients share the same
 bridge.
 
-## What Needs To Be Captured
+## Captured Provenance Fields
 
-Recommended first-class provenance fields:
+Current first-class provenance fields:
 
 - `source_client`
   - examples: `codex`, `antigravity`, `claude-code`, `cursor`
@@ -71,7 +71,7 @@ Recommended first-class provenance fields:
 - `client_transport`
   - `stdio`, `http`, `sse`
 
-Optional later fields:
+Optional later fields that are not part of the current public contract:
 
 - `client_instance`
   - useful when one machine has multiple live windows of the same client
@@ -115,13 +115,10 @@ The final domain note should still preserve the origin chain:
 
 Without that split, multi-client evaluation becomes muddy.
 
-## Minimal Rollout
+## Current Shipped Shape
 
-The first rollout should stay small.
-
-### Phase 1
-
-Add optional fields to stored rows:
+The shipped shape stays deliberately small. Stored rows include optional
+provenance fields:
 
 - `source_client`
 - `source_model`
@@ -129,11 +126,9 @@ Add optional fields to stored rows:
 - `client_workspace`
 - `client_transport`
 
-No existing client should break if it does not supply them.
+No existing client breaks if it does not supply them.
 
-### Phase 2
-
-Expose those fields through MCP store paths where clients can provide them.
+MCP store paths expose those fields where clients can provide them.
 
 Important:
 
@@ -142,7 +137,7 @@ Important:
 - do not make legacy callers fail validation
 
 For stdio MCP clients that cannot or do not pass provenance fields on each tool
-call, the bridge should also support optional environment-backed defaults such as:
+call, the bridge also supports optional environment-backed defaults such as:
 
 - `AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT`
 - `AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_MODEL`
@@ -154,17 +149,13 @@ This is a better fit for multi-client adoption than hard-coding one IDE into the
 bridge config. Each client launcher can inject its own stable defaults without
 changing the public MCP surface.
 
-### Phase 3
-
 When reflex or consolidation writes derived records:
 
 - keep current writer metadata
 - carry forward origin metadata from the source rows when present
 
-### Phase 4
-
-Make recall and export preserve the new fields so calibration and debugging can
-filter by client and model.
+Recall and export preserve these fields so calibration and debugging can filter
+by client and model.
 
 ## Why This Matters
 
