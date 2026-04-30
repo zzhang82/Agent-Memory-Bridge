@@ -61,6 +61,56 @@ agent-memory-bridge config --client cursor --example
 `--example` keeps the output placeholder-safe. Without it, the renderer uses
 your current Python path together with the resolved bridge home and config path.
 
+### Dockerized Stdio
+
+If your client can launch Docker as the subprocess, keep stdin open and mount a
+host-owned bridge home into the image:
+
+```bash
+docker build -t agent-memory-bridge:local .
+docker run --rm -i \
+  -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge \
+  -v /path/to/bridge-home:/data/agent-memory-bridge \
+  agent-memory-bridge:local
+```
+
+The equivalent `mcpServers` shape is:
+
+```json
+{
+  "mcpServers": {
+    "agentMemoryBridge": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge",
+        "-e",
+        "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT=generic",
+        "-e",
+        "AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT=stdio",
+        "-v",
+        "/path/to/bridge-home:/data/agent-memory-bridge",
+        "agent-memory-bridge:local"
+      ]
+    }
+  }
+}
+```
+
+If you mount a config file, pass it explicitly:
+
+```bash
+docker run --rm -i \
+  -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge \
+  -e AGENT_MEMORY_BRIDGE_CONFIG=/config/config.toml \
+  -v /path/to/bridge-home:/data/agent-memory-bridge \
+  -v /path/to/agent-memory-bridge-config.toml:/config/config.toml:ro \
+  agent-memory-bridge:local
+```
+
 ## Codex
 
 Status: `Verified reference client`

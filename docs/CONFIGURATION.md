@@ -11,6 +11,31 @@ A clean starting point is:
 ```
 
 For client registration examples, see [INTEGRATIONS.md](INTEGRATIONS.md).
+Security model and vulnerability reporting guidance live in
+[SECURITY.md](../SECURITY.md).
+
+## Docker Runtime Defaults
+
+The Docker image sets the bridge home to a neutral container path:
+
+```text
+AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge
+```
+
+Mount a host directory at that path to keep the SQLite database and logs across
+container restarts. The image does not set a client-specific home by default.
+
+If you use a config file with Docker, mount it read-only and point the bridge at
+the container path:
+
+```bash
+docker run --rm -i \
+  -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge \
+  -e AGENT_MEMORY_BRIDGE_CONFIG=/config/config.toml \
+  -v /path/to/bridge-home:/data/agent-memory-bridge \
+  -v /path/to/agent-memory-bridge-config.toml:/config/config.toml:ro \
+  agent-memory-bridge:local
+```
 
 ## `[bridge]`
 
@@ -37,6 +62,18 @@ into the final record.
 
 Shadow mode is the safe starting point. Assist mode makes sense after you trust
 the classifier on your own corpus.
+
+When `provider = "command"` is configured, the classifier is a trusted local
+command. AMB executes the configured command through the local shell, sends
+classification candidates as JSON on stdin, and expects JSON on stdout. Candidate
+payloads can include memory text, titles, source ids, and fallback tags.
+
+AMB does not sandbox the classifier command, restrict its filesystem or network
+access, or hide the bridge process environment from it. Only configure commands
+you control and are willing to run with the same local privileges as AMB. Keep
+classifier mode `off` unless you need it, prefer `shadow` before `assist`, and do
+not point the command at unreviewed scripts or hosted services that should not
+receive memory content. See [SECURITY.md](../SECURITY.md#classifier-command-trust-boundary).
 
 ## `[telemetry]`
 

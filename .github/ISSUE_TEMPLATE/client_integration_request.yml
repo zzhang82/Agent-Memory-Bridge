@@ -1,0 +1,74 @@
+name: Client integration request
+description: Request or document support for a coding-agent, MCP, or desktop client.
+title: "Client integration: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for client setup gaps, compatibility questions, or integration recipes that would make Agent Memory Bridge easier to adopt.
+  - type: input
+    id: client
+    attributes:
+      label: Client or host application
+      description: Name the client, host app, or runtime you want to integrate.
+      placeholder: "Codex, Claude Desktop, Cursor, custom MCP host..."
+    validations:
+      required: true
+  - type: input
+    id: client-version
+    attributes:
+      label: Client version
+      description: Include the version, channel, or commit if known.
+      placeholder: "1.2.3, nightly, commit SHA..."
+    validations:
+      required: false
+  - type: textarea
+    id: goal
+    attributes:
+      label: Integration goal
+      description: What should a successful integration allow a user to do?
+      placeholder: "Use `store` and `recall` from the client without custom wrapper scripts."
+    validations:
+      required: true
+  - type: textarea
+    id: current-state
+    attributes:
+      label: Current setup or blocker
+      description: Share the config, command, error, or missing documentation that blocks setup.
+      placeholder: |
+        Current config:
+        Error:
+        Workaround tried:
+    validations:
+      required: true
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Request type
+      options:
+        - Setup documentation
+        - Example config
+        - Compatibility fix
+        - Client-specific helper
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Client constraints
+      description: Note sandboxing, transport, path, environment-variable, or startup-command constraints.
+      placeholder: "stdio only, no shell expansion, Windows paths require escaping..."
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Request checklist
+      options:
+        - label: I included the client name and enough setup detail for maintainers to reason about compatibility.
+          required: true
+        - label: I removed secrets, tokens, and private local paths from pasted config.
+          required: true

@@ -1,0 +1,68 @@
+name: Memory taxonomy question
+description: Ask about memory kinds, tags, namespaces, recall behavior, or durable writeback.
+title: "Memory taxonomy: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when the main uncertainty is how to model memory, not a bug in the implementation.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What taxonomy, namespace, kind, tag, or writeback decision are you trying to make?
+      placeholder: "Should this be a `learn`, `gotcha`, or `domain-note`?"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Taxonomy area
+      options:
+        - Memory kind
+        - Namespace strategy
+        - Tags and retrieval filters
+        - Signal lifecycle
+        - Promotion or writeback
+        - Import/export shape
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example memory or scenario
+      description: Share a small sanitized example. Avoid private project content.
+      render: text
+      placeholder: |
+        namespace: project:example
+        kind: memory
+        tags: [...]
+        content: ...
+    validations:
+      required: false
+  - type: textarea
+    id: attempted-model
+    attributes:
+      label: Current model or attempted approach
+      description: Describe how you would model it today and what feels ambiguous.
+    validations:
+      required: false
+  - type: textarea
+    id: desired-outcome
+    attributes:
+      label: Desired outcome
+      description: What should recall, export, or future maintainers be able to do with this memory?
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Question checklist
+      options:
+        - label: I sanitized the example and removed private memory content.
+          required: true
+        - label: This is a modeling question, not a reproducible product bug.
+          required: true

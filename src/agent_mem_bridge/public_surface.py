@@ -8,11 +8,18 @@ from typing import Any
 PUBLIC_DOC_PATHS = (
     Path("README.md"),
     Path("README.zh-CN.md"),
+    Path("SECURITY.md"),
     Path("CONTRIBUTING.md"),
+    Path(".github/ISSUE_TEMPLATE/bug_report.yml"),
+    Path(".github/ISSUE_TEMPLATE/client_integration_request.yml"),
+    Path(".github/ISSUE_TEMPLATE/config.yml"),
+    Path(".github/ISSUE_TEMPLATE/good_first_issue.yml"),
+    Path(".github/ISSUE_TEMPLATE/memory_taxonomy_question.yml"),
     Path("benchmark/README.md"),
     Path("docs/CLIENT-PROVENANCE.md"),
     Path("docs/COMPARISON.md"),
     Path("docs/CONFIGURATION.md"),
+    Path("docs/CONTEXT-ASSEMBLY.md"),
     Path("docs/INTEGRATIONS.md"),
     Path("docs/MEMORY-TAXONOMY.md"),
     Path("docs/PROMOTION-RULES.md"),
@@ -90,6 +97,7 @@ BLOCKED_README_LINKS = (
 
 PUBLIC_CORE_NOTES = (
     "README / README.zh-CN / CONTRIBUTING",
+    "GitHub issue templates for public support intake",
     "benchmark README and checked-in snapshot reports",
     "public docs such as comparison, configuration, provenance, memory taxonomy, and promotion rules",
     "examples and demo assets that are already sanitized",

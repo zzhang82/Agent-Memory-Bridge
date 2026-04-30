@@ -5,13 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agent-memory-bridge"
 version = "0.13.0"
-description = "Two-channel MCP memory for coding agents: durable knowledge plus coordination signals"
+description = "Persistent engineering memory for coding agents over MCP"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 keywords = ["mcp", "memory", "agents", "sqlite", "fts", "local-first", "stdio"]
 classifiers = [
-  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -20,6 +21,12 @@ classifiers = [
 dependencies = [
   "mcp==1.27.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/zzhang82/Agent-Memory-Bridge"
+Repository = "https://github.com/zzhang82/Agent-Memory-Bridge"
+Issues = "https://github.com/zzhang82/Agent-Memory-Bridge/issues"
+Documentation = "https://github.com/zzhang82/Agent-Memory-Bridge#readme"
 
 [project.optional-dependencies]
 dev = [

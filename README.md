@@ -4,12 +4,13 @@
 
 [![MCP](https://img.shields.io/badge/MCP_Server-Enabled-4A90E2?logo=protocolsdotio&logoColor=white)](https://modelcontextprotocol.io)
 [![Glama](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge/badges/score.svg)](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge)
+[![CI](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
 Your coding agent should not rediscover the same project decisions every session.
 
-Agent Memory Bridge is a local-first MCP memory layer for coding agents. It captures durable engineering memory, keeps short-lived coordination separate, and makes both available through a small stdio MCP surface backed by SQLite + FTS5.
+Agent Memory Bridge is persistent engineering memory for coding agents: a local-first MCP memory layer and context compiler backed by SQLite + FTS5. It captures durable repo decisions, gotchas, procedures, and handoffs while keeping short-lived coordination separate.
 
 > Codex is the reference workflow, not the product boundary. If a client can launch a local stdio MCP server, it can use Agent Memory Bridge.
 
@@ -33,8 +34,8 @@ AMB takes a smaller path: local SQLite, explicit namespaces, inspectable records
 - Durable memory: decisions, gotchas, procedures, concepts, beliefs, and supporting records.
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Governed learning: session output can move through `summary -> learn / gotcha -> domain-note -> belief -> concept-note`.
-- Task-time assembly: procedures, concepts, beliefs, and linked support can be assembled into one issue-oriented context.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `194 passed`.
+- Context assembly: startup and task-time context can be compiled from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `195 passed`.
 
 ## Who It Is For
 
@@ -66,7 +67,17 @@ agent-memory-bridge config --client codex --example
 agent-memory-bridge config --client cursor --example
 ```
 
-Client-specific notes live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Runtime configuration lives in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+Dockerized stdio works too when you want an isolated runtime:
+
+```bash
+docker build -t agent-memory-bridge:local .
+docker run --rm -i \
+  -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge \
+  -v /path/to/bridge-home:/data/agent-memory-bridge \
+  agent-memory-bridge:local
+```
+
+Client-specific notes live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Runtime configuration lives in [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Security guidance lives in [SECURITY.md](SECURITY.md).
 
 ## The First Useful Loop
 
@@ -121,7 +132,7 @@ The bridge exposes `10` public MCP tools:
 - `forget`, `promote`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The richer behavior stays behind that surface: reflex promotion, consolidation, task-time assembly, procedure governance, telemetry summaries, and signal contention checks.
+The richer behavior stays behind that surface: reflex promotion, consolidation, startup/task-time assembly, procedure governance, telemetry summaries, and signal contention checks. There are no separate `task_packet` or `startup_packet` MCP tools.
 
 ## Proof Snapshot
 
@@ -133,7 +144,7 @@ The richer behavior stays behind that surface: reflex promotion, consolidation, 
 | Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
 | Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
-| Test suite | `194 passed` |
+| Test suite | `195 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -178,7 +189,7 @@ Full proof details are in [benchmark/README.md](benchmark/README.md).
 
 ## Boundaries
 
-AMB is not a graph database, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, or automatic procedure learner. It is a small local bridge for reusable engineering memory and lightweight coordination.
+AMB is not a graph database, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, or automatic procedure learner. It is a small local bridge for reusable engineering memory and lightweight coordination.
 
 For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
@@ -187,11 +198,13 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Client integrations](docs/INTEGRATIONS.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Benchmark and proof harness](benchmark/README.md)
+- [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
 - [Promotion rules](docs/PROMOTION-RULES.md)
 - [Client provenance](docs/CLIENT-PROVENANCE.md)
 - [Examples](examples/README.md)
 - [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
 
 ## License
 
