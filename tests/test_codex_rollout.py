@@ -48,6 +48,27 @@ def test_parse_rollout_and_build_payload(tmp_path: Path) -> None:
     assert "project:mem-store" in payload["tags"]
 
 
+def test_build_payload_normalizes_windows_cwd_on_any_runner(tmp_path: Path) -> None:
+    rollout = tmp_path / "rollout-2026-04-04T13-17-22-019d597f-d23c-7391-9214-4c5b847d13ce.jsonl"
+    lines = [
+        {
+            "timestamp": "2026-04-04T17:18:07.854Z",
+            "type": "session_meta",
+            "payload": {
+                "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
+                "timestamp": "2026-04-04T17:17:22.372Z",
+                "cwd": "D:\\playground\\MCPs\\mem-store",
+                "originator": "Codex Desktop",
+            },
+        }
+    ]
+    rollout.write_text("\n".join(json.dumps(line) for line in lines), encoding="utf-8")
+
+    payload = build_closeout_payload(parse_rollout_file(rollout))
+
+    assert payload["namespace"] == "project:mem-store"
+
+
 def test_parse_rollout_keeps_subagent_thread_and_parent_lineage(tmp_path: Path) -> None:
     rollout = tmp_path / "rollout-2026-04-04T13-32-45-019d598d-e7c7-7c61-95e7-dba18b42dde8.jsonl"
     lines = [

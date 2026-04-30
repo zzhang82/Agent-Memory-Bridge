@@ -144,7 +144,7 @@ def build_checkpoint_payload(summary: RolloutSummary) -> dict[str, Any]:
 
 def build_session_seen_payload(summary: RolloutSummary) -> dict[str, Any]:
     session_label = summary.session_timestamp[:10] if summary.session_timestamp else "unknown-session"
-    workspace_name = Path(summary.cwd).name if summary.cwd else "workspace"
+    workspace_name = _workspace_name_from_cwd(summary.cwd)
     thread_id = summary.thread_id or session_label
     tags = _build_common_tags(summary, session_label, workspace_name)
     tags.extend(["kind:session-seen", "auto-session-seen", "status:active"])
@@ -195,7 +195,7 @@ def _build_common_tags(summary: RolloutSummary, session_label: str, workspace_na
 
 def _build_rollout_payload(summary: RolloutSummary, mode: str) -> dict[str, Any]:
     session_label = summary.session_timestamp[:10] if summary.session_timestamp else "unknown-session"
-    workspace_name = Path(summary.cwd).name if summary.cwd else "workspace"
+    workspace_name = _workspace_name_from_cwd(summary.cwd)
     namespace = f"project:{workspace_name}"
     if mode == "checkpoint":
         title = f"[[Codex]] checkpoint {session_label}"
@@ -337,6 +337,13 @@ def _build_actor(summary: RolloutSummary) -> str:
     if summary.agent_nickname:
         return summary.agent_nickname.lower()
     return "codex"
+
+
+def _workspace_name_from_cwd(cwd: str) -> str:
+    normalized = cwd.strip().replace("\\", "/").rstrip("/") if cwd else ""
+    if not normalized:
+        return "workspace"
+    return normalized.rsplit("/", 1)[-1] or "workspace"
 
 
 def extract_message_text(payload: dict[str, Any]) -> str:

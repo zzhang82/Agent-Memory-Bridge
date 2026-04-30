@@ -35,7 +35,7 @@ AMB takes a smaller path: local SQLite, explicit namespaces, inspectable records
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Governed learning: session output can move through `summary -> learn / gotcha -> domain-note -> belief -> concept-note`.
 - Context assembly: startup and task-time context can be compiled from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `195 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `196 passed`.
 
 ## Who It Is For
 
@@ -144,7 +144,7 @@ The richer behavior stays behind that surface: reflex promotion, consolidation, 
 | Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
 | Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
-| Test suite | `195 passed` |
+| Test suite | `196 passed` |
 
 <details>
 <summary>Release contract facts</summary>
