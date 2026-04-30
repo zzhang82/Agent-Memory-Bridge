@@ -5,6 +5,7 @@
 [![MCP](https://img.shields.io/badge/MCP_Server-Enabled-4A90E2?logo=protocolsdotio&logoColor=white)](https://modelcontextprotocol.io)
 [![Glama](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge/badges/score.svg)](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge)
 [![CI](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/zzhang82/Agent-Memory-Bridge?logo=github&color=2ea44f)](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
@@ -50,6 +51,14 @@ Requirements:
 - Python 3.11+
 - SQLite with FTS5 support
 - any MCP-compatible client that can launch a local stdio server
+
+One-command GitHub smoke test with `uvx`:
+
+```bash
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-bridge verify
+```
+
+Local editable install:
 
 ```bash
 python -m venv .venv

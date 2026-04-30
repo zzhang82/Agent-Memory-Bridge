@@ -5,6 +5,7 @@
 [![MCP](https://img.shields.io/badge/MCP_Server-Enabled-4A90E2?logo=protocolsdotio&logoColor=white)](https://modelcontextprotocol.io)
 [![Glama](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge/badges/score.svg)](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge)
 [![CI](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/zzhang82/Agent-Memory-Bridge?logo=github&color=2ea44f)](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
@@ -50,6 +51,14 @@ AMB 选择更小的路径：本地 SQLite、显式 namespace、可检查记录�
 - Python 3.11+
 - 带 FTS5 的 SQLite
 - 任意能启动本地 stdio server 的 MCP-compatible client
+
+用 `uvx` 做一次 GitHub 版 smoke test：
+
+```bash
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-bridge verify
+```
+
+本地 editable install：
 
 ```bash
 python -m venv .venv
