@@ -7,92 +7,42 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-Your coding agent forgets what it learned between sessions.
+Your coding agent should not rediscover the same project decisions every session.
 
-Agent Memory Bridge is a local-first MCP memory server for coding agents. It keeps
-durable engineering memory separate from short-lived coordination state, stores both
-in SQLite, and works over standard MCP stdio.
+Agent Memory Bridge is a local-first MCP memory layer for coding agents. It captures durable engineering memory, keeps short-lived coordination separate, and makes both available through a small stdio MCP surface backed by SQLite + FTS5.
 
-- `memory` for durable knowledge worth reusing later
-- `signal` for short-lived coordination such as handoffs, review requests, and workflow state
-
-Session output can be promoted through a governed ladder:
-
-`session -> summary -> learn / gotcha -> domain-note -> belief -> concept-note`
-
-Codex is our reference workflow today. Agent Memory Bridge is a generic local
-stdio MCP server, with documented support for other compatible clients.
+> Codex is the reference workflow, not the product boundary. If a client can launch a local stdio MCP server, it can use Agent Memory Bridge.
 
 <p align="center">
-  <img src="examples/diagrams/amb-overview.png" alt="Agent Memory Bridge overview: clients connect to the 10-tool MCP surface, which fronts the local-first core and the local proof layer." width="1000">
+  <img src="examples/diagrams/amb-overview.png" alt="Agent Memory Bridge overview: clients connect to the MCP surface, which fronts the local-first memory core and proof layer." width="1000">
 </p>
 
-![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
+## Why It Exists
 
-> 30-second demo: store memory + signal -> claim -> extend -> ack -> later recall
-> from the same project.
+Most agent memory either feels too shallow or too heavy:
 
-`0.13.0` strengthens coordination under contention: `claim_signal(...)` assigns
-work, `extend_signal_lease(...)` renews ownership, and stale work must be
-reclaimed before it can be acknowledged. The public MCP surface stays at `10`
-tools.
+- summaries become stale blobs
+- vector stores hide why something was recalled
+- every new session re-learns the same gotchas
+- handoff state turns into ad hoc notes or a queue you did not want to build
 
-## Client Support
+AMB takes a smaller path: local SQLite, explicit namespaces, inspectable records, benchmarked recall, and a signal lifecycle for lightweight coordination.
 
-Status labels stay narrow on purpose:
+## What You Get
 
-- `verified`: actively dogfooded by this repo
-- `documented`: config shape is documented here against current official docs
-- `locally tested`: exercised in our own environment, but not yet a primary public test path
-- `supported`: covered by the generic stdio contract rather than a client-specific workflow
+- Durable memory: decisions, gotchas, procedures, concepts, beliefs, and supporting records.
+- Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
+- Governed learning: session output can move through `summary -> learn / gotcha -> domain-note -> belief -> concept-note`.
+- Task-time assembly: procedures, concepts, beliefs, and linked support can be assembled into one issue-oriented context.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `194 passed`.
 
-| Client | Status | Notes |
-|---|---|---|
-| Generic stdio MCP | supported | Any client that can launch a local stdio server |
-| Codex | verified | Reference workflow and deepest dogfood path today |
-| Cursor | documented | JSON `mcpServers` config |
-| Cline | documented | JSON `mcpServers` config |
-| Claude Code | documented | CLI or project-level MCP config shape |
-| Claude Desktop | documented | Local stdio server shape; extensions and remote flows are separate |
-| Antigravity | locally tested | Local `mcpServers` path exercised in our own setup |
+## Who It Is For
 
-Copyable snippets live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+- You use Codex, Claude, Cursor, Cline, Antigravity, or another MCP client and keep re-explaining the same project conventions.
+- You want memory that is local and inspectable instead of a hosted platform or opaque vector stack.
+- You run review, handoff, or multi-agent workflows and need coordination signals without building a full task queue.
 
-## Why This Exists
-
-Coding agents usually fail in one of two ways:
-
-- they rediscover the same fixes every session
-- they keep raw transcripts and call that memory, which makes recall noisy and expensive
-
-Agent Memory Bridge takes a narrower path:
-
-- MCP-native from day one
-- local-first runtime
-- SQLite + FTS5 instead of heavier memory infrastructure
-- reusable memory and coordination state on the same inspectable bridge
-
-If you want a broader hosted platform with dashboards, connectors, or a larger
-memory stack, see [docs/COMPARISON.md](docs/COMPARISON.md).
-
-## Who Is This For?
-
-- You use Codex, Claude, Cursor, Cline, or another MCP client and keep re-explaining the same project decisions.
-- You want local, inspectable memory instead of a cloud memory platform or opaque vector stack.
-- You run review, handoff, or multi-agent workflows and need lightweight coordination without building a task queue first.
-
-## Core Capabilities
-
-1. Small public MCP surface. The bridge still exposes `10` public MCP tools while richer behavior stays behind that surface.
-2. Two-channel memory with a real signal lifecycle. Signals follow `claim -> extend -> ack / expire / reclaim`, with contention checks for repeated polling and stale ownership.
-3. Governed structured memory. Raw session output is promoted into compact, machine-readable artifacts with relation-lite metadata.
-4. Applicable task-time memory. Procedures, concept notes, beliefs, and linked support can be assembled into one issue-oriented local context.
-5. Governed procedure memory. `validated` procedures are preferred, `draft` and legacy procedures stay visible with warnings, and `stale`, `replaced`, and `unsafe` procedures are suppressed from governed task packets.
-
-## Setup
-
-All setup snippets below use POSIX-style placeholder paths so the examples stay
-neutral. Translate them to your own shell and filesystem layout as needed.
+## Install
 
 Requirements:
 
@@ -100,42 +50,15 @@ Requirements:
 - SQLite with FTS5 support
 - any MCP-compatible client that can launch a local stdio server
 
-### 1. Install
-
-Create a virtual environment, activate it using your shell's normal venv command,
-then install the package:
-
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
+agent-memory-bridge doctor
+agent-memory-bridge verify
 ```
 
-If you plan to run tests or work on the repo itself, install `.[dev]` instead.
-
-### 2. Create a bridge config
-
-Copy [config.example.toml](config.example.toml) to a local config path you control.
-A simple starting point is:
-
-```text
-~/.config/agent-memory-bridge/config.toml
-```
-
-The most important sections are:
-
-- `[bridge]` for the local database and logs
-- `[classifier]` for optional classifier-assisted enrichment
-- `[telemetry]` for metadata-only spans
-- `[watcher]` and `[service]` for optional background automation
-- `[reflex]` for promotion scans
-- `[profile]` for optional import and migration helpers
-
-See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for the short reference.
-
-### 3. Render a client config snippet
-
-The CLI can generate placeholder-safe config fragments for each documented client:
+Generate a placeholder-safe client config:
 
 ```bash
 agent-memory-bridge config --client generic --example
@@ -143,323 +66,132 @@ agent-memory-bridge config --client codex --example
 agent-memory-bridge config --client cursor --example
 ```
 
-The generic stdio shape looks like this:
+Client-specific notes live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Runtime configuration lives in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
-```json
-{
-  "mcpServers": {
-    "agentMemoryBridge": {
-      "command": "/path/to/agent-memory-bridge/.venv/bin/python",
-      "args": [
-        "-m",
-        "agent_mem_bridge"
-      ],
-      "cwd": "/path/to/agent-memory-bridge",
-      "env": {
-        "AGENT_MEMORY_BRIDGE_HOME": "/path/to/bridge-home",
-        "AGENT_MEMORY_BRIDGE_CONFIG": "/path/to/agent-memory-bridge-config.toml",
-        "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT": "generic",
-        "AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT": "stdio"
-      }
-    }
-  }
-}
-```
+## The First Useful Loop
 
-For client-specific snippets, file hints, and current support notes, see
-[docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
-
-### 4. Verify the install
-
-Use the onboarding checks before wiring the bridge into a real project:
-
-```bash
-agent-memory-bridge doctor
-agent-memory-bridge verify
-```
-
-- `doctor` checks Python, SQLite FTS5, config parsing, and writable bridge paths.
-- `verify` launches an isolated stdio server, lists the public tool surface, stores and recalls one memory, and runs `claim -> extend -> ack` on a test signal without touching your live bridge state.
-
-## 5-Minute Quickstart
-
-Once the MCP server is registered in your client, the shortest useful path is:
-
-1. write one durable memory
-2. write one coordination signal
-3. inspect the namespace
-4. claim the signal, extend if needed, then acknowledge it
+Session 1 discovers a project rule:
 
 ```text
 store(
   namespace="project:demo",
   kind="memory",
-  content="claim: Use WAL mode for concurrent readers."
+  content="claim: Use WAL mode for concurrent SQLite readers."
 )
-
-store(
-  namespace="project:demo",
-  kind="signal",
-  content="release note review ready",
-  tags=["handoff:review"],
-  ttl_seconds=600
-)
-
-stats(namespace="project:demo")
-browse(namespace="project:demo", limit=10)
-
-claim_signal(
-  namespace="project:demo",
-  consumer="reviewer-a",
-  lease_seconds=300,
-  tags_any=["handoff:review"]
-)
-
-extend_signal_lease(
-  id="<signal_id>",
-  consumer="reviewer-a",
-  lease_seconds=300
-)
-
-ack_signal(id="<signal_id>", consumer="reviewer-a")
 ```
 
-Lease renewal is not reclaim. If a lease is still active, the current claimant can
-extend it. If it has gone stale, another worker should reclaim it instead.
-When `signal_id` is omitted, `claim_signal(...)` picks from the oldest eligible
-window with a small fairness bias so one polling consumer does not keep winning by
-accident.
-
-## Task-Time Memory Micro-Example
-
-In a later session on the same project, the bridge can assemble a compact task
-packet instead of returning one flat blob:
+Session 2 asks about the same project:
 
 ```text
-task: "prepare release cutover"
-
-procedure_hits:
-- release-cutover-checklist
-
-concept_hits:
-- reversible-change-window
-
-belief_hits:
-- prefer rollback-ready steps before irreversible ones
-
-supporting_hits:
-- latest benchmark regression check
-- watcher-db-mismatch gotcha
+recall(namespace="project:demo", query="SQLite concurrent readers")
 ```
 
-That is bridge-internal task-memory behavior, not a new top-level MCP tool, but it
-is the clearest example of where procedures, concepts, beliefs, and support meet.
+The agent gets the rule back without the user typing it again.
 
-## Procedure Governance Micro-Example
-
-Procedure records can now carry explicit governance fields:
+For coordination, use signals:
 
 ```text
-record_type: procedure
-procedure_status: validated
-goal: Run release cutover with proof before tagging.
-when_to_use: Before a public release.
-when_not_to_use: For local-only spike branches.
-prerequisites: clean working tree | current benchmark report
-steps: run benchmark | run release contract | tag release
-failure_mode: stale docs or benchmark numbers can mislead users
-rollback_path: stop release, update docs/report, rerun checks
+store(namespace="project:demo", kind="signal", content="release note review ready")
+claim_signal(namespace="project:demo", consumer="reviewer-a", lease_seconds=300)
+extend_signal_lease(id="<signal_id>", consumer="reviewer-a", lease_seconds=300)
+ack_signal(id="<signal_id>")
 ```
 
-At task time, the governed packet prefers `validated` procedures, keeps `draft`
-and legacy no-status procedures visible with warnings, and suppresses `stale`,
-`replaced`, and `unsafe` procedures from the selected task context.
+The terminal demo is in [examples/demo](examples/demo/README.md).
 
-## Evidence
+## Client Support
 
-Runnable, not just claimed.
+Status labels are intentionally narrow.
 
-| Gate | Result |
-|---|---|
-| `pytest` | `194 passed` |
-| deterministic proof | `4/4` checks |
-
-Retrieval benchmark (`question_count = 11`):
-
-| Metric | Score |
-|---|---|
-| `memory_expected_top1_accuracy = 1.0` | bridge |
-| `memory_mrr = 1.0` | bridge |
-| `file_scan_expected_top1_accuracy = 0.636` | file-scan baseline |
-| `file_scan_mrr = 0.909` | file-scan baseline |
-
-Optional classifier enrichment (`sample_count = 16`):
-
-| Metric | Value |
-|---|---|
-| `classifier_exact_match_rate = 0.875` | classifier |
-| `fallback_exact_match_rate = 0.062` | keyword fallback |
-| `classifier_better_count = 13` | classifier wins |
-| `fallback_better_count = 2` | fallback wins |
-
-Procedure governance benchmark (`case_count = 7`):
-
-| Metric | Score |
-|---|---|
-| `flat_case_pass_rate = 0.429` | flat packet |
-| `governed_case_pass_rate = 1.0` | governed packet |
-| `flat_blocked_procedure_leak_rate = 1.0` | flat packet |
-| `governed_blocked_procedure_leak_rate = 0.0` | governed packet |
-| `governed_governance_field_completeness = 1.0` | governed packet |
-
-Signal contention benchmark (`signal_contention_case_count = 5`):
-
-| Metric | Score |
-|---|---|
-| `signal_contention_case_pass_rate = 1.0` | contention contract |
-| `unique_active_claim_rate = 1.0` | no duplicate active claims |
-| `duplicate_active_claim_count = 0` | contention contract |
-| `active_reclaim_block_rate = 1.0` | claim is not lease renewal |
-| `stale_ack_blocked_rate = 1.0` | stale owner must reclaim before ack |
-| `stale_reclaim_success_rate = 1.0` | stale leases can be reclaimed |
-| `pending_under_pressure_claim_rate = 1.0` | pending work is not starved by active claims |
-| `initial_hard_expiry_cap_rate = 1.0` | initial claim respects hard expiry |
-
-## Honest Boundaries
-
-`0.13.0` is deliberately scoped. It is not:
-
-- a graph database
-- capable of full relation-aware traversal or ranking across the whole store
-- a scheduler, queue platform, distributed lock, or agent runtime
-- active worker execution on top of stored signals
-- exactly-once distributed coordination
-- automatic procedure learning from raw transcripts
-- cross-domain concept synthesis yet
+| Client | Status | Notes |
+|---|---|---|
+| Generic stdio MCP | supported | Any client that can launch a local stdio server |
+| Codex | verified | Reference workflow and deepest dogfood path |
+| Claude Code | documented | CLI or project-level stdio MCP config |
+| Claude Desktop | documented | Local stdio server config; remote/extension flows are separate |
+| Cursor | documented | JSON `mcpServers` config |
+| Cline | documented | JSON `mcpServers` config |
+| Antigravity | locally tested | Exercised in a local setup; UI/config details can vary |
 
 ## MCP Tools
 
-The public MCP surface stays small on purpose:
+The bridge exposes `10` public MCP tools:
 
-- `store` and `recall`
-- `browse` and `stats`
-- `forget` and `promote`
-- `claim_signal`, `extend_signal_lease`, and `ack_signal`
-- `export`
+- `store`, `recall`, `browse`, `stats`
+- `forget`, `promote`, `export`
+- `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The complexity stays behind the bridge:
+The richer behavior stays behind that surface: reflex promotion, consolidation, task-time assembly, procedure governance, telemetry summaries, and signal contention checks.
 
-- optional rollout/session watcher flows
-- checkpoint and closeout sync
-- reflex promotion
-- consolidation
-- task-time assembly
+## Proof Snapshot
 
-## Namespaces
+`0.13.0` is focused on coordination under contention while keeping the public tool surface stable.
 
-Start simple:
+| Track | Current signal |
+|---|---|
+| Retrieval | `memory_expected_top1_accuracy = 1.0`, `file_scan_expected_top1_accuracy = 0.636` |
+| Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
+| Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
+| Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
+| Test suite | `194 passed` |
 
-- `global` for a default shared bucket
-- `project:<workspace>` for project-local memory
-- `domain:<name>` for reusable domain knowledge
+<details>
+<summary>Release contract facts</summary>
 
-The framework is profile-agnostic. A specific operator profile can sit on top, but
-the bridge itself does not need to look or sound like that profile.
+These values are intentionally present in the README so release checks can detect drift against checked-in benchmark reports.
 
-## Trust and Health Checks
+```text
+question_count = 11
+memory_expected_top1_accuracy = 1.0
+memory_mrr = 1.0
+file_scan_expected_top1_accuracy = 0.636
+file_scan_mrr = 0.909
 
-The bridge is meant to be inspectable, not magical:
+sample_count = 16
+classifier_exact_match_rate = 0.875
+fallback_exact_match_rate = 0.062
+classifier_better_count = 13
+fallback_better_count = 2
+classifier_filtered_low_confidence_count = 2
 
-- `browse`, `stats`, `forget`, and `export` let you inspect and correct bridge state without opening SQLite
-- signal status is visible and queryable through `pending`, `claimed`, `acked`, and `expired`
-- watcher health checks verify that rollout files still parse into usable summaries
-- metadata-only telemetry can be summarized without exposing stored memory bodies
-- classifier shadow and assist behavior is covered by fixture-based regression tests
-- the current test suite passes with `194 passed`
+case_count = 7
+flat_case_pass_rate = 0.429
+governed_case_pass_rate = 1.0
+flat_blocked_procedure_leak_rate = 1.0
+governed_blocked_procedure_leak_rate = 0.0
+governed_governance_field_completeness = 1.0
 
-Useful commands from an active virtual environment:
-
-```bash
-python -m pytest
-python ./scripts/verify_stdio.py
-python ./scripts/run_deterministic_proof.py
-python ./scripts/run_benchmark.py
-python ./scripts/run_signal_contention_benchmark.py
-python ./scripts/run_healthcheck.py --report-path ./.runtime/healthcheck-report.json
-python ./scripts/run_watcher_healthcheck.py --report-path ./.runtime/watcher-health-report.json
+signal_contention_case_count = 5
+signal_contention_case_pass_rate = 1.0
+unique_active_claim_rate = 1.0
+duplicate_active_claim_count = 0
+active_reclaim_block_rate = 1.0
+stale_ack_blocked_rate = 1.0
+stale_reclaim_success_rate = 1.0
+pending_under_pressure_claim_rate = 1.0
+initial_hard_expiry_cap_rate = 1.0
 ```
 
-## Proof and Benchmark
+</details>
 
-Retrieval quality is benchmarked instead of guessed.
+Full proof details are in [benchmark/README.md](benchmark/README.md).
 
-The bridge ships with a small proof and benchmark harness:
+## Boundaries
 
-- deterministic proof checks signal lifecycle correctness, duplicate suppression, relation metadata, and recall timing
-- retrieval benchmark tracks `precision@1`, `precision@3`, `recall@1`, `recall@3`, `MRR`, and `expected_top1_accuracy`
-- the retrieval report compares bridge recall against a simple file-scan baseline
-- reviewed classifier calibration compares expected tags, fallback tags, raw classifier tags, retained classifier tags, and low-confidence filtering
-- signal contention fixtures check multi-consumer claim/reclaim/ack semantics without pretending to be a scheduler benchmark
-- activation stress fixtures shake the learning ladder without touching live bridge state
+AMB is not a graph database, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, or automatic procedure learner. It is a small local bridge for reusable engineering memory and lightweight coordination.
 
-On the current canonical fixture:
-
-- `question_count = 11`
-- `memory_expected_top1_accuracy = 1.0`
-- `memory_mrr = 1.0`
-- `file_scan_expected_top1_accuracy = 0.636`
-- `file_scan_mrr = 0.909`
-- `duplicate_suppression_rate = 1.0`
-- `relation_metadata_passed = true`
-
-On the current reviewed calibration set:
-
-- `sample_count = 16`
-- `classifier_exact_match_rate = 0.875`
-- `fallback_exact_match_rate = 0.062`
-- `classifier_better_count = 13`
-- `fallback_better_count = 2`
-- `classifier_filtered_low_confidence_count = 2`
-
-On the current signal contention set:
-
-- `signal_contention_case_count = 5`
-- `signal_contention_case_pass_rate = 1.0`
-- `unique_active_claim_rate = 1.0`
-- `duplicate_active_claim_count = 0`
-- `active_reclaim_block_rate = 1.0`
-- `stale_ack_blocked_rate = 1.0`
-- `stale_reclaim_success_rate = 1.0`
-- `pending_under_pressure_claim_rate = 1.0`
-- `initial_hard_expiry_cap_rate = 1.0`
-
-For deterministic local replays of the published snapshots:
-
-```bash
-python ./scripts/run_classifier_calibration.py --fixture-gateway
-python ./scripts/run_signal_contention_benchmark.py
-python ./scripts/run_activation_stress_pack.py
-```
-
-This is not a leaderboard. It is a regression harness that keeps retrieval quality,
-learning quality, and coordination semantics honest as the bridge evolves.
+For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
 ## Docs
 
-Public docs:
-
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [benchmark/README.md](benchmark/README.md)
-- [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)
-- [docs/COMPARISON.md](docs/COMPARISON.md)
-- [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
-- [docs/CLIENT-PROVENANCE.md](docs/CLIENT-PROVENANCE.md)
-- [docs/MEMORY-TAXONOMY.md](docs/MEMORY-TAXONOMY.md)
-- [docs/PROMOTION-RULES.md](docs/PROMOTION-RULES.md)
-- [examples/README.md](examples/README.md)
-
-Maintainer notes stay in `docs/`, but they are intentionally not part of the
-public docs index.
+- [Client integrations](docs/INTEGRATIONS.md)
+- [Configuration](docs/CONFIGURATION.md)
+- [Benchmark and proof harness](benchmark/README.md)
+- [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
+- [Promotion rules](docs/PROMOTION-RULES.md)
+- [Client provenance](docs/CLIENT-PROVENANCE.md)
+- [Examples](examples/README.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## License
 

@@ -1,130 +1,64 @@
 # Agent Memory Bridge
 
-[English](README.md) | 简体中文
+[English](README.md)
 
 [![MCP](https://img.shields.io/badge/MCP_Server-Enabled-4A90E2?logo=protocolsdotio&logoColor=white)](https://modelcontextprotocol.io)
 [![Glama](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge/badges/score.svg)](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-你的编码代理会在会话之间忘掉自己学过的东西。
+你的 coding agent 不应该每个 session 都重新发现同一批项目决定。
 
-Agent Memory Bridge 是一个面向编码代理的本地优先 MCP 记忆服务：把可复用的工程知识和短期协同状态分开存进 SQLite，并通过标准 MCP stdio 暴露出来。
+Agent Memory Bridge 是一个 local-first 的 MCP memory layer，面向 coding agents。它把可复用的工程记忆和短期协作状态分开保存，用 SQLite + FTS5 做本地存储，并通过一个很小的 stdio MCP surface 暴露给客户端。
 
-- `memory` 保存值得长期复用的知识
-- `signal` 保存 handoff、review、轮询和短期流程状态
-
-会话输出会沿着一条受治理的梯子继续提升：
-
-`session -> summary -> learn / gotcha -> domain-note -> belief -> concept-note`
-
-Codex 是我们当前最完整的参考工作流。Agent Memory Bridge 本身是一个通用的本地 stdio MCP server，其他兼容客户端也可以接入。
+> Codex 是参考工作流，不是产品边界。只要客户端能启动本地 stdio MCP server，就可以使用 Agent Memory Bridge。
 
 <p align="center">
-  <img src="examples/diagrams/amb-overview.png" alt="Agent Memory Bridge 结构图：客户端连接到 10-tool MCP surface，底层是本地优先的 core 和 local proof layer。" width="1000">
+  <img src="examples/diagrams/amb-overview.png" alt="Agent Memory Bridge overview: clients connect to the MCP surface, which fronts the local-first memory core and proof layer." width="1000">
 </p>
 
-![Agent Memory Bridge terminal demo](examples/demo/terminal-demo.gif)
+## 为什么存在
 
-> 30 秒 demo：写入 memory 和 signal，再走一遍 claim -> extend -> ack，随后在同项目里把有用记忆再召回出来。
+很多 agent memory 会落入两个极端：
 
-`0.13.0` 强化了 contention 下的协同语义：`claim_signal(...)` 负责分配工作，`extend_signal_lease(...)` 负责续租所有权，过期 lease 必须先 reclaim 才能 ack。公开 MCP surface 仍然保持 `10` 个工具。
+- summary 变成过时的大块文本
+- vector store 能召回，但很难解释为什么召回
+- 每个新 session 都要重新学习同一个 gotcha
+- handoff 状态变成临时笔记，或者被迫搭一个并不想要的队列
 
-## 客户端支持
+AMB 选择更小的路径：本地 SQLite、显式 namespace、可检查记录、benchmark 过的 recall，以及轻量 signal lifecycle。
 
-这里的状态标签刻意写得很保守：
+## 能带来什么
 
-- `verified`：仓库自己长期 dogfood 的路径
-- `documented`：这里给出了当前文档对应的配置形状
-- `locally tested`：我们本地实际跑过，但还不是主要公开验证路径
-- `supported`：依赖通用 stdio 协议约定，而不是某个客户端专属流程
-
-| 客户端 | 状态 | 说明 |
-|---|---|---|
-| 通用 stdio MCP 客户端 | supported | 任何能启动本地 stdio server 的 MCP 客户端 |
-| Codex | verified | 当前最完整的参考工作流 |
-| Cursor | documented | JSON `mcpServers` 配置 |
-| Cline | documented | JSON `mcpServers` 配置 |
-| Claude Code | documented | CLI 或项目级 MCP 配置形状 |
-| Claude Desktop | documented | 这里只覆盖本地 stdio server 形状，不覆盖扩展或远程连接 |
-| Antigravity | locally tested | 我们本地实际接过，但 UI 和配置入口仍可能变化 |
-
-可直接复制的示例放在 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。
-
-## 它要解决什么问题
-
-编码代理通常会在两个低效路径之间摇摆：
-
-- 每个会话都重新发现同样的问题和修复
-- 直接把原始 transcript 当记忆保存，最后得到一个很难检索、很难复用的噪音仓库
-
-Agent Memory Bridge 走的是更克制的一条路：
-
-- 从第一天起就是 MCP-native
-- 本地优先
-- 用 SQLite + FTS5，而不是先上重基础设施
-- 在同一座桥里同时处理可复用记忆和短期协同状态
-
-如果你需要更大的 hosted 平台、仪表盘、连接器或更重的 memory stack，可以看 [docs/COMPARISON.md](docs/COMPARISON.md)。
+- Durable memory：决策、gotcha、procedure、concept、belief 和 supporting records。
+- Coordination signals：`claim -> extend -> ack / expire / reclaim`，但不假装自己是 scheduler。
+- Governed learning：session output 可以沿着 `summary -> learn / gotcha -> domain-note -> belief -> concept-note` 提升。
+- Task-time assembly：procedure、concept、belief 和 linked support 可以组装成一次任务需要的上下文。
+- Proof discipline：release contract、public-surface check、onboarding check、benchmark snapshot，以及 `194 passed`。
 
 ## 适合谁
 
-- 你在用 Codex、Claude、Cursor、Cline 或别的 MCP 客户端，而且总在重复解释同样的项目决策。
-- 你想要本地、可检查的记忆层，而不是云端 memory platform 或不透明的向量堆栈。
-- 你在跑 review、handoff 或多代理流程，需要轻量协同状态，但还不想先搭一个任务队列。
-
-## 核心能力
-
-1. 小而稳的公开 MCP surface。桥现在仍然只暴露 `10` 个 public MCP tools，更复杂的行为留在桥内部演进。
-2. 双通道记忆和完整的 signal 生命周期。signal 遵循 `claim -> extend -> ack / expire / reclaim`，并补了 repeated polling 和 stale ownership 的 contention 检查。
-3. 受治理的结构化记忆。原始会话输出会被提升成紧凑、机器可读的 artifact，并带着 relation-lite metadata。
-4. 可直接用于任务的记忆组装。procedure、concept note、belief 和 supporting records 可以被组装成一次 issue-oriented 本地上下文。
-5. 受治理的 procedure memory。`validated` procedure 会被优先使用；`draft` 和 legacy procedure 仍可见但带 warning；`stale`、`replaced`、`unsafe` procedure 会被压出 governed task packet。
+- 你在用 Codex、Claude、Cursor、Cline、Antigravity 或其他 MCP client，并且反复解释同一批项目规则。
+- 你想要本地、可检查的 memory，而不是云平台或不透明的 vector stack。
+- 你在跑 review、handoff 或 multi-agent workflow，需要轻量 coordination signal，但还不想搭完整 task queue。
 
 ## 安装
-
-下面的示例统一使用 POSIX 风格的占位路径，避免把 README 绑死在某个操作系统上。你只需要把这些路径替换成自己机器上的真实路径。
 
 要求：
 
 - Python 3.11+
 - 带 FTS5 的 SQLite
-- 任意能启动本地 stdio MCP server 的客户端
-
-### 1. 安装包
-
-创建虚拟环境，用你自己的 shell 正常激活它，然后安装：
+- 任意能启动本地 stdio server 的 MCP-compatible client
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
+agent-memory-bridge doctor
+agent-memory-bridge verify
 ```
 
-如果你要跑测试或直接参与这个 repo 的开发，再改用 `.[dev]`。
-
-### 2. 创建 bridge config
-
-把 [config.example.toml](config.example.toml) 复制到你自己控制的本地配置路径，例如：
-
-```text
-~/.config/agent-memory-bridge/config.toml
-```
-
-最重要的 section 是：
-
-- `[bridge]`：本地数据库和日志
-- `[classifier]`：可选的 classifier-assisted enrichment
-- `[telemetry]`：metadata-only spans
-- `[watcher]` 和 `[service]`：可选的后台自动化
-- `[reflex]`：promotion 扫描
-- `[profile]`：可选的导入和迁移 helper
-
-更短的配置说明见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
-
-### 3. 生成客户端配置片段
-
-CLI 现在可以直接吐出面向不同客户端的占位安全配置片段：
+生成 placeholder-safe 的客户端配置：
 
 ```bash
 agent-memory-bridge config --client generic --example
@@ -132,312 +66,133 @@ agent-memory-bridge config --client codex --example
 agent-memory-bridge config --client cursor --example
 ```
 
-通用 stdio 形状如下：
+客户端配置见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。运行时配置见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。
 
-```json
-{
-  "mcpServers": {
-    "agentMemoryBridge": {
-      "command": "/path/to/agent-memory-bridge/.venv/bin/python",
-      "args": [
-        "-m",
-        "agent_mem_bridge"
-      ],
-      "cwd": "/path/to/agent-memory-bridge",
-      "env": {
-        "AGENT_MEMORY_BRIDGE_HOME": "/path/to/bridge-home",
-        "AGENT_MEMORY_BRIDGE_CONFIG": "/path/to/agent-memory-bridge-config.toml",
-        "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT": "generic",
-        "AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT": "stdio"
-      }
-    }
-  }
-}
-```
+## 第一个有用闭环
 
-Codex、Cursor、Cline、Claude Desktop、Claude Code、Antigravity 的具体示例都在 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。
-
-### 4. 本地验证
-
-接入真实项目之前，先跑 onboarding checks：
-
-```bash
-agent-memory-bridge doctor
-agent-memory-bridge verify
-```
-
-- `doctor` 会检查 Python、SQLite FTS5、配置解析和 bridge 路径是否可写。
-- `verify` 会拉起一个隔离的 stdio server，列出公开工具面，存一条 memory，再跑一遍测试 signal 的 `claim -> extend -> ack`，不会污染你的 live bridge 数据。
-
-## 5 分钟上手
-
-在客户端里注册好 server 之后，最短的有效路径是：
-
-1. 写一条 durable memory
-2. 写一条 coordination signal
-3. 看看命名空间里现在有什么
-4. claim 那条 signal，必要时 extend，然后 ack
+Session 1 发现一条项目规则：
 
 ```text
 store(
   namespace="project:demo",
   kind="memory",
-  content="claim: Use WAL mode for concurrent readers."
+  content="claim: Use WAL mode for concurrent SQLite readers."
 )
-
-store(
-  namespace="project:demo",
-  kind="signal",
-  content="release note review ready",
-  tags=["handoff:review"],
-  ttl_seconds=600
-)
-
-stats(namespace="project:demo")
-browse(namespace="project:demo", limit=10)
-
-claim_signal(
-  namespace="project:demo",
-  consumer="reviewer-a",
-  lease_seconds=300,
-  tags_any=["handoff:review"]
-)
-
-extend_signal_lease(
-  id="<signal_id>",
-  consumer="reviewer-a",
-  lease_seconds=300
-)
-
-ack_signal(id="<signal_id>", consumer="reviewer-a")
 ```
 
-续租不等于重新认领。lease 还有效时，由当前 claimant 续租；lease 过期以后，应该由新的 worker 重新 claim。
-
-## 一个 task-time memory 小例子
-
-同一个项目在后续会话里，桥内部可以把相关记忆组装成一份更像任务包的上下文，而不是只回一堆命中文本：
+Session 2 回到同一个项目：
 
 ```text
-task: "prepare release cutover"
-
-procedure_hits:
-- release-cutover-checklist
-
-concept_hits:
-- reversible-change-window
-
-belief_hits:
-- prefer rollback-ready steps before irreversible ones
-
-supporting_hits:
-- latest benchmark regression check
-- watcher-db-mismatch gotcha
+recall(namespace="project:demo", query="SQLite concurrent readers")
 ```
 
-这还不是一个新的顶层 MCP tool，而是桥内部正在成形的 task-time assembly 能力。
+agent 可以自己拿回那条规则，不需要用户再讲一遍。
 
-## 一个 procedure governance 小例子
-
-现在 procedure record 可以显式带治理字段：
+协作状态用 signal：
 
 ```text
-record_type: procedure
-procedure_status: validated
-goal: Run release cutover with proof before tagging.
-when_to_use: Before a public release.
-when_not_to_use: For local-only spike branches.
-prerequisites: clean working tree | current benchmark report
-steps: run benchmark | run release contract | tag release
-failure_mode: stale docs or benchmark numbers can mislead users
-rollback_path: stop release, update docs/report, rerun checks
+store(namespace="project:demo", kind="signal", content="release note review ready")
+claim_signal(namespace="project:demo", consumer="reviewer-a", lease_seconds=300)
+extend_signal_lease(id="<signal_id>", consumer="reviewer-a", lease_seconds=300)
+ack_signal(id="<signal_id>")
 ```
 
-任务组装时会优先 `validated` procedure，`draft` 和 legacy no-status procedure 仍可见但带 warning，而 `stale`、`replaced`、`unsafe` procedure 会被压掉。
+终端 demo 在 [examples/demo](examples/demo/README.md)。
 
-## 证据
+## 客户端支持
 
-这套系统现在有可运行的验证面，而不只是功能列表。
+状态标签刻意保持保守。
 
-| Gate | Result |
+| Client | Status | Notes |
+|---|---|---|
+| Generic stdio MCP | supported | 任意能启动本地 stdio server 的客户端 |
+| Codex | verified | 参考工作流，也是最深的 dogfood 路径 |
+| Claude Code | documented | CLI 或 project-level stdio MCP config |
+| Claude Desktop | documented | 本地 stdio server config；remote/extension flow 是另一层 |
+| Cursor | documented | JSON `mcpServers` config |
+| Cline | documented | JSON `mcpServers` config |
+| Antigravity | locally tested | 在本地 setup 里验证过；UI/config 细节可能变化 |
+
+## MCP Tools
+
+bridge 暴露 `10` public MCP tools：
+
+- `store`, `recall`, `browse`, `stats`
+- `forget`, `promote`, `export`
+- `claim_signal`, `extend_signal_lease`, `ack_signal`
+
+更复杂的能力留在 surface 后面：reflex promotion、consolidation、task-time assembly、procedure governance、telemetry summaries 和 signal contention checks。
+
+## Proof Snapshot
+
+`0.13.0` 的重点是 coordination under contention，同时保持 public tool surface 稳定。
+
+| Track | Current signal |
 |---|---|
-| `pytest` | `194 passed` |
-| deterministic proof | `4/4` checks |
+| Retrieval | `memory_expected_top1_accuracy = 1.0`, `file_scan_expected_top1_accuracy = 0.636` |
+| Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
+| Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
+| Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
+| Test suite | `194 passed` |
 
-retrieval benchmark（`question_count = 11`）：
+<details>
+<summary>Release contract facts</summary>
 
-| Metric | Score |
-|---|---|
-| `memory_expected_top1_accuracy = 1.0` | bridge |
-| `memory_mrr = 1.0` | bridge |
-| `file_scan_expected_top1_accuracy = 0.636` | file-scan baseline |
-| `file_scan_mrr = 0.909` | file-scan baseline |
+这些值故意保留在 README 里，让 release check 能发现它们和 benchmark reports 是否漂移。
 
-可选 classifier enrichment（`sample_count = 16`）：
+```text
+question_count = 11
+memory_expected_top1_accuracy = 1.0
+memory_mrr = 1.0
+file_scan_expected_top1_accuracy = 0.636
+file_scan_mrr = 0.909
 
-| Metric | Value |
-|---|---|
-| `classifier_exact_match_rate = 0.875` | classifier |
-| `fallback_exact_match_rate = 0.062` | keyword fallback |
-| `classifier_better_count = 13` | classifier wins |
-| `fallback_better_count = 2` | fallback wins |
+sample_count = 16
+classifier_exact_match_rate = 0.875
+fallback_exact_match_rate = 0.062
+classifier_better_count = 13
+fallback_better_count = 2
+classifier_filtered_low_confidence_count = 2
 
-procedure governance benchmark（`case_count = 7`）：
+case_count = 7
+flat_case_pass_rate = 0.429
+governed_case_pass_rate = 1.0
+flat_blocked_procedure_leak_rate = 1.0
+governed_blocked_procedure_leak_rate = 0.0
+governed_governance_field_completeness = 1.0
 
-| Metric | Score |
-|---|---|
-| `flat_case_pass_rate = 0.429` | flat packet |
-| `governed_case_pass_rate = 1.0` | governed packet |
-| `flat_blocked_procedure_leak_rate = 1.0` | flat packet |
-| `governed_blocked_procedure_leak_rate = 0.0` | governed packet |
-| `governed_governance_field_completeness = 1.0` | governed packet |
-
-signal contention benchmark（`signal_contention_case_count = 5`）：
-
-| Metric | Score |
-|---|---|
-| `signal_contention_case_pass_rate = 1.0` | contention contract |
-| `unique_active_claim_rate = 1.0` | no duplicate active claims |
-| `duplicate_active_claim_count = 0` | contention contract |
-| `active_reclaim_block_rate = 1.0` | claim 不是 lease renewal |
-| `stale_ack_blocked_rate = 1.0` | stale owner 必须先 reclaim 才能 ack |
-| `stale_reclaim_success_rate = 1.0` | stale lease 可以被 reclaim |
-| `pending_under_pressure_claim_rate = 1.0` | pending work 不会被大量 active claims 饿死 |
-| `initial_hard_expiry_cap_rate = 1.0` | 初次 claim 遵守 hard expiry |
-
-## 诚实边界
-
-`0.13.0` 仍然不是：
-
-- 图数据库
-- 面向全库的 relation-aware traversal 或 ranking
-- scheduler、queue platform、distributed lock 或 agent runtime
-- 构建在 signal 之上的 active worker execution
-- exactly-once distributed coordination
-- 从原始 transcript 自动学出 procedure
-- 跨 domain 的 concept synthesis
-
-## MCP 工具
-
-公开 MCP surface 刻意保持很小：
-
-- `store` 和 `recall`
-- `browse` 和 `stats`
-- `forget` 和 `promote`
-- `claim_signal`、`extend_signal_lease` 和 `ack_signal`
-- `export`
-
-更复杂的行为留在桥后面：
-
-- 可选 rollout/session watcher 流程
-- checkpoint / closeout sync
-- reflex promotion
-- consolidation
-- task-time assembly
-
-## 命名空间
-
-最自然的起步方式：
-
-- `global`：默认共享 bucket
-- `project:<workspace>`：项目级记忆
-- `domain:<name>`：可复用的领域知识
-
-这个框架本身是 profile-agnostic 的。你可以在上面叠某个 operator profile，但桥本身不需要长成那个 profile 的样子。
-
-## 可检查性与健康检查
-
-这座桥的目标是可检查，而不是黑箱：
-
-- `browse`、`stats`、`forget`、`export` 让你不打开 SQLite 也能看清状态
-- `signal` 状态可以直接查：`pending`、`claimed`、`acked`、`expired`
-- watcher health check 会验证 rollout 文件是否还能解析成可用 summary
-- metadata-only telemetry 可以做摘要，但不暴露存储内容正文
-- classifier 的 shadow / assist 行为有 fixture-based 回归测试覆盖
-- 当前测试套件结果是 `194 passed`
-
-常用命令：
-
-```bash
-python -m pytest
-python ./scripts/verify_stdio.py
-python ./scripts/run_deterministic_proof.py
-python ./scripts/run_benchmark.py
-python ./scripts/run_signal_contention_benchmark.py
-python ./scripts/run_healthcheck.py --report-path ./.runtime/healthcheck-report.json
-python ./scripts/run_watcher_healthcheck.py --report-path ./.runtime/watcher-health-report.json
+signal_contention_case_count = 5
+signal_contention_case_pass_rate = 1.0
+unique_active_claim_rate = 1.0
+duplicate_active_claim_count = 0
+active_reclaim_block_rate = 1.0
+stale_ack_blocked_rate = 1.0
+stale_reclaim_success_rate = 1.0
+pending_under_pressure_claim_rate = 1.0
+initial_hard_expiry_cap_rate = 1.0
 ```
 
-## Proof 与 Benchmark
+</details>
 
-retrieval 质量现在是可以 benchmark 的，不是靠感觉猜。
+完整 proof 见 [benchmark/README.md](benchmark/README.md)。
 
-这套 proof / benchmark harness 会覆盖：
+## 边界
 
-- deterministic proof：signal lifecycle correctness、duplicate suppression、relation metadata、recall timing
-- retrieval benchmark：`precision@1`、`precision@3`、`recall@1`、`recall@3`、`MRR`、`expected_top1_accuracy`
-- bridge recall 和 file-scan baseline 的对照
-- reviewed classifier calibration：expected tags、fallback tags、classifier tags、low-confidence filtering
-- signal contention fixtures：检查多 consumer 下的 claim / reclaim / ack 语义，但不把它包装成 scheduler benchmark
-- activation stress fixtures：在不碰 live bridge 的前提下摇一摇 learning ladder
+AMB 不是 graph database、hosted memory platform、scheduler、worker runtime、distributed lock、exactly-once coordination system，也不会自动从原始 transcript 学出 procedure。它是一个小而可检查的本地 bridge，用来保存可复用工程记忆和轻量协作状态。
 
-当前 canonical fixture：
+替代方案和取舍见 [docs/COMPARISON.md](docs/COMPARISON.md)。
 
-- `question_count = 11`
-- `memory_expected_top1_accuracy = 1.0`
-- `memory_mrr = 1.0`
-- `file_scan_expected_top1_accuracy = 0.636`
-- `file_scan_mrr = 0.909`
-- `duplicate_suppression_rate = 1.0`
-- `relation_metadata_passed = true`
+## 文档
 
-当前 reviewed calibration set：
-
-- `sample_count = 16`
-- `classifier_exact_match_rate = 0.875`
-- `fallback_exact_match_rate = 0.062`
-- `classifier_better_count = 13`
-- `fallback_better_count = 2`
-- `classifier_filtered_low_confidence_count = 2`
-
-当前 signal contention set：
-
-- `signal_contention_case_count = 5`
-- `signal_contention_case_pass_rate = 1.0`
-- `unique_active_claim_rate = 1.0`
-- `duplicate_active_claim_count = 0`
-- `active_reclaim_block_rate = 1.0`
-- `stale_ack_blocked_rate = 1.0`
-- `stale_reclaim_success_rate = 1.0`
-- `pending_under_pressure_claim_rate = 1.0`
-- `initial_hard_expiry_cap_rate = 1.0`
-
-如果你想本地做确定性的 snapshot replay：
-
-```bash
-python ./scripts/run_classifier_calibration.py --fixture-gateway
-python ./scripts/run_signal_contention_benchmark.py
-python ./scripts/run_activation_stress_pack.py
-```
-
-这不是排行榜，而是一套持续约束 retrieval 质量、learning 质量和 coordination 语义的回归护栏。
-
-## 更多文档
-
-公开产品文档：
-
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [benchmark/README.md](benchmark/README.md)
-- [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)
-- [docs/COMPARISON.md](docs/COMPARISON.md)
-- [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
-- [docs/CLIENT-PROVENANCE.md](docs/CLIENT-PROVENANCE.md)
-- [docs/MEMORY-TAXONOMY.md](docs/MEMORY-TAXONOMY.md)
-- [docs/PROMOTION-RULES.md](docs/PROMOTION-RULES.md)
-- [examples/README.md](examples/README.md)
-
-维护者说明仍然留在 `docs/` 里，但不会放进公开文档索引。
+- [Client integrations](docs/INTEGRATIONS.md)
+- [Configuration](docs/CONFIGURATION.md)
+- [Benchmark and proof harness](benchmark/README.md)
+- [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
+- [Promotion rules](docs/PROMOTION-RULES.md)
+- [Client provenance](docs/CLIENT-PROVENANCE.md)
+- [Examples](examples/README.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## License
 
-MIT，见 [LICENSE](LICENSE)。
+MIT. See [LICENSE](LICENSE).
