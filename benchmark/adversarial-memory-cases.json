@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-04-30T12:00:00+00:00",
+  "cases": [
+    {
+      "id": "stale-project-vs-current-global",
+      "scenario": "stale-project-vs-current-global",
+      "query": "Which MCP startup instruction should I follow?",
+      "notes": "A stale project override should not beat current global guidance just because it is closer to the workspace.",
+      "records": [
+        {
+          "id": "project-stale-startup",
+          "title": "Project startup uses legacy source files",
+          "namespace": "project:demo",
+          "record_type": "gotcha",
+          "content": "Use the file vault as the primary startup source.",
+          "valid_until": "2026-03-01T00:00:00+00:00",
+          "source_client": "codex",
+          "client_workspace": "workspace://demo",
+          "tags": ["kind:gotcha", "scope:project"]
+        },
+        {
+          "id": "global-current-startup",
+          "title": "Global startup uses bridge recall first",
+          "namespace": "global",
+          "record_type": "gotcha",
+          "content": "Recall bridge namespaces first, then inspect live files.",
+          "valid_from": "2026-04-01T00:00:00+00:00",
+          "source_client": "codex",
+          "client_workspace": "workspace://demo",
+          "tags": ["kind:gotcha", "scope:global"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "startup-guidance",
+          "task_intent": "implementation",
+          "expectations": {
+            "expected_preferred_id": "global-current-startup",
+            "required_visible_ids": ["global-current-startup"],
+            "blocked_ids": ["project-stale-startup"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "contradictory-gotchas",
+      "scenario": "contradictory-gotchas",
+      "query": "How should SQLite busy errors be handled?",
+      "notes": "Contradictory gotchas should surface the stronger/current fix and suppress the contradicted stale one.",
+      "records": [
+        {
+          "id": "old-sqlite-gotcha",
+          "title": "Retry SQLite writes immediately",
+          "namespace": "project:demo",
+          "record_type": "gotcha",
+          "governance_status": "current",
+          "content": "On database locked errors, immediately retry in a tight loop.",
+          "source_client": "codex",
+          "tags": ["kind:gotcha", "domain:storage"]
+        },
+        {
+          "id": "current-sqlite-gotcha",
+          "title": "Use bounded backoff for SQLite busy errors",
+          "namespace": "project:demo",
+          "record_type": "gotcha",
+          "governance_status": "validated",
+          "content": "Use a bounded busy timeout/backoff path and keep operations idempotent.",
+          "relations": {
+            "contradicts": ["old-sqlite-gotcha"]
+          },
+          "source_client": "codex",
+          "tags": ["kind:gotcha", "domain:storage"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "sqlite-fix",
+          "task_intent": "implementation",
+          "expectations": {
+            "expected_preferred_id": "current-sqlite-gotcha",
+            "required_visible_ids": ["current-sqlite-gotcha"],
+            "blocked_ids": ["old-sqlite-gotcha"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "same-query-different-task-intent",
+      "scenario": "same-query-different-task-intent",
+      "query": "release checklist",
+      "notes": "The same query needs different memories when the task is implementation vs review.",
+      "records": [
+        {
+          "id": "release-implementation-procedure",
+          "title": "Run release checklist",
+          "namespace": "project:demo",
+          "record_type": "procedure",
+          "governance_status": "validated",
+          "content": "Build, test, tag, and publish the release.",
+          "applies_to_intents": ["implementation"],
+          "source_client": "codex",
+          "tags": ["kind:procedure", "domain:release"]
+        },
+        {
+          "id": "release-review-gotcha",
+          "title": "Review release contract claims before publishing",
+          "namespace": "project:demo",
+          "record_type": "gotcha",
+          "governance_status": "validated",
+          "content": "Check release-facing claims without updating README contract facts casually.",
+          "applies_to_intents": ["review"],
+          "source_client": "codex",
+          "tags": ["kind:gotcha", "domain:release"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "release-implementation",
+          "task_intent": "implementation",
+          "expectations": {
+            "expected_preferred_id": "release-implementation-procedure",
+            "required_visible_ids": ["release-implementation-procedure"],
+            "blocked_ids": ["release-review-gotcha"]
+          }
+        },
+        {
+          "id": "release-review",
+          "task_intent": "review",
+          "expectations": {
+            "expected_preferred_id": "release-review-gotcha",
+            "required_visible_ids": ["release-review-gotcha"],
+            "blocked_ids": ["release-implementation-procedure"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "noisy-session-summary",
+      "scenario": "noisy-session-summary",
+      "query": "What is the launch hardening lesson?",
+      "notes": "A long noisy session summary should not outrank a compact durable gotcha.",
+      "records": [
+        {
+          "id": "launch-session-summary",
+          "title": "Automatic Codex checkpoint 2026-04-30",
+          "namespace": "project:demo",
+          "record_type": "session-summary",
+          "noise": "high",
+          "content": "A verbose transcript-style summary with many unrelated bullets and partial claims.",
+          "source_client": "codex",
+          "tags": ["kind:summary", "auto-checkpoint"]
+        },
+        {
+          "id": "launch-hardening-gotcha",
+          "title": "Launch hardening before new surface",
+          "namespace": "project:demo",
+          "record_type": "gotcha",
+          "governance_status": "validated",
+          "content": "Prefer launch hardening and contract checks before adding new MCP tools.",
+          "source_client": "codex",
+          "tags": ["kind:gotcha", "domain:launch"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "launch-lesson",
+          "task_intent": "implementation",
+          "expectations": {
+            "expected_preferred_id": "launch-hardening-gotcha",
+            "required_visible_ids": ["launch-hardening-gotcha"],
+            "blocked_ids": ["launch-session-summary"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "multi-client-provenance-collision",
+      "scenario": "multi-client-provenance-collision",
+      "query": "What changed in the launch branch?",
+      "notes": "Two clients can report the same title/session/workspace; provenance should remain visible instead of silently deduping one away.",
+      "records": [
+        {
+          "id": "codex-launch-note",
+          "title": "Launch branch changed benchmark docs",
+          "namespace": "project:demo",
+          "record_type": "learn",
+          "governance_status": "current",
+          "content": "Codex observed benchmark docs changed in the launch branch.",
+          "source_client": "codex",
+          "client_session_id": "launch-hardening-001",
+          "client_workspace": "workspace://demo",
+          "tags": ["kind:learn", "domain:launch"]
+        },
+        {
+          "id": "claude-launch-note",
+          "title": "Launch branch changed benchmark docs",
+          "namespace": "project:demo",
+          "record_type": "learn",
+          "governance_status": "current",
+          "content": "Claude observed benchmark docs changed in the launch branch.",
+          "source_client": "claude",
+          "client_session_id": "launch-hardening-001",
+          "client_workspace": "workspace://demo",
+          "tags": ["kind:learn", "domain:launch"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "launch-provenance",
+          "task_intent": "review",
+          "expectations": {
+            "required_visible_ids": ["codex-launch-note", "claude-launch-note"],
+            "blocked_ids": [],
+            "required_warnings": ["provenance-collision"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "expired-validity-window",
+      "scenario": "expired-validity-window",
+      "query": "Which profile migration route is valid?",
+      "notes": "Expired validity windows should be treated as governance data even when the text still matches the query.",
+      "records": [
+        {
+          "id": "expired-profile-route",
+          "title": "Profile migration writes source files directly",
+          "namespace": "project:demo",
+          "record_type": "procedure",
+          "governance_status": "current",
+          "content": "Write profile updates directly to source files.",
+          "valid_until": "2026-03-15T00:00:00+00:00",
+          "source_client": "codex",
+          "tags": ["kind:procedure", "domain:profile"]
+        },
+        {
+          "id": "current-profile-route",
+          "title": "Profile migration writes through bridge first",
+          "namespace": "project:demo",
+          "record_type": "procedure",
+          "governance_status": "validated",
+          "content": "Write compact bridge memory first, then update files only when still source of truth.",
+          "valid_from": "2026-04-01T00:00:00+00:00",
+          "source_client": "codex",
+          "tags": ["kind:procedure", "domain:profile"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "profile-route",
+          "task_intent": "implementation",
+          "expectations": {
+            "expected_preferred_id": "current-profile-route",
+            "required_visible_ids": ["current-profile-route"],
+            "blocked_ids": ["expired-profile-route"]
+          }
+        }
+      ]
+    }
+  ]
+}

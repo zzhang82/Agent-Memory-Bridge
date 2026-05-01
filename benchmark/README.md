@@ -16,6 +16,7 @@ the engine gets more expressive.
 - `python ./scripts/run_task_memory_benchmark.py`
 - `python ./scripts/run_procedure_governance_benchmark.py`
 - `python ./scripts/run_signal_contention_benchmark.py`
+- `python ./scripts/run_adversarial_benchmark.py`
 
 ## What The Reports Cover
 
@@ -32,6 +33,7 @@ The checked-in proof and benchmark flow covers:
 - reviewed task-memory packet comparison between flat/current assembly and relation-aware assembly
 - reviewed procedure-governance packet comparison between flat/current assembly and governed procedure assembly
 - reviewed signal contention lifecycle cases for unique claims, stale-owner avoidance, reclaim, and done/expired leakage
+- adversarial memory-governance fixtures for stale/current scope conflicts, contradictions, task intent, noisy summaries, provenance collisions, and validity windows
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.
@@ -153,6 +155,34 @@ tracks:
 
 These metrics are local lifecycle checks. They are not a distributed queue,
 scheduling, or throughput benchmark.
+
+## Adversarial Memory-Governance Benchmark
+
+The adversarial memory-governance benchmark is a small deterministic slice for
+realism traps that are easy to miss in clean retrieval fixtures. It answers:
+
+> Given synthetic memory records with governance hazards, can a report harness
+> make stale, contradictory, noisy, provenance-colliding, intent-sensitive, and
+> expired cases visible without querying live bridge state?
+
+The reviewed cases live in `benchmark/adversarial-memory-cases.json`. They
+exercise stale project overrides vs current global guidance, contradictory
+gotchas, the same query under different task intents, noisy session summaries,
+multi-client provenance collisions, and expired validity windows.
+
+The report is written to `benchmark/latest-adversarial-memory-report.json` and
+tracks:
+
+- `raw_task_pass_rate`
+- `governed_task_pass_rate`
+- required visible record hit rate
+- blocked record leak rates
+- required warning hit rate
+- preferred record match rate
+- scenario pass rates
+
+These metrics are fixture governance checks. They are not ranking changes, live
+bridge measurements, broad retrieval claims, or productivity claims.
 
 ## Activation Stress
 

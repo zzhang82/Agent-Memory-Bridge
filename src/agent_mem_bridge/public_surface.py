@@ -16,6 +16,9 @@ PUBLIC_DOC_PATHS = (
     Path(".github/ISSUE_TEMPLATE/good_first_issue.yml"),
     Path(".github/ISSUE_TEMPLATE/memory_taxonomy_question.yml"),
     Path("benchmark/README.md"),
+    Path("benchmark/adversarial-memory-cases.json"),
+    Path("benchmark/latest-adversarial-memory-report.json"),
+    Path("docs/AUTHORITY-CONTRACT.md"),
     Path("docs/CLIENT-PROVENANCE.md"),
     Path("docs/COMPARISON.md"),
     Path("docs/CONFIGURATION.md"),
@@ -24,6 +27,7 @@ PUBLIC_DOC_PATHS = (
     Path("docs/MEMORY-TAXONOMY.md"),
     Path("docs/PROMOTION-RULES.md"),
     Path("examples/README.md"),
+    Path("examples/demo/before-after-gotcha.cast.md"),
     Path("examples/demo/README.md"),
     Path("examples/session-notes/demo/01-memory-note.md"),
     Path("examples/session-notes/demo/02-signal-note.md"),
@@ -57,28 +61,16 @@ BLOCKED_DOC_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
         "Operator-specific wiki link leaked into a public doc.",
     ),
     (
-        re.compile(r"C:\\Users\\frank", re.IGNORECASE),
-        "Maintainer workstation path leaked into a public doc.",
+        re.compile(r"\b[A-Za-z]:[\\/][^\s`\"']*", re.IGNORECASE),
+        "Windows absolute path leaked into a public doc.",
     ),
     (
-        re.compile(r"C:/Users/frank", re.IGNORECASE),
-        "Maintainer workstation path leaked into a public doc.",
+        re.compile(r"\\\\[^\\/\s]+[\\/][^\\/\s]+", re.IGNORECASE),
+        "Private network path leaked into a public doc.",
     ),
     (
-        re.compile(r"D:\\playground", re.IGNORECASE),
-        "Maintainer workspace path leaked into a public doc.",
-    ),
-    (
-        re.compile(r"D:/playground", re.IGNORECASE),
-        "Maintainer workspace path leaked into a public doc.",
-    ),
-    (
-        re.compile(r"\bMy-G\b"),
-        "Maintainer network path leaked into a public doc.",
-    ),
-    (
-        re.compile(r"\bxwechat\b", re.IGNORECASE),
-        "Private app path leaked into a public doc.",
+        re.compile(r"\b(?:wechat|temp|private)[\\/]", re.IGNORECASE),
+        "Private app or temp path leaked into a public doc.",
     ),
 )
 
@@ -99,6 +91,7 @@ PUBLIC_CORE_NOTES = (
     "README / README.zh-CN / CONTRIBUTING",
     "GitHub issue templates for public support intake",
     "benchmark README and checked-in snapshot reports",
+    "authority contract and adversarial memory-governance fixtures",
     "public docs such as comparison, configuration, provenance, memory taxonomy, and promotion rules",
     "examples and demo assets that are already sanitized",
     "released runtime behind the 10 MCP tools",

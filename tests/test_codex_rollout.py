@@ -13,7 +13,7 @@ def test_parse_rollout_and_build_payload(tmp_path: Path) -> None:
             "payload": {
                 "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
                 "timestamp": "2026-04-04T17:17:22.372Z",
-                "cwd": "D:\\playground\\MCPs\\mem-store",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
                 "originator": "Codex Desktop",
             },
         },
@@ -57,7 +57,7 @@ def test_build_payload_normalizes_windows_cwd_on_any_runner(tmp_path: Path) -> N
             "payload": {
                 "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
                 "timestamp": "2026-04-04T17:17:22.372Z",
-                "cwd": "D:\\playground\\MCPs\\mem-store",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
                 "originator": "Codex Desktop",
             },
         }
@@ -79,7 +79,7 @@ def test_parse_rollout_keeps_subagent_thread_and_parent_lineage(tmp_path: Path) 
                 "id": "019d598d-e7c7-7c61-95e7-dba18b42dde8",
                 "forked_from_id": "019d597f-d23c-7391-9214-4c5b847d13ce",
                 "timestamp": "2026-04-04T17:32:45.389Z",
-                "cwd": "D:\\playground\\MCPs\\mem-store",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
                 "originator": "Codex Desktop",
                 "agent_nickname": "Plato",
                 "agent_role": "default",
@@ -91,7 +91,7 @@ def test_parse_rollout_keeps_subagent_thread_and_parent_lineage(tmp_path: Path) 
             "payload": {
                 "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
                 "timestamp": "2026-04-04T17:17:22.372Z",
-                "cwd": "D:\\playground\\MCPs\\mem-store",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
                 "originator": "Codex Desktop",
             },
         },
@@ -125,7 +125,7 @@ def test_build_checkpoint_payload_prefers_typed_durable_bullets(tmp_path: Path) 
             "payload": {
                 "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
                 "timestamp": "2026-04-04T19:17:22.372Z",
-                "cwd": "D:\\playground\\MCPs\\mem-store",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
                 "originator": "Codex Desktop",
             },
         },
@@ -171,7 +171,7 @@ def test_build_checkpoint_payload_skips_conversational_confirmations(tmp_path: P
             "payload": {
                 "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
                 "timestamp": "2026-04-04T19:17:22.372Z",
-                "cwd": "D:\\playground\\MCPs\\mem-store",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
                 "originator": "Codex Desktop",
             },
         },

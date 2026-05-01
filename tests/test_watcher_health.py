@@ -15,7 +15,7 @@ def test_watcher_health_reports_ok_for_parseable_rollout(tmp_path: Path) -> None
             "payload": {
                 "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
                 "timestamp": "2026-04-06T10:00:00.000Z",
-                "cwd": "D:\\playground\\MCPs\\mem-store",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
                 "originator": "Codex Desktop",
             },
         },
@@ -46,7 +46,7 @@ def test_watcher_health_flags_parseable_but_empty_rollout_summary(tmp_path: Path
             "payload": {
                 "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
                 "timestamp": "2026-04-06T10:00:00.000Z",
-                "cwd": "D:\\playground\\MCPs\\mem-store",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
                 "originator": "Codex Desktop",
             },
         },

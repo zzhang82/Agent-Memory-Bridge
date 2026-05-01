@@ -16,7 +16,7 @@ def test_onboarding_contract_flags_leaked_local_paths(tmp_path: Path) -> None:
     (tmp_path / "benchmark").mkdir(parents=True)
     (tmp_path / "examples").mkdir(parents=True)
     (tmp_path / "README.md").write_text("[Integrations](docs/INTEGRATIONS.md)\n", encoding="utf-8")
-    (tmp_path / "README.zh-CN.md").write_text("D:/playground leaked\n", encoding="utf-8")
+    (tmp_path / "README.zh-CN.md").write_text("C:/workspace/private-project leaked\n", encoding="utf-8")
     (tmp_path / "CONTRIBUTING.md").write_text("ok\n", encoding="utf-8")
     (tmp_path / "Dockerfile").write_text("ENV AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge\n", encoding="utf-8")
     (tmp_path / "config.example.toml").write_text("[bridge]\nhome='~/.local/share/agent-memory-bridge'\n", encoding="utf-8")

@@ -121,6 +121,10 @@ def create_release_fixture(root: Path) -> Path:
         - `stale_reclaim_success_rate = 1.0`
         - `pending_under_pressure_claim_rate = 1.0`
         - `initial_hard_expiry_cap_rate = 1.0`
+        - `adversarial_case_count = 6`
+        - `adversarial_task_count = 7`
+        - `adversarial_governed_task_pass_rate = 1.0`
+        - `adversarial_governed_blocked_record_leak_rate = 0.0`
 
         ## MCP Tools
 
@@ -195,6 +199,20 @@ def create_release_fixture(root: Path) -> Path:
                     "stale_reclaim_success_rate": 1.0,
                     "pending_under_pressure_claim_rate": 1.0,
                     "initial_hard_expiry_cap_rate": 1.0,
+                }
+            },
+            indent=2,
+        ),
+    )
+    write_file(
+        root / "benchmark" / "latest-adversarial-memory-report.json",
+        json.dumps(
+            {
+                "summary": {
+                    "case_count": 6,
+                    "task_count": 7,
+                    "governed_task_pass_rate": 1.0,
+                    "governed_blocked_record_leak_rate": 0.0,
                 }
             },
             indent=2,

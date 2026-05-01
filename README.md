@@ -36,7 +36,7 @@ AMB takes a smaller path: local SQLite, explicit namespaces, inspectable records
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Governed learning: session output can move through `summary -> learn / gotcha -> domain-note -> belief -> concept-note`.
 - Context assembly: startup and task-time context can be compiled from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `196 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `201 passed`.
 
 ## Who It Is For
 
@@ -86,7 +86,7 @@ docker run --rm -i \
   agent-memory-bridge:local
 ```
 
-Client-specific notes live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Runtime configuration lives in [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Security guidance lives in [SECURITY.md](SECURITY.md).
+Client-specific notes live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Runtime configuration lives in [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Authority and correction rules live in [docs/AUTHORITY-CONTRACT.md](docs/AUTHORITY-CONTRACT.md). Security guidance lives in [SECURITY.md](SECURITY.md).
 
 ## The First Useful Loop
 
@@ -153,7 +153,8 @@ The richer behavior stays behind that surface: reflex promotion, consolidation, 
 | Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
 | Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
-| Test suite | `196 passed` |
+| Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
+| Test suite | `201 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -206,6 +207,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
 - [Client integrations](docs/INTEGRATIONS.md)
 - [Configuration](docs/CONFIGURATION.md)
+- [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Benchmark and proof harness](benchmark/README.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

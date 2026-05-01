@@ -68,6 +68,12 @@ Public core:
 - benchmark and proof artifacts that support public claims
 - the small MCP tool surface and the released runtime behind it
 
+Before changing memory authority, promotion/suppression policy, generated
+startup or task-time context, or record correction semantics, read
+[docs/AUTHORITY-CONTRACT.md](docs/AUTHORITY-CONTRACT.md). Database records are
+the operational source of truth; compiled packets, dashboards, exports, and
+demo transcripts are regenerable views.
+
 Private lab or maintainer-only:
 
 - operator-specific startup doctrine

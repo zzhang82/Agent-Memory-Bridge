@@ -46,6 +46,12 @@ REQUIRED_SIGNAL_CONTENTION_KEYS = (
     "pending_under_pressure_claim_rate",
     "initial_hard_expiry_cap_rate",
 )
+REQUIRED_ADVERSARIAL_KEYS = (
+    "adversarial_case_count",
+    "adversarial_task_count",
+    "adversarial_governed_task_pass_rate",
+    "adversarial_governed_blocked_record_leak_rate",
+)
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -151,6 +157,7 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
         + REQUIRED_CALIBRATION_KEYS
         + REQUIRED_PROCEDURE_KEYS
         + REQUIRED_SIGNAL_CONTENTION_KEYS
+        + REQUIRED_ADVERSARIAL_KEYS
     )
     mismatches: list[dict[str, Any]] = []
     ok = True
@@ -277,10 +284,14 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float]:
     signal_contention_report = json.loads(
         (project_root / "benchmark" / "latest-signal-contention-report.json").read_text(encoding="utf-8")
     )
+    adversarial_report = json.loads(
+        (project_root / "benchmark" / "latest-adversarial-memory-report.json").read_text(encoding="utf-8")
+    )
     benchmark_summary = benchmark_report["summary"]
     calibration_summary = calibration_report["summary"]
     procedure_summary = procedure_report["summary"]
     signal_contention_summary = signal_contention_report["summary"]
+    adversarial_summary = adversarial_report["summary"]
     expected: dict[str, int | float] = {}
     for key in REQUIRED_BENCHMARK_KEYS:
         expected[key] = benchmark_summary[key]
@@ -293,6 +304,12 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float]:
     for key in REQUIRED_SIGNAL_CONTENTION_KEYS:
         if key not in expected:
             expected[key] = signal_contention_summary[key]
+    expected["adversarial_case_count"] = adversarial_summary["case_count"]
+    expected["adversarial_task_count"] = adversarial_summary["task_count"]
+    expected["adversarial_governed_task_pass_rate"] = adversarial_summary["governed_task_pass_rate"]
+    expected["adversarial_governed_blocked_record_leak_rate"] = adversarial_summary[
+        "governed_blocked_record_leak_rate"
+    ]
     return expected
 
 

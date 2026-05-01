@@ -27,17 +27,14 @@ README_LINKS = (
 )
 
 BLOCKED_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"C:\\Users\\frank", re.IGNORECASE), "Maintainer Windows home path leaked."),
-    (re.compile(r"C:/Users/frank", re.IGNORECASE), "Maintainer Windows home path leaked."),
-    (re.compile(r"D:\\playground", re.IGNORECASE), "Maintainer workspace path leaked."),
-    (re.compile(r"D:/playground", re.IGNORECASE), "Maintainer workspace path leaked."),
+    (re.compile(r"\b[A-Za-z]:[\\/][^\s`\"']*", re.IGNORECASE), "Windows absolute path leaked."),
     (re.compile(r"%(?:USERPROFILE|APPDATA|LOCALAPPDATA)%", re.IGNORECASE), "Windows environment path leaked."),
     (re.compile(r"\.\\(?:\.?venv|scripts|runtime|config)", re.IGNORECASE), "Windows-style relative path leaked."),
     (re.compile(r"\\Scripts\\", re.IGNORECASE), "Windows virtualenv command path leaked."),
     (re.compile(r"\bCODEX_HOME\s*=", re.IGNORECASE), "Codex-specific home default leaked."),
     (re.compile(r"/tmp/\.codex", re.IGNORECASE), "Codex-specific temp home leaked."),
-    (re.compile(r"\bMy-G\b"), "Maintainer network path leaked."),
-    (re.compile(r"\bxwechat\b", re.IGNORECASE), "Private app path leaked."),
+    (re.compile(r"\\\\[^\\/\s]+[\\/][^\\/\s]+", re.IGNORECASE), "Private network path leaked."),
+    (re.compile(r"\b(?:wechat|temp|private)[\\/]", re.IGNORECASE), "Private app or temp path leaked."),
     (re.compile(r"\bproject:mem-store\b"), "Repository-specific namespace leaked into onboarding surface."),
     (re.compile(r"\bcole-core\b"), "Cole-specific namespace leaked into onboarding surface."),
 )

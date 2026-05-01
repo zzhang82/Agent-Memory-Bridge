@@ -12,6 +12,10 @@ The current terminal demo shows:
 - a later `recall_first(...)` moment where the bridge surfaces useful task memory
 - a small benchmark snapshot
 
+There is also a lightweight before/after story source for the "viral moment":
+without Agent Memory Bridge, the user has to re-teach a repo gotcha; with Agent
+Memory Bridge, the next session recalls the gotcha before touching code.
+
 The checked-in demo is meant to show both coordination state and a later
 "the agent remembered something useful" retrieval moment, while still matching
 the current benchmark snapshot.
@@ -19,10 +23,28 @@ Historical `v0.5` demo assets are kept separately and are not the primary public
 
 Files:
 
+- `before-after-gotcha.cast.md` as a text-only source transcript for the before/after gotcha story
 - `scripts/demo_terminal.py` for the terminal flow itself
 - `scripts/build_demo_cast.py` to regenerate the asciicast
 - `terminal-demo.cast` as the canonical recorded source
 - `terminal-demo.tape` as an optional VHS source
+
+To use the before/after gotcha story:
+
+```bash
+python -c "from pathlib import Path; print(Path('examples/demo/before-after-gotcha.cast.md').read_text())"
+```
+
+It is source material only. If you intentionally record it as an asciicast, save
+the generated file as `examples/demo/before-after-gotcha.cast`; if you render a
+GIF from that cast, use:
+
+```bash
+agg ./examples/demo/before-after-gotcha.cast ./examples/demo/before-after-gotcha.gif
+```
+
+Do not commit generated binary assets unless the release checklist explicitly
+asks for them.
 
 To regenerate the cast:
 

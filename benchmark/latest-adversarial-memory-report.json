@@ -1,0 +1,618 @@
+{
+  "summary": {
+    "case_count": 6,
+    "task_count": 7,
+    "raw_task_pass_rate": 0.0,
+    "governed_task_pass_rate": 1.0,
+    "governed_required_visible_hit_rate": 1.0,
+    "raw_blocked_record_leak_rate": 1.0,
+    "governed_blocked_record_leak_rate": 0.0,
+    "governed_required_warning_hit_rate": 1.0,
+    "governed_preferred_match_rate": 1.0,
+    "scenario_pass_rates": {
+      "stale-project-vs-current-global": 1.0,
+      "contradictory-gotchas": 1.0,
+      "same-query-different-task-intent": 1.0,
+      "noisy-session-summary": 1.0,
+      "multi-client-provenance-collision": 1.0,
+      "expired-validity-window": 1.0
+    }
+  },
+  "metadata": {
+    "case_count": 6,
+    "task_count": 7,
+    "cases_path": "benchmark/adversarial-memory-cases.json",
+    "as_of": "2026-04-30T12:00:00+00:00",
+    "elapsed_ms": 0.192,
+    "comparison": "raw_fixture_visibility_vs_governed_fixture_visibility",
+    "notes": "This slice exercises memory-governance realism with synthetic fixtures only. It does not query live bridge state, tune ranking, or claim broad retrieval quality."
+  },
+  "results": [
+    {
+      "id": "stale-project-vs-current-global",
+      "scenario": "stale-project-vs-current-global",
+      "query": "Which MCP startup instruction should I follow?",
+      "notes": "A stale project override should not beat current global guidance just because it is closer to the workspace.",
+      "record_count": 2,
+      "task_results": [
+        {
+          "id": "startup-guidance",
+          "task_intent": "implementation",
+          "raw": {
+            "visible_ids": [
+              "project-stale-startup",
+              "global-current-startup"
+            ],
+            "score": {
+              "case_passed": false,
+              "preferred_id": "project-stale-startup",
+              "expected_preferred_id": "global-current-startup",
+              "preferred_matches": false,
+              "required_visible": {
+                "expected": [
+                  "global-current-startup"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "project-stale-startup"
+                ],
+                "leaked": [
+                  "project-stale-startup"
+                ]
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          },
+          "governed": {
+            "visible_ids": [
+              "global-current-startup"
+            ],
+            "blocked": [
+              {
+                "id": "project-stale-startup",
+                "reason": "validity:expired"
+              }
+            ],
+            "warnings": [],
+            "score": {
+              "case_passed": true,
+              "preferred_id": "global-current-startup",
+              "expected_preferred_id": "global-current-startup",
+              "preferred_matches": true,
+              "required_visible": {
+                "expected": [
+                  "global-current-startup"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "project-stale-startup"
+                ],
+                "leaked": []
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "contradictory-gotchas",
+      "scenario": "contradictory-gotchas",
+      "query": "How should SQLite busy errors be handled?",
+      "notes": "Contradictory gotchas should surface the stronger/current fix and suppress the contradicted stale one.",
+      "record_count": 2,
+      "task_results": [
+        {
+          "id": "sqlite-fix",
+          "task_intent": "implementation",
+          "raw": {
+            "visible_ids": [
+              "old-sqlite-gotcha",
+              "current-sqlite-gotcha"
+            ],
+            "score": {
+              "case_passed": false,
+              "preferred_id": "old-sqlite-gotcha",
+              "expected_preferred_id": "current-sqlite-gotcha",
+              "preferred_matches": false,
+              "required_visible": {
+                "expected": [
+                  "current-sqlite-gotcha"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "old-sqlite-gotcha"
+                ],
+                "leaked": [
+                  "old-sqlite-gotcha"
+                ]
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          },
+          "governed": {
+            "visible_ids": [
+              "current-sqlite-gotcha"
+            ],
+            "blocked": [
+              {
+                "id": "old-sqlite-gotcha",
+                "reason": "contradicted-by:current-sqlite-gotcha"
+              }
+            ],
+            "warnings": [],
+            "score": {
+              "case_passed": true,
+              "preferred_id": "current-sqlite-gotcha",
+              "expected_preferred_id": "current-sqlite-gotcha",
+              "preferred_matches": true,
+              "required_visible": {
+                "expected": [
+                  "current-sqlite-gotcha"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "old-sqlite-gotcha"
+                ],
+                "leaked": []
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "same-query-different-task-intent",
+      "scenario": "same-query-different-task-intent",
+      "query": "release checklist",
+      "notes": "The same query needs different memories when the task is implementation vs review.",
+      "record_count": 2,
+      "task_results": [
+        {
+          "id": "release-implementation",
+          "task_intent": "implementation",
+          "raw": {
+            "visible_ids": [
+              "release-implementation-procedure",
+              "release-review-gotcha"
+            ],
+            "score": {
+              "case_passed": false,
+              "preferred_id": "release-implementation-procedure",
+              "expected_preferred_id": "release-implementation-procedure",
+              "preferred_matches": true,
+              "required_visible": {
+                "expected": [
+                  "release-implementation-procedure"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "release-review-gotcha"
+                ],
+                "leaked": [
+                  "release-review-gotcha"
+                ]
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          },
+          "governed": {
+            "visible_ids": [
+              "release-implementation-procedure"
+            ],
+            "blocked": [
+              {
+                "id": "release-review-gotcha",
+                "reason": "intent-mismatch"
+              }
+            ],
+            "warnings": [],
+            "score": {
+              "case_passed": true,
+              "preferred_id": "release-implementation-procedure",
+              "expected_preferred_id": "release-implementation-procedure",
+              "preferred_matches": true,
+              "required_visible": {
+                "expected": [
+                  "release-implementation-procedure"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "release-review-gotcha"
+                ],
+                "leaked": []
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          }
+        },
+        {
+          "id": "release-review",
+          "task_intent": "review",
+          "raw": {
+            "visible_ids": [
+              "release-implementation-procedure",
+              "release-review-gotcha"
+            ],
+            "score": {
+              "case_passed": false,
+              "preferred_id": "release-implementation-procedure",
+              "expected_preferred_id": "release-review-gotcha",
+              "preferred_matches": false,
+              "required_visible": {
+                "expected": [
+                  "release-review-gotcha"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "release-implementation-procedure"
+                ],
+                "leaked": [
+                  "release-implementation-procedure"
+                ]
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          },
+          "governed": {
+            "visible_ids": [
+              "release-review-gotcha"
+            ],
+            "blocked": [
+              {
+                "id": "release-implementation-procedure",
+                "reason": "intent-mismatch"
+              }
+            ],
+            "warnings": [],
+            "score": {
+              "case_passed": true,
+              "preferred_id": "release-review-gotcha",
+              "expected_preferred_id": "release-review-gotcha",
+              "preferred_matches": true,
+              "required_visible": {
+                "expected": [
+                  "release-review-gotcha"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "release-implementation-procedure"
+                ],
+                "leaked": []
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "noisy-session-summary",
+      "scenario": "noisy-session-summary",
+      "query": "What is the launch hardening lesson?",
+      "notes": "A long noisy session summary should not outrank a compact durable gotcha.",
+      "record_count": 2,
+      "task_results": [
+        {
+          "id": "launch-lesson",
+          "task_intent": "implementation",
+          "raw": {
+            "visible_ids": [
+              "launch-session-summary",
+              "launch-hardening-gotcha"
+            ],
+            "score": {
+              "case_passed": false,
+              "preferred_id": "launch-session-summary",
+              "expected_preferred_id": "launch-hardening-gotcha",
+              "preferred_matches": false,
+              "required_visible": {
+                "expected": [
+                  "launch-hardening-gotcha"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "launch-session-summary"
+                ],
+                "leaked": [
+                  "launch-session-summary"
+                ]
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          },
+          "governed": {
+            "visible_ids": [
+              "launch-hardening-gotcha"
+            ],
+            "blocked": [
+              {
+                "id": "launch-session-summary",
+                "reason": "noisy-session-summary"
+              }
+            ],
+            "warnings": [],
+            "score": {
+              "case_passed": true,
+              "preferred_id": "launch-hardening-gotcha",
+              "expected_preferred_id": "launch-hardening-gotcha",
+              "preferred_matches": true,
+              "required_visible": {
+                "expected": [
+                  "launch-hardening-gotcha"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "launch-session-summary"
+                ],
+                "leaked": []
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "multi-client-provenance-collision",
+      "scenario": "multi-client-provenance-collision",
+      "query": "What changed in the launch branch?",
+      "notes": "Two clients can report the same title/session/workspace; provenance should remain visible instead of silently deduping one away.",
+      "record_count": 2,
+      "task_results": [
+        {
+          "id": "launch-provenance",
+          "task_intent": "review",
+          "raw": {
+            "visible_ids": [
+              "codex-launch-note",
+              "claude-launch-note"
+            ],
+            "score": {
+              "case_passed": false,
+              "preferred_id": "codex-launch-note",
+              "expected_preferred_id": null,
+              "preferred_matches": true,
+              "required_visible": {
+                "expected": [
+                  "codex-launch-note",
+                  "claude-launch-note"
+                ],
+                "hit_count": 2,
+                "total": 2,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [],
+                "leaked": []
+              },
+              "required_warnings": {
+                "expected": [
+                  "provenance-collision"
+                ],
+                "hit_count": 0,
+                "total": 1,
+                "missing": [
+                  "provenance-collision"
+                ]
+              }
+            }
+          },
+          "governed": {
+            "visible_ids": [
+              "codex-launch-note",
+              "claude-launch-note"
+            ],
+            "blocked": [],
+            "warnings": [
+              "provenance-collision"
+            ],
+            "score": {
+              "case_passed": true,
+              "preferred_id": "codex-launch-note",
+              "expected_preferred_id": null,
+              "preferred_matches": true,
+              "required_visible": {
+                "expected": [
+                  "codex-launch-note",
+                  "claude-launch-note"
+                ],
+                "hit_count": 2,
+                "total": 2,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [],
+                "leaked": []
+              },
+              "required_warnings": {
+                "expected": [
+                  "provenance-collision"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "expired-validity-window",
+      "scenario": "expired-validity-window",
+      "query": "Which profile migration route is valid?",
+      "notes": "Expired validity windows should be treated as governance data even when the text still matches the query.",
+      "record_count": 2,
+      "task_results": [
+        {
+          "id": "profile-route",
+          "task_intent": "implementation",
+          "raw": {
+            "visible_ids": [
+              "expired-profile-route",
+              "current-profile-route"
+            ],
+            "score": {
+              "case_passed": false,
+              "preferred_id": "expired-profile-route",
+              "expected_preferred_id": "current-profile-route",
+              "preferred_matches": false,
+              "required_visible": {
+                "expected": [
+                  "current-profile-route"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "expired-profile-route"
+                ],
+                "leaked": [
+                  "expired-profile-route"
+                ]
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          },
+          "governed": {
+            "visible_ids": [
+              "current-profile-route"
+            ],
+            "blocked": [
+              {
+                "id": "expired-profile-route",
+                "reason": "validity:expired"
+              }
+            ],
+            "warnings": [],
+            "score": {
+              "case_passed": true,
+              "preferred_id": "current-profile-route",
+              "expected_preferred_id": "current-profile-route",
+              "preferred_matches": true,
+              "required_visible": {
+                "expected": [
+                  "current-profile-route"
+                ],
+                "hit_count": 1,
+                "total": 1,
+                "missing": []
+              },
+              "blocked_records": {
+                "expected_absent": [
+                  "expired-profile-route"
+                ],
+                "leaked": []
+              },
+              "required_warnings": {
+                "expected": [],
+                "hit_count": 0,
+                "total": 0,
+                "missing": []
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
