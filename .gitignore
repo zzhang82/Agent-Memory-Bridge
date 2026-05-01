@@ -21,9 +21,6 @@ logs/
 watcher-logs/
 examples/*-report.json
 examples/legacy/
-benchmark/latest-report.json
-benchmark/latest-proof-report.json
-benchmark/latest-calibration-report.json
 docs/archive/
 docs/0.7-*.md
 docs/0.8-*.md

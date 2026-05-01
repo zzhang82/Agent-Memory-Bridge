@@ -1,6 +1,6 @@
 # Production Status
 
-Last updated: 2026-04-28 (America/New_York)
+Last updated: 2026-05-01 (America/New_York)
 
 This maintainer note describes the released `0.13.0` shape plus the validation
 snapshot used to support it.
@@ -21,9 +21,9 @@ snapshot used to support it.
 10. onboarding and integration hardening through platform-neutral docs, rendered client configs, and local `doctor` / `verify` checks
 11. contention-tested signal ownership, reclaim, and stale-ack boundaries
 
-## Verified On 2026-04-28
+## Verified On 2026-05-01
 
-- `pytest` passes: `194 passed`
+- `pytest` passes: `201 passed`
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
 - benchmark summary reports:
@@ -50,6 +50,11 @@ snapshot used to support it.
   - `stale_reclaim_success_rate = 1.0`
   - `pending_under_pressure_claim_rate = 1.0`
   - `initial_hard_expiry_cap_rate = 1.0`
+- adversarial memory-governance snapshot reports:
+  - `adversarial_case_count = 6`
+  - `adversarial_task_count = 7`
+  - `adversarial_governed_task_pass_rate = 1.0`
+  - `adversarial_governed_blocked_record_leak_rate = 0.0`
 - healthcheck includes a relation-metadata smoke path
 - onboarding contract passes for required docs, README linkage, generated config parsing, and placeholder-safe public examples
 - relation-lite metadata is available on recall, export, and stats for:

@@ -62,7 +62,7 @@ Local editable install:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate
+# Activate the virtual environment for your shell, then:
 python -m pip install -e .
 agent-memory-bridge doctor
 agent-memory-bridge verify
@@ -80,10 +80,7 @@ Dockerized stdio works too when you want an isolated runtime:
 
 ```bash
 docker build -t agent-memory-bridge:local .
-docker run --rm -i \
-  -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge \
-  -v /path/to/bridge-home:/data/agent-memory-bridge \
-  agent-memory-bridge:local
+docker run --rm -i -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge -v /path/to/bridge-home:/data/agent-memory-bridge agent-memory-bridge:local
 ```
 
 Client-specific notes live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Runtime configuration lives in [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Authority and correction rules live in [docs/AUTHORITY-CONTRACT.md](docs/AUTHORITY-CONTRACT.md). Security guidance lives in [SECURITY.md](SECURITY.md).
@@ -117,7 +114,17 @@ extend_signal_lease(id="<signal_id>", consumer="reviewer-a", lease_seconds=300)
 ack_signal(id="<signal_id>")
 ```
 
-The terminal demo is in [examples/demo](examples/demo/README.md).
+The short version:
+
+```text
+WITHOUT AMB
+user> We hit this last time too: run the generator after schema edits.
+
+WITH AMB
+agent> I found the previous gotcha: run the generator after schema edits.
+```
+
+The terminal demo and the before/after gotcha story are in [examples/demo](examples/demo/README.md), with the story source at [examples/demo/before-after-gotcha.cast.md](examples/demo/before-after-gotcha.cast.md).
 
 ## Client Support
 
@@ -159,7 +166,7 @@ The richer behavior stays behind that surface: reflex promotion, consolidation, 
 <details>
 <summary>Release contract facts</summary>
 
-These values are intentionally present in the README so release checks can detect drift against checked-in benchmark reports.
+Snapshot facts checked by the release contract:
 
 ```text
 question_count = 11
@@ -191,6 +198,11 @@ stale_ack_blocked_rate = 1.0
 stale_reclaim_success_rate = 1.0
 pending_under_pressure_claim_rate = 1.0
 initial_hard_expiry_cap_rate = 1.0
+
+adversarial_case_count = 6
+adversarial_task_count = 7
+adversarial_governed_task_pass_rate = 1.0
+adversarial_governed_blocked_record_leak_rate = 0.0
 ```
 
 </details>

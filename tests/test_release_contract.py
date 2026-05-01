@@ -40,6 +40,11 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
         .replace("`10` public MCP tools", "`9` public MCP tools"),
         encoding="utf-8",
     )
+    production_status = root / "docs" / "PRODUCTION-STATUS.md"
+    production_status.write_text(
+        production_status.read_text(encoding="utf-8").replace("`146 passed`", "`140 passed`"),
+        encoding="utf-8",
+    )
 
     (root / "examples" / "demo" / "terminal-demo.gif").unlink()
 
@@ -138,6 +143,8 @@ def create_release_fixture(root: Path) -> Path:
         """
     write_file(root / "README.md", readme_text)
     write_file(root / "README.zh-CN.md", readme_text)
+    write_file(root / "docs" / "PRODUCTION-STATUS.md", "`pytest`: `146 passed`\n")
+    write_file(root / "docs" / "v0.9.0-announcement.md", "`pytest`: `146 passed`\n")
     write_file(
         root / "benchmark" / "latest-report.json",
         json.dumps(

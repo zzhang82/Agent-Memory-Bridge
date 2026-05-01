@@ -35,16 +35,16 @@ To use the before/after gotcha story:
 python -c "from pathlib import Path; print(Path('examples/demo/before-after-gotcha.cast.md').read_text())"
 ```
 
-It is source material only. If you intentionally record it as an asciicast, save
-the generated file as `examples/demo/before-after-gotcha.cast`; if you render a
-GIF from that cast, use:
+It is source material only. If you want to turn it into a shareable recording,
+save the generated asciicast as `examples/demo/before-after-gotcha.cast`; if you
+render a GIF from that cast, use:
 
 ```bash
 agg ./examples/demo/before-after-gotcha.cast ./examples/demo/before-after-gotcha.gif
 ```
 
-Do not commit generated binary assets unless the release checklist explicitly
-asks for them.
+The checked-in text source is enough for readers; generated binaries are
+optional release assets.
 
 To regenerate the cast:
 

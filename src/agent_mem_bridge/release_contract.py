@@ -74,6 +74,7 @@ def run_release_contract_check(
 
     pyproject_version = load_pyproject_version(project_root / "pyproject.toml")
     expected_facts = load_expected_facts(project_root)
+    evidence_paths = build_release_evidence_paths(project_root, pyproject_version)
     main_readme_path = project_root / "README.md"
     main_readme_text = main_readme_path.read_text(encoding="utf-8")
     server_tools = load_server_tool_names(project_root / "src" / "agent_mem_bridge" / "server.py")
@@ -99,7 +100,7 @@ def run_release_contract_check(
     )
     checks.append(
         build_test_count_check(
-            readme_paths=readme_paths,
+            evidence_paths=evidence_paths,
             expected_test_count=test_count,
         )
     )
@@ -184,10 +185,19 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
     }
 
 
-def build_test_count_check(readme_paths: list[Path], expected_test_count: int) -> dict[str, Any]:
+def build_release_evidence_paths(project_root: Path, pyproject_version: str) -> list[Path]:
+    candidates = [
+        *(project_root / name for name in README_NAMES),
+        project_root / "docs" / "PRODUCTION-STATUS.md",
+        project_root / "docs" / f"v{pyproject_version}-announcement.md",
+    ]
+    return [path for path in candidates if path.exists()]
+
+
+def build_test_count_check(evidence_paths: list[Path], expected_test_count: int) -> dict[str, Any]:
     mismatches: list[dict[str, Any]] = []
     ok = True
-    for path in readme_paths:
+    for path in evidence_paths:
         counts = extract_pass_counts(path.read_text(encoding="utf-8"))
         if not counts or any(count != expected_test_count for count in counts):
             ok = False

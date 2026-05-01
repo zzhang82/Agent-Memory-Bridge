@@ -62,7 +62,7 @@ uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-brid
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate
+# 先按你的 shell 激活 virtual environment，然后：
 python -m pip install -e .
 agent-memory-bridge doctor
 agent-memory-bridge verify
@@ -80,10 +80,7 @@ agent-memory-bridge config --client cursor --example
 
 ```bash
 docker build -t agent-memory-bridge:local .
-docker run --rm -i \
-  -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge \
-  -v /path/to/bridge-home:/data/agent-memory-bridge \
-  agent-memory-bridge:local
+docker run --rm -i -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge -v /path/to/bridge-home:/data/agent-memory-bridge agent-memory-bridge:local
 ```
 
 客户端配置见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。运行时配置见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。authority / correction 边界见 [docs/AUTHORITY-CONTRACT.md](docs/AUTHORITY-CONTRACT.md)。安全说明见 [SECURITY.md](SECURITY.md)。
@@ -117,7 +114,17 @@ extend_signal_lease(id="<signal_id>", consumer="reviewer-a", lease_seconds=300)
 ack_signal(id="<signal_id>")
 ```
 
-终端 demo 在 [examples/demo](examples/demo/README.md)。
+短版是：
+
+```text
+WITHOUT AMB
+user> We hit this last time too: run the generator after schema edits.
+
+WITH AMB
+agent> I found the previous gotcha: run the generator after schema edits.
+```
+
+终端 demo 和 before/after gotcha story 都在 [examples/demo](examples/demo/README.md)，故事源文件在 [examples/demo/before-after-gotcha.cast.md](examples/demo/before-after-gotcha.cast.md)。
 
 ## 客户端支持
 
@@ -159,7 +166,7 @@ bridge 暴露 `10` public MCP tools：
 <details>
 <summary>Release contract facts</summary>
 
-这些值故意保留在 README 里，让 release check 能发现它们和 benchmark reports 是否漂移。
+这些 snapshot facts 会由 release contract 检查：
 
 ```text
 question_count = 11
@@ -191,6 +198,11 @@ stale_ack_blocked_rate = 1.0
 stale_reclaim_success_rate = 1.0
 pending_under_pressure_claim_rate = 1.0
 initial_hard_expiry_cap_rate = 1.0
+
+adversarial_case_count = 6
+adversarial_task_count = 7
+adversarial_governed_task_pass_rate = 1.0
+adversarial_governed_blocked_record_leak_rate = 0.0
 ```
 
 </details>
