@@ -2,16 +2,16 @@
 
 Last updated: 2026-05-01 (America/New_York)
 
-This maintainer note describes the released `0.13.0` shape plus the validation
+This maintainer note describes the released `0.13.1` polish shape plus the validation
 snapshot used to support it.
 
-## Released 0.13.0 Runtime Shape
+## Released 0.13.1 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
 1. stdio MCP server for `store`, `recall`, `browse`, `stats`, `forget`, `promote`, `claim_signal`, `extend_signal_lease`, `ack_signal`, and `export`
 2. shared SQLite/WAL + FTS5 bridge storage
-3. session watcher and checkpoint/closeout capture
+3. optional checkpoint/closeout capture helpers around the core bridge
 4. reflex promotion into machine-first durable artifacts
 5. consolidation with compression-aware `domain-note`, `belief-candidate`, `belief`, and `concept-note` generation
 6. relation-lite metadata parsing and surfacing
@@ -75,7 +75,7 @@ snapshot used to support it.
 - the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, and Antigravity
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.13.0 Actually Means
+## What 0.13.1 Actually Means
 
 - the public MCP surface is still the same small bridge
 - relation-lite structure is now real and auditable
@@ -97,7 +97,7 @@ The release still does **not** mean:
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.13.0
+## Pressure Points After 0.13.1
 
 The most important remaining gaps are:
 
@@ -110,7 +110,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.13.0` keeps the public MCP surface small while tightening coordination semantics under
+`0.13.1` keeps the public MCP surface small while tightening coordination semantics under
 contention. The project now reads as a general MCP memory product with local proof
 for memory, task assembly, procedure governance, onboarding, and signal ownership.
 

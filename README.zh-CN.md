@@ -152,7 +152,7 @@ bridge 暴露 `10` public MCP tools：
 
 ## Proof Snapshot
 
-`0.13.0` 的重点是 coordination under contention，同时保持 public tool surface 稳定。
+`0.13.1` 是基于 0.13 coordination runtime 的 launch-surface polish release，同时保持 public tool surface 稳定。
 
 | Track | Current signal |
 |---|---|

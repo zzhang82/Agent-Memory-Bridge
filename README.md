@@ -152,7 +152,7 @@ The richer behavior stays behind that surface: reflex promotion, consolidation, 
 
 ## Proof Snapshot
 
-`0.13.0` is focused on coordination under contention while keeping the public tool surface stable.
+`0.13.1` is a launch-surface polish release over the 0.13 coordination runtime while keeping the public tool surface stable.
 
 | Track | Current signal |
 |---|---|
