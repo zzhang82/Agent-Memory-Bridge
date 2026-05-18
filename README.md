@@ -83,7 +83,7 @@ docker build -t agent-memory-bridge:local .
 docker run --rm -i -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge -v /path/to/bridge-home:/data/agent-memory-bridge agent-memory-bridge:local
 ```
 
-Client-specific notes live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Runtime configuration lives in [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Authority and correction rules live in [docs/AUTHORITY-CONTRACT.md](docs/AUTHORITY-CONTRACT.md). Security guidance lives in [SECURITY.md](SECURITY.md).
+Client-specific notes live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Runtime configuration lives in [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Authority and correction rules live in [docs/AUTHORITY-CONTRACT.md](docs/AUTHORITY-CONTRACT.md). Security guidance lives in [SECURITY.md](SECURITY.md). Agents that are installing the bridge should start with [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md).
 
 ## The First Useful Loop
 
@@ -220,6 +220,8 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Client integrations](docs/INTEGRATIONS.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
+- [Agent install protocol](INSTALL_FOR_AGENTS.md)
+- [Harness design](docs/HARNESS-DESIGN.md)
 - [Benchmark and proof harness](benchmark/README.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

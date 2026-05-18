@@ -11,6 +11,8 @@ from .client_config import render_example_client_configs
 
 
 PUBLIC_ONBOARDING_FILES = (
+    Path("INSTALL_FOR_AGENTS.md"),
+    Path("llms.txt"),
     Path("README.md"),
     Path("README.zh-CN.md"),
     Path("CONTRIBUTING.md"),
@@ -18,6 +20,7 @@ PUBLIC_ONBOARDING_FILES = (
     Path("config.example.toml"),
     Path("benchmark/README.md"),
     Path("docs/CONFIGURATION.md"),
+    Path("docs/HARNESS-DESIGN.md"),
     Path("docs/INTEGRATIONS.md"),
     Path("examples/README.md"),
 )

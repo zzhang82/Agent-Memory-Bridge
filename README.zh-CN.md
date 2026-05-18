@@ -220,6 +220,8 @@ AMB 不是 graph database、hosted memory platform、scheduler、worker runtime�
 - [Client integrations](docs/INTEGRATIONS.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
+- [Agent install protocol](INSTALL_FOR_AGENTS.md)
+- [Harness design](docs/HARNESS-DESIGN.md)
 - [Benchmark and proof harness](benchmark/README.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

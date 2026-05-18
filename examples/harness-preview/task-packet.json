@@ -1,0 +1,52 @@
+{
+  "packet_type": "task",
+  "mode": "balanced",
+  "namespace": "project:demo",
+  "query": "prepare a release-facing documentation update",
+  "compiled_truth": [
+    {
+      "record_id": "mem_demo_procedure_001",
+      "kind": "procedure",
+      "summary": "For release-facing docs, update the docs, run release checks, scan for local paths, then review the public README surface.",
+      "why_included": "Procedure directly matches the task intent."
+    },
+    {
+      "record_id": "mem_demo_concept_001",
+      "kind": "concept-note",
+      "summary": "Compiled views are working material; database records remain source of truth.",
+      "why_included": "Prevents over-treating generated packets as durable authority."
+    }
+  ],
+  "evidence_timeline": [
+    {
+      "record_id": "mem_demo_support_001",
+      "kind": "support",
+      "summary": "Prior release checks caught README/test-count drift.",
+      "relation": "supports"
+    },
+    {
+      "record_id": "mem_demo_gotcha_002",
+      "kind": "gotcha",
+      "summary": "Public examples should use placeholders instead of machine-specific paths.",
+      "relation": "supports"
+    }
+  ],
+  "suppressed": [
+    {
+      "record_id": "mem_demo_stale_001",
+      "kind": "domain-note",
+      "summary": "Old client setup note points at an obsolete client-only path.",
+      "why_suppressed": "Stale and superseded by integration docs."
+    }
+  ],
+  "first_recommended_actions": [
+    "Read the relevant public docs before editing.",
+    "Keep examples placeholder-safe.",
+    "Run release, public-surface, and onboarding checks before publishing."
+  ],
+  "token_budget": {
+    "estimated_tokens": 310,
+    "budget_mode": "balanced"
+  }
+}
+

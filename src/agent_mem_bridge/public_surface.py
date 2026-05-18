@@ -6,6 +6,8 @@ from typing import Any
 
 
 PUBLIC_DOC_PATHS = (
+    Path("INSTALL_FOR_AGENTS.md"),
+    Path("llms.txt"),
     Path("README.md"),
     Path("README.zh-CN.md"),
     Path("SECURITY.md"),
@@ -23,12 +25,16 @@ PUBLIC_DOC_PATHS = (
     Path("docs/COMPARISON.md"),
     Path("docs/CONFIGURATION.md"),
     Path("docs/CONTEXT-ASSEMBLY.md"),
+    Path("docs/HARNESS-DESIGN.md"),
     Path("docs/INTEGRATIONS.md"),
     Path("docs/MEMORY-TAXONOMY.md"),
     Path("docs/PROMOTION-RULES.md"),
     Path("examples/README.md"),
     Path("examples/demo/before-after-gotcha.cast.md"),
     Path("examples/demo/README.md"),
+    Path("examples/harness-preview/README.md"),
+    Path("examples/harness-preview/startup-packet.json"),
+    Path("examples/harness-preview/task-packet.json"),
     Path("examples/session-notes/demo/01-memory-note.md"),
     Path("examples/session-notes/demo/02-signal-note.md"),
     Path("examples/session-payloads/sample-closeout.json"),

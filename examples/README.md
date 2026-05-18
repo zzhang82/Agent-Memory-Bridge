@@ -9,6 +9,7 @@ It is intentionally limited to sanitized examples that show the shape of:
 - a durable memory note
 - a handoff signal note
 - a reusable terminal demo source in [demo](demo/README.md)
+- sanitized harness preview packet shapes in [harness-preview](harness-preview/README.md)
 
 The canonical current demo lives in `demo/terminal-demo.*`.
 Any `v0.5` demo artifacts are historical only.

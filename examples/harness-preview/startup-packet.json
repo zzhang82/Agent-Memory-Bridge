@@ -1,0 +1,44 @@
+{
+  "packet_type": "startup",
+  "mode": "balanced",
+  "namespace": "project:demo",
+  "compiled_truth": [
+    {
+      "record_id": "mem_demo_policy_001",
+      "kind": "belief",
+      "summary": "Prefer reversible edits and verify before committing release-facing changes.",
+      "why_included": "High-confidence project operating rule used during startup."
+    },
+    {
+      "record_id": "mem_demo_gotcha_001",
+      "kind": "gotcha",
+      "summary": "Run generated-code checks after schema edits.",
+      "why_included": "Recent gotcha that prevents repeated local failures."
+    }
+  ],
+  "active_signals": [
+    {
+      "signal_id": "sig_demo_review_ready",
+      "summary": "Release note review is ready for a reviewer.",
+      "status": "pending",
+      "why_included": "Pending coordination item in the project namespace."
+    }
+  ],
+  "stale_warnings": [
+    {
+      "record_id": "mem_demo_old_install_note",
+      "summary": "Old install note references a deprecated command.",
+      "why_suppressed": "Superseded by the current integration guide."
+    }
+  ],
+  "first_recommended_actions": [
+    "Inspect the current working tree before editing.",
+    "Recall project gotchas before release or schema work.",
+    "Claim a pending review signal before acting on it."
+  ],
+  "token_budget": {
+    "estimated_tokens": 220,
+    "budget_mode": "balanced"
+  }
+}
+
