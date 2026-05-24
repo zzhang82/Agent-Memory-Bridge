@@ -72,6 +72,8 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "source_model": "gpt-5.4",
                     "client_session_id": "codex-session-1",
                     "client_workspace": "project:bridge",
+                    "expires_at": "",
+                    "ttl_seconds": 999,
                 },
             )
             assert duplicate.structuredContent["stored"] is False
@@ -98,6 +100,7 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "query": "context loss",
                     "limit": 5,
                     "kind": "memory",
+                    "signal_status": "pending",
                     "actor": "cole",
                 },
             )
@@ -108,6 +111,24 @@ async def _exercise_server(tmp_path: Path) -> None:
             assert recall.structuredContent["items"][0]["client_session_id"] == "codex-session-1"
             assert recall.structuredContent["items"][0]["client_workspace"] == "project:bridge"
             assert recall.structuredContent["items"][0]["client_transport"] == "stdio"
+
+            placeholder_recall = await session.call_tool(
+                "recall",
+                arguments={
+                    "namespace": "bridge",
+                    "query": "context loss",
+                    "limit": 5,
+                    "kind": "memory",
+                    "signal_status": "pending",
+                    "tags_any": [],
+                    "session_id": "",
+                    "actor": "",
+                    "correlation_id": "",
+                    "since": "",
+                },
+            )
+            assert placeholder_recall.structuredContent["count"] == 1
+            assert placeholder_recall.structuredContent["items"][0]["id"] == first.structuredContent["id"]
 
             polling = await session.call_tool(
                 "recall",
@@ -171,6 +192,13 @@ async def _exercise_server(tmp_path: Path) -> None:
             assert browse.structuredContent["count"] == 1
             assert browse.structuredContent["items"][0]["id"] == signal.structuredContent["id"]
 
+            memory_browse = await session.call_tool(
+                "browse",
+                arguments={"namespace": "bridge", "kind": "memory", "signal_status": "pending", "limit": 5},
+            )
+            assert memory_browse.structuredContent["count"] == 1
+            assert memory_browse.structuredContent["items"][0]["id"] == first.structuredContent["id"]
+
             forgotten = await session.call_tool(
                 "forget",
                 arguments={"id": first.structuredContent["id"]},
@@ -214,6 +242,19 @@ async def _exercise_server(tmp_path: Path) -> None:
             )
             assert exported.structuredContent["count"] == 1
             assert "# Memory Export: bridge" in exported.structuredContent["content"]
+
+            memory_exported = await session.call_tool(
+                "export",
+                arguments={
+                    "namespace": "bridge",
+                    "format": "markdown",
+                    "kind": "memory",
+                    "signal_status": "pending",
+                    "limit": 10,
+                },
+            )
+            assert memory_exported.structuredContent["count"] == 1
+            assert "Use one shared DB." in memory_exported.structuredContent["content"]
 
 
 def test_stdio_server_round_trip(tmp_path: Path) -> None:

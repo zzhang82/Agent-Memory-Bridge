@@ -23,6 +23,15 @@ mcp = FastMCP("agent-memory-bridge", json_response=True)
 bridge = MemoryStore.from_env()
 
 
+def _optional_text(value: str | None) -> str | None:
+    """Normalize placeholder empty strings from static-schema MCP clients."""
+
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
 @mcp.tool(structured_output=True)
 def store(
     namespace: Annotated[
@@ -181,6 +190,15 @@ def store(
     client_workspace = client_workspace or resolve_default_client_workspace()
     client_transport = client_transport or resolve_default_client_transport()
 
+    # MCP clients expose one static schema for both durable memory and expiring
+    # signals. Some clients still send signal-only fields with placeholder values
+    # when storing kind="memory". Normalize at the MCP boundary so durable memory
+    # writes do not fail because the client could not truly omit optional signal
+    # fields. The lower-level repository API remains strict for direct callers.
+    if kind == "memory":
+        expires_at = None
+        ttl_seconds = None
+
     return bridge.store(
         namespace=namespace,
         content=content,
@@ -292,6 +310,21 @@ def recall(
     Returns matching items plus a `next_since` cursor that can be reused for the next
     polling cycle.
     """
+    # MCP clients expose one static schema for memory and signal recall. Some
+    # wrappers pass placeholder values (empty strings, empty arrays, or a signal
+    # status like "pending") even when they mean "not filtered". Normalize at
+    # this boundary so durable memory recall is not silently hidden by client UI
+    # placeholders. The lower-level API still receives precise filters.
+    query = query.strip()
+    session_id = _optional_text(session_id)
+    actor = _optional_text(actor)
+    correlation_id = _optional_text(correlation_id)
+    since = _optional_text(since)
+    if tags_any == []:
+        tags_any = None
+    if kind == "memory":
+        signal_status = None
+
     return bridge.recall(
         namespace=namespace,
         query=query,
@@ -356,6 +389,9 @@ def browse(
     to see recent memory, scan a domain bucket, or confirm that signals are flowing
     before writing a more specific recall query.
     """
+    if kind == "memory":
+        signal_status = None
+
     return bridge.browse(
         namespace=namespace,
         domain=domain,
@@ -617,6 +653,9 @@ def export(
     a human-readable snapshot, or move memory into another system without opening the
     database directly.
     """
+    if kind == "memory":
+        signal_status = None
+
     return bridge.export(
         namespace=namespace,
         format=format,
