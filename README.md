@@ -150,6 +150,10 @@ The bridge exposes `10` public MCP tools:
 
 The richer behavior stays behind that surface: reflex promotion, consolidation, startup/task-time assembly, procedure governance, telemetry summaries, and signal contention checks. There are no separate `task_packet` or `startup_packet` MCP tools.
 
+### Static-schema client compatibility
+
+Some MCP clients generate one static input schema per tool and may send signal-only fields on `kind="memory"` paths: for example `ttl_seconds` or `expires_at` on `store`, and `signal_status` on `recall`, `browse`, or `export`. AMB drops those fields at the MCP transport boundary before creating or querying memory records. The lower-level memory store contract stays strict: durable memory and coordination signals remain separate lanes, and real signal lifecycle fields still belong only to `kind="signal"` operations.
+
 ## Proof Snapshot
 
 `0.13.1` is a launch-surface polish release over the 0.13 coordination runtime while keeping the public tool surface stable.

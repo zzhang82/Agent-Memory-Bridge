@@ -150,6 +150,10 @@ bridge 暴露 `10` public MCP tools：
 
 更复杂的能力留在 surface 后面：reflex promotion、consolidation、startup/task-time assembly、procedure governance、telemetry summaries 和 signal contention checks。当前没有单独的 `task_packet` 或 `startup_packet` MCP tools。
 
+### 静态 schema 客户端兼容性
+
+有些 MCP client 会为 tool 生成静态 input schema，因此在 `kind="memory"` 路径上也可能带上 signal-only fields：例如 `store` 里的 `ttl_seconds` 或 `expires_at`，以及 `recall`、`browse` 或 `export` 里的 `signal_status`。AMB 只会在 MCP transport 边界丢弃这些字段，不会把它们写入或用于查询 memory records；底层 memory store contract 仍然保持严格，durable memory 和 coordination signal 仍是两条独立 lane，真实的 signal lifecycle fields 仍只属于 `kind="signal"`。
+
 ## Proof Snapshot
 
 `0.13.1` 是基于 0.13 coordination runtime 的 launch-surface polish release，同时保持 public tool surface 稳定。

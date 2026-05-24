@@ -61,6 +61,18 @@ agent-memory-bridge config --client cursor --example
 `--example` keeps the output placeholder-safe. Without it, the renderer uses
 your current Python path together with the resolved bridge home and config path.
 
+### Static-schema placeholders
+
+Some MCP clients keep static tool schemas and may include signal-only fields on
+`kind="memory"` paths: for example `ttl_seconds` or `expires_at` on `store`, and
+`signal_status` on `recall`, `browse`, or `export`. AMB normalizes those fields at
+the stdio MCP boundary when `kind="memory"`, so static-schema clients do not have
+to strip them before calling the tools.
+
+That compatibility does not merge the memory and signal lanes. Non-empty signal
+lifecycle values are not applied to `kind="memory"`; they remain valid only on
+`kind="signal"` paths, and lower-level store/repository behavior stays strict.
+
 ### Dockerized Stdio
 
 If your client can launch Docker as the subprocess, keep stdin open and mount a
