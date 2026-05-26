@@ -34,7 +34,7 @@ AMB takes a smaller path: local SQLite, explicit namespaces, inspectable records
 
 - Durable memory: decisions, gotchas, procedures, concepts, beliefs, and supporting records.
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
-- Governed learning: session output can move through `summary -> learn / gotcha -> domain-note -> belief -> concept-note`.
+- Governed learning: runtime learning can be staged as policy-gated learning candidates before promotion into durable records.
 - Context assembly: startup and task-time context can be compiled from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `228 passed`.
 
@@ -148,7 +148,7 @@ The bridge exposes `10` public MCP tools:
 - `forget`, `promote`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The richer behavior stays behind that surface: reflex promotion, consolidation, startup/task-time assembly, procedure governance, telemetry summaries, and signal contention checks. There are no separate `task_packet` or `startup_packet` MCP tools.
+The richer behavior stays behind that surface: reflex promotion, consolidation, startup/task-time assembly, procedure governance, telemetry summaries, signal contention checks, and learning-candidate review queues. There are no separate `task_packet`, `startup_packet`, or `learning_candidate` MCP tools.
 
 ### Static-schema client compatibility
 
@@ -156,13 +156,14 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.13.1` is a launch-surface polish release over the 0.13 coordination runtime while keeping the public tool surface stable.
+`0.14.0` is the governed learning-candidate gate release while keeping the public tool surface stable.
 
 | Track | Current signal |
 |---|---|
 | Retrieval | `memory_expected_top1_accuracy = 1.0`, `file_scan_expected_top1_accuracy = 0.636` |
 | Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
+| Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats until explicitly reviewed |
 | Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
 | Test suite | `228 passed` |
@@ -215,7 +216,7 @@ Full proof details are in [benchmark/README.md](benchmark/README.md).
 
 ## Boundaries
 
-AMB is not a graph database, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, or automatic procedure learner. It is a small local bridge for reusable engineering memory and lightweight coordination.
+AMB is not a graph database, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, or automatic durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination.
 
 For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
