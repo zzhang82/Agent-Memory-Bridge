@@ -1,6 +1,15 @@
 from __future__ import annotations
 
+import re
 import sqlite3
+
+IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def quote_identifier(identifier: str) -> str:
+    if not IDENTIFIER_RE.fullmatch(identifier):
+        raise ValueError(f"invalid SQL identifier: {identifier!r}")
+    return f'"{identifier}"'
 
 
 def init_db(conn: sqlite3.Connection) -> None:
@@ -28,6 +37,7 @@ def init_db(conn: sqlite3.Connection) -> None:
             lease_expires_at TEXT,
             expires_at TEXT,
             acknowledged_at TEXT,
+            is_learning_candidate INTEGER NOT NULL DEFAULT 0,
             content_hash TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
@@ -47,6 +57,17 @@ def init_db(conn: sqlite3.Connection) -> None:
     ensure_column(conn, "memories", "lease_expires_at", "ALTER TABLE memories ADD COLUMN lease_expires_at TEXT")
     ensure_column(conn, "memories", "expires_at", "ALTER TABLE memories ADD COLUMN expires_at TEXT")
     ensure_column(conn, "memories", "acknowledged_at", "ALTER TABLE memories ADD COLUMN acknowledged_at TEXT")
+    ensure_column(conn, "memories", "is_learning_candidate", "ALTER TABLE memories ADD COLUMN is_learning_candidate INTEGER NOT NULL DEFAULT 0")
+    conn.execute(
+        """
+        UPDATE memories
+        SET is_learning_candidate = 1
+        WHERE is_learning_candidate = 0
+        AND tags_json LIKE '%"kind:learning-candidate"%'
+        AND EXISTS (SELECT 1 FROM json_each(memories.tags_json) WHERE value = 'kind:learning-candidate')
+        """
+    )
+    ensure_fts_columns(conn)
     conn.executescript(
         """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_dedup
@@ -79,16 +100,26 @@ def init_db(conn: sqlite3.Connection) -> None:
 
         CREATE INDEX IF NOT EXISTS idx_memories_signal_claimed_by_created_at
         ON memories (claimed_by, created_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_memories_learning_candidate_visible
+        ON memories (namespace, is_learning_candidate, created_at DESC);
         """
     )
-    ensure_fts_columns(conn)
     conn.commit()
 
 
 def ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
-    columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
-    if column not in columns:
+    table_sql = quote_identifier(table)
+    quote_identifier(column)
+    columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table_sql})").fetchall()}
+    if column in columns:
+        return
+    try:
         conn.execute(ddl)
+    except sqlite3.OperationalError as exc:
+        if "duplicate column name" in str(exc).lower():
+            return
+        raise
 
 
 def ensure_fts_columns(conn: sqlite3.Connection) -> None:
@@ -96,17 +127,24 @@ def ensure_fts_columns(conn: sqlite3.Connection) -> None:
     if "title" in columns:
         return
 
-    existing_rows = conn.execute(
-        """
-        SELECT id, COALESCE(title, '') AS title, content
-        FROM memories
-        ORDER BY created_at ASC
-        """
-    ).fetchall()
-    conn.execute("DROP TABLE IF EXISTS memories_fts")
-    conn.execute("CREATE VIRTUAL TABLE memories_fts USING fts5(memory_id UNINDEXED, title, content)")
-    for row in existing_rows:
-        conn.execute(
-            "INSERT INTO memories_fts(memory_id, title, content) VALUES (?, ?, ?)",
-            (row["id"], row["title"], row["content"]),
-        )
+    conn.execute("SAVEPOINT ensure_fts_columns")
+    try:
+        existing_rows = conn.execute(
+            """
+            SELECT id, COALESCE(title, '') AS title, content
+            FROM memories
+            ORDER BY created_at ASC
+            """
+        ).fetchall()
+        conn.execute("DROP TABLE IF EXISTS memories_fts")
+        conn.execute("CREATE VIRTUAL TABLE memories_fts USING fts5(memory_id UNINDEXED, title, content)")
+        for row in existing_rows:
+            conn.execute(
+                "INSERT INTO memories_fts(memory_id, title, content) VALUES (?, ?, ?)",
+                (row["id"], row["title"], row["content"]),
+            )
+        conn.execute("RELEASE ensure_fts_columns")
+    except Exception:
+        conn.execute("ROLLBACK TO ensure_fts_columns")
+        conn.execute("RELEASE ensure_fts_columns")
+        raise

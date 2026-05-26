@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .learning_policy import evaluate_learning_candidate
+from .repository import LEARNING_CANDIDATE_TAG
 
 VALID_CANDIDATE_STATUSES = {"pending", "needs_review", "approved", "rejected", "expired"}
 STORABLE_DECISIONS = {"allow", "needs_review"}
@@ -54,7 +55,7 @@ def store_learning_candidate(
     title_claim = truncate(claim or candidate_ref, limit=72)
     content = build_learning_candidate_record(candidate, decision, candidate_status=status)
     tags = [
-        "kind:learning-candidate",
+        LEARNING_CANDIDATE_TAG,
         f"candidate_status:{status}",
         f"source_runtime:{source_runtime}",
         f"authority_class:{authority_class}",

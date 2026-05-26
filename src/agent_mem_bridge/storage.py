@@ -27,6 +27,20 @@ from .signals import ack_signal_entry, claim_signal_entry, extend_signal_lease_e
 from .telemetry import Telemetry, hash_label
 
 
+def _optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned or None
+
+
+def _optional_list(value: list[str] | None) -> list[str] | None:
+    if value is None:
+        return None
+    cleaned = [str(item).strip() for item in value if str(item).strip()]
+    return cleaned or None
+
+
 class MemoryStore:
     def __init__(self, db_path: Path, log_dir: Path | None = None, telemetry: Telemetry | None = None) -> None:
         self.db_path = Path(db_path)
@@ -63,6 +77,23 @@ class MemoryStore:
         expires_at: str | None = None,
         ttl_seconds: int | None = None,
     ) -> dict[str, Any]:
+        kind = kind.strip()
+        tags = _optional_list(tags)
+        session_id = _optional_text(session_id)
+        actor = _optional_text(actor)
+        title = _optional_text(title)
+        correlation_id = _optional_text(correlation_id)
+        source_app = _optional_text(source_app)
+        source_client = _optional_text(source_client)
+        source_model = _optional_text(source_model)
+        client_session_id = _optional_text(client_session_id)
+        client_workspace = _optional_text(client_workspace)
+        client_transport = _optional_text(client_transport)
+        expires_at = _optional_text(expires_at)
+        if kind == "memory":
+            if ttl_seconds is not None:
+                raise ValueError("expires_at and ttl_seconds are only valid for kind='signal'")
+            expires_at = None
         relation_metadata = parse_relation_metadata(content)
         with self.telemetry.span(
             "amb.store.write",
@@ -280,6 +311,9 @@ class MemoryStore:
         tags_any: list[str] | None = None,
         correlation_id: str | None = None,
     ) -> dict[str, Any]:
+        signal_id = _optional_text(signal_id)
+        tags_any = _optional_list(tags_any)
+        correlation_id = _optional_text(correlation_id)
         with self.telemetry.span(
             "amb.signal.claim",
             {
@@ -479,8 +513,9 @@ class MemoryStore:
         return self.recall(**kwargs)
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=5.0)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout=5000")
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
