@@ -1,11 +1,10 @@
 # Production Status
 
-Last updated: 2026-05-01 (America/New_York)
+Last updated: 2026-05-26 (America/Toronto)
 
-This maintainer note describes the released `0.13.1` polish shape plus the validation
-snapshot used to support it.
+This maintainer note describes the released `0.14.0` governed learning-candidate shape plus the validation snapshot used to support it.
 
-## Released 0.13.1 Runtime Shape
+## Released 0.14.0 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -20,10 +19,12 @@ snapshot used to support it.
 9. task-time assembly over procedures, concepts, beliefs, and linked supporting records
 10. onboarding and integration hardening through platform-neutral docs, rendered client configs, and local `doctor` / `verify` checks
 11. contention-tested signal ownership, reclaim, and stale-ack boundaries
+12. policy-gated learning candidates that can stage runtime learning without entering ordinary recall, browse, export, or stats until explicitly reviewed
 
-## Verified On 2026-05-01
+## Verified On 2026-05-26
 
 - `pytest` passes: `228 passed`
+- targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
 - benchmark summary reports:
@@ -55,6 +56,9 @@ snapshot used to support it.
   - `adversarial_task_count = 7`
   - `adversarial_governed_task_pass_rate = 1.0`
   - `adversarial_governed_blocked_record_leak_rate = 0.0`
+- learning candidates are stored with review tags such as `kind:learning-candidate` and `candidate_status:*`
+- normal recall, browse, export, and stats suppress learning candidates unless explicit review tags are requested
+- the storage boundary recomputes learning policy so callers cannot forge an allow decision
 - healthcheck includes a relation-metadata smoke path
 - onboarding contract passes for required docs, README linkage, generated config parsing, and placeholder-safe public examples
 - relation-lite metadata is available on recall, export, and stats for:
@@ -75,14 +79,14 @@ snapshot used to support it.
 - the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, and Antigravity
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.13.1 Actually Means
+## What 0.14.0 Actually Means
 
 - the public MCP surface is still the same small bridge
-- relation-lite structure is now real and auditable
-- retrieval claims are benchmarked instead of guessed
-- the engine can assemble task-time memory over procedures, concepts, beliefs, and linked support without exposing a larger MCP API
-- onboarding now treats generic stdio MCP as the stable contract, with client-specific docs layered on top
-- signal coordination now has a repeatable contention slice: claim assigns work, extend renews ownership, stale leases must reclaim before ack, and pending work should not be starved by active claims
+- runtime learning can be proposed as a policy-gated candidate instead of becoming ordinary durable memory immediately
+- candidate records are review material, not source-of-truth memory
+- the store boundary owns policy verification; callers do not get to provide authoritative allow decisions
+- learning candidates are hidden from normal user-facing memory operations unless explicitly queried through review tags
+- relation-lite structure, task assembly, onboarding, and signal contention semantics from 0.13 remain intact
 
 ## Honest Boundaries
 
@@ -90,37 +94,37 @@ The release still does **not** mean:
 
 - a graph database
 - full relation-aware traversal or ranking across the whole store
-- automatic procedure learning from raw transcripts
+- automatic durable writeback from raw transcripts
+- a complete candidate review UI or autonomous reviewer
 - a full agent runtime, scheduler, queue platform, or distributed lock
 - pre-compaction capture before model-side context loss
 - active pubsub or consumer execution on top of stored signals
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.13.1
+## Pressure Points After 0.14.0
 
 The most important remaining gaps are:
 
-1. broader reviewed retrieval fixtures so credibility does not overfit the current corpus
-2. stronger write-side calibration for promotion quality
-3. cross-domain concept synthesis beyond the current domain-local concept-note step
-4. more deliberate procedure curation or promotion instead of only manual procedure records
-5. pre-compaction capture before model-side loss
-6. deeper real multi-client contention dogfood beyond serialized benchmark cases
+1. a fuller candidate review/promote workflow for accepted learning candidates
+2. broader reviewed retrieval fixtures so credibility does not overfit the current corpus
+3. stronger write-side calibration for promotion quality
+4. cross-domain concept synthesis beyond the current domain-local concept-note step
+5. more deliberate procedure curation or promotion instead of only manual procedure records
+6. pre-compaction capture before model-side loss
+7. deeper real multi-client contention dogfood beyond serialized benchmark cases
 
 ## Maintainer Read
 
-`0.13.1` keeps the public MCP surface small while tightening coordination semantics under
-contention. The project now reads as a general MCP memory product with local proof
-for memory, task assembly, procedure governance, onboarding, and signal ownership.
+`0.14.0` keeps the public MCP surface small while adding the missing staging layer between runtime learning and durable AMB memory. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, and governed learning writeback.
 
 It now behaves like:
 
 - a shared MCP memory backend
-- a governed learning layer
+- a governed learning layer with candidate staging
 - a structured relation-lite memory layer
 - a first pass at applicable/compositional task memory
 - a platform-neutral stdio bridge with real install confidence
 - a lightweight coordination layer with measured claim/reclaim boundaries
 
-The next work should protect those gains instead of widening the public surface too fast.
+The next work should protect those gains and improve review/promote ergonomics without widening the public surface too fast.
