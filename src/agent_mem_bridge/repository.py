@@ -355,9 +355,10 @@ def stats_for_namespace(store: Any, namespace: str) -> dict[str, Any]:
                 {MEMORY_ROW_SELECT}
             FROM memories
             WHERE namespace = ?
+            AND tags_json NOT LIKE ? ESCAPE '\\'
             ORDER BY created_at ASC
             """,
-            (cleaned_namespace,),
+            (cleaned_namespace, '%"kind:learning-candidate"%'),
         ).fetchall()
 
     kind_counts = {kind: 0 for kind in sorted(ALLOWED_KINDS)}

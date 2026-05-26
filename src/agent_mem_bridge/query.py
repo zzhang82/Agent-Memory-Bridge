@@ -219,6 +219,11 @@ def build_filters(
     clauses = [f"{prefix}namespace = ?"]
     params: list[Any] = [namespace]
 
+    include_learning_candidates = should_include_learning_candidates(tags_any)
+    if not include_learning_candidates:
+        clauses.append(f"{prefix}tags_json NOT LIKE ? ESCAPE '\\'")
+        params.append('%"kind:learning-candidate"%')
+
     if kind is not None:
         clauses.append(f"{prefix}kind = ?")
         params.append(kind)
@@ -249,6 +254,13 @@ def build_filters(
             params.extend(since_params)
 
     return " AND ".join(clauses), params
+
+
+def should_include_learning_candidates(tags_any: list[str] | None) -> bool:
+    normalized = set(normalize_tags(tags_any or []))
+    if "kind:learning-candidate" in normalized:
+        return True
+    return any(tag.startswith("candidate_status:") for tag in normalized)
 
 
 def build_signal_status_filter(signal_status: str | None, prefix: str = "") -> tuple[str, list[str]]:

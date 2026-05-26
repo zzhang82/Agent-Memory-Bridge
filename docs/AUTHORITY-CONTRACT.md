@@ -4,6 +4,11 @@ Agent Memory Bridge stores durable engineering memory, but not every artifact
 around the bridge has the same authority. This contract explains what users and
 contributors can safely treat as source of truth.
 
+For cross-layer AMB/AMH/runtime-provider integrations, keep this contract as
+the in-repository durable-authority source for AMB stored records and governed
+mutation. Runtime or harness-layer verb ownership maps may reference this
+contract, but they do not replace it.
+
 ## Authority Layers
 
 ### 1. Database records
@@ -60,6 +65,19 @@ These artifacts can be rebuilt from source records and code:
 - search indexes and other derived caches
 
 Regeneration should not require changing the public MCP tool surface.
+
+## Learning Candidate Review Queue
+
+Learning candidates are policy-gated staging records, not ordinary durable
+memory. The store boundary must recompute or verify the writeback decision before
+persisting a candidate; callers are not trusted to provide authoritative policy
+output. Candidate records are hidden from ordinary recall, browse, export, and
+stats unless explicitly requested with learning-candidate review tags such as
+`kind:learning-candidate` or `candidate_status:*`.
+
+Candidate records may help reviewers decide what to promote later, but the
+candidate itself is not an approved durable memory until a reviewed promotion or
+replacement path creates the final record.
 
 ## What Requires Review
 

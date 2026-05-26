@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .exporters import render_export
+from .learning_candidates import store_learning_candidate as store_learning_candidate_entry
 from .paths import resolve_bridge_db_path, resolve_bridge_log_dir
 from .promotion import promote_entry
 from .query import build_tag_filter, recall_candidates
@@ -375,6 +376,35 @@ class MemoryStore:
                 {
                     "changed": payload.get("changed"),
                     "record_type": payload.get("record_type"),
+                }
+            )
+            return payload
+
+    def store_learning_candidate(
+        self,
+        candidate: dict[str, Any],
+        decision: dict[str, Any],
+        candidate_status: str = "pending",
+    ) -> dict[str, Any]:
+        with self.telemetry.span(
+            "amb.learning_candidate.store",
+            {
+                "namespace": str(candidate.get("namespace", "")).strip(),
+                "candidate_status": candidate_status,
+                "decision": str(decision.get("decision", "")).strip(),
+            },
+        ) as span:
+            payload = store_learning_candidate_entry(
+                self,
+                candidate,
+                decision,
+                candidate_status=candidate_status,
+            )
+            span.set_attributes(
+                {
+                    "stored": payload.get("stored"),
+                    "candidate_status": payload.get("candidate_status"),
+                    "decision": payload.get("decision"),
                 }
             )
             return payload
