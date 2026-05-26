@@ -23,7 +23,7 @@ snapshot used to support it.
 
 ## Verified On 2026-05-01
 
-- `pytest` passes: `201 passed`
+- `pytest` passes: `228 passed`
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
 - benchmark summary reports:
