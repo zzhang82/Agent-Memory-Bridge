@@ -1,10 +1,8 @@
 # Roadmap
 
-Last updated: 2026-04-28 (America/New_York)
+Last updated: 2026-05-26 (America/Toronto)
 
-This maintainer note tracks the shipped ladder through `0.13.0`, plus likely
-post-0.13 research tracks. Treat it as a maintainer planning document, not as the
-public release contract.
+This maintainer note tracks the shipped ladder through `0.14.0`, plus likely post-0.14 research tracks. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -12,8 +10,7 @@ public release contract.
 - `0.8 = credible, structured memory`
 - `0.9 = applicable, compositional memory`
 
-The planned `0.8` work shipped as part of the direct `0.9.0` release rather than
-as a separate public tag.
+The planned `0.8` work shipped as part of the direct `0.9.0` release rather than as a separate public tag.
 
 ## What 0.9.0 Established
 
@@ -222,19 +219,39 @@ under multi-consumer pressure without turning into a task-queue platform.
 - not a distributed lock
 - not exactly-once coordination
 
-### 0.14 = likely next direction
+### 0.14 = governed learning candidates
 
-Status: candidate direction, not committed scope.
+Status: shipped in `v0.14.0`.
 
-The strongest remaining candidates are:
+#### Thesis
 
-- pre-compaction capture before model-side context loss
-- broader reviewed retrieval fixtures so credibility does not overfit the current corpus
-- deeper real multi-client contention dogfood beyond serialized benchmark cases
-- stronger write-side calibration for promotion quality
+`0.14` adds a policy-gated staging lane between runtime learning and durable AMB memory.
 
-Pick one thesis when the next release starts. Do not bundle all of these into one
-release unless they share a clear proof story.
+#### What it shipped
+
+- v0 learning-candidate policy evaluation with `allow`, `needs_review`, `deny`, and `degraded_no_write` decisions
+- internal `store_learning_candidate(...)` support for staging review records
+- candidate status tags such as `candidate_status:pending` and `candidate_status:needs_review`
+- storage-boundary policy recomputation so callers cannot forge allow decisions
+- suppression of learning candidates from normal recall, browse, export, and stats unless review tags are explicitly requested
+- authority-contract language that treats learning candidates as review material, not source-of-truth memory
+- no new public MCP tools
+
+#### What proved out
+
+- safe low-authority candidates can be staged
+- higher-authority classes route to review
+- malformed, sensitive, raw-transcript, unsupported, or unsafe candidates are denied
+- degraded no-write behavior can surface sanitized unsaved candidates when AMB is unavailable
+- forged allow decisions are rejected at the store boundary
+- candidate review queues can be queried through explicit tags without polluting ordinary memory recall
+
+#### What it is not
+
+- not automatic durable writeback from raw transcripts
+- not a complete candidate review UI
+- not a new public MCP learning API
+- not a replacement for reviewed promotion or supersession flows
 
 ## Parallel Research Track
 
@@ -244,6 +261,8 @@ release immediately:
 - pre-compaction capture before model-side loss
 - broader reviewed retrieval fixtures to keep credibility from overfitting the current corpus
 - stronger write-side calibration for promotion quality
+- deeper real multi-client contention dogfood beyond serialized benchmark cases
+- review/promote ergonomics for accepted learning candidates
 
 Treat these as cross-cutting tracks that can land in `0.14.x` and later
 as they become stable and portable.
@@ -259,6 +278,7 @@ Before that label makes sense, the bridge should have:
 - measurable and governed procedure memory
 - onboarding and install confidence for general MCP clients
 - coordination semantics that survive contention
+- a governed runtime-learning path with reviewable promotion boundaries
 - a believable story for pre-compaction capture or its deliberate absence
 - a still-small public MCP surface with a clear identity
 
@@ -268,4 +288,4 @@ Before that label makes sense, the bridge should have:
 - keep worker execution and scheduling outside the bridge core
 - prefer machine-first durable artifacts over transcript growth
 - keep local or private migration helpers out of the public repo story
-- do not overclaim: relation metadata is not a graph engine, and task assembly is not a full agent runtime
+- do not overclaim: relation metadata is not a graph engine, task assembly is not a full agent runtime, and learning candidates are not approved durable memory until reviewed/promoted
