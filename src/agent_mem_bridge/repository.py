@@ -14,6 +14,7 @@ from .signals import SignalSnapshot, effective_signal_status, resolve_signal_exp
 HASHTAG_RE = re.compile(r"(?<!\w)#([A-Za-z][A-Za-z0-9_/-]*)")
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 ALLOWED_KINDS = {"memory", "signal"}
+LEARNING_CANDIDATE_TAG = "kind:learning-candidate"
 MEMORY_ROW_SELECT = """
 id,
 namespace,
@@ -36,6 +37,7 @@ claimed_at,
 lease_expires_at,
 expires_at,
 acknowledged_at,
+is_learning_candidate,
 created_at
 """
 
@@ -63,6 +65,7 @@ class MemoryRow:
     lease_expires_at: str | None
     expires_at: str | None
     acknowledged_at: str | None
+    is_learning_candidate: bool
     created_at: str
 
     @classmethod
@@ -89,6 +92,7 @@ class MemoryRow:
             lease_expires_at=row["lease_expires_at"],
             expires_at=row["expires_at"],
             acknowledged_at=row["acknowledged_at"],
+            is_learning_candidate=bool(row["is_learning_candidate"]),
             created_at=row["created_at"],
         )
 
@@ -117,6 +121,7 @@ class MemoryRow:
             "lease_expires_at": self.lease_expires_at,
             "expires_at": self.expires_at,
             "acknowledged_at": self.acknowledged_at,
+            "is_learning_candidate": self.is_learning_candidate,
             "created_at": self.created_at,
             "relations": relation_metadata["relations"],
             "valid_from": relation_metadata["valid_from"],
@@ -172,6 +177,7 @@ def store_entry(
 
     normalized_content = normalize_content(cleaned_content)
     payload_tags = merge_tags(tags, title=title, content=cleaned_content)
+    is_learning_candidate = int(LEARNING_CANDIDATE_TAG in payload_tags)
     content_hash = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
     resolved_expires_at = resolve_signal_expiry(expires_at=expires_at, ttl_seconds=ttl_seconds)
     signal_status = "pending" if cleaned_kind == "signal" else None
@@ -233,9 +239,10 @@ def store_entry(
                     lease_expires_at,
                     expires_at,
                     acknowledged_at,
+                    is_learning_candidate,
                     content_hash,
                     created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -259,6 +266,7 @@ def store_entry(
                     None,
                     resolved_expires_at,
                     None,
+                    is_learning_candidate,
                     content_hash,
                     created_at,
                 ),
@@ -355,10 +363,10 @@ def stats_for_namespace(store: Any, namespace: str) -> dict[str, Any]:
                 {MEMORY_ROW_SELECT}
             FROM memories
             WHERE namespace = ?
-            AND tags_json NOT LIKE ? ESCAPE '\\'
+            AND is_learning_candidate = 0
             ORDER BY created_at ASC
             """,
-            (cleaned_namespace, '%"kind:learning-candidate"%'),
+            (cleaned_namespace,),
         ).fetchall()
 
     kind_counts = {kind: 0 for kind in sorted(ALLOWED_KINDS)}

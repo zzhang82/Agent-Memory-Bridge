@@ -2,9 +2,9 @@
 
 Last updated: 2026-05-26 (America/Toronto)
 
-This maintainer note describes the released `0.14.0` governed learning-candidate shape plus the validation snapshot used to support it.
+This maintainer note describes the released `0.14.1` governed learning-candidate hardening shape plus the validation snapshot used to support it.
 
-## Released 0.14.0 Runtime Shape
+## Released 0.14.1 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -23,7 +23,7 @@ This maintainer note describes the released `0.14.0` governed learning-candidate
 
 ## Verified On 2026-05-26
 
-- `pytest` passes: `228 passed`
+- `pytest` passes: `243 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
@@ -79,7 +79,7 @@ This maintainer note describes the released `0.14.0` governed learning-candidate
 - the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, and Antigravity
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.14.0 Actually Means
+## What 0.14.1 Actually Means
 
 - the public MCP surface is still the same small bridge
 - runtime learning can be proposed as a policy-gated candidate instead of becoming ordinary durable memory immediately
@@ -102,7 +102,7 @@ The release still does **not** mean:
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.14.0
+## Pressure Points After 0.14.1
 
 The most important remaining gaps are:
 
@@ -116,7 +116,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.14.0` keeps the public MCP surface small while adding the missing staging layer between runtime learning and durable AMB memory. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, and governed learning writeback.
+`0.14.1` keeps the public MCP surface small while hardening the 0.14 governed-learning boundary between runtime learning and durable AMB memory. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, and governed learning writeback.
 
 It now behaves like:
 

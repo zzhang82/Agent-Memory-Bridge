@@ -221,8 +221,7 @@ def build_filters(
 
     include_learning_candidates = should_include_learning_candidates(tags_any)
     if not include_learning_candidates:
-        clauses.append(f"{prefix}tags_json NOT LIKE ? ESCAPE '\\'")
-        params.append('%"kind:learning-candidate"%')
+        clauses.append(f"COALESCE({prefix}is_learning_candidate, 0) = 0")
 
     if kind is not None:
         clauses.append(f"{prefix}kind = ?")

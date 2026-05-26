@@ -184,11 +184,17 @@ def store(
     Returns the stored entry identifier, timestamp, and duplicate information. Repeated
     `memory` writes may deduplicate; `signal` writes are intended to remain append-like.
     """
-    source_client = source_client or resolve_default_source_client()
-    source_model = source_model or resolve_default_source_model()
-    client_session_id = client_session_id or resolve_default_client_session_id()
-    client_workspace = client_workspace or resolve_default_client_workspace()
-    client_transport = client_transport or resolve_default_client_transport()
+    session_id = _optional_text(session_id)
+    actor = _optional_text(actor)
+    title = _optional_text(title)
+    correlation_id = _optional_text(correlation_id)
+    source_app = _optional_text(source_app)
+    source_client = _optional_text(source_client) or resolve_default_source_client()
+    source_model = _optional_text(source_model) or resolve_default_source_model()
+    client_session_id = _optional_text(client_session_id) or resolve_default_client_session_id()
+    client_workspace = _optional_text(client_workspace) or resolve_default_client_workspace()
+    client_transport = _optional_text(client_transport) or resolve_default_client_transport()
+    expires_at = _optional_text(expires_at)
 
     # MCP clients expose one static schema for both durable memory and expiring
     # signals. Some clients still send signal-only fields with placeholder values
@@ -500,9 +506,9 @@ def claim_signal(
         namespace=namespace,
         consumer=consumer,
         lease_seconds=lease_seconds,
-        signal_id=signal_id,
+        signal_id=_optional_text(signal_id),
         tags_any=tags_any,
-        correlation_id=correlation_id,
+        correlation_id=_optional_text(correlation_id),
     )
 
 

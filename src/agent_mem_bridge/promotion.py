@@ -4,7 +4,7 @@ import hashlib
 import json
 from typing import Any
 
-from .repository import MemoryRow, fetch_row_by_id, merge_tags, normalize_content
+from .repository import LEARNING_CANDIDATE_TAG, MemoryRow, fetch_row_by_id, merge_tags, normalize_content
 
 
 PROMOTABLE_RECORD_TYPES = {"learn", "gotcha", "domain-note"}
@@ -26,6 +26,8 @@ def promote_entry(store: Any, memory_id: str, to_kind: str) -> dict[str, Any]:
             raise ValueError("only kind=memory entries can be promoted")
 
         source = MemoryRow.from_sqlite(row)
+        if is_learning_candidate_record(source):
+            raise ValueError("learning candidates cannot be promoted directly; review and store durable memory explicitly")
         current_record_type = record_type_for_row(source)
         if current_record_type == target_kind:
             store._log("promote", {"id": cleaned_id, "changed": False, "reason": "already-target-kind"})
@@ -71,7 +73,7 @@ def promote_entry(store: Any, memory_id: str, to_kind: str) -> dict[str, Any]:
         conn.execute(
             """
             UPDATE memories
-            SET title = ?, content = ?, tags_json = ?, content_hash = ?
+            SET title = ?, content = ?, tags_json = ?, is_learning_candidate = 0, content_hash = ?
             WHERE id = ?
             """,
             (
@@ -147,6 +149,11 @@ def record_type_for_row(row: MemoryRow) -> str:
         if tag in {"kind:learn", "kind:gotcha", "kind:domain-note"}:
             return tag.split(":", 1)[1]
     return parse_structured_record(row.content).get("record_type", "memory")
+
+
+def is_learning_candidate_record(row: MemoryRow) -> bool:
+    fields = parse_structured_record(row.content)
+    return LEARNING_CANDIDATE_TAG in row.tags or fields.get("record_type") == "learning-candidate"
 
 
 def build_promoted_item(row: MemoryRow, *, target_kind: str, current_record_type: str) -> dict[str, Any]:
