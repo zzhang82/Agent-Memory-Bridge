@@ -23,7 +23,7 @@ This maintainer note describes the released `0.14.1` governed learning-candidate
 
 ## Verified On 2026-05-26
 
-- `pytest` passes: `243 passed`
+- `pytest` passes: `261 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`

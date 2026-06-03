@@ -1,4 +1,5 @@
 .venv/
+.venv*/
 .runtime/
 .pytest_cache/
 __pycache__/

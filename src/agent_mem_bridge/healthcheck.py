@@ -17,6 +17,7 @@ from .archive_snapshot import (
     load_manifest,
     load_manifest_relative_paths,
 )
+from .index_health import inspect_indexes
 from .profile_migration import build_profile_documents, compare_profile_migration_with_mode
 from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_bridge_log_dir, resolve_sessions_root
 from .storage import MemoryStore
@@ -40,6 +41,8 @@ def run_health_check(
     resolved_compare_mode = _resolve_compare_mode(source_root, compare_mode)
     compare = compare_profile_migration_with_mode(store, source_root, mode=resolved_compare_mode)
     recall_checks = _run_recall_checks(store, source_root, resolved_compare_mode)
+    with store._connect() as conn:
+        index_health = inspect_indexes(conn)
     watcher_health = run_watcher_health_check(resolve_sessions_root())
     relation_metadata_smoke = run_relation_metadata_smoke(resolve_bridge_home())
 
@@ -58,6 +61,7 @@ def run_health_check(
         and compare["content_mismatch_count"] == 0
         and compare["namespace_mismatch_count"] == 0
         and all(item["ok"] for item in recall_checks)
+        and bool(index_health["fts"]["healthy"])
         and bool(relation_metadata_smoke.get("ok"))
         and bool(watcher_health.get("ok"))
         and (stdio_smoke is None or bool(stdio_smoke.get("ok")))
@@ -71,6 +75,7 @@ def run_health_check(
         "resolved_compare_mode": resolved_compare_mode,
         "compare": compare,
         "recall_checks": recall_checks,
+        "index_health": index_health,
         "relation_metadata_smoke": relation_metadata_smoke,
         "watcher_health": watcher_health,
         "stdio_smoke": stdio_smoke,

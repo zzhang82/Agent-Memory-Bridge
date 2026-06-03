@@ -5,6 +5,14 @@ import sqlite3
 from datetime import UTC, datetime
 from typing import Any
 
+from .embedding_index import (
+    active_embedding_config,
+    cosine_similarity,
+    embed_text,
+    ensure_embeddings_for_rows,
+    load_vector,
+)
+from .paths import resolve_hybrid_semantic_weight, resolve_retrieval_mode, resolve_semantic_scan_limit
 from .repository import MEMORY_ROW_SELECT, MemoryRow, normalize_tags
 
 
@@ -12,6 +20,74 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 
 
 def recall_candidates(
+    store: Any,
+    *,
+    namespace: str,
+    query: str,
+    limit: int,
+    kind: str | None,
+    signal_status: str | None,
+    tags_any: list[str] | None,
+    session_id: str | None,
+    actor: str | None,
+    correlation_id: str | None,
+    since: str | None,
+    retrieval_mode: str | None = None,
+) -> list[dict[str, Any]]:
+    candidate_limit = max(limit, min(max(limit * 5, 20), 100))
+    mode = normalize_retrieval_mode(retrieval_mode or resolve_retrieval_mode())
+    if query.strip() and mode in {"semantic", "hybrid"}:
+        lexical_items = _recall_lexical_candidates(
+            store,
+            namespace=namespace,
+            query=query,
+            limit=candidate_limit,
+            kind=kind,
+            signal_status=signal_status,
+            tags_any=tags_any,
+            session_id=session_id,
+            actor=actor,
+            correlation_id=correlation_id,
+            since=since,
+        )
+        semantic_items = recall_via_semantic(
+            store,
+            namespace=namespace,
+            query=query,
+            limit=candidate_limit,
+            kind=kind,
+            signal_status=signal_status,
+            tags_any=tags_any,
+            session_id=session_id,
+            actor=actor,
+            correlation_id=correlation_id,
+            since=since,
+        )
+        if mode == "semantic":
+            return semantic_items[:limit]
+        return hybrid_rerank_items(
+            query,
+            lexical_items=lexical_items,
+            semantic_items=semantic_items,
+            limit=limit,
+        )
+
+    return _recall_lexical_candidates(
+        store,
+        namespace=namespace,
+        query=query,
+        limit=limit,
+        kind=kind,
+        signal_status=signal_status,
+        tags_any=tags_any,
+        session_id=session_id,
+        actor=actor,
+        correlation_id=correlation_id,
+        since=since,
+    )
+
+
+def _recall_lexical_candidates(
     store: Any,
     *,
     namespace: str,
@@ -80,6 +156,151 @@ def recall_candidates(
     if query:
         return rerank_items(query, items, limit)
     return items
+
+
+def recall_via_semantic(
+    store: Any,
+    *,
+    namespace: str,
+    query: str,
+    limit: int,
+    kind: str | None,
+    signal_status: str | None,
+    tags_any: list[str] | None,
+    session_id: str | None,
+    actor: str | None,
+    correlation_id: str | None,
+    since: str | None,
+) -> list[dict[str, Any]]:
+    where_sql, params = build_filters(
+        store,
+        namespace=namespace,
+        kind=kind,
+        signal_status=signal_status,
+        tags_any=tags_any,
+        session_id=session_id,
+        actor=actor,
+        correlation_id=correlation_id,
+        since=since,
+        alias="m",
+    )
+    scan_limit = max(limit, min(max(limit * 20, 50), resolve_semantic_scan_limit()))
+    embedding_config = active_embedding_config()
+    query_vector = embed_text(query, config=embedding_config)
+    with store._connect() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT
+                {alias_columns('m')},
+                m.content_hash,
+                e.vector_json
+            FROM memories m
+            LEFT JOIN memory_embeddings e
+              ON e.memory_id = m.id
+             AND e.content_hash = m.content_hash
+             AND e.embedding_model = ?
+             AND e.embedding_dim = ?
+            WHERE {where_sql}
+            ORDER BY m.created_at DESC
+            LIMIT ?
+            """,
+            (embedding_config.model, embedding_config.dim, *params, scan_limit),
+        ).fetchall()
+        ensure_embeddings_for_rows(
+            conn,
+            [row for row in rows if row["vector_json"] is None],
+            config=embedding_config,
+        )
+        conn.commit()
+        refreshed = conn.execute(
+            f"""
+            SELECT
+                {alias_columns('m')},
+                m.content_hash,
+                e.vector_json
+            FROM memories m
+            JOIN memory_embeddings e ON e.memory_id = m.id
+            WHERE {where_sql}
+            AND e.content_hash = m.content_hash
+            AND e.embedding_model = ?
+            AND e.embedding_dim = ?
+            ORDER BY m.created_at DESC
+            LIMIT ?
+            """,
+            (*params, embedding_config.model, embedding_config.dim, scan_limit),
+        ).fetchall()
+
+    scored: list[tuple[float, str, dict[str, Any]]] = []
+    for row in refreshed:
+        score = cosine_similarity(query_vector, load_vector(row["vector_json"]))
+        if score <= 0:
+            continue
+        item = MemoryRow.from_sqlite(row).as_dict()
+        item["retrieval"] = {
+            **(item.get("retrieval") or {}),
+            "semantic_score": score,
+            "semantic_model": embedding_config.model,
+        }
+        scored.append((score, normalize_text(str(item.get("title") or "")), item))
+    scored.sort(key=lambda entry: (-entry[0], entry[1]))
+    return [item for _, _, item in scored[:limit]]
+
+
+def normalize_retrieval_mode(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"lexical", "semantic", "hybrid"}:
+        return normalized
+    return "lexical"
+
+
+def hybrid_rerank_items(
+    query: str,
+    *,
+    lexical_items: list[dict[str, Any]],
+    semantic_items: list[dict[str, Any]],
+    limit: int,
+) -> list[dict[str, Any]]:
+    lexical_rank = {str(item.get("id")): index for index, item in enumerate(lexical_items, start=1)}
+    semantic_rank = {str(item.get("id")): index for index, item in enumerate(semantic_items, start=1)}
+    semantic_scores = {
+        str(item.get("id")): float((item.get("retrieval") or {}).get("semantic_score") or 0.0)
+        for item in semantic_items
+    }
+    merged: dict[str, dict[str, Any]] = {}
+    for item in [*lexical_items, *semantic_items]:
+        item_id = str(item.get("id") or "")
+        if not item_id or item_id in merged:
+            continue
+        merged[item_id] = item
+
+    lexical_scored = rerank_items(query, list(merged.values()), limit=max(limit, len(merged)))
+    lexical_score_rank = {str(item.get("id")): index for index, item in enumerate(lexical_scored, start=1)}
+    semantic_weight = resolve_hybrid_semantic_weight()
+    scored: list[tuple[float, str, dict[str, Any]]] = []
+    for item_id, item in merged.items():
+        lexical_rrf = 1.0 / (60 + lexical_rank[item_id]) if item_id in lexical_rank else 0.0
+        lexical_rerank_rrf = 1.0 / (60 + lexical_score_rank[item_id]) if item_id in lexical_score_rank else 0.0
+        semantic_rrf = 1.0 / (60 + semantic_rank[item_id]) if item_id in semantic_rank else 0.0
+        semantic_score = semantic_scores.get(item_id, 0.0)
+        if item_id in lexical_rank:
+            # Hybrid v1 is lexical-anchored: semantic recall may enrich and
+            # extend the candidate set, but a weak sidecar must not demote the
+            # stable FTS path that users already trust.
+            score = 1_000_000.0 - (lexical_score_rank.get(item_id, lexical_rank[item_id]) * 1_000.0)
+            score += (lexical_rrf * 30.0) + (lexical_rerank_rrf * 45.0) + min(semantic_score * semantic_weight, 5.0)
+        else:
+            score = (semantic_rrf * 30.0) + (semantic_score * semantic_weight)
+        item["retrieval"] = {
+            **(item.get("retrieval") or {}),
+            "mode": "hybrid",
+            "hybrid_score": round(score, 6),
+            "lexical_rank": lexical_rank.get(item_id),
+            "semantic_rank": semantic_rank.get(item_id),
+            "semantic_score": semantic_score,
+        }
+        scored.append((score, normalize_text(str(item.get("title") or "")), item))
+    scored.sort(key=lambda entry: (-entry[0], entry[1]))
+    return [item for _, _, item in scored[:limit]]
 
 
 def recall_via_fts(

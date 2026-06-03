@@ -54,6 +54,25 @@ benchmark previews.
 
 Compiled views are useful working material, not durable authority by themselves.
 
+### 4. Derived indexes
+
+Search indexes and semantic sidecars are cache layers over the database records.
+They are useful for recall quality and performance, but they do not own memory.
+
+- `memories` remains the source of truth.
+- `memories_fts` is the lexical FTS5 cache.
+- `memory_embeddings` is the optional local semantic sidecar cache.
+- Retrieval provider settings and embedding commands choose how a sidecar is
+  generated; they are not durable memory authority.
+- Missing, stale, or orphan index rows should be repaired by rebuilding the
+  derived index, not by editing durable records.
+- Embedding vectors may be warmed lazily by semantic or hybrid recall, but their
+  content is always derived from current memory rows and content hashes.
+
+Use `agent-memory-bridge index-health` to inspect cache drift and
+`agent-memory-bridge index-rebuild` to rebuild cache tables. These commands must
+not change the count or content of `memories` rows.
+
 ## What Can Be Regenerated
 
 These artifacts can be rebuilt from source records and code:
@@ -62,7 +81,7 @@ These artifacts can be rebuilt from source records and code:
 - task-time context renderings
 - exports and Markdown snapshots
 - dashboards, reports, and review queues
-- search indexes and other derived caches
+- search indexes, semantic sidecars, and other derived caches
 
 Regeneration should not require changing the public MCP tool surface.
 

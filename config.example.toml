@@ -20,6 +20,20 @@ mode = "off"
 log_dir = "telemetry"
 service_name = "agent-memory-bridge"
 
+# Optional retrieval mode.
+# `lexical` keeps the stable SQLite FTS5 path as the default.
+# `semantic` and `hybrid` use a local derived sidecar cache and should be
+# validated against your own corpus before becoming the default.
+[retrieval]
+mode = "lexical"
+semantic_scan_limit = 1000
+hybrid_semantic_weight = 18.0
+embedding_provider = "hash"
+embedding_command = ""
+embedding_model = ""
+embedding_dim = 64
+embedding_timeout_seconds = 10
+
 # Optional rollout/session capture helpers.
 # Current watcher workflows are most mature around Codex-style rollout files,
 # but basic MCP bridge usage does not require them.

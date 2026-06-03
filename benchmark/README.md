@@ -9,6 +9,7 @@ the engine gets more expressive.
 ## Runnable Entry Points
 
 - `python ./scripts/run_benchmark.py`
+- `python ./scripts/run_benchmark.py --include-hybrid`
 - `python ./scripts/run_deterministic_proof.py`
 - `python ./scripts/run_classifier_calibration.py`
 - `python ./scripts/run_classifier_calibration.py --fixture-gateway`
@@ -27,6 +28,7 @@ The checked-in proof and benchmark flow covers:
 - recall timing
 - relation metadata surfaced through recall, export, stats, and proof
 - retrieval comparison against a simple file-scan baseline
+- optional lexical-vs-semantic-vs-hybrid shadow retrieval comparison
 - `precision@1`, `precision@3`, `recall@1`, `recall@3`, `MRR`, and `expected_top1_accuracy`
 - reviewed classifier-vs-fallback calibration
 - isolated learning-ladder activation stress cases
@@ -51,6 +53,34 @@ The release-facing snapshot currently reports:
 
 These numbers are meant to keep regressions visible. They are not meant to imply
 that the benchmark is broad enough to compare against unrelated systems.
+
+## Hybrid Retrieval Shadow Report
+
+`python ./scripts/run_benchmark.py --include-hybrid` writes
+`benchmark/latest-hybrid-retrieval-report.json`.
+
+This report compares three local retrieval paths on the same reviewed fixture:
+
+- `memory`: the stable lexical FTS5 path
+- `semantic`: the optional local sidecar-vector path
+- `hybrid`: lexical-anchored recall that may include sidecar-only additions
+  when packet budget allows
+
+The semantic sidecar currently uses the deterministic `local-token-hash-v1`
+provider. Treat the report as a migration and regression guard, not a claim that
+AMB ships broad embedding-model quality. The canonical public retrieval numbers
+still come from the lexical `memory` track unless a release explicitly states
+otherwise.
+
+The report also includes `hybrid_comparison_summary`, which separates:
+
+- preserved lexical top-1 results
+- improved relevant-rank cases
+- degraded relevant-rank cases
+- semantic-only records that became visible in the hybrid packet
+
+This keeps the hybrid story honest: matching lexical quality is a safety signal,
+not proof that the sidecar improved retrieval.
 
 ## Classifier Calibration
 
