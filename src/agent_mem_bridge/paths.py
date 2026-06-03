@@ -264,6 +264,66 @@ def resolve_telemetry_service_name() -> str:
     )
 
 
+def resolve_retrieval_mode() -> str:
+    return _resolve_str("AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE", ("retrieval", "mode"), "lexical").lower()
+
+
+def resolve_semantic_scan_limit() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_SEMANTIC_SCAN_LIMIT",
+        ("retrieval", "semantic_scan_limit"),
+        1000,
+    )
+
+
+def resolve_hybrid_semantic_weight() -> float:
+    return _resolve_float(
+        "AGENT_MEMORY_BRIDGE_HYBRID_SEMANTIC_WEIGHT",
+        ("retrieval", "hybrid_semantic_weight"),
+        18.0,
+    )
+
+
+def resolve_embedding_provider() -> str:
+    return _resolve_str(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER",
+        ("retrieval", "embedding_provider"),
+        "hash",
+    ).lower()
+
+
+def resolve_embedding_command() -> str:
+    return _resolve_str(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND",
+        ("retrieval", "embedding_command"),
+        "",
+    )
+
+
+def resolve_embedding_model() -> str:
+    return _resolve_str(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL",
+        ("retrieval", "embedding_model"),
+        "",
+    )
+
+
+def resolve_embedding_dim() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_DIM",
+        ("retrieval", "embedding_dim"),
+        64,
+    )
+
+
+def resolve_embedding_timeout_seconds() -> float:
+    return _resolve_float(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_TIMEOUT_SECONDS",
+        ("retrieval", "embedding_timeout_seconds"),
+        10.0,
+    )
+
+
 def resolve_watcher_state_path() -> Path:
     return _resolve_path(
         "AGENT_MEMORY_BRIDGE_STATE_PATH",

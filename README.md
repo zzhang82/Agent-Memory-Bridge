@@ -36,7 +36,7 @@ AMB takes a smaller path: local SQLite, explicit namespaces, inspectable records
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Governed learning: runtime learning can be staged as policy-gated learning candidates before promotion into durable records.
 - Context assembly: startup and task-time context can be compiled from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `243 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `261 passed`.
 
 ## Who It Is For
 
@@ -166,7 +166,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats until explicitly reviewed |
 | Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
-| Test suite | `243 passed` |
+| Test suite | `261 passed` |
 
 <details>
 <summary>Release contract facts</summary>

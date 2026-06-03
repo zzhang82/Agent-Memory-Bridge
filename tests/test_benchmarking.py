@@ -163,6 +163,53 @@ Reviewer needed for the API handoff.
     assert report["results"][0]["memory"]["top_titles"][0] == "Storage Decision"
 
 
+def test_run_benchmark_can_emit_shadow_hybrid_retrieval_summaries(tmp_path: Path) -> None:
+    corpus_dir = tmp_path / "corpus"
+    corpus_dir.mkdir()
+    (corpus_dir / "01-storage.md").write_text(
+        """---
+namespace: bench
+kind: memory
+title: Storage Decision
+tags:
+  - topic:storage
+---
+
+Use SQLite WAL mode for the bridge storage layer.
+""",
+        encoding="utf-8",
+    )
+    questions_path = tmp_path / "questions.json"
+    questions_path.write_text(
+        """[
+  {
+    "id": "q1",
+    "query": "SQLite WAL",
+    "expected_title": "Storage Decision",
+    "relevant_titles": ["Storage Decision"],
+    "kind": "memory"
+  }
+]""",
+        encoding="utf-8",
+    )
+
+    report = run_benchmark(corpus_dir=corpus_dir, questions_path=questions_path, include_hybrid=True)
+
+    result = report["results"][0]
+    assert result["memory"]["top_title"] == "Storage Decision"
+    assert result["semantic"]["top_title"] == "Storage Decision"
+    assert result["hybrid"]["top_title"] == "Storage Decision"
+    assert report["retrieval_summary"]["memory_expected_top1_accuracy"] == 1.0
+    assert report["semantic_summary"]["expected_top1_accuracy"] == 1.0
+    assert report["hybrid_summary"]["expected_top1_accuracy"] == 1.0
+    assert report["hybrid_comparison_summary"]["comparison_question_count"] == 1
+    assert report["hybrid_comparison_summary"]["preserved_lexical_top1_count"] == 1
+    assert report["hybrid_comparison_summary"]["degraded_relevant_rank_count"] == 0
+    assert "hybrid_semantic_only_visible_rate" in report["summary"]
+    assert report["summary"]["semantic_expected_top1_accuracy"] == 1.0
+    assert report["summary"]["hybrid_expected_top1_accuracy"] == 1.0
+
+
 def test_repo_benchmark_fixtures_capture_top1_ranking_improvements() -> None:
     report = run_benchmark(corpus_dir=DEFAULT_CORPUS_DIR, questions_path=DEFAULT_QUESTIONS_PATH)
     by_id = {item["id"]: item for item in report["results"]}

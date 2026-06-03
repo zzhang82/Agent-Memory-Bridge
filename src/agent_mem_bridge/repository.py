@@ -343,6 +343,7 @@ def forget_entry(store: Any, memory_id: str) -> dict[str, Any]:
             return {"id": cleaned_id, "deleted": False, "item": None}
 
         conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (cleaned_id,))
+        conn.execute("DELETE FROM memory_embeddings WHERE memory_id = ?", (cleaned_id,))
         conn.execute("DELETE FROM memories WHERE id = ?", (cleaned_id,))
         conn.commit()
 

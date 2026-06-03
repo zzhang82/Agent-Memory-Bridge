@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .proof import parse_markdown_entry, run_deterministic_proof
+from .query import recall_candidates
 from .storage import MemoryStore
 
 
@@ -20,6 +21,7 @@ def run_benchmark(
     *,
     corpus_dir: Path | None = None,
     questions_path: Path | None = None,
+    include_hybrid: bool = False,
 ) -> dict[str, Any]:
     corpus_root = corpus_dir or DEFAULT_CORPUS_DIR
     questions_file = questions_path or DEFAULT_QUESTIONS_PATH
@@ -28,25 +30,47 @@ def run_benchmark(
 
     runtime_dir = Path(tempfile.mkdtemp(prefix="agent-memory-bridge-bench-"))
     try:
-        store = MemoryStore(runtime_dir / "benchmark.db", log_dir=runtime_dir / "logs")
-        for entry in entries:
-            store.store(**entry)
+        store = build_benchmark_store(runtime_dir / "benchmark.db", entries, log_dir=runtime_dir / "logs")
+        semantic_store = (
+            build_benchmark_store(runtime_dir / "benchmark-semantic.db", entries, log_dir=runtime_dir / "semantic-logs")
+            if include_hybrid
+            else None
+        )
+        hybrid_store = (
+            build_benchmark_store(runtime_dir / "benchmark-hybrid.db", entries, log_dir=runtime_dir / "hybrid-logs")
+            if include_hybrid
+            else None
+        )
 
         retrieval_results = []
         for question in questions:
-            retrieval_results.append(
-                {
-                    "id": question["id"],
-                    "query": question["query"],
-                    "expected_title": question["expected_title"],
-                    "relevant_titles": normalize_relevant_titles(question),
-                    "memory": run_memory_benchmark(store, question),
-                    "file_scan": run_file_benchmark(entries, question),
-                }
-            )
+            result = {
+                "id": question["id"],
+                "query": question["query"],
+                "expected_title": question["expected_title"],
+                "relevant_titles": normalize_relevant_titles(question),
+                "memory": run_memory_benchmark(store, question, retrieval_mode="lexical"),
+                "file_scan": run_file_benchmark(entries, question),
+            }
+            if include_hybrid:
+                assert semantic_store is not None
+                assert hybrid_store is not None
+                result["semantic"] = run_memory_benchmark(semantic_store, question, retrieval_mode="semantic")
+                result["hybrid"] = run_memory_benchmark(hybrid_store, question, retrieval_mode="hybrid")
+            retrieval_results.append(result)
 
         proof_report = run_deterministic_proof(corpus_dir=corpus_root, questions_path=questions_file)
         retrieval_summary = build_retrieval_summary(retrieval_results)
+        semantic_summary = build_mode_summary(retrieval_results, "semantic") if include_hybrid else None
+        hybrid_summary = build_mode_summary(retrieval_results, "hybrid") if include_hybrid else None
+        hybrid_comparison = build_hybrid_comparison_summary(retrieval_results) if include_hybrid else None
+        extra_summary = {}
+        if semantic_summary is not None:
+            extra_summary.update({f"semantic_{key}": value for key, value in semantic_summary.items()})
+        if hybrid_summary is not None:
+            extra_summary.update({f"hybrid_{key}": value for key, value in hybrid_summary.items()})
+        if hybrid_comparison is not None:
+            extra_summary.update({f"hybrid_{key}": value for key, value in hybrid_comparison.items()})
         return {
             "summary": {
                 "question_count": retrieval_summary["question_count"],
@@ -67,8 +91,12 @@ def run_benchmark(
                 "signal_correctness_passed": proof_report["summary"]["signal_correctness_passed"],
                 "relation_metadata_passed": proof_report["summary"]["relation_metadata_passed"],
                 "duplicate_suppression_rate": proof_report["summary"]["duplicate_suppression_rate"],
+                **extra_summary,
             },
             "retrieval_summary": retrieval_summary,
+            "semantic_summary": semantic_summary,
+            "hybrid_summary": hybrid_summary,
+            "hybrid_comparison_summary": hybrid_comparison,
             "deterministic_proof_summary": proof_report["summary"],
             "results": retrieval_results,
             "deterministic_proof": proof_report,
@@ -77,22 +105,42 @@ def run_benchmark(
         shutil.rmtree(runtime_dir, ignore_errors=True)
 
 
-def run_memory_benchmark(store: MemoryStore, question: dict[str, Any]) -> dict[str, Any]:
+def build_benchmark_store(db_path: Path, entries: list[dict[str, Any]], *, log_dir: Path) -> MemoryStore:
+    store = MemoryStore(db_path, log_dir=log_dir)
+    for entry in entries:
+        store.store(**entry)
+    return store
+
+
+def run_memory_benchmark(
+    store: MemoryStore,
+    question: dict[str, Any],
+    *,
+    retrieval_mode: str | None = None,
+) -> dict[str, Any]:
     relevant_titles = normalize_relevant_titles(question)
     started = time.perf_counter_ns()
-    response = store.recall(
+    items = recall_candidates(
+        store,
         namespace="bench",
         query=question["query"],
-        kind=question.get("kind"),
         limit=max(3, len(relevant_titles)),
+        kind=question.get("kind"),
+        signal_status=None,
+        tags_any=None,
+        session_id=None,
+        actor=None,
+        correlation_id=None,
+        since=None,
+        retrieval_mode=retrieval_mode,
     )
     elapsed_ms = round((time.perf_counter_ns() - started) / 1_000_000, 3)
-    top_titles = [item["title"] for item in response["items"] if item.get("title")]
+    top_titles = [item["title"] for item in items if item.get("title")]
     return {
         "hit": bool(top_titles) and top_titles[0] in relevant_titles,
         "expected_top1": bool(top_titles) and top_titles[0] == question["expected_title"],
         "latency_ms": elapsed_ms,
-        "count": response["count"],
+        "count": len(items),
         "top_title": top_titles[0] if top_titles else None,
         "top_titles": top_titles,
         "precision_at_1": precision_at_k(top_titles, relevant_titles, 1),
@@ -179,6 +227,75 @@ def build_retrieval_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "file_scan_avg_latency_ms": average(file_latency),
     }
+
+
+def build_mode_summary(results: list[dict[str, Any]], mode: str) -> dict[str, Any]:
+    mode_p1 = [result[mode]["precision_at_1"] for result in results if mode in result]
+    mode_p3 = [result[mode]["precision_at_3"] for result in results if mode in result]
+    mode_latency = [result[mode]["latency_ms"] for result in results if mode in result]
+    return {
+        "hit_count": sum(1 for result in results if mode in result and result[mode]["hit"]),
+        "expected_top1_count": sum(1 for result in results if mode in result and result[mode]["expected_top1"]),
+        "expected_top1_accuracy": average(
+            [1.0 if result[mode]["expected_top1"] else 0.0 for result in results if mode in result]
+        ),
+        "precision_at_1": average(mode_p1),
+        "precision_at_3": average(mode_p3),
+        "recall_at_1": average(
+            [recall_at_k(result[mode]["first_relevant_rank"], 1) for result in results if mode in result]
+        ),
+        "recall_at_3": average(
+            [recall_at_k(result[mode]["first_relevant_rank"], 3) for result in results if mode in result]
+        ),
+        "mrr": average(
+            [reciprocal_rank(result[mode]["first_relevant_rank"]) for result in results if mode in result]
+        ),
+        "avg_latency_ms": average(mode_latency),
+    }
+
+
+def build_hybrid_comparison_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
+    comparable = [result for result in results if "hybrid" in result and "semantic" in result]
+    improved = 0
+    degraded = 0
+    preserved_top1 = 0
+    semantic_only_visible = 0
+    semantic_only_top1 = 0
+    for result in comparable:
+        memory_rank = first_relevant_rank(result["memory"]["top_titles"], result["relevant_titles"])
+        hybrid_rank = first_relevant_rank(result["hybrid"]["top_titles"], result["relevant_titles"])
+        if result["memory"]["top_title"] == result["hybrid"]["top_title"]:
+            preserved_top1 += 1
+        if rank_is_better(hybrid_rank, memory_rank):
+            improved += 1
+        elif rank_is_better(memory_rank, hybrid_rank):
+            degraded += 1
+
+        memory_titles = set(result["memory"]["top_titles"])
+        semantic_only_titles = [title for title in result["hybrid"]["top_titles"] if title not in memory_titles]
+        if semantic_only_titles:
+            semantic_only_visible += 1
+        if result["hybrid"]["top_title"] in semantic_only_titles:
+            semantic_only_top1 += 1
+
+    count = len(comparable)
+    return {
+        "comparison_question_count": count,
+        "preserved_lexical_top1_count": preserved_top1,
+        "improved_relevant_rank_count": improved,
+        "degraded_relevant_rank_count": degraded,
+        "semantic_only_visible_count": semantic_only_visible,
+        "semantic_only_top1_count": semantic_only_top1,
+        "semantic_only_visible_rate": round(semantic_only_visible / count, 3) if count else 0.0,
+    }
+
+
+def rank_is_better(left: int | None, right: int | None) -> bool:
+    if left is None:
+        return False
+    if right is None:
+        return True
+    return left < right
 
 
 def normalize_relevant_titles(question: dict[str, Any]) -> list[str]:

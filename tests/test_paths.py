@@ -3,6 +3,11 @@
 from agent_mem_bridge.paths import (
     resolve_bridge_db_path,
     resolve_bridge_home,
+    resolve_embedding_command,
+    resolve_embedding_dim,
+    resolve_embedding_model,
+    resolve_embedding_provider,
+    resolve_embedding_timeout_seconds,
     resolve_profile_source_root,
     resolve_idle_seconds,
     resolve_poll_seconds,
@@ -35,6 +40,13 @@ def test_path_resolvers_read_from_config_file(tmp_path: Path, monkeypatch) -> No
                 'log_dir = "telemetry-spans"',
                 'service_name = "amb-local"',
                 "",
+                "[retrieval]",
+                'embedding_provider = "command"',
+                'embedding_command = "python fake_embedding.py"',
+                'embedding_model = "fixture-embedding-v1"',
+                "embedding_dim = 4",
+                "embedding_timeout_seconds = 3.5",
+                "",
                 "[watcher]",
                 'sessions_root = "./sessions"',
                 "idle_seconds = 45",
@@ -62,6 +74,11 @@ def test_path_resolvers_read_from_config_file(tmp_path: Path, monkeypatch) -> No
     assert resolve_telemetry_mode() == "jsonl"
     assert resolve_telemetry_log_dir() == tmp_path / "bridge-home" / "telemetry-spans"
     assert resolve_telemetry_service_name() == "amb-local"
+    assert resolve_embedding_provider() == "command"
+    assert resolve_embedding_command() == "python fake_embedding.py"
+    assert resolve_embedding_model() == "fixture-embedding-v1"
+    assert resolve_embedding_dim() == 4
+    assert resolve_embedding_timeout_seconds() == 3.5
     assert resolve_sessions_root() == tmp_path / "codex-home" / "sessions"
     assert resolve_idle_seconds() == 45
     assert resolve_poll_seconds() == 12.5
@@ -88,12 +105,18 @@ def test_env_overrides_config_values(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_PROFILE_SOURCE_ROOT", str(tmp_path / "env-cole"))
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_TELEMETRY_MODE", "jsonl")
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_TELEMETRY_SERVICE_NAME", "amb-env")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER", "hash")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL", "env-embedding")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_DIM", "8")
 
     assert resolve_profile_source_root() == tmp_path / "env-cole"
     assert resolve_bridge_home() == tmp_path / "env-home"
     assert resolve_idle_seconds() == 90
     assert resolve_telemetry_mode() == "jsonl"
     assert resolve_telemetry_service_name() == "amb-env"
+    assert resolve_embedding_provider() == "hash"
+    assert resolve_embedding_model() == "env-embedding"
+    assert resolve_embedding_dim() == 8
 
 
 def test_profile_source_root_defaults_to_neutral_config_path(tmp_path: Path, monkeypatch) -> None:
@@ -106,6 +129,5 @@ def test_profile_source_root_defaults_to_neutral_config_path(tmp_path: Path, mon
     monkeypatch.delenv("COLE_SOURCE_ROOT", raising=False)
 
     assert resolve_profile_source_root() == Path.home() / ".config" / "agent-memory-bridge" / "profile-source"
-
 
 

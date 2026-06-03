@@ -59,6 +59,51 @@ def test_watcher_processes_idle_rollout_once(tmp_path: Path) -> None:
     assert second["processed_count"] == 0
 
 
+def test_watcher_skips_truncated_rollout_tail(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    sessions_root.mkdir()
+    rollout = sessions_root / "rollout-2026-04-04T13-17-22-019d597f-d23c-7391-9214-4c5b847d13ce.jsonl"
+    lines = [
+        {
+            "timestamp": "2026-04-04T17:18:07.854Z",
+            "type": "session_meta",
+            "payload": {
+                "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
+                "timestamp": "2026-04-04T17:17:22.372Z",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
+                "originator": "Codex Desktop",
+            },
+        },
+        {
+            "timestamp": "2026-04-04T17:18:07.856Z",
+            "type": "event_msg",
+            "payload": {"type": "user_message", "message": "Build a memory bridge."},
+        },
+    ]
+    rollout.write_text(
+        "\n".join(json.dumps(line) for line in lines) + '\n{"timestamp": "2026-04-04',
+        encoding="utf-8",
+    )
+    old_time = time.time() - 120
+    import os
+
+    os.utime(rollout, (old_time, old_time))
+
+    watcher = CodexSessionWatcher(
+        WatcherConfig(
+            sessions_root=sessions_root,
+            notes_root=tmp_path / "notes",
+            runtime_dir=tmp_path / "runtime",
+            state_path=tmp_path / "runtime" / "watcher-state.json",
+            idle_seconds=10,
+        )
+    )
+
+    result = watcher.run_once(now_ts=time.time())
+
+    assert result["processed_count"] == 1
+
+
 def test_watcher_creates_checkpoint_for_active_changed_rollout(tmp_path: Path) -> None:
     sessions_root = tmp_path / "sessions"
     sessions_root.mkdir()
@@ -159,4 +204,3 @@ def test_watcher_marks_active_session_seen_before_closeout(tmp_path: Path) -> No
     assert seen["count"] == 1
     assert "status:active" in seen["items"][0]["tags"]
     assert seen["items"][0]["source_app"] == "codex-session-seen"
-

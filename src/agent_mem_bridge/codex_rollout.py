@@ -87,7 +87,13 @@ def parse_rollout_file(path: Path) -> RolloutSummary:
     for raw_line in Path(path).read_text(encoding="utf-8").splitlines():
         if not raw_line.strip():
             continue
-        item = json.loads(raw_line)
+        try:
+            item = json.loads(raw_line)
+        except json.JSONDecodeError:
+            # Rollout files are append-only and can be observed while Codex is
+            # still writing the final line. Treat malformed lines as an
+            # incomplete tail instead of crashing the long-running service.
+            continue
         last_updated = item.get("timestamp") or last_updated
         item_type = item.get("type")
         payload = item.get("payload", {})

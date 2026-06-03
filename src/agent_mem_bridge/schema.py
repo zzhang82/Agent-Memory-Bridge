@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 import sqlite3
 
+from .embedding_index import ensure_embedding_schema
+
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -44,8 +46,10 @@ def init_db(conn: sqlite3.Connection) -> None:
         """
     )
     ensure_column(conn, "memories", "title", "ALTER TABLE memories ADD COLUMN title TEXT")
+    ensure_column(conn, "memories", "session_id", "ALTER TABLE memories ADD COLUMN session_id TEXT")
     ensure_column(conn, "memories", "actor", "ALTER TABLE memories ADD COLUMN actor TEXT")
     ensure_column(conn, "memories", "correlation_id", "ALTER TABLE memories ADD COLUMN correlation_id TEXT")
+    ensure_column(conn, "memories", "source_app", "ALTER TABLE memories ADD COLUMN source_app TEXT")
     ensure_column(conn, "memories", "source_client", "ALTER TABLE memories ADD COLUMN source_client TEXT")
     ensure_column(conn, "memories", "source_model", "ALTER TABLE memories ADD COLUMN source_model TEXT")
     ensure_column(conn, "memories", "client_session_id", "ALTER TABLE memories ADD COLUMN client_session_id TEXT")
@@ -68,6 +72,7 @@ def init_db(conn: sqlite3.Connection) -> None:
         """
     )
     ensure_fts_columns(conn)
+    ensure_embedding_schema(conn)
     conn.executescript(
         """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_dedup

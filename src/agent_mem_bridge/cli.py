@@ -8,9 +8,11 @@ from pathlib import Path
 from typing import Sequence
 
 from .client_config import build_client_config_options, render_client_config, supported_client_names
+from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
 from .paths import resolve_bridge_home, resolve_config_path
 from .server import main as serve_server
+from .storage import MemoryStore
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -34,6 +36,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_doctor(namespace)
     if namespace.command == "verify":
         return _run_verify(namespace)
+    if namespace.command == "index-health":
+        return _run_index_health(namespace)
+    if namespace.command == "index-rebuild":
+        return _run_index_rebuild(namespace)
 
     parser.print_help()
     return 2
@@ -112,6 +118,19 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional runtime directory. Defaults to an isolated temporary directory.",
     )
+
+    index_health_parser = subparsers.add_parser("index-health", help="Inspect derived FTS and embedding index health.")
+    index_health_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+    index_health_parser.add_argument(
+        "--strict-embeddings",
+        action="store_true",
+        help="Also require the optional semantic sidecar to be fully populated.",
+    )
+
+    index_rebuild_parser = subparsers.add_parser("index-rebuild", help="Rebuild derived indexes without changing memory rows.")
+    index_rebuild_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+    index_rebuild_parser.add_argument("--fts", action="store_true", help="Rebuild the FTS5 derived index.")
+    index_rebuild_parser.add_argument("--embeddings", action="store_true", help="Rebuild the local semantic sidecar index.")
     return parser
 
 
@@ -157,6 +176,78 @@ def _run_verify(namespace: argparse.Namespace) -> int:
         print(render_verify_success_message(report))
         print(render_report(report))
     return 0 if report["ok"] else 1
+
+
+def _run_index_health(namespace: argparse.Namespace) -> int:
+    store = MemoryStore.from_env()
+    with store._connect() as conn:
+        report = inspect_indexes(conn)
+    if namespace.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(_render_index_health(report))
+    healthy = _index_health_ok(report, strict_embeddings=namespace.strict_embeddings)
+    return 0 if healthy else 1
+
+
+def _run_index_rebuild(namespace: argparse.Namespace) -> int:
+    rebuild_fts = bool(namespace.fts)
+    rebuild_embeddings = bool(namespace.embeddings)
+    if not rebuild_fts and not rebuild_embeddings:
+        rebuild_fts = True
+        rebuild_embeddings = True
+    store = MemoryStore.from_env()
+    with store._connect() as conn:
+        if rebuild_fts:
+            report = rebuild_fts_index(conn)
+        else:
+            report = inspect_indexes(conn)
+        if rebuild_embeddings:
+            report = rebuild_embedding_index(conn)
+        conn.commit()
+    if namespace.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(_render_index_health(report))
+    healthy = bool(report["fts"]["healthy"])
+    if rebuild_embeddings:
+        healthy = healthy and bool(report["embeddings"]["healthy"])
+    return 0 if healthy else 1
+
+
+def _index_health_ok(report: dict[str, object], *, strict_embeddings: bool = False) -> bool:
+    fts = report["fts"]
+    embeddings = report["embeddings"]
+    assert isinstance(fts, dict)
+    assert isinstance(embeddings, dict)
+    if not bool(fts["healthy"]):
+        return False
+    if strict_embeddings and not bool(embeddings["healthy"]):
+        return False
+    return True
+
+
+def _render_index_health(report: dict[str, object]) -> str:
+    fts = report["fts"]
+    embeddings = report["embeddings"]
+    assert isinstance(fts, dict)
+    assert isinstance(embeddings, dict)
+    lines = [
+        "# AMB Index Health",
+        "",
+        f"- memory_count: `{report['memory_count']}`",
+        f"- fts_index_count: `{fts['index_count']}`",
+        f"- fts_missing_count: `{fts['missing_count']}`",
+        f"- fts_orphan_count: `{fts['orphan_count']}`",
+        f"- fts_stale_count: `{fts['stale_count']}`",
+        f"- embedding_count: `{embeddings['embedding_count']}`",
+        f"- missing_embedding_count: `{embeddings['missing_embedding_count']}`",
+        f"- stale_embedding_count: `{embeddings['stale_embedding_count']}`",
+        f"- orphan_embedding_count: `{embeddings['orphan_embedding_count']}`",
+        "",
+        "Derived indexes can be rebuilt without changing `memories` rows.",
+    ]
+    return "\n".join(lines)
 
 
 def _package_version() -> str:

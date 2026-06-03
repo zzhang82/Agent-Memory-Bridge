@@ -88,6 +88,108 @@ Telemetry intentionally excludes raw memory content, recall query text, and expo
 bodies. It is meant for local proof, benchmark summaries, and runtime diagnostics,
 not transcript capture.
 
+## `[retrieval]`
+
+Controls recall ranking mode. The default remains conservative:
+
+```toml
+[retrieval]
+mode = "lexical"
+semantic_scan_limit = 1000
+hybrid_semantic_weight = 18.0
+embedding_provider = "hash"
+embedding_command = ""
+embedding_model = ""
+embedding_dim = 64
+embedding_timeout_seconds = 10
+```
+
+| Mode | Behavior |
+|---|---|
+| `lexical` | stable SQLite FTS5 recall plus existing local reranking |
+| `semantic` | local sidecar-vector recall over a bounded recent scan |
+| `hybrid` | lexical-anchored recall that may include semantic sidecar-only additions when packet budget allows |
+
+The semantic sidecar is a derived cache. It is not source of truth and can be
+rebuilt from the `memories` table. The bundled provider is
+`local-token-hash-v1`, a deterministic local token-hash vectorizer meant for
+safe shadow testing and regression checks. It is not a broad hosted embedding
+model and should not be used to claim general semantic retrieval quality.
+
+Embedding providers:
+
+| Provider | Behavior |
+|---|---|
+| `hash` | bundled deterministic local token-hash vectorizer; no extra dependencies |
+| `command` | trusted local command that receives texts as JSON on stdin and returns vectors as JSON on stdout |
+
+The command provider lets you connect local tools such as an Ollama wrapper,
+llama.cpp wrapper, or sentence-transformers script without adding a default
+runtime dependency. It is disabled unless you set both:
+
+```toml
+[retrieval]
+embedding_provider = "command"
+embedding_command = "python /path/to/local_embedding_gateway.py"
+embedding_model = "local-model-name"
+embedding_dim = 768
+```
+
+AMB sends:
+
+```json
+{"texts": ["..."], "dim": 768, "model": "local-model-name"}
+```
+
+and expects either:
+
+```json
+{"vectors": [[0.1, 0.2]], "model": "local-model-name"}
+```
+
+or, for a single text:
+
+```json
+{"vector": [0.1, 0.2], "model": "local-model-name"}
+```
+
+Command output vectors must match `embedding_dim`. AMB normalizes vectors before
+storing them in the derived sidecar. If `embedding_model` is omitted, AMB stores
+a command-hash model id so a changed command does not silently satisfy the old
+sidecar health check. The raw command string is config only and is not stored in
+the `memory_embeddings` table.
+
+Like classifier commands, embedding commands are trusted local code. They receive
+memory text. AMB does not sandbox them or restrict filesystem/network access. See
+[SECURITY.md](../SECURITY.md#embedding-command-trust-boundary).
+
+Start with `lexical`, run a hybrid shadow benchmark, then decide whether your
+local corpus benefits from `hybrid`:
+
+```bash
+python ./scripts/run_benchmark.py --include-hybrid
+```
+
+Index health can be inspected without mutating durable records:
+
+```bash
+agent-memory-bridge index-health
+agent-memory-bridge index-health --strict-embeddings
+```
+
+`index-health` requires the FTS5 cache to be healthy by default. Embedding
+completeness is only required with `--strict-embeddings`, because embeddings are
+optional until you choose semantic or hybrid retrieval.
+
+Derived indexes can be rebuilt safely:
+
+```bash
+agent-memory-bridge index-rebuild --fts
+agent-memory-bridge index-rebuild --embeddings
+```
+
+These commands rebuild cache tables only. They do not change `memories` rows.
+
 ## `[watcher]` and `[service]`
 
 Optional background automation.
@@ -121,6 +223,14 @@ section alone if you only want the basic bridge runtime.
 | `AGENT_MEMORY_BRIDGE_CONFIG` | path to the active `config.toml` |
 | `AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT` | optional provenance default for the launching client |
 | `AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT` | optional transport default, usually `stdio` |
+| `AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE` | `lexical`, `semantic`, or `hybrid` |
+| `AGENT_MEMORY_BRIDGE_SEMANTIC_SCAN_LIMIT` | maximum recent rows scanned by semantic sidecar recall |
+| `AGENT_MEMORY_BRIDGE_HYBRID_SEMANTIC_WEIGHT` | weight used when hybrid reranks semantic sidecar scores |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER` | `hash` or `command` |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND` | trusted local command for semantic vectors |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL` | logical model id stored with embedding sidecar rows |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_DIM` | expected embedding vector dimension |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_TIMEOUT_SECONDS` | timeout for each embedding command call |
 
 ## Onboarding Checks
 
@@ -130,10 +240,12 @@ by hand:
 ```bash
 agent-memory-bridge doctor
 agent-memory-bridge verify
+agent-memory-bridge index-health
 ```
 
 - `doctor` checks Python, SQLite FTS5, config parsing, and writable runtime paths
 - `verify` runs an isolated stdio smoke test without touching your live bridge state
+- `index-health` checks derived FTS and optional embedding cache health
 
 ## Multi-Machine Note
 
