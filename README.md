@@ -11,7 +11,7 @@
 
 Your coding agent should not rediscover the same project decisions every session.
 
-Agent Memory Bridge is persistent engineering memory for coding agents: a local-first MCP memory layer and context compiler backed by SQLite + FTS5. It captures durable repo decisions, gotchas, procedures, and handoffs while keeping short-lived coordination separate.
+Agent Memory Bridge is persistent engineering memory for coding agents: a local-first MCP memory layer and context compiler with SQLite/WAL as the durable store, FTS5 for lexical recall, and an optional local embedding sidecar for semantic or hybrid retrieval. It captures durable repo decisions, gotchas, procedures, and handoffs while keeping short-lived coordination separate.
 
 > Codex is the reference workflow, not the product boundary. If a client can launch a local stdio MCP server, it can use Agent Memory Bridge.
 
@@ -28,7 +28,7 @@ Most agent memory either feels too shallow or too heavy:
 - every new session re-learns the same gotchas
 - handoff state turns into ad hoc notes or a queue you did not want to build
 
-AMB takes a smaller path: local SQLite, explicit namespaces, inspectable records, benchmarked recall, and a signal lifecycle for lightweight coordination.
+AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectable records, benchmarked lexical/hybrid recall, and a signal lifecycle for lightweight coordination.
 
 ## What You Get
 
@@ -49,7 +49,7 @@ AMB takes a smaller path: local SQLite, explicit namespaces, inspectable records
 Requirements:
 
 - Python 3.11+
-- SQLite with FTS5 support
+- SQLite with FTS5 support; optional local embeddings are derived indexes, not durable authority
 - any MCP-compatible client that can launch a local stdio server
 
 One-command GitHub smoke test with `uvx`:

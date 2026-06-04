@@ -9,7 +9,7 @@ This maintainer note describes the released `0.14.2` service automation hardenin
 `agent-memory-bridge` now has these cooperating layers:
 
 1. stdio MCP server for `store`, `recall`, `browse`, `stats`, `forget`, `promote`, `claim_signal`, `extend_signal_lease`, `ack_signal`, and `export`
-2. shared SQLite/WAL + FTS5 bridge storage
+2. shared SQLite/WAL durable storage with FTS5 lexical and optional embedding sidecar indexes
 3. optional checkpoint/closeout capture helpers around the core bridge, disabled by default in the always-on service
 4. optional reflex promotion into machine-first durable artifacts, disabled by default in the always-on service
 5. optional consolidation with compression-aware `domain-note`, `belief-candidate`, `belief`, and `concept-note` generation, disabled by default in the always-on service
