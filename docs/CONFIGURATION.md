@@ -190,22 +190,109 @@ agent-memory-bridge index-rebuild --embeddings
 
 These commands rebuild cache tables only. They do not change `memories` rows.
 
+## `[embedding_scheduler]`
+
+Optional background maintenance for the semantic sidecar cache.
+
+```toml
+[embedding_scheduler]
+enabled = false
+state_path = "embedding-sidecar-state.json"
+interval_seconds = 3600
+batch_size = 100
+```
+
+When enabled, `agent-memory-bridge service` periodically checks the active
+embedding provider/model/dimension and warms missing or stale rows in
+`memory_embeddings`. It is batch-limited and interval-gated so a local embedding
+command does not run on every service poll.
+
+This scheduler:
+
+- writes only the derived `memory_embeddings` cache
+- never changes `memories` rows
+- does not enable `semantic` or `hybrid` retrieval by itself
+- uses the same embedding trust boundary as semantic/hybrid recall
+- stores only local scheduler state in `state_path`
+
+Use this when you want the sidecar to be ready before task-time recall, then keep
+using `index-health --strict-embeddings` and benchmarks to decide whether
+`hybrid` is good enough for your corpus.
+
 ## `[watcher]` and `[service]`
 
 Optional background automation.
 
 - `[watcher]` controls local rollout and session-file capture helpers
-- `[service]` controls the lightweight polling wrapper around that watcher
+- `[service]` controls the lightweight polling wrapper around watcher, reflex,
+  consolidation, governance-trigger, and embedding-sidecar checks
 
 These helpers are not required for basic MCP usage. The current watcher workflow is
 best developed around Codex-style rollout files, but the bridge itself does not
 depend on Codex.
 
+Keep `watcher.enabled = false` for normal multi-runtime service use unless you
+explicitly want Codex rollout-log checkpoints. AMB-native learning candidates,
+signals, governance triggers, and embedding maintenance do not require the
+watcher.
+
+## `[governance]`
+
+Controls the review-trigger scanner over AMB's own hidden learning-candidate
+lane.
+
+```toml
+[governance]
+trigger_state_path = "governance-trigger-state.json"
+trigger_scan_limit = 100
+```
+
+This is separate from Codex session-log watching. Any MCP-compatible client or
+runtime can participate by writing policy-gated learning candidates into AMB.
+The governance trigger then opens review signals for candidates that need human
+or operator attention. It does not approve, promote, rewrite, or delete memory.
+
 ## `[reflex]`
 
-Controls the promotion scanner that advances records through the governed ladder:
+Controls the first-pass promotion scanner:
 
-`session -> summary -> learn / gotcha -> domain-note -> belief -> concept-note`
+`session -> summary -> learn / gotcha`
+
+```toml
+[reflex]
+enabled = false
+state_path = "reflex-state.json"
+scan_limit = 200
+```
+
+Keep `enabled = false` for the always-on service unless you are deliberately
+reviewing session summaries. Reflex output is intentionally treated as early
+evidence. Even when reflex is enabled, it does not feed the stronger
+consolidation ladder until a record is explicitly reviewed.
+
+## `[consolidation]`
+
+Controls the stronger compression and belief-candidate scanner:
+
+`reviewed learn / gotcha -> domain-note -> belief-candidate -> belief -> concept-note`
+
+```toml
+[consolidation]
+enabled = false
+state_path = "consolidation-state.json"
+scan_limit = 200
+allow_reflex_sources = false
+```
+
+Keep `enabled = false` for normal always-on local service use unless you are
+running a deliberate replay/review pass. Strong compression should not grow
+quietly from old session logs.
+
+Keep `allow_reflex_sources = false` even when consolidation is enabled. Set it
+to `true` only for tests or deliberate replay experiments where you want
+automatic reflex records to feed consolidation directly. Reviewed reflex records
+can still enter consolidation when tagged with `source:reviewed`,
+`reviewed:true`, or `confidence:human-reviewed`.
 
 ## `[profile]`
 
@@ -231,6 +318,14 @@ section alone if you only want the basic bridge runtime.
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL` | logical model id stored with embedding sidecar rows |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_DIM` | expected embedding vector dimension |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_TIMEOUT_SECONDS` | timeout for each embedding command call |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_ENABLED` | enable periodic embedding sidecar maintenance in `service` |
+| `AGENT_MEMORY_BRIDGE_WATCHER_ENABLED` | enable Codex-style rollout/session-file capture in `service`; default is false |
+| `AGENT_MEMORY_BRIDGE_REFLEX_ENABLED` | enable summary-to-learn/gotcha reflex promotion in `service`; default is false |
+| `AGENT_MEMORY_BRIDGE_CONSOLIDATION_ENABLED` | enable strong consolidation in `service`; default is false |
+| `AGENT_MEMORY_BRIDGE_CONSOLIDATION_ALLOW_REFLEX_SOURCES` | allow automatic reflex learn/gotcha rows to feed stronger consolidation; default is false |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_STATE_PATH` | local state file for sidecar scheduler timing |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_INTERVAL_SECONDS` | minimum seconds between scheduled sidecar batches |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_BATCH_SIZE` | maximum memory rows embedded per due scheduler run |
 
 ## Onboarding Checks
 

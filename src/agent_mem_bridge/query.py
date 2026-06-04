@@ -201,7 +201,7 @@ def recall_via_semantic(
              AND e.embedding_model = ?
              AND e.embedding_dim = ?
             WHERE {where_sql}
-            ORDER BY m.created_at DESC
+            ORDER BY m.created_at DESC, m.rowid DESC
             LIMIT ?
             """,
             (embedding_config.model, embedding_config.dim, *params, scan_limit),
@@ -224,7 +224,7 @@ def recall_via_semantic(
             AND e.content_hash = m.content_hash
             AND e.embedding_model = ?
             AND e.embedding_dim = ?
-            ORDER BY m.created_at DESC
+            ORDER BY m.created_at DESC, m.rowid DESC
             LIMIT ?
             """,
             (*params, embedding_config.model, embedding_config.dim, scan_limit),
@@ -337,7 +337,7 @@ def recall_via_fts(
             FROM memories m
             JOIN memories_fts f ON f.memory_id = m.id
             WHERE {where_sql} AND memories_fts MATCH ?
-            ORDER BY bm25(memories_fts), m.created_at ASC
+            ORDER BY bm25(memories_fts), m.created_at ASC, m.rowid ASC
             LIMIT ?
             """,
             (*params, match_query, limit),
@@ -378,7 +378,7 @@ def recall_via_like(
             FROM memories
             WHERE {where_sql}
             AND (content LIKE ? ESCAPE '\\' OR COALESCE(title, '') LIKE ? ESCAPE '\\')
-            ORDER BY created_at ASC
+            ORDER BY created_at ASC, rowid ASC
             LIMIT ?
             """,
             (*params, like_value, like_value, limit),
@@ -416,7 +416,7 @@ def recall_via_filters(
                 {MEMORY_ROW_SELECT}
             FROM memories
             WHERE {where_sql}
-            ORDER BY created_at DESC
+            ORDER BY created_at DESC, rowid DESC
             LIMIT ?
             """,
             (*params, limit),
@@ -480,6 +480,8 @@ def should_include_learning_candidates(tags_any: list[str] | None) -> bool:
     normalized = set(normalize_tags(tags_any or []))
     if "kind:learning-candidate" in normalized:
         return True
+    if "kind:learning-review" in normalized:
+        return True
     return any(tag.startswith("candidate_status:") for tag in normalized)
 
 
@@ -538,10 +540,10 @@ def build_tag_filter(tags_any: list[str] | None, prefix: str = "") -> tuple[str,
 
 def build_since_filter(store: Any, since_id: str, prefix: str = "") -> tuple[str, list[str]]:
     with store._connect() as conn:
-        row = conn.execute("SELECT created_at FROM memories WHERE id = ? LIMIT 1", (since_id,)).fetchone()
+        row = conn.execute("SELECT rowid FROM memories WHERE id = ? LIMIT 1", (since_id,)).fetchone()
     if row is None:
         return "", []
-    return f"{prefix}created_at > ?", [row["created_at"]]
+    return f"{prefix}rowid > ?", [row["rowid"]]
 
 
 def build_match_query(query: str) -> str:

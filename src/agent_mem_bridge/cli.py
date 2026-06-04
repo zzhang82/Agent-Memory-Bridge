@@ -30,6 +30,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if namespace.command == "serve":
         serve_server()
         return 0
+    if namespace.command == "service":
+        return _run_service(namespace)
     if namespace.command == "config":
         return _run_config(namespace)
     if namespace.command == "doctor":
@@ -50,6 +52,9 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("serve", help="Start the MCP stdio server.")
+
+    service_parser = subparsers.add_parser("service", help="Run watcher, reflex, and consolidation service loop.")
+    service_parser.add_argument("--once", action="store_true", help="Run one service cycle and exit.")
 
     config_parser = subparsers.add_parser("config", help="Render a client config fragment.")
     config_parser.add_argument("--client", required=True, choices=supported_client_names())
@@ -176,6 +181,13 @@ def _run_verify(namespace: argparse.Namespace) -> int:
         print(render_verify_success_message(report))
         print(render_report(report))
     return 0 if report["ok"] else 1
+
+
+def _run_service(namespace: argparse.Namespace) -> int:
+    from .service import run_service
+
+    run_service(once=namespace.once)
+    return 0
 
 
 def _run_index_health(namespace: argparse.Namespace) -> int:

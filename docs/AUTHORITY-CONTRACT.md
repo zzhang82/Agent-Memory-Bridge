@@ -68,6 +68,9 @@ They are useful for recall quality and performance, but they do not own memory.
   derived index, not by editing durable records.
 - Embedding vectors may be warmed lazily by semantic or hybrid recall, but their
   content is always derived from current memory rows and content hashes.
+- Embedding vectors may also be warmed by the optional service scheduler. That
+  scheduler is cache maintenance only; it does not approve memories, promote
+  records, or change retrieval mode.
 
 Use `agent-memory-bridge index-health` to inspect cache drift and
 `agent-memory-bridge index-rebuild` to rebuild cache tables. These commands must
@@ -92,7 +95,7 @@ memory. The store boundary must recompute or verify the writeback decision befor
 persisting a candidate; callers are not trusted to provide authoritative policy
 output. Candidate records are hidden from ordinary recall, browse, export, and
 stats unless explicitly requested with learning-candidate review tags such as
-`kind:learning-candidate` or `candidate_status:*`.
+`kind:learning-candidate`, `kind:learning-review`, or `candidate_status:*`.
 
 Candidate records may help reviewers decide what to promote later, but the
 candidate itself is not an approved durable memory until a reviewed promotion or

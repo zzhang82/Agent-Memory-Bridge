@@ -10,6 +10,7 @@ from .repository import LEARNING_CANDIDATE_TAG
 VALID_CANDIDATE_STATUSES = {"pending", "needs_review", "approved", "rejected", "expired"}
 STORABLE_DECISIONS = {"allow", "needs_review"}
 DECISION_MATCH_FIELDS = ("schema", "candidate_ref", "decision", "would_write", "reasons")
+VALID_REVIEW_DECISIONS = {"approved", "rejected", "merged", "kept_staged", "expired"}
 
 
 def store_learning_candidate(
@@ -63,6 +64,8 @@ def store_learning_candidate(
         "schema:memory.candidate.v1",
         "schema:memory.writeback_decision.v1",
     ]
+    tags.extend(_candidate_domain_tags(candidate))
+    tags.extend(_prefixed_list(candidate.get("topic_tags"), prefix="topic:"))
 
     payload = store.store(
         namespace=namespace,
@@ -78,6 +81,56 @@ def store_learning_candidate(
     )
     payload["candidate_status"] = status
     payload["decision"] = decision_value
+    return payload
+
+
+def store_learning_review(
+    store: Any,
+    review: Mapping[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(review, Mapping):
+        raise ValueError("review must be a mapping")
+    namespace = str(review.get("namespace", "")).strip()
+    if not namespace:
+        raise ValueError("review namespace must not be empty")
+    candidate_ref = str(review.get("candidate_ref", "")).strip()
+    source_candidate_id = str(review.get("source_candidate_id", "")).strip()
+    if not candidate_ref and not source_candidate_id:
+        raise ValueError("review requires candidate_ref or source_candidate_id")
+    review_decision = str(review.get("review_decision", "")).strip().lower()
+    if review_decision not in VALID_REVIEW_DECISIONS:
+        raise ValueError(f"review_decision must be one of {sorted(VALID_REVIEW_DECISIONS)}")
+
+    candidate_status = _candidate_status_for_review(review_decision)
+    target_record_id = str(review.get("target_record_id", "")).strip()
+    title_ref = truncate(candidate_ref or source_candidate_id, limit=72)
+    content = build_learning_review_record(review, candidate_status=candidate_status)
+    tags = [
+        LEARNING_CANDIDATE_TAG,
+        "kind:learning-review",
+        f"candidate_status:{candidate_status}",
+        f"review_decision:{review_decision}",
+        "schema:memory.learning_review.v1",
+    ]
+    target_record_type = str(review.get("target_record_type", "")).strip()
+    if target_record_type:
+        tags.append(f"target_record_type:{target_record_type}")
+
+    payload = store.store(
+        namespace=namespace,
+        kind="memory",
+        title=f"[[Learning Review]] {title_ref}",
+        content=content,
+        tags=tags,
+        session_id=str(review.get("review_session_id") or "") or None,
+        actor=str(review.get("reviewed_by") or "") or None,
+        correlation_id=candidate_ref or source_candidate_id,
+        source_app="amb-learning-layer",
+        source_client=str(review.get("review_runtime") or "") or None,
+    )
+    payload["candidate_status"] = candidate_status
+    payload["review_decision"] = review_decision
+    payload["target_record_id"] = target_record_id or None
     return payload
 
 
@@ -102,6 +155,38 @@ def build_learning_candidate_record(
         "claim": " ".join(str(candidate.get("claim", "")).split()).strip(),
         "evidence_refs_json": json.dumps(candidate.get("evidence_refs", []), ensure_ascii=True, sort_keys=True),
         "decision_reasons_json": json.dumps(decision.get("reasons", []), ensure_ascii=True, sort_keys=True),
+        "domain_tags_json": json.dumps(_candidate_domain_tags(candidate), ensure_ascii=True, sort_keys=True),
+        "confidence": str(candidate.get("confidence", candidate.get("confidence_score", candidate.get("confidence_band", "")))),
+        "supersedes_record_ids_json": json.dumps(
+            _list_value(candidate.get("supersedes_record_ids")),
+            ensure_ascii=True,
+            sort_keys=True,
+        ),
+        "contradicts_record_ids_json": json.dumps(
+            _list_value(candidate.get("contradicts_record_ids")),
+            ensure_ascii=True,
+            sort_keys=True,
+        ),
+        "supersession_plan": str(candidate.get("supersession_plan", "")),
+    }
+    return "\n".join(f"{key}: {value}" for key, value in fields.items() if str(value).strip())
+
+
+def build_learning_review_record(review: Mapping[str, Any], *, candidate_status: str) -> str:
+    fields = {
+        "record_type": "learning-review",
+        "schema": "memory.learning_review.v1",
+        "candidate_status": candidate_status,
+        "candidate_ref": str(review.get("candidate_ref", "")),
+        "source_candidate_id": str(review.get("source_candidate_id", "")),
+        "review_decision": str(review.get("review_decision", "")).strip().lower(),
+        "reviewed_by": str(review.get("reviewed_by", "")),
+        "review_reason": " ".join(str(review.get("review_reason", "")).split()).strip(),
+        "target_record_type": str(review.get("target_record_type", "")),
+        "target_record_id": str(review.get("target_record_id", "")),
+        "recommended_action": str(review.get("recommended_action", "")),
+        "reason_codes_json": json.dumps(_list_value(review.get("reason_codes")), ensure_ascii=True, sort_keys=True),
+        "evidence_refs_json": json.dumps(_list_value(review.get("evidence_refs")), ensure_ascii=True, sort_keys=True),
     }
     return "\n".join(f"{key}: {value}" for key, value in fields.items() if str(value).strip())
 
@@ -114,3 +199,56 @@ def truncate(text: str, *, limit: int) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 3].rstrip() + "..."
+
+
+def _candidate_status_for_review(review_decision: str) -> str:
+    if review_decision == "approved":
+        return "approved"
+    if review_decision in {"rejected", "merged", "kept_staged"}:
+        return "rejected" if review_decision == "rejected" else "needs_review"
+    if review_decision == "expired":
+        return "expired"
+    return "needs_review"
+
+
+def _list_value(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [part.strip() for part in value.split("|") if part.strip()]
+    return []
+
+
+def _prefixed_list(value: Any, *, prefix: str) -> list[str]:
+    tags: list[str] = []
+    seen: set[str] = set()
+    for item in _list_value(value):
+        tag = item if item.startswith(prefix) else f"{prefix}{item}"
+        if tag not in seen:
+            tags.append(tag)
+            seen.add(tag)
+    return tags
+
+
+def _candidate_domain_tags(candidate: Mapping[str, Any]) -> list[str]:
+    values: list[Any] = []
+    for key in ("domain_tags", "tags"):
+        raw = candidate.get(key)
+        if isinstance(raw, list):
+            values.extend(raw)
+    raw_domain = candidate.get("domain")
+    if raw_domain:
+        values.append(raw_domain)
+
+    tags: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        tag = str(value).strip()
+        if not tag:
+            continue
+        if not tag.startswith("domain:"):
+            tag = f"domain:{tag}"
+        if tag not in seen:
+            tags.append(tag)
+            seen.add(tag)
+    return tags

@@ -69,6 +69,9 @@ def test_summarize_telemetry_aggregates_core_metrics() -> None:
                 "watcher_processed_count": 2,
                 "reflex_processed_count": 1,
                 "consolidation_processed_count": 0,
+                "governance_processed_count": 1,
+                "embedding_processed_count": 5,
+                "embedding_due": True,
             },
         },
         {
@@ -100,6 +103,9 @@ def test_summarize_telemetry_aggregates_core_metrics() -> None:
     assert summary["signals"]["memory_write_count"] == 1
     assert summary["service"]["poll_cycle_count"] == 1
     assert summary["service"]["watcher_processed_total"] == 2
+    assert summary["service"]["governance_processed_total"] == 1
+    assert summary["service"]["embedding_processed_total"] == 5
+    assert summary["service"]["embedding_due_count"] == 1
     assert summary["top_namespaces"][0]["namespace"] == "project:alpha"
     recall_latency = next(row for row in summary["latency"] if row["name"] == "amb.store.recall")
     assert recall_latency["count"] == 2
@@ -127,6 +133,9 @@ def test_render_telemetry_summary_text_contains_core_sections() -> None:
             "watcher_processed_total": 1,
             "reflex_processed_total": 0,
             "consolidation_processed_total": 0,
+            "governance_processed_total": 0,
+            "embedding_processed_total": 0,
+            "embedding_due_count": 0,
         },
         "latency": [
             {

@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from .exporters import render_export
-from .learning_candidates import store_learning_candidate as store_learning_candidate_entry
+from .learning_candidates import (
+    store_learning_candidate as store_learning_candidate_entry,
+    store_learning_review as store_learning_review_entry,
+)
 from .paths import resolve_bridge_db_path, resolve_bridge_log_dir
 from .promotion import promote_entry
 from .query import build_tag_filter, recall_candidates
@@ -439,6 +442,29 @@ class MemoryStore:
                     "stored": payload.get("stored"),
                     "candidate_status": payload.get("candidate_status"),
                     "decision": payload.get("decision"),
+                }
+            )
+            return payload
+
+    def store_learning_review(
+        self,
+        review: dict[str, Any],
+    ) -> dict[str, Any]:
+        with self.telemetry.span(
+            "amb.learning_review.store",
+            {
+                "namespace": str(review.get("namespace", "")).strip(),
+                "review_decision": str(review.get("review_decision", "")).strip(),
+                "has_source_candidate_id": bool(str(review.get("source_candidate_id", "")).strip()),
+                "has_target_record_id": bool(str(review.get("target_record_id", "")).strip()),
+            },
+        ) as span:
+            payload = store_learning_review_entry(self, review)
+            span.set_attributes(
+                {
+                    "stored": payload.get("stored"),
+                    "candidate_status": payload.get("candidate_status"),
+                    "review_decision": payload.get("review_decision"),
                 }
             )
             return payload

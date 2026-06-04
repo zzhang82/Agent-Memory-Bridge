@@ -10,8 +10,50 @@ from pathlib import Path
 from typing import Any
 
 from .contradiction import assess_contradiction_claim
-from .paths import resolve_consolidation_actor, resolve_domain_title_prefix, resolve_profile_namespace
+from .paths import (
+    resolve_consolidation_actor,
+    resolve_consolidation_allow_reflex_sources,
+    resolve_consolidation_enabled,
+    resolve_domain_title_prefix,
+    resolve_profile_namespace,
+)
 from .storage import MemoryStore
+
+
+CONSOLIDATION_NOISE_MARKERS = (
+    "you were out of token",
+    "out of token",
+    "last time all work stopped because of quota",
+    "iterate until token max",
+    "token maxed out",
+    "now since you still have",
+    "did you use all the subagent",
+    "then fix the quality",
+    "then fix the qualityu",
+    "quality-command",
+    "token/bug/fix",
+    "hand-weeding",
+    "temp namespace polluted",
+    "one extra thing the fact-check uncovered",
+    "live cole memory currently contains",
+    "old live amb service process",
+    "i’m checking",
+    "i'm checking",
+    "i’m going",
+    "i'm going",
+    "i’ll ",
+    "i'll ",
+    "validation run:",
+    "node --check",
+    "frame:",
+    "blockers",
+    "current worktree",
+    "code diff",
+    "next proposed slice",
+    "proposed next feature",
+    "too thin knowledge network",
+    "no cluster layer failure tracking",
+)
 
 
 @dataclass(slots=True)
@@ -20,6 +62,7 @@ class ConsolidationConfig:
     target_namespace: str = "global"
     actor: str = "bridge-consolidation"
     domain_title_prefix: str = "[[Domain Note]]"
+    enabled: bool = True
     scan_limit: int = 200
     min_support: int = 2
     belief_candidate_min_support: int = 3
@@ -28,6 +71,7 @@ class ConsolidationConfig:
     belief_max_contradictions: int = 0
     belief_required_stable_candidates: int = 2
     belief_freshness_days: int = 14
+    allow_reflex_sources: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +87,9 @@ class ConsolidationEngine:
         self.config.state_path.parent.mkdir(parents=True, exist_ok=True)
 
     def run_once(self) -> dict[str, Any]:
+        if not self.config.enabled:
+            return {"enabled": False, "processed_count": 0, "stored": [], "reason": "disabled"}
+
         state = self._load_state()
         new_rows = self._load_new_source_rows(state.get("since_id"), self.config.scan_limit)
         if not new_rows:
@@ -97,6 +144,16 @@ class ConsolidationEngine:
             WHERE namespace = ?
               AND (tags_json LIKE ? OR tags_json LIKE ?)
         """
+        if not self.config.allow_reflex_sources:
+            sql += """
+              AND (
+                source_app IS NULL
+                OR source_app != 'agent-memory-bridge-reflex'
+                OR tags_json LIKE '%"source:reviewed"%'
+                OR tags_json LIKE '%"reviewed:true"%'
+                OR tags_json LIKE '%"confidence:human-reviewed"%'
+              )
+            """
         if since_id:
             since_created_at = self._lookup_created_at(since_id)
             if since_created_at:
@@ -131,6 +188,14 @@ class ConsolidationEngine:
                 FROM memories
                 WHERE namespace = ?
                   AND (tags_json LIKE ? OR tags_json LIKE ?)
+                  AND (
+                    ? = 1
+                    OR source_app IS NULL
+                    OR source_app != 'agent-memory-bridge-reflex'
+                    OR tags_json LIKE '%"source:reviewed"%'
+                    OR tags_json LIKE '%"reviewed:true"%'
+                    OR tags_json LIKE '%"confidence:human-reviewed"%'
+                  )
                 ORDER BY created_at DESC
                 LIMIT ?
                 """,
@@ -138,6 +203,7 @@ class ConsolidationEngine:
                     self.config.target_namespace,
                     '%"kind:learn"%',
                     '%"kind:gotcha"%',
+                    1 if self.config.allow_reflex_sources else 0,
                     limit,
                 ),
             ).fetchall()
@@ -157,6 +223,8 @@ class ConsolidationEngine:
     ) -> list[SynthesisCandidate]:
         grouped: dict[str, list[sqlite3.Row]] = defaultdict(list)
         for row in rows:
+            if self._is_noisy_source_row(row):
+                continue
             row_domains = [tag for tag in self._tags_for_row(row) if tag.startswith("domain:")]
             for domain_tag in row_domains:
                 if domain_tag in touched_domains:
@@ -525,6 +593,8 @@ class ConsolidationEngine:
                 value = fields.get(key, "").strip()
                 if not value:
                     continue
+                if self._is_noisy_text(value):
+                    continue
                 normalized = " ".join(value.lower().split())
                 if normalized in seen:
                     continue
@@ -593,6 +663,24 @@ class ConsolidationEngine:
                 continue
             fields.setdefault(key, value)
         return fields
+
+    def _is_noisy_source_row(self, row: sqlite3.Row) -> bool:
+        fields = self._parse_fields(str(row["content"]))
+        candidates = [
+            str(row["title"] or ""),
+            fields.get("claim", ""),
+            fields.get("fix", ""),
+            fields.get("symptom", ""),
+            fields.get("trigger", ""),
+        ]
+        return any(self._is_noisy_text(value) for value in candidates)
+
+    @staticmethod
+    def _is_noisy_text(value: str) -> bool:
+        normalized = " ".join(value.lower().split())
+        if not normalized:
+            return False
+        return any(marker in normalized for marker in CONSOLIDATION_NOISE_MARKERS)
 
     @staticmethod
     def _build_structured_record(fields: dict[str, str]) -> str:
@@ -852,6 +940,8 @@ def build_default_consolidation_config(state_path: Path, scan_limit: int, min_su
         target_namespace=resolve_profile_namespace(),
         actor=resolve_consolidation_actor(),
         domain_title_prefix=resolve_domain_title_prefix(),
+        enabled=resolve_consolidation_enabled(),
         scan_limit=scan_limit,
         min_support=min_support,
+        allow_reflex_sources=resolve_consolidation_allow_reflex_sources(),
     )

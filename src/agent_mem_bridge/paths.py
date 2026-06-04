@@ -131,6 +131,19 @@ def _resolve_float(env_names: str | tuple[str, ...], config_keys: tuple[str, ...
     return float(configured)
 
 
+def _resolve_bool(env_names: str | tuple[str, ...], config_keys: tuple[str, ...], default: bool) -> bool:
+    names = (env_names,) if isinstance(env_names, str) else env_names
+    raw = _first_env(*names)
+    if raw:
+        return _parse_bool(raw, default=default)
+    configured = _config_value(*config_keys)
+    if configured is None:
+        return default
+    if isinstance(configured, bool):
+        return configured
+    return _parse_bool(str(configured), default=default)
+
+
 def _resolve_str(env_names: str | tuple[str, ...], config_keys: tuple[str, ...], default: str) -> str:
     names = (env_names,) if isinstance(env_names, str) else env_names
     raw = _first_env(*names)
@@ -139,6 +152,15 @@ def _resolve_str(env_names: str | tuple[str, ...], config_keys: tuple[str, ...],
     configured = _config_value(*config_keys)
     if isinstance(configured, str) and configured.strip():
         return configured.strip()
+    return default
+
+
+def _parse_bool(value: str, *, default: bool) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on", "enabled"}:
+        return True
+    if normalized in {"0", "false", "no", "off", "disabled"}:
+        return False
     return default
 
 
@@ -324,6 +346,47 @@ def resolve_embedding_timeout_seconds() -> float:
     )
 
 
+def resolve_embedding_scheduler_enabled() -> bool:
+    return _resolve_bool(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_ENABLED",
+        ("embedding_scheduler", "enabled"),
+        False,
+    )
+
+
+def resolve_embedding_scheduler_state_path() -> Path:
+    return _resolve_path(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_STATE_PATH",
+        ("embedding_scheduler", "state_path"),
+        lambda: resolve_bridge_home() / "embedding-sidecar-state.json",
+        config_base_factory=resolve_bridge_home,
+    )
+
+
+def resolve_embedding_scheduler_interval_seconds() -> float:
+    return _resolve_float(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_INTERVAL_SECONDS",
+        ("embedding_scheduler", "interval_seconds"),
+        3600.0,
+    )
+
+
+def resolve_embedding_scheduler_batch_size() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_BATCH_SIZE",
+        ("embedding_scheduler", "batch_size"),
+        100,
+    )
+
+
+def resolve_watcher_enabled() -> bool:
+    return _resolve_bool(
+        "AGENT_MEMORY_BRIDGE_WATCHER_ENABLED",
+        ("watcher", "enabled"),
+        False,
+    )
+
+
 def resolve_watcher_state_path() -> Path:
     return _resolve_path(
         "AGENT_MEMORY_BRIDGE_STATE_PATH",
@@ -369,6 +432,15 @@ def resolve_consolidation_state_path() -> Path:
     )
 
 
+def resolve_governance_trigger_state_path() -> Path:
+    return _resolve_path(
+        "AGENT_MEMORY_BRIDGE_GOVERNANCE_TRIGGER_STATE_PATH",
+        ("governance", "trigger_state_path"),
+        lambda: resolve_bridge_home() / "governance-trigger-state.json",
+        config_base_factory=resolve_bridge_home,
+    )
+
+
 def resolve_sessions_root() -> Path:
     return _resolve_path(
         "AGENT_MEMORY_BRIDGE_SESSIONS_ROOT",
@@ -400,6 +472,14 @@ def resolve_checkpoint_min_messages() -> int:
 
 def resolve_reflex_scan_limit() -> int:
     return _resolve_int("AGENT_MEMORY_BRIDGE_REFLEX_SCAN_LIMIT", ("reflex", "scan_limit"), 200)
+
+
+def resolve_reflex_enabled() -> bool:
+    return _resolve_bool(
+        "AGENT_MEMORY_BRIDGE_REFLEX_ENABLED",
+        ("reflex", "enabled"),
+        False,
+    )
 
 
 def resolve_classifier_mode() -> str:
@@ -439,6 +519,30 @@ def resolve_consolidation_scan_limit() -> int:
         "AGENT_MEMORY_BRIDGE_CONSOLIDATION_SCAN_LIMIT",
         ("consolidation", "scan_limit"),
         200,
+    )
+
+
+def resolve_consolidation_enabled() -> bool:
+    return _resolve_bool(
+        "AGENT_MEMORY_BRIDGE_CONSOLIDATION_ENABLED",
+        ("consolidation", "enabled"),
+        False,
+    )
+
+
+def resolve_consolidation_allow_reflex_sources() -> bool:
+    return _resolve_bool(
+        "AGENT_MEMORY_BRIDGE_CONSOLIDATION_ALLOW_REFLEX_SOURCES",
+        ("consolidation", "allow_reflex_sources"),
+        False,
+    )
+
+
+def resolve_governance_trigger_scan_limit() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_GOVERNANCE_TRIGGER_SCAN_LIMIT",
+        ("governance", "trigger_scan_limit"),
+        100,
     )
 
 

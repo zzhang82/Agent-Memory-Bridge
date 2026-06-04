@@ -5,6 +5,8 @@ import os
 import time
 
 from .consolidation import ConsolidationEngine, build_default_consolidation_config
+from .embedding_scheduler import run_embedding_sidecar_maintenance
+from .governance_trigger import GovernanceTriggerConfig, GovernanceTriggerEngine
 from .paths import (
     resolve_checkpoint_min_messages,
     resolve_checkpoint_seconds,
@@ -13,11 +15,15 @@ from .paths import (
     resolve_bridge_log_dir,
     resolve_consolidation_scan_limit,
     resolve_consolidation_state_path,
+    resolve_governance_trigger_scan_limit,
+    resolve_governance_trigger_state_path,
     resolve_idle_seconds,
     resolve_poll_seconds,
+    resolve_reflex_enabled,
     resolve_reflex_state_path,
     resolve_reflex_scan_limit,
     resolve_sessions_root,
+    resolve_watcher_enabled,
     resolve_watcher_log_dir,
     resolve_watcher_notes_root,
     resolve_watcher_state_path,
@@ -28,7 +34,11 @@ from .telemetry import Telemetry
 from .watcher import CodexSessionWatcher, WatcherConfig
 
 
-def run_service() -> None:
+def _disabled_lane(reason: str = "disabled") -> dict[str, object]:
+    return {"enabled": False, "processed_count": 0, "processed": [], "stored": [], "reason": reason}
+
+
+def run_service(*, once: bool | None = None) -> None:
     bridge_home = resolve_bridge_home()
     bridge_home.mkdir(parents=True, exist_ok=True)
     telemetry = Telemetry.from_env()
@@ -65,22 +75,37 @@ def run_service() -> None:
             scan_limit=resolve_consolidation_scan_limit(),
         ),
     )
+    governance_trigger = GovernanceTriggerEngine(
+        store=store,
+        config=GovernanceTriggerConfig(
+            state_path=resolve_governance_trigger_state_path(),
+            scan_limit=resolve_governance_trigger_scan_limit(),
+        ),
+    )
 
-    once = os.environ.get("AGENT_MEMORY_BRIDGE_RUN_ONCE", "0") == "1"
+    if once is None:
+        once = os.environ.get("AGENT_MEMORY_BRIDGE_RUN_ONCE", "0") == "1"
     poll_seconds = resolve_poll_seconds()
 
     if once:
         with telemetry.span("amb.service.run_once", {"mode": "once"}) as span:
+            watcher_result = watcher.run_once() if resolve_watcher_enabled() else _disabled_lane()
+            reflex_result = reflex.run_once() if resolve_reflex_enabled() else _disabled_lane()
             result = {
-                "watcher": watcher.run_once(),
-                "reflex": reflex.run_once(),
+                "watcher": watcher_result,
+                "reflex": reflex_result,
                 "consolidation": consolidation.run_once(),
+                "governance": governance_trigger.run_once(),
+                "embeddings": run_embedding_sidecar_maintenance(store),
             }
             span.set_attributes(
                 {
                     "watcher_processed_count": result["watcher"].get("processed_count", 0),
                     "reflex_processed_count": result["reflex"].get("processed_count", 0),
                     "consolidation_processed_count": result["consolidation"].get("processed_count", 0),
+                    "governance_processed_count": result["governance"].get("processed_count", 0),
+                    "embedding_processed_count": result["embeddings"].get("processed_count", 0),
+                    "embedding_due": result["embeddings"].get("due", False),
                 }
             )
         print(json.dumps(result, indent=2))
@@ -88,23 +113,36 @@ def run_service() -> None:
 
     while True:
         with telemetry.span("amb.service.poll_cycle", {"poll_seconds": poll_seconds}) as span:
-            watcher_result = watcher.run_once()
-            reflex_result = reflex.run_once()
+            watcher_result = watcher.run_once() if resolve_watcher_enabled() else _disabled_lane()
+            reflex_result = reflex.run_once() if resolve_reflex_enabled() else _disabled_lane()
             consolidation_result = consolidation.run_once()
+            governance_result = governance_trigger.run_once()
+            embedding_result = run_embedding_sidecar_maintenance(store)
             span.set_attributes(
                 {
                     "watcher_processed_count": watcher_result.get("processed_count", 0),
                     "reflex_processed_count": reflex_result.get("processed_count", 0),
                     "consolidation_processed_count": consolidation_result.get("processed_count", 0),
+                    "governance_processed_count": governance_result.get("processed_count", 0),
+                    "embedding_processed_count": embedding_result.get("processed_count", 0),
+                    "embedding_due": embedding_result.get("due", False),
                 }
             )
-        if watcher_result["processed_count"] or reflex_result["processed_count"] or consolidation_result["processed_count"]:
+        if (
+            watcher_result["processed_count"]
+            or reflex_result["processed_count"]
+            or consolidation_result["processed_count"]
+            or governance_result["processed_count"]
+            or embedding_result["processed_count"]
+        ):
             print(
                 json.dumps(
                     {
                         "watcher": watcher_result,
                         "reflex": reflex_result,
                         "consolidation": consolidation_result,
+                        "governance": governance_result,
+                        "embeddings": embedding_result,
                     },
                     indent=2,
                 )

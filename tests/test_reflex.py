@@ -59,6 +59,45 @@ def test_reflex_promotes_summary_into_learn_and_gotcha(tmp_path: Path) -> None:
     assert gotchas["items"][0]["client_session_id"] == "ag-session-1"
 
 
+def test_reflex_ignores_quota_and_meta_command_noise(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="[[Codex]] noisy active checkpoint",
+        content=(
+            "Automatic Codex checkpoint.\n\n"
+            "## Durable Points\n\n"
+            "- Problem: A small patch caught a real regression in the local filter.\n"
+            "- Fix: you were out of token, so I used Hermes continued work and it said all good.\n"
+            "- Fix: this quality-command / token/bug/fix note is process chatter, not durable guidance.\n"
+            "- Assistant outcome: Validation run: node --check site/app.js.\n"
+            "- Assistant outcome: The proposed next feature should be a proper promotion gate.\n"
+            "- User asked: did you use all the subagent do the check?\n"
+            "- Now since you still have 43% token for 5 hours windows.\n"
+        ),
+        tags=["kind:summary", "project:alpha", "source:codex"],
+        session_id="session-noise",
+        actor="codex",
+        correlation_id="thread-noise",
+        source_app="codex-session-checkpointer",
+    )
+
+    reflex = ReflexEngine(
+        store,
+        ReflexConfig(state_path=tmp_path / "reflex-state.json"),
+    )
+    reflex.run_once()
+
+    learns = store.recall(namespace="global", tags_any=["kind:learn"], limit=10)
+    gotchas = store.recall(namespace="global", tags_any=["kind:gotcha"], limit=10)
+    domain_notes = store.recall(namespace="global", tags_any=["kind:domain-note"], limit=10)
+
+    assert learns["count"] == 0
+    assert gotchas["count"] == 0
+    assert domain_notes["count"] == 0
+
+
 def test_reflex_creates_domain_note_after_repeated_matches(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     for idx, content in enumerate(

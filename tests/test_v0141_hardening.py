@@ -277,6 +277,57 @@ def test_learning_candidate_suppression_uses_exact_tag_membership(tmp_path: Path
     assert {item["id"] for item in review["items"]} == {stored_candidate["id"]}
 
 
+def test_external_ladder_candidate_tag_is_hidden_by_default(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    stored = store.store(
+        namespace="project:mem-store",
+        kind="memory",
+        title="[[Learning Candidate]] Hermes memory add: memory",
+        content="\n".join(
+            [
+                "record_type: learning-candidate",
+                "schema: memory.candidate.v1",
+                "candidate_status: needs_review",
+                "candidate_ref: project:mem-store:session-1:memory-add-memory:abc123",
+                "decision: needs_review",
+                "would_write: false",
+                "authority_class: belief_proposal",
+                "source_runtime: hermes",
+                "source_session_id: session-1",
+                "source_task_id: memory-add-memory",
+                "claim: Hermes built-in memory add proposal for target=memory: external ladder candidate",
+                'evidence_refs_json: ["hermes-memory:session-1:add:memory"]',
+                'decision_reasons_json: ["review_required"]',
+                'domain_tags_json: ["domain:hermes-memory", "domain:agent-memory"]',
+                "confidence: tentative",
+            ]
+        ),
+        tags=[
+            "kind:learning-candidate",
+            "candidate_status:needs_review",
+            "source_runtime:hermes",
+            "authority_class:belief_proposal",
+            "decision:needs_review",
+            "schema:memory.candidate.v1",
+            "schema:memory.writeback_decision.v1",
+            "hermes-memory",
+            "memory-ladder",
+        ],
+    )
+
+    recalled = store.recall(namespace="project:mem-store", query="external ladder candidate", kind="memory", limit=10)
+    browsed = store.browse(namespace="project:mem-store", kind="memory", limit=10)
+    exported = store.export(namespace="project:mem-store", format="json", kind="memory", limit=10)
+    review = store.recall(namespace="project:mem-store", tags_any=["kind:learning-candidate"], limit=10)
+
+    assert recalled["count"] == 0
+    assert browsed["count"] == 0
+    assert exported["count"] == 0
+    assert review["count"] == 1
+    assert review["items"][0]["id"] == stored["id"]
+    assert review["items"][0]["is_learning_candidate"] is True
+
+
 def test_server_recall_and_export_keep_candidates_hidden_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     store = MemoryStore(tmp_path / "server.db", log_dir=tmp_path / "logs")
     monkeypatch.setattr(server, "bridge", store)

@@ -1,18 +1,18 @@
 # Production Status
 
-Last updated: 2026-05-26 (America/Toronto)
+Last updated: 2026-06-04 (America/Toronto)
 
-This maintainer note describes the released `0.14.1` governed learning-candidate hardening shape plus the validation snapshot used to support it.
+This maintainer note describes the released `0.14.2` service automation hardening shape plus the validation snapshot used to support it.
 
-## Released 0.14.1 Runtime Shape
+## Released 0.14.2 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
 1. stdio MCP server for `store`, `recall`, `browse`, `stats`, `forget`, `promote`, `claim_signal`, `extend_signal_lease`, `ack_signal`, and `export`
 2. shared SQLite/WAL + FTS5 bridge storage
-3. optional checkpoint/closeout capture helpers around the core bridge
-4. reflex promotion into machine-first durable artifacts
-5. consolidation with compression-aware `domain-note`, `belief-candidate`, `belief`, and `concept-note` generation
+3. optional checkpoint/closeout capture helpers around the core bridge, disabled by default in the always-on service
+4. optional reflex promotion into machine-first durable artifacts, disabled by default in the always-on service
+5. optional consolidation with compression-aware `domain-note`, `belief-candidate`, `belief`, and `concept-note` generation, disabled by default in the always-on service
 6. relation-lite metadata parsing and surfacing
 7. profile/control-layer startup assembly
 8. local metadata-only telemetry
@@ -20,10 +20,12 @@ This maintainer note describes the released `0.14.1` governed learning-candidate
 10. onboarding and integration hardening through platform-neutral docs, rendered client configs, and local `doctor` / `verify` checks
 11. contention-tested signal ownership, reclaim, and stale-ack boundaries
 12. policy-gated learning candidates that can stage runtime learning without entering ordinary recall, browse, export, or stats until explicitly reviewed
+13. internal governance triggers that scan hidden learning candidates and open review signals without promoting or rewriting memory
+14. optional embedding sidecar scheduling for derived-cache maintenance without changing durable memory rows
 
-## Verified On 2026-05-26
+## Verified On 2026-06-04
 
-- `pytest` passes: `261 passed`
+- `pytest` passes: `289 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
@@ -59,6 +61,10 @@ This maintainer note describes the released `0.14.1` governed learning-candidate
 - learning candidates are stored with review tags such as `kind:learning-candidate` and `candidate_status:*`
 - normal recall, browse, export, and stats suppress learning candidates unless explicit review tags are requested
 - the storage boundary recomputes learning policy so callers cannot forge an allow decision
+- governance triggers scan AMB's candidate lane rather than Codex logs, so non-Codex runtimes can use the same review path when they write candidates
+- always-on service gates default watcher/reflex/consolidation off, so multi-runtime installs can keep governance and embedding maintenance active without automatic Codex-log promotion
+- `service --once` reports watcher, reflex, and consolidation disabled when configured off; governance stays idle without pending candidates
+- `index-health` reports FTS and embedding sidecars synchronized with zero missing, stale, or orphan rows in the local validation snapshot
 - healthcheck includes a relation-metadata smoke path
 - onboarding contract passes for required docs, README linkage, generated config parsing, and placeholder-safe public examples
 - relation-lite metadata is available on recall, export, and stats for:
@@ -79,13 +85,16 @@ This maintainer note describes the released `0.14.1` governed learning-candidate
 - the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, and Antigravity
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.14.1 Actually Means
+## What 0.14.2 Actually Means
 
 - the public MCP surface is still the same small bridge
 - runtime learning can be proposed as a policy-gated candidate instead of becoming ordinary durable memory immediately
 - candidate records are review material, not source-of-truth memory
 - the store boundary owns policy verification; callers do not get to provide authoritative allow decisions
+- governance triggers may open review signals for staged candidates, but they do not approve, promote, rewrite, or delete memory
 - learning candidates are hidden from normal user-facing memory operations unless explicitly queried through review tags
+- watcher/reflex/consolidation automation is opt-in for the always-on service
+- derived FTS and embedding indexes are cache/proof surfaces, not memory authority
 - relation-lite structure, task assembly, onboarding, and signal contention semantics from 0.13 remain intact
 
 ## Honest Boundaries
@@ -102,7 +111,7 @@ The release still does **not** mean:
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.14.1
+## Pressure Points After 0.14.2
 
 The most important remaining gaps are:
 
@@ -116,7 +125,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.14.1` keeps the public MCP surface small while hardening the 0.14 governed-learning boundary between runtime learning and durable AMB memory. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, and governed learning writeback.
+`0.14.2` keeps the public MCP surface small while hardening the always-on automation boundary between raw session evidence and durable AMB memory. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, and conservative service operation.
 
 It now behaves like:
 

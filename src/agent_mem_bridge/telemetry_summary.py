@@ -105,6 +105,9 @@ def summarize_telemetry(
             "watcher_processed_total": _sum_attribute(filtered, "watcher_processed_count"),
             "reflex_processed_total": _sum_attribute(filtered, "reflex_processed_count"),
             "consolidation_processed_total": _sum_attribute(filtered, "consolidation_processed_count"),
+            "governance_processed_total": _sum_attribute(filtered, "governance_processed_count"),
+            "embedding_processed_total": _sum_attribute(filtered, "embedding_processed_count"),
+            "embedding_due_count": _count_boolean_attribute(filtered, "embedding_due", expected=True),
         },
     }
     return summary
@@ -167,6 +170,9 @@ def render_telemetry_summary_text(summary: dict[str, Any]) -> str:
             f"- watcher_processed_total: {service['watcher_processed_total']}",
             f"- reflex_processed_total: {service['reflex_processed_total']}",
             f"- consolidation_processed_total: {service['consolidation_processed_total']}",
+            f"- governance_processed_total: {service['governance_processed_total']}",
+            f"- embedding_processed_total: {service['embedding_processed_total']}",
+            f"- embedding_due_count: {service['embedding_due_count']}",
         ]
     )
 
@@ -279,3 +285,7 @@ def _sum_attribute(spans: list[dict[str, Any]], key: str) -> int:
         if isinstance(value, int):
             total += value
     return total
+
+
+def _count_boolean_attribute(spans: list[dict[str, Any]], key: str, *, expected: bool) -> int:
+    return sum(1 for span in spans if _attributes(span).get(key) is expected)

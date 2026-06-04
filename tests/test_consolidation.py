@@ -79,6 +79,83 @@ def _items_with_tag(
     ]
 
 
+def test_consolidation_ignores_quota_and_meta_command_noise(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    _store_reflex_record(
+        store,
+        title="[[Learn]] Legitimate FTS fallback",
+        record_type="learn",
+        claim="Keep FTS fallback tests because retrieval can drift after index changes.",
+        domain="domain:retrieval",
+        topic="topic:fts",
+        session_id="session-clean",
+        correlation_id="thread-clean",
+    )
+    _store_reflex_record(
+        store,
+        title="[[Learn]] Token quota chatter",
+        record_type="learn",
+        claim="You were out of token, so I used Hermes continued work and it said all good.",
+        domain="domain:retrieval",
+        topic="topic:memory-shaping",
+        session_id="session-noise-1",
+        correlation_id="thread-noise",
+    )
+    _store_reflex_record(
+        store,
+        title="[[Gotcha]] Quality command chatter",
+        record_type="gotcha",
+        claim="Decision: then fix the qualityu there.",
+        domain="domain:retrieval",
+        topic="topic:memory-shaping",
+        session_id="session-noise-2",
+        correlation_id="thread-noise",
+        trigger="The user asked for quality cleanup in chat.",
+        symptom="Meta command text can look like a durable lesson.",
+        fix="Hand-weeding temp namespace polluted records is process chatter, not a reusable rule.",
+    )
+    _store_reflex_record(
+        store,
+        title="[[Learn]] First-person process chatter",
+        record_type="learn",
+        claim="Fix: I’m checking whether an old live AMB service process is still running.",
+        domain="domain:retrieval",
+        topic="topic:memory-shaping",
+        session_id="session-noise-3",
+        correlation_id="thread-noise",
+    )
+    _store_reflex_record(
+        store,
+        title="[[Learn]] Validation log chatter",
+        record_type="learn",
+        claim="Validation run: node --check site/app.js.",
+        domain="domain:retrieval",
+        topic="topic:memory-shaping",
+        session_id="session-noise-4",
+        correlation_id="thread-noise",
+    )
+    _store_reflex_record(
+        store,
+        title="[[Learn]] Planning note chatter",
+        record_type="learn",
+        claim="The proposed next feature should be a proper promotion gate.",
+        domain="domain:retrieval",
+        topic="topic:memory-shaping",
+        session_id="session-noise-5",
+        correlation_id="thread-noise",
+    )
+
+    engine = ConsolidationEngine(
+        store,
+        config=ConsolidationConfig(state_path=tmp_path / "consolidation-state.json"),
+    )
+    result = engine.run_once()
+
+    assert result["processed_count"] == 0
+    assert _items_with_tag(store, tag="kind:domain-note", domain="domain:retrieval") == []
+    assert _items_with_tag(store, tag="kind:belief-candidate", domain="domain:retrieval") == []
+
+
 def test_consolidation_creates_domain_note_from_recent_learns_and_gotchas(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     store.store(

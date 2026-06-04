@@ -34,10 +34,23 @@ embedding_model = ""
 embedding_dim = 64
 embedding_timeout_seconds = 10
 
+# Optional scheduled sidecar warmer.
+# This maintains the derived `memory_embeddings` cache in the background service
+# without changing durable memory rows or enabling hybrid retrieval by itself.
+[embedding_scheduler]
+enabled = false
+state_path = "embedding-sidecar-state.json"
+interval_seconds = 3600
+batch_size = 100
+
 # Optional rollout/session capture helpers.
 # Current watcher workflows are most mature around Codex-style rollout files,
 # but basic MCP bridge usage does not require them.
 [watcher]
+# Conservative default: the core service does not scrape Codex rollout logs
+# unless you explicitly opt in. Multi-runtime workflows should prefer AMB-native
+# candidates/signals and governance triggers over client-specific log watchers.
+enabled = false
 sessions_root = "sessions"
 notes_root = "session-notes/auto"
 state_path = "watcher-state.json"
@@ -47,8 +60,19 @@ checkpoint_seconds = 300
 checkpoint_min_messages = 2
 
 [reflex]
+# Conservative default: automatic summaries are not promoted into visible
+# learn/gotcha rows by the always-on service unless explicitly enabled.
+enabled = false
 state_path = "reflex-state.json"
 scan_limit = 200
+
+# Conservative by default: automatic reflex summaries can become learn/gotcha
+# records, but they do not feed strong consolidation unless explicitly reviewed.
+[consolidation]
+enabled = false
+state_path = "consolidation-state.json"
+scan_limit = 200
+allow_reflex_sources = false
 
 # Optional classifier-assisted enrichment.
 [classifier]

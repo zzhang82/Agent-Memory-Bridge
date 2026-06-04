@@ -36,7 +36,7 @@ AMB takes a smaller path: local SQLite, explicit namespaces, inspectable records
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Governed learning: runtime learning can be staged as policy-gated learning candidates before promotion into durable records.
 - Context assembly: startup and task-time context can be compiled from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `261 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `289 passed`.
 
 ## Who It Is For
 
@@ -150,13 +150,15 @@ The bridge exposes `10` public MCP tools:
 
 The richer behavior stays behind that surface: reflex promotion, consolidation, startup/task-time assembly, procedure governance, telemetry summaries, signal contention checks, and learning-candidate review queues. There are no separate `task_packet`, `startup_packet`, or `learning_candidate` MCP tools.
 
+For normal always-on service use, Codex-log watcher capture, reflex promotion, and strong consolidation are disabled by default. That lets multi-runtime installs run governance checks and embedding sidecar maintenance without silently promoting raw session/process chatter into durable memory.
+
 ### Static-schema client compatibility
 
 Some MCP clients generate one static input schema per tool and may send signal-only fields on `kind="memory"` paths: for example `ttl_seconds` or `expires_at` on `store`, and `signal_status` on `recall`, `browse`, or `export`. AMB drops those fields at the MCP transport boundary before creating or querying memory records. The lower-level memory store contract stays strict: durable memory and coordination signals remain separate lanes, and real signal lifecycle fields still belong only to `kind="signal"` operations.
 
 ## Proof Snapshot
 
-`0.14.1` is the governed learning-candidate hardening release while keeping the public tool surface stable.
+`0.14.2` is the service automation hardening patch over the governed learning-candidate release while keeping the public tool surface stable.
 
 | Track | Current signal |
 |---|---|
@@ -166,7 +168,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats until explicitly reviewed |
 | Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
-| Test suite | `261 passed` |
+| Test suite | `289 passed` |
 
 <details>
 <summary>Release contract facts</summary>
