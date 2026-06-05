@@ -32,6 +32,8 @@ PUBLIC_DOC_PATHS = (
     Path("examples/README.md"),
     Path("examples/demo/before-after-gotcha.cast.md"),
     Path("examples/demo/README.md"),
+    Path("examples/demo/terminal-demo.cast"),
+    Path("examples/demo/terminal-demo.tape"),
     Path("examples/harness-preview/README.md"),
     Path("examples/harness-preview/startup-packet.json"),
     Path("examples/harness-preview/task-packet.json"),

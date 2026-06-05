@@ -34,7 +34,8 @@ Agent Memory Bridge optimizes for a smaller job:
   beliefs, and supporting records
 - two-channel storage: durable memory and short-lived coordination signals
 - a small, stable MCP surface
-- SQLite + FTS5 storage that can be inspected directly
+- SQLite/WAL authority, FTS5 lexical recall, and an optional local embedding
+  sidecar for semantic or hybrid retrieval
 - task-time and startup context assembly behind the same public tools
 - proof discipline: release contract checks, public-surface checks, onboarding
   checks, and benchmark snapshots
@@ -71,7 +72,7 @@ The sharper implementation story is:
 
 | Project | Primary shape | Best fit | Runtime bias |
 | --- | --- | --- | --- |
-| Agent Memory Bridge | MCP-native memory bridge and context compiler for coding agents | teams that want local, inspectable engineering memory, startup/task context assembly, and lightweight coordination without a larger platform | local-first stdio MCP, SQLite + FTS5, intentionally small |
+| Agent Memory Bridge | MCP-native memory bridge and context compiler for coding agents | teams that want local, inspectable engineering memory, startup/task context assembly, and lightweight coordination without a larger platform | local-first stdio MCP, SQLite/WAL authority, FTS5 lexical recall, optional local embedding sidecar, intentionally small |
 | Mem0 | universal memory layer for AI applications and agents | teams building personalized AI products that want SDKs, managed infrastructure, self-hosting options, graph memory, rerankers, and framework integrations | managed platform or self-hosted stack |
 | OpenMemory | Mem0-backed MCP memory layer for coding agents | users who want coding-agent memory with auto-capture, UI/plugin flows, project scoping, and cross-client delivery | local/app/plugin experience plus Mem0 ecosystem |
 | Zep / Graphiti | temporal knowledge graph and context-engineering platform | applications that need dynamic user/business context, graph search, changing facts, custom entities, and agent memory at product scale | hosted Zep plus open-source Graphiti and local Graphiti MCP options |

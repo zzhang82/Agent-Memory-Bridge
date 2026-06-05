@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import time
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 CAST_PATH = ROOT / "examples" / "demo" / "terminal-demo.cast"
-COMMAND = r".\.venv\Scripts\python.exe .\scripts\demo_terminal.py"
-DISPLAY_ROOT = r"D:\path\to\agent-memory-bridge"
+COMMAND = "python ./scripts/demo_terminal.py"
+DISPLAY_ROOT = "agent-memory-bridge"
 
 
 def main() -> None:
     completed = subprocess.run(
-        [str(ROOT / ".venv" / "Scripts" / "python.exe"), str(ROOT / "scripts" / "demo_terminal.py")],
+        [sys.executable, str(ROOT / "scripts" / "demo_terminal.py")],
         cwd=ROOT,
         capture_output=True,
         text=True,

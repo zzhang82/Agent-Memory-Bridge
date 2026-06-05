@@ -165,7 +165,7 @@ bridge 暴露 `10` public MCP tools：
 | Retrieval | `memory_expected_top1_accuracy = 1.0`, `file_scan_expected_top1_accuracy = 0.636` |
 | Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
-| Learning candidates | policy-gated staging records 默认不进入 normal recall、browse、export 和 stats，只有显式 review tag 才会出现 |
+| Learning candidates | policy-gated staging records 默认不进入 normal recall、browse、export 和 stats；只有显式 review tag 才会出现，且在 review/promotion 之前不属于 durable authority |
 | Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
 | Test suite | `289 passed` |
@@ -228,7 +228,6 @@ AMB 不是 graph database、hosted memory platform、scheduler、worker runtime�
 - [Configuration](docs/CONFIGURATION.md)
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
-- [Harness design](docs/HARNESS-DESIGN.md)
 - [Benchmark and proof harness](benchmark/README.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

@@ -1,6 +1,6 @@
 # Promotion Rules
 
-Last updated: 2026-04-25
+Last updated: 2026-06-04
 
 ## Purpose
 
@@ -28,7 +28,7 @@ Promote based on:
 ## Stage 1: Summary
 
 Input:
-- one completed or idle Codex session
+- one completed or idle agent session, exported session summary, or closeout payload
 - one subagent rollout
 - one manual closeout
 

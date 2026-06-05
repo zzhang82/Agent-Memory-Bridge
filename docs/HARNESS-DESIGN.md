@@ -22,8 +22,9 @@ agent-memory-harness
 
 agent-memory-bridge
   10 MCP tools
-  SQLite + FTS5
-  durable memory
+  SQLite/WAL durable authority
+  FTS5 lexical recall
+  optional local embedding sidecar
   signal lifecycle
   governed learning
   context assembly internals
@@ -36,7 +37,8 @@ duplicating or widening AMB Core.
 
 AMB Core owns durable, inspectable memory behavior:
 
-- local SQLite + FTS5 storage
+- local SQLite/WAL durable storage
+- FTS5 lexical recall and optional local embedding sidecar indexes
 - `store`, `recall`, `browse`, `stats`
 - `forget`, `promote`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
@@ -147,4 +149,3 @@ Move into a companion repository when the work becomes executable tooling:
 
 The companion repository should be named and documented as a harness, not as a
 fork of AMB Core.
-

@@ -21,6 +21,8 @@ htmlcov/
 logs/
 watcher-logs/
 examples/*-report.json
+examples/demo/before-after-gotcha.cast
+examples/demo/before-after-gotcha.gif
 examples/legacy/
 docs/archive/
 docs/0.7-*.md

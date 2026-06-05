@@ -1,5 +1,5 @@
 {"version": 2, "width": 112, "height": 34, "timestamp": 1776652813, "env": {"TERM": "xterm-256color", "SHELL": "powershell.exe"}}
-[0.2, "o", "PS D:\\path\\to\\agent-memory-bridge> .\\.venv\\Scripts\\python.exe .\\scripts\\demo_terminal.py\r\n"]
+[0.2, "o", "agent-memory-bridge$ python ./scripts/demo_terminal.py\r\n"]
 [0.55, "o", "\r\n"]
 [0.63, "o", "# seed durable memory\r\n"]
 [1.13, "o", "stored 1 belief, 1 concept note, and 1 project procedure\r\n"]

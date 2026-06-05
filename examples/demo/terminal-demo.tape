@@ -8,10 +8,10 @@ Set Theme "Builtin Solarized Dark"
 Set TypingSpeed 40ms
 Set MarginFill "#002b36"
 
-Type "cd D:\\path\\to\\agent-memory-bridge"
+Type "cd agent-memory-bridge"
 Enter
 Sleep 700ms
 
-Type ".\\.venv\\Scripts\\python.exe .\\scripts\\demo_terminal.py"
+Type "python ./scripts/demo_terminal.py"
 Enter
 Sleep 18s
