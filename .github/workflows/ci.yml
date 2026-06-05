@@ -39,7 +39,12 @@ jobs:
         run: python -m pip check
 
       - name: Check installed package metadata
-        run: python -c "import importlib.metadata as metadata, pathlib, tomllib; expected = tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version']; actual = metadata.version('agent-memory-bridge'); assert actual == expected, f'installed package version mismatch: expected {expected}, got {actual}'; print(actual)"
+        run: >
+          python -c "import importlib.metadata as metadata, pathlib, tomllib;
+          expected = tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'];
+          actual = metadata.version('agent-memory-bridge');
+          assert actual == expected, f'installed package version mismatch: expected {expected}, got {actual}';
+          print(actual)"
 
       - name: Run tests
         run: python -m pytest
