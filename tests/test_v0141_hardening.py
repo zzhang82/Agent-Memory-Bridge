@@ -183,7 +183,10 @@ def test_legacy_learning_candidate_rows_are_backfilled_hidden(tmp_path: Path) ->
         CREATE VIRTUAL TABLE memories_fts USING fts5(memory_id UNINDEXED, content);
         INSERT INTO memories (id, namespace, kind, title, content, tags_json, content_hash, created_at)
         VALUES ('legacy-candidate', 'project:mem-store', 'memory', 'Legacy candidate', 'legacy candidate hardening row', '["kind:learning-candidate"]', 'hash-1', '2026-01-01T00:00:00+00:00');
+        INSERT INTO memories (id, namespace, kind, title, content, tags_json, content_hash, created_at)
+        VALUES ('legacy-review', 'project:mem-store', 'memory', 'Legacy review', 'legacy review hardening row', '["kind:learning-review"]', 'hash-2', '2026-01-01T00:00:01+00:00');
         INSERT INTO memories_fts(memory_id, content) VALUES ('legacy-candidate', 'legacy candidate hardening row');
+        INSERT INTO memories_fts(memory_id, content) VALUES ('legacy-review', 'legacy review hardening row');
         """
     )
     conn.commit()
@@ -192,13 +195,16 @@ def test_legacy_learning_candidate_rows_are_backfilled_hidden(tmp_path: Path) ->
     with sqlite3.connect(db_path) as upgraded:
         upgraded.row_factory = sqlite3.Row
         init_db(upgraded)
-        row = upgraded.execute("SELECT is_learning_candidate FROM memories WHERE id = 'legacy-candidate'").fetchone()
+        candidate_row = upgraded.execute("SELECT is_learning_candidate FROM memories WHERE id = 'legacy-candidate'").fetchone()
+        review_row = upgraded.execute("SELECT is_learning_candidate FROM memories WHERE id = 'legacy-review'").fetchone()
 
     store = MemoryStore(db_path, log_dir=tmp_path / "logs")
 
-    assert row["is_learning_candidate"] == 1
+    assert candidate_row["is_learning_candidate"] == 1
+    assert review_row["is_learning_candidate"] == 1
     assert store.recall(namespace="project:mem-store", query="legacy", limit=10)["count"] == 0
     assert store.recall(namespace="project:mem-store", tags_any=["kind:learning-candidate"], limit=10)["count"] == 1
+    assert store.recall(namespace="project:mem-store", tags_any=["kind:learning-review"], limit=10)["count"] == 1
 
 
 def test_new_schema_has_learning_candidate_visibility_column(tmp_path: Path) -> None:

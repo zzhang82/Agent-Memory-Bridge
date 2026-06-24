@@ -27,7 +27,7 @@
   "metadata": {
     "case_count": 7,
     "cases_path": "benchmark\\procedure-governance-cases.json",
-    "elapsed_ms": 573.962,
+    "elapsed_ms": 863.433,
     "comparison": "flat_packet_vs_governed_procedure_packet",
     "baseline": "assemble_task_memory with relation_aware=false",
     "governed_packet": "assemble_task_memory with relation_aware=true and procedure governance",

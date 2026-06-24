@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from collections.abc import Mapping
 from typing import Any
 
@@ -11,6 +12,7 @@ VALID_CANDIDATE_STATUSES = {"pending", "needs_review", "approved", "rejected", "
 STORABLE_DECISIONS = {"allow", "needs_review"}
 DECISION_MATCH_FIELDS = ("schema", "candidate_ref", "decision", "would_write", "reasons")
 VALID_REVIEW_DECISIONS = {"approved", "rejected", "merged", "kept_staged", "expired"}
+REVIEW_RECEIPT_SCHEMA = "memory.review_receipt.v1"
 
 
 def store_learning_candidate(
@@ -111,6 +113,8 @@ def store_learning_review(
         f"candidate_status:{candidate_status}",
         f"review_decision:{review_decision}",
         "schema:memory.learning_review.v1",
+        f"schema:{REVIEW_RECEIPT_SCHEMA}",
+        "writeback_boundary:review_receipt_only",
     ]
     target_record_type = str(review.get("target_record_type", "")).strip()
     if target_record_type:
@@ -173,13 +177,18 @@ def build_learning_candidate_record(
 
 
 def build_learning_review_record(review: Mapping[str, Any], *, candidate_status: str) -> str:
+    receipt_hash = build_review_receipt_hash(review, candidate_status=candidate_status)
     fields = {
         "record_type": "learning-review",
         "schema": "memory.learning_review.v1",
+        "review_receipt_schema": REVIEW_RECEIPT_SCHEMA,
         "candidate_status": candidate_status,
         "candidate_ref": str(review.get("candidate_ref", "")),
         "source_candidate_id": str(review.get("source_candidate_id", "")),
         "review_decision": str(review.get("review_decision", "")).strip().lower(),
+        "review_receipt_hash": receipt_hash,
+        "writeback_boundary": "review_receipt_only",
+        "durable_mutation_performed_by_review": "false",
         "reviewed_by": str(review.get("reviewed_by", "")),
         "review_reason": " ".join(str(review.get("review_reason", "")).split()).strip(),
         "target_record_type": str(review.get("target_record_type", "")),
@@ -187,8 +196,38 @@ def build_learning_review_record(review: Mapping[str, Any], *, candidate_status:
         "recommended_action": str(review.get("recommended_action", "")),
         "reason_codes_json": json.dumps(_list_value(review.get("reason_codes")), ensure_ascii=True, sort_keys=True),
         "evidence_refs_json": json.dumps(_list_value(review.get("evidence_refs")), ensure_ascii=True, sort_keys=True),
+        "supersedes_record_ids_json": json.dumps(
+            _list_value(review.get("supersedes_record_ids")),
+            ensure_ascii=True,
+            sort_keys=True,
+        ),
+        "contradicts_record_ids_json": json.dumps(
+            _list_value(review.get("contradicts_record_ids")),
+            ensure_ascii=True,
+            sort_keys=True,
+        ),
     }
     return "\n".join(f"{key}: {value}" for key, value in fields.items() if str(value).strip())
+
+
+def build_review_receipt_hash(review: Mapping[str, Any], *, candidate_status: str) -> str:
+    stable_payload = {
+        "schema": REVIEW_RECEIPT_SCHEMA,
+        "candidate_status": candidate_status,
+        "candidate_ref": str(review.get("candidate_ref", "")).strip(),
+        "source_candidate_id": str(review.get("source_candidate_id", "")).strip(),
+        "review_decision": str(review.get("review_decision", "")).strip().lower(),
+        "target_record_type": str(review.get("target_record_type", "")).strip(),
+        "target_record_id": str(review.get("target_record_id", "")).strip(),
+        "recommended_action": str(review.get("recommended_action", "")).strip(),
+        "reason_codes": _list_value(review.get("reason_codes")),
+        "evidence_refs": _list_value(review.get("evidence_refs")),
+        "supersedes_record_ids": _list_value(review.get("supersedes_record_ids")),
+        "contradicts_record_ids": _list_value(review.get("contradicts_record_ids")),
+        "writeback_boundary": "review_receipt_only",
+    }
+    encoded = json.dumps(stable_payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
 def _decision_matches_expected(decision: Mapping[str, Any], expected_decision: Mapping[str, Any]) -> bool:

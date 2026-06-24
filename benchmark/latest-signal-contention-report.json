@@ -47,8 +47,8 @@
       "passed": true,
       "metrics": {
         "pending_under_pressure_claimed": true,
-        "claimed_signal_id": "20260429022052580004-c6f7b5d4",
-        "expected_signal_id": "20260429022052580004-c6f7b5d4"
+        "claimed_signal_id": "20260623051216588821-c27e7aa4",
+        "expected_signal_id": "20260623051216588821-c27e7aa4"
       }
     },
     {
@@ -56,8 +56,8 @@
       "passed": true,
       "metrics": {
         "initial_hard_expiry_capped": true,
-        "expires_at": "2026-04-29T02:21:22.612467+00:00",
-        "lease_expires_at": "2026-04-29T02:21:22.612467+00:00"
+        "expires_at": "2026-06-23T05:12:46.637132+00:00",
+        "lease_expires_at": "2026-06-23T05:12:46.637132+00:00"
       }
     }
   ]

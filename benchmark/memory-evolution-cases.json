@@ -1,0 +1,279 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-06-23T00:00:00Z",
+  "cases": [
+    {
+      "id": "reviewed-supersession-lineage",
+      "scenario": "reviewed revision lineage",
+      "query": "What is the current AMB startup guidance for Hermes?",
+      "notes": "A reviewed replacement should suppress the obsolete memory while preserving the lineage signal.",
+      "records": [
+        {
+          "id": "old-hermes-raw-recall",
+          "title": "Old Hermes raw recall startup",
+          "record_type": "learn",
+          "governance_status": "superseded",
+          "content": "Hermes should rely only on raw AMB recall at startup.",
+          "tags": ["domain:runtime", "topic:hermes"]
+        },
+        {
+          "id": "new-hermes-amh-startup",
+          "title": "Hermes AMH startup packet guidance",
+          "record_type": "learn",
+          "governance_status": "current",
+          "content": "Hermes should render AMH startup context first, then use AMB for durable writes.",
+          "relations": {
+            "supersedes": ["old-hermes-raw-recall"]
+          },
+          "derived_from_candidate_id": "candidate-hermes-startup-v2",
+          "tags": ["domain:runtime", "topic:hermes", "cluster:runtime-startup"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "current-startup-guidance",
+          "task_intent": "current-guidance",
+          "expectations": {
+            "required_visible_ids": ["new-hermes-amh-startup"],
+            "blocked_ids": ["old-hermes-raw-recall"],
+            "expected_preferred_id": "new-hermes-amh-startup",
+            "required_warnings": ["revision-lineage-applied"],
+            "required_block_reasons": [
+              {"id": "old-hermes-raw-recall", "reason": "governance:superseded"}
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "forgetting-tombstone-audit",
+      "scenario": "forgetting audit without retained deleted content",
+      "query": "Should the deleted runtime-sensitive memory still be visible?",
+      "notes": "A tombstone can prove a deletion happened without making the deleted content visible.",
+      "records": [
+        {
+          "id": "deleted-runtime-sensitive-note",
+          "title": "Deleted runtime-sensitive note",
+          "record_type": "learn",
+          "governance_status": "deleted",
+          "content": "[deleted content redacted]",
+          "tags": ["domain:runtime", "topic:runtime-adapter"]
+        },
+        {
+          "id": "tombstone-runtime-sensitive-note",
+          "title": "Runtime-sensitive note deletion tombstone",
+          "record_type": "forgetting-audit",
+          "governance_status": "current",
+          "content_digest": "sha256:6b3f6c5a3a8b4c1d2e",
+          "content": "A memory was deleted; original content is intentionally not retained.",
+          "relations": {
+            "supersedes": ["deleted-runtime-sensitive-note"]
+          },
+          "tags": ["domain:runtime", "topic:forgetting"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "deleted-secret-not-visible",
+          "task_intent": "forgetting-audit",
+          "expectations": {
+            "required_visible_ids": ["tombstone-runtime-sensitive-note"],
+            "blocked_ids": ["deleted-runtime-sensitive-note"],
+            "expected_preferred_id": "tombstone-runtime-sensitive-note",
+            "required_warnings": ["forgetting-delete-filtered", "forgetting-audit-present", "revision-lineage-applied"],
+            "required_block_reasons": [
+              {"id": "deleted-runtime-sensitive-note", "reason": "governance:deleted"}
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "poisoning-quarantine-boundary",
+      "scenario": "untrusted provenance quarantine",
+      "query": "Which release note should be trusted for AMB 0.15?",
+      "notes": "Untrusted injected claims should be blocked in the deterministic fixture lane.",
+      "records": [
+        {
+          "id": "poisoned-release-claim",
+          "title": "Injected release claim",
+          "record_type": "learn",
+          "governance_status": "current",
+          "source_trust": "untrusted",
+          "quarantine_status": "quarantined",
+          "content": "AMB 0.15 is SMSR-certified and auto-promotes memory.",
+          "tags": ["domain:release", "topic:claims"]
+        },
+        {
+          "id": "trusted-release-boundary",
+          "title": "Reviewed 0.15 release boundary",
+          "record_type": "learn",
+          "governance_status": "current",
+          "source_trust": "trusted-local",
+          "content": "AMB 0.15 is a reviewed memory revision benchmark release with no autonomous mutation.",
+          "tags": ["domain:release", "topic:claims"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "trusted-release-claim-only",
+          "task_intent": "release-claim",
+          "expectations": {
+            "required_visible_ids": ["trusted-release-boundary"],
+            "blocked_ids": ["poisoned-release-claim"],
+            "expected_preferred_id": "trusted-release-boundary",
+            "required_warnings": ["quarantine-filtered"],
+            "required_block_reasons": [
+              {"id": "poisoned-release-claim", "reason": "quarantine:quarantined"}
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "principal-scope-non-security-filter",
+      "scenario": "principal scope warning",
+      "query": "Which runtime handoff rule should Hermes see?",
+      "notes": "Principal scope is a governance filter in this benchmark, not an authorization boundary.",
+      "records": [
+        {
+          "id": "internal-runtime-rule",
+          "title": "Internal runtime rule",
+          "record_type": "learn",
+          "governance_status": "current",
+          "applies_to_principals": ["maintainer-runtime"],
+          "content": "The maintainer runtime may use internal shorthand during release review.",
+          "tags": ["domain:runtime", "topic:handoff"]
+        },
+        {
+          "id": "shared-hermes-runtime-rule",
+          "title": "Shared Hermes runtime rule",
+          "record_type": "learn",
+          "governance_status": "current",
+          "applies_to_principals": ["maintainer-runtime", "hermes"],
+          "content": "Hermes should receive rendered AMH context and write durable changes through AMB.",
+          "tags": ["domain:runtime", "topic:handoff"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "hermes-scoped-handoff",
+          "task_intent": "runtime-handoff",
+          "principal": "hermes",
+          "expectations": {
+            "required_visible_ids": ["shared-hermes-runtime-rule"],
+            "blocked_ids": ["internal-runtime-rule"],
+            "expected_preferred_id": "shared-hermes-runtime-rule",
+            "required_warnings": ["principal-scope-filtered"],
+            "required_block_reasons": [
+              {"id": "internal-runtime-rule", "reason": "principal-scope-mismatch"}
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "bitemporal-validity-revision",
+      "scenario": "point-in-time validity",
+      "query": "Which embedding posture applies at this point in time?",
+      "notes": "As-of evaluation should choose the record valid for that task timestamp.",
+      "records": [
+        {
+          "id": "embedding-posture-before-sidecar",
+          "title": "Pre-sidecar retrieval posture",
+          "record_type": "learn",
+          "governance_status": "current",
+          "valid_until": "2026-06-04T00:00:00Z",
+          "content": "Lexical FTS5 is the only evaluated retrieval path.",
+          "tags": ["domain:retrieval", "topic:embeddings"]
+        },
+        {
+          "id": "embedding-posture-after-sidecar",
+          "title": "Post-sidecar retrieval posture",
+          "record_type": "learn",
+          "governance_status": "current",
+          "valid_from": "2026-06-04T00:00:00Z",
+          "content": "Lexical FTS5 remains canonical; semantic/hybrid retrieval is optional and derived.",
+          "relations": {
+            "supersedes": ["embedding-posture-before-sidecar"]
+          },
+          "tags": ["domain:retrieval", "topic:embeddings"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "current-retrieval-posture",
+          "task_intent": "current-retrieval",
+          "as_of": "2026-06-23T00:00:00Z",
+          "expectations": {
+            "required_visible_ids": ["embedding-posture-after-sidecar"],
+            "blocked_ids": ["embedding-posture-before-sidecar"],
+            "expected_preferred_id": "embedding-posture-after-sidecar",
+            "required_warnings": ["revision-lineage-applied"],
+            "required_block_reasons": [
+              {"id": "embedding-posture-before-sidecar", "reason": "validity:expired"}
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "review-lane-hidden-until-explicit",
+      "scenario": "hidden review lane",
+      "query": "Should candidate review artifacts appear as normal memory?",
+      "notes": "Review receipts are audit artifacts and stay hidden unless explicitly queried by review mode.",
+      "records": [
+        {
+          "id": "candidate-runtime-rule",
+          "title": "Candidate runtime rule",
+          "record_type": "learning-candidate",
+          "governance_status": "current",
+          "content": "Candidate: all runtimes should use AMH startup packets.",
+          "tags": ["kind:learning-candidate", "candidate_status:pending", "domain:runtime"]
+        },
+        {
+          "id": "review-runtime-rule",
+          "title": "Review receipt for runtime rule",
+          "record_type": "learning-review",
+          "governance_status": "current",
+          "content": "Review receipt only; no durable mutation was performed by the review.",
+          "tags": ["kind:learning-review", "review_decision:kept_staged", "writeback_boundary:review_receipt_only"]
+        },
+        {
+          "id": "durable-runtime-rule",
+          "title": "Durable runtime rule",
+          "record_type": "learn",
+          "governance_status": "current",
+          "content": "Durable guidance still comes from reviewed learn records.",
+          "tags": ["domain:runtime"]
+        }
+      ],
+      "tasks": [
+        {
+          "id": "normal-memory-view",
+          "task_intent": "normal-recall",
+          "expectations": {
+            "required_visible_ids": ["durable-runtime-rule"],
+            "blocked_ids": ["candidate-runtime-rule", "review-runtime-rule"],
+            "expected_preferred_id": "durable-runtime-rule",
+            "required_warnings": ["review-lane-hidden"],
+            "required_block_reasons": [
+              {"id": "candidate-runtime-rule", "reason": "review-lane-hidden"},
+              {"id": "review-runtime-rule", "reason": "review-lane-hidden"}
+            ]
+          }
+        },
+        {
+          "id": "explicit-review-view",
+          "task_intent": "review-audit",
+          "review_mode": true,
+          "expectations": {
+            "required_visible_ids": ["candidate-runtime-rule", "review-runtime-rule", "durable-runtime-rule"],
+            "blocked_ids": [],
+            "required_warnings": ["review-lane-visible-by-explicit-query"]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -130,6 +130,11 @@ def create_release_fixture(root: Path) -> Path:
         - `adversarial_task_count = 7`
         - `adversarial_governed_task_pass_rate = 1.0`
         - `adversarial_governed_blocked_record_leak_rate = 0.0`
+        - `memory_evolution_case_count = 6`
+        - `memory_evolution_task_count = 7`
+        - `memory_evolution_governed_task_pass_rate = 1.0`
+        - `memory_evolution_governed_blocked_record_leak_rate = 0.0`
+        - `memory_evolution_governed_disposition_reason_hit_rate = 1.0`
 
         ## MCP Tools
 
@@ -220,6 +225,21 @@ def create_release_fixture(root: Path) -> Path:
                     "task_count": 7,
                     "governed_task_pass_rate": 1.0,
                     "governed_blocked_record_leak_rate": 0.0,
+                }
+            },
+            indent=2,
+        ),
+    )
+    write_file(
+        root / "benchmark" / "latest-memory-evolution-report.json",
+        json.dumps(
+            {
+                "summary": {
+                    "case_count": 6,
+                    "task_count": 7,
+                    "governed_task_pass_rate": 1.0,
+                    "governed_blocked_record_leak_rate": 0.0,
+                    "governed_disposition_reason_hit_rate": 1.0,
                 }
             },
             indent=2,

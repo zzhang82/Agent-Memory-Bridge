@@ -15,7 +15,7 @@
   "metadata": {
     "case_count": 5,
     "cases_path": "benchmark\\task-memory-cases.json",
-    "elapsed_ms": 493.819,
+    "elapsed_ms": 659.087,
     "comparison": "flat_current_vs_relation_aware_packet",
     "baseline": "current assemble_task_memory with relation_aware=false",
     "relation_aware_supported": true,

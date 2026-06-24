@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from agent_mem_bridge.learning_policy import evaluate_learning_candidate
+from agent_mem_bridge.learning_candidates import build_review_receipt_hash
 from agent_mem_bridge.promotion_governance import (
     review_learning_candidate,
     review_learning_candidates,
@@ -196,20 +197,23 @@ def test_store_learning_review_preserves_hidden_candidate_audit_lineage(tmp_path
     )
 
     stored_review = store.store_learning_review(
-        {
+        review_payload := {
             "namespace": "project:mem-store",
             "candidate_ref": decision["candidate_ref"],
             "source_candidate_id": stored_candidate["id"],
             "review_decision": "approved",
-            "reviewed_by": "cole",
+            "reviewed_by": "reviewer-a",
             "review_reason": "Reviewed evidence and accepted as a durable learn.",
             "target_record_type": "learn",
             "target_record_id": durable["id"],
             "recommended_action": "learn",
             "reason_codes": [],
             "evidence_refs": candidate["evidence_refs"],
+            "supersedes_record_ids": [],
+            "contradicts_record_ids": [],
         }
     )
+    expected_receipt_hash = build_review_receipt_hash(review_payload, candidate_status="approved")
 
     normal = store.recall(namespace="project:mem-store", query="Learning Review", kind="memory", limit=10)
     review_items = store.recall(
@@ -226,8 +230,48 @@ def test_store_learning_review_preserves_hidden_candidate_audit_lineage(tmp_path
     item = review_items["items"][0]
     assert item["is_learning_candidate"] is True
     assert "kind:learning-review" in item["tags"]
+    assert "schema:memory.review_receipt.v1" in item["tags"]
+    assert "writeback_boundary:review_receipt_only" in item["tags"]
+    assert f"review_receipt_hash: {expected_receipt_hash}" in item["content"]
+    assert "writeback_boundary: review_receipt_only" in item["content"]
+    assert "durable_mutation_performed_by_review: false" in item["content"]
     assert f"target_record_id: {durable['id']}" in item["content"]
     assert f"source_candidate_id: {stored_candidate['id']}" in item["content"]
+
+
+def test_learning_review_receipt_does_not_create_durable_authority_without_explicit_write(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    candidate = _candidate()
+    decision = evaluate_learning_candidate(candidate)
+    stored_candidate = store.store_learning_candidate(candidate, decision)
+
+    stored_review = store.store_learning_review(
+        {
+            "namespace": "project:mem-store",
+            "candidate_ref": decision["candidate_ref"],
+            "source_candidate_id": stored_candidate["id"],
+            "review_decision": "approved",
+            "reviewed_by": "reviewer-a",
+            "review_reason": "Accepted in review, but no follow-up durable write happened yet.",
+            "target_record_type": "learn",
+            "recommended_action": "learn",
+            "reason_codes": [],
+            "evidence_refs": candidate["evidence_refs"],
+        }
+    )
+
+    normal = store.recall(namespace="project:mem-store", query=candidate["claim"], kind="memory", limit=10)
+    hidden = store.recall(
+        namespace="project:mem-store",
+        tags_any=["kind:learning-review"],
+        kind="memory",
+        limit=10,
+    )
+
+    assert stored_review["review_decision"] == "approved"
+    assert normal["count"] == 0
+    assert hidden["count"] == 1
+    assert "durable_mutation_performed_by_review: false" in hidden["items"][0]["content"]
 
 
 def test_store_learning_review_rejects_missing_candidate_reference(tmp_path: Path) -> None:

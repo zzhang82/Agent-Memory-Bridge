@@ -23,7 +23,7 @@
     "task_count": 7,
     "cases_path": "benchmark/adversarial-memory-cases.json",
     "as_of": "2026-04-30T12:00:00+00:00",
-    "elapsed_ms": 0.192,
+    "elapsed_ms": 0.256,
     "comparison": "raw_fixture_visibility_vs_governed_fixture_visibility",
     "notes": "This slice exercises memory-governance realism with synthetic fixtures only. It does not query live bridge state, tune ranking, or claim broad retrieval quality."
   },

@@ -1,10 +1,10 @@
 # Production Status
 
-Last updated: 2026-06-04 (America/Toronto)
+Last updated: 2026-06-23 (America/New_York)
 
-This maintainer note describes the released `0.14.2` service automation hardening shape plus the validation snapshot used to support it.
+This maintainer note describes the `0.15.0` reviewed memory revision release-candidate shape plus the validation snapshot used to support it.
 
-## Released 0.14.2 Runtime Shape
+## 0.15.0 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -22,10 +22,11 @@ This maintainer note describes the released `0.14.2` service automation hardenin
 12. policy-gated learning candidates that can stage runtime learning without entering ordinary recall, browse, export, or stats until explicitly reviewed
 13. internal governance triggers that scan hidden learning candidates and open review signals without promoting or rewriting memory
 14. optional embedding sidecar scheduling for derived-cache maintenance without changing durable memory rows
+15. reviewed memory revision receipts and deterministic evolution fixtures for supersession, tombstone audit, quarantine, scope warnings, bitemporal validity, and hidden review lanes
 
-## Verified On 2026-06-04
+## Verified On 2026-06-23
 
-- `pytest` passes: `289 passed`
+- `pytest` passes: `297 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
@@ -58,7 +59,14 @@ This maintainer note describes the released `0.14.2` service automation hardenin
   - `adversarial_task_count = 7`
   - `adversarial_governed_task_pass_rate = 1.0`
   - `adversarial_governed_blocked_record_leak_rate = 0.0`
+- reviewed memory-evolution snapshot reports:
+  - `memory_evolution_case_count = 6`
+  - `memory_evolution_task_count = 7`
+  - `memory_evolution_governed_task_pass_rate = 1.0`
+  - `memory_evolution_governed_blocked_record_leak_rate = 0.0`
+  - `memory_evolution_governed_disposition_reason_hit_rate = 1.0`
 - learning candidates are stored with review tags such as `kind:learning-candidate` and `candidate_status:*`
+- learning reviews now include deterministic review-receipt hashes, `writeback_boundary:review_receipt_only`, and `durable_mutation_performed_by_review: false`
 - normal recall, browse, export, and stats suppress learning candidates unless explicit review tags are requested
 - the storage boundary recomputes learning policy so callers cannot forge an allow decision
 - governance triggers scan AMB's candidate lane rather than Codex logs, so non-Codex runtimes can use the same review path when they write candidates
@@ -85,14 +93,16 @@ This maintainer note describes the released `0.14.2` service automation hardenin
 - the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, and Antigravity
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.14.2 Actually Means
+## What 0.15.0 Actually Means
 
 - the public MCP surface is still the same small bridge
 - runtime learning can be proposed as a policy-gated candidate instead of becoming ordinary durable memory immediately
 - candidate records are review material, not source-of-truth memory
+- review receipts are audit material, not a hidden promotion/delete mechanism
 - the store boundary owns policy verification; callers do not get to provide authoritative allow decisions
 - governance triggers may open review signals for staged candidates, but they do not approve, promote, rewrite, or delete memory
 - learning candidates are hidden from normal user-facing memory operations unless explicitly queried through review tags
+- deterministic evolution fixtures now check supersession, tombstone audit, quarantine, principal-scope warnings, bitemporal validity, and hidden review lanes
 - watcher/reflex/consolidation automation is opt-in for the always-on service
 - derived FTS and embedding indexes are cache/proof surfaces, not memory authority
 - relation-lite structure, task assembly, onboarding, and signal contention semantics from 0.13 remain intact
@@ -105,27 +115,30 @@ The release still does **not** mean:
 - full relation-aware traversal or ranking across the whole store
 - automatic durable writeback from raw transcripts
 - a complete candidate review UI or autonomous reviewer
+- autonomous memory revision, deletion, or policy promotion
+- ACL enforcement, GDPR/privacy compliance, or certified poisoning defense
 - a full agent runtime, scheduler, queue platform, or distributed lock
 - pre-compaction capture before model-side context loss
 - active pubsub or consumer execution on top of stored signals
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.14.2
+## Pressure Points After 0.15.0
 
 The most important remaining gaps are:
 
-1. a fuller candidate review/promote workflow for accepted learning candidates
-2. broader reviewed retrieval fixtures so credibility does not overfit the current corpus
-3. stronger write-side calibration for promotion quality
-4. cross-domain concept synthesis beyond the current domain-local concept-note step
-5. more deliberate procedure curation or promotion instead of only manual procedure records
-6. pre-compaction capture before model-side loss
-7. deeper real multi-client contention dogfood beyond serialized benchmark cases
+1. a fuller operator-facing candidate review/promote workflow for accepted learning candidates
+2. broader reviewed retrieval and task-success fixtures so credibility does not overfit the current corpus
+3. stronger write-side calibration for promotion quality and merge/reject decisions
+4. safe, explicit tombstone/audit ergonomics for real deletion workflows
+5. cross-domain concept synthesis beyond the current domain-local concept-note step
+6. more deliberate procedure curation or promotion instead of only manual procedure records
+7. pre-compaction capture before model-side loss
+8. deeper real multi-client contention dogfood beyond serialized benchmark cases
 
 ## Maintainer Read
 
-`0.14.2` keeps the public MCP surface small while hardening the always-on automation boundary between raw session evidence and durable AMB memory. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, and conservative service operation.
+`0.15.0` keeps the public MCP surface small while adding reviewed memory revision evidence on top of the governed learning-candidate lane. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, and audit-preserving revision/forgetting gates.
 
 It now behaves like:
 

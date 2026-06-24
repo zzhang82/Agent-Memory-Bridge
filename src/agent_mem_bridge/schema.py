@@ -67,8 +67,16 @@ def init_db(conn: sqlite3.Connection) -> None:
         UPDATE memories
         SET is_learning_candidate = 1
         WHERE is_learning_candidate = 0
-        AND tags_json LIKE '%"kind:learning-candidate"%'
-        AND EXISTS (SELECT 1 FROM json_each(memories.tags_json) WHERE value = 'kind:learning-candidate')
+        AND (
+            (
+                tags_json LIKE '%"kind:learning-candidate"%'
+                AND EXISTS (SELECT 1 FROM json_each(memories.tags_json) WHERE value = 'kind:learning-candidate')
+            )
+            OR (
+                tags_json LIKE '%"kind:learning-review"%'
+                AND EXISTS (SELECT 1 FROM json_each(memories.tags_json) WHERE value = 'kind:learning-review')
+            )
+        )
         """
     )
     ensure_fts_columns(conn)

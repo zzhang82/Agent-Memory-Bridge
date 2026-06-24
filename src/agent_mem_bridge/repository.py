@@ -15,6 +15,8 @@ HASHTAG_RE = re.compile(r"(?<!\w)#([A-Za-z][A-Za-z0-9_/-]*)")
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]")
 ALLOWED_KINDS = {"memory", "signal"}
 LEARNING_CANDIDATE_TAG = "kind:learning-candidate"
+LEARNING_REVIEW_TAG = "kind:learning-review"
+HIDDEN_REVIEW_LANE_TAGS = {LEARNING_CANDIDATE_TAG, LEARNING_REVIEW_TAG}
 MEMORY_ROW_SELECT = """
 id,
 namespace,
@@ -177,7 +179,7 @@ def store_entry(
 
     normalized_content = normalize_content(cleaned_content)
     payload_tags = merge_tags(tags, title=title, content=cleaned_content)
-    is_learning_candidate = int(LEARNING_CANDIDATE_TAG in payload_tags)
+    is_learning_candidate = int(bool(HIDDEN_REVIEW_LANE_TAGS.intersection(payload_tags)))
     content_hash = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
     resolved_expires_at = resolve_signal_expiry(expires_at=expires_at, ttl_seconds=ttl_seconds)
     signal_status = "pending" if cleaned_kind == "signal" else None

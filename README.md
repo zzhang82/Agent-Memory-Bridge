@@ -36,7 +36,7 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Governed learning: runtime learning can be staged as policy-gated learning candidates before promotion into durable records.
 - Context assembly: startup and task-time context can be compiled from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `289 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `297 passed`.
 
 ## Who It Is For
 
@@ -158,7 +158,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.14.2` is the service automation hardening patch over the governed learning-candidate release while keeping the public tool surface stable.
+`0.15.0` is a reviewed memory revision and forgetting-gate release over the governed learning-candidate lane while keeping the public tool surface stable.
 
 | Track | Current signal |
 |---|---|
@@ -168,7 +168,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats unless explicitly queried with review tags; candidates are not durable authority until reviewed/promoted |
 | Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
-| Test suite | `289 passed` |
+| Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
+| Test suite | `297 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -210,6 +211,12 @@ adversarial_case_count = 6
 adversarial_task_count = 7
 adversarial_governed_task_pass_rate = 1.0
 adversarial_governed_blocked_record_leak_rate = 0.0
+
+memory_evolution_case_count = 6
+memory_evolution_task_count = 7
+memory_evolution_governed_task_pass_rate = 1.0
+memory_evolution_governed_blocked_record_leak_rate = 0.0
+memory_evolution_governed_disposition_reason_hit_rate = 1.0
 ```
 
 </details>

@@ -1,0 +1,861 @@
+{
+  "metadata": {
+    "as_of": "2026-06-23T00:00:00+00:00",
+    "case_count": 6,
+    "cases_path": "benchmark/memory-evolution-cases.json",
+    "comparison": "raw_fixture_visibility_vs_reviewed_evolution_governance",
+    "notes": "This is a deterministic fixture benchmark for reviewed memory revision, forgetting/tombstone audit, quarantine, principal scope, bitemporal validity, and hidden review lanes. It does not query live bridge state, enforce ACLs, certify poisoning resistance, or perform durable mutations.",
+    "task_count": 7
+  },
+  "results": [
+    {
+      "id": "reviewed-supersession-lineage",
+      "notes": "A reviewed replacement should suppress the obsolete memory while preserving the lineage signal.",
+      "query": "What is the current AMB startup guidance for Hermes?",
+      "record_count": 2,
+      "scenario": "reviewed revision lineage",
+      "task_results": [
+        {
+          "as_of": "2026-06-23T00:00:00+00:00",
+          "governed": {
+            "blocked": [
+              {
+                "id": "old-hermes-raw-recall",
+                "reason": "governance:superseded"
+              }
+            ],
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "old-hermes-raw-recall"
+                ],
+                "leaked": []
+              },
+              "case_passed": true,
+              "expected_preferred_id": "new-hermes-amh-startup",
+              "preferred_id": "new-hermes-amh-startup",
+              "preferred_matches": true,
+              "required_block_reasons": {
+                "expected": {
+                  "old-hermes-raw-recall": "governance:superseded"
+                },
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "new-hermes-amh-startup"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "revision-lineage-applied"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "new-hermes-amh-startup"
+            ],
+            "warnings": [
+              "revision-lineage-applied"
+            ]
+          },
+          "id": "current-startup-guidance",
+          "raw": {
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "old-hermes-raw-recall"
+                ],
+                "leaked": [
+                  "old-hermes-raw-recall"
+                ]
+              },
+              "case_passed": false,
+              "expected_preferred_id": "new-hermes-amh-startup",
+              "preferred_id": "old-hermes-raw-recall",
+              "preferred_matches": false,
+              "required_block_reasons": {
+                "expected": {
+                  "old-hermes-raw-recall": "governance:superseded"
+                },
+                "hit_count": 0,
+                "missing": [
+                  {
+                    "actual_reason": null,
+                    "expected_reason": "governance:superseded",
+                    "id": "old-hermes-raw-recall"
+                  }
+                ],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "new-hermes-amh-startup"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "revision-lineage-applied"
+                ],
+                "hit_count": 0,
+                "missing": [
+                  "revision-lineage-applied"
+                ],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "old-hermes-raw-recall",
+              "new-hermes-amh-startup"
+            ]
+          },
+          "task_intent": "current-guidance"
+        }
+      ]
+    },
+    {
+      "id": "forgetting-tombstone-audit",
+      "notes": "A tombstone can prove a deletion happened without making the deleted content visible.",
+      "query": "Should the deleted runtime-sensitive memory still be visible?",
+      "record_count": 2,
+      "scenario": "forgetting audit without retained deleted content",
+      "task_results": [
+        {
+          "as_of": "2026-06-23T00:00:00+00:00",
+          "governed": {
+            "blocked": [
+              {
+                "id": "deleted-runtime-sensitive-note",
+                "reason": "governance:deleted"
+              }
+            ],
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "deleted-runtime-sensitive-note"
+                ],
+                "leaked": []
+              },
+              "case_passed": true,
+              "expected_preferred_id": "tombstone-runtime-sensitive-note",
+              "preferred_id": "tombstone-runtime-sensitive-note",
+              "preferred_matches": true,
+              "required_block_reasons": {
+                "expected": {
+                  "deleted-runtime-sensitive-note": "governance:deleted"
+                },
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "tombstone-runtime-sensitive-note"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "forgetting-delete-filtered",
+                  "forgetting-audit-present",
+                  "revision-lineage-applied"
+                ],
+                "hit_count": 3,
+                "missing": [],
+                "total": 3
+              }
+            },
+            "visible_ids": [
+              "tombstone-runtime-sensitive-note"
+            ],
+            "warnings": [
+              "forgetting-delete-filtered",
+              "revision-lineage-applied",
+              "forgetting-audit-present"
+            ]
+          },
+          "id": "deleted-secret-not-visible",
+          "raw": {
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "deleted-runtime-sensitive-note"
+                ],
+                "leaked": [
+                  "deleted-runtime-sensitive-note"
+                ]
+              },
+              "case_passed": false,
+              "expected_preferred_id": "tombstone-runtime-sensitive-note",
+              "preferred_id": "deleted-runtime-sensitive-note",
+              "preferred_matches": false,
+              "required_block_reasons": {
+                "expected": {
+                  "deleted-runtime-sensitive-note": "governance:deleted"
+                },
+                "hit_count": 0,
+                "missing": [
+                  {
+                    "actual_reason": null,
+                    "expected_reason": "governance:deleted",
+                    "id": "deleted-runtime-sensitive-note"
+                  }
+                ],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "tombstone-runtime-sensitive-note"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "forgetting-delete-filtered",
+                  "forgetting-audit-present",
+                  "revision-lineage-applied"
+                ],
+                "hit_count": 0,
+                "missing": [
+                  "forgetting-delete-filtered",
+                  "forgetting-audit-present",
+                  "revision-lineage-applied"
+                ],
+                "total": 3
+              }
+            },
+            "visible_ids": [
+              "deleted-runtime-sensitive-note",
+              "tombstone-runtime-sensitive-note"
+            ]
+          },
+          "task_intent": "forgetting-audit"
+        }
+      ]
+    },
+    {
+      "id": "poisoning-quarantine-boundary",
+      "notes": "Untrusted injected claims should be blocked in the deterministic fixture lane.",
+      "query": "Which release note should be trusted for AMB 0.15?",
+      "record_count": 2,
+      "scenario": "untrusted provenance quarantine",
+      "task_results": [
+        {
+          "as_of": "2026-06-23T00:00:00+00:00",
+          "governed": {
+            "blocked": [
+              {
+                "id": "poisoned-release-claim",
+                "reason": "quarantine:quarantined"
+              }
+            ],
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "poisoned-release-claim"
+                ],
+                "leaked": []
+              },
+              "case_passed": true,
+              "expected_preferred_id": "trusted-release-boundary",
+              "preferred_id": "trusted-release-boundary",
+              "preferred_matches": true,
+              "required_block_reasons": {
+                "expected": {
+                  "poisoned-release-claim": "quarantine:quarantined"
+                },
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "trusted-release-boundary"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "quarantine-filtered"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "trusted-release-boundary"
+            ],
+            "warnings": [
+              "quarantine-filtered"
+            ]
+          },
+          "id": "trusted-release-claim-only",
+          "raw": {
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "poisoned-release-claim"
+                ],
+                "leaked": [
+                  "poisoned-release-claim"
+                ]
+              },
+              "case_passed": false,
+              "expected_preferred_id": "trusted-release-boundary",
+              "preferred_id": "poisoned-release-claim",
+              "preferred_matches": false,
+              "required_block_reasons": {
+                "expected": {
+                  "poisoned-release-claim": "quarantine:quarantined"
+                },
+                "hit_count": 0,
+                "missing": [
+                  {
+                    "actual_reason": null,
+                    "expected_reason": "quarantine:quarantined",
+                    "id": "poisoned-release-claim"
+                  }
+                ],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "trusted-release-boundary"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "quarantine-filtered"
+                ],
+                "hit_count": 0,
+                "missing": [
+                  "quarantine-filtered"
+                ],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "poisoned-release-claim",
+              "trusted-release-boundary"
+            ]
+          },
+          "task_intent": "release-claim"
+        }
+      ]
+    },
+    {
+      "id": "principal-scope-non-security-filter",
+      "notes": "Principal scope is a governance filter in this benchmark, not an authorization boundary.",
+      "query": "Which runtime handoff rule should Hermes see?",
+      "record_count": 2,
+      "scenario": "principal scope warning",
+      "task_results": [
+        {
+          "as_of": "2026-06-23T00:00:00+00:00",
+          "governed": {
+            "blocked": [
+              {
+                "id": "internal-runtime-rule",
+                "reason": "principal-scope-mismatch"
+              }
+            ],
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "internal-runtime-rule"
+                ],
+                "leaked": []
+              },
+              "case_passed": true,
+              "expected_preferred_id": "shared-hermes-runtime-rule",
+              "preferred_id": "shared-hermes-runtime-rule",
+              "preferred_matches": true,
+              "required_block_reasons": {
+                "expected": {
+                  "internal-runtime-rule": "principal-scope-mismatch"
+                },
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "shared-hermes-runtime-rule"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "principal-scope-filtered"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "shared-hermes-runtime-rule"
+            ],
+            "warnings": [
+              "principal-scope-filtered"
+            ]
+          },
+          "id": "hermes-scoped-handoff",
+          "raw": {
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "internal-runtime-rule"
+                ],
+                "leaked": [
+                  "internal-runtime-rule"
+                ]
+              },
+              "case_passed": false,
+              "expected_preferred_id": "shared-hermes-runtime-rule",
+              "preferred_id": "internal-runtime-rule",
+              "preferred_matches": false,
+              "required_block_reasons": {
+                "expected": {
+                  "internal-runtime-rule": "principal-scope-mismatch"
+                },
+                "hit_count": 0,
+                "missing": [
+                  {
+                    "actual_reason": null,
+                    "expected_reason": "principal-scope-mismatch",
+                    "id": "internal-runtime-rule"
+                  }
+                ],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "shared-hermes-runtime-rule"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "principal-scope-filtered"
+                ],
+                "hit_count": 0,
+                "missing": [
+                  "principal-scope-filtered"
+                ],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "internal-runtime-rule",
+              "shared-hermes-runtime-rule"
+            ]
+          },
+          "task_intent": "runtime-handoff"
+        }
+      ]
+    },
+    {
+      "id": "bitemporal-validity-revision",
+      "notes": "As-of evaluation should choose the record valid for that task timestamp.",
+      "query": "Which embedding posture applies at this point in time?",
+      "record_count": 2,
+      "scenario": "point-in-time validity",
+      "task_results": [
+        {
+          "as_of": "2026-06-23T00:00:00+00:00",
+          "governed": {
+            "blocked": [
+              {
+                "id": "embedding-posture-before-sidecar",
+                "reason": "validity:expired"
+              }
+            ],
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "embedding-posture-before-sidecar"
+                ],
+                "leaked": []
+              },
+              "case_passed": true,
+              "expected_preferred_id": "embedding-posture-after-sidecar",
+              "preferred_id": "embedding-posture-after-sidecar",
+              "preferred_matches": true,
+              "required_block_reasons": {
+                "expected": {
+                  "embedding-posture-before-sidecar": "validity:expired"
+                },
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "embedding-posture-after-sidecar"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "revision-lineage-applied"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "embedding-posture-after-sidecar"
+            ],
+            "warnings": [
+              "revision-lineage-applied"
+            ]
+          },
+          "id": "current-retrieval-posture",
+          "raw": {
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "embedding-posture-before-sidecar"
+                ],
+                "leaked": [
+                  "embedding-posture-before-sidecar"
+                ]
+              },
+              "case_passed": false,
+              "expected_preferred_id": "embedding-posture-after-sidecar",
+              "preferred_id": "embedding-posture-before-sidecar",
+              "preferred_matches": false,
+              "required_block_reasons": {
+                "expected": {
+                  "embedding-posture-before-sidecar": "validity:expired"
+                },
+                "hit_count": 0,
+                "missing": [
+                  {
+                    "actual_reason": null,
+                    "expected_reason": "validity:expired",
+                    "id": "embedding-posture-before-sidecar"
+                  }
+                ],
+                "total": 1
+              },
+              "required_visible": {
+                "expected": [
+                  "embedding-posture-after-sidecar"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "revision-lineage-applied"
+                ],
+                "hit_count": 0,
+                "missing": [
+                  "revision-lineage-applied"
+                ],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "embedding-posture-before-sidecar",
+              "embedding-posture-after-sidecar"
+            ]
+          },
+          "task_intent": "current-retrieval"
+        }
+      ]
+    },
+    {
+      "id": "review-lane-hidden-until-explicit",
+      "notes": "Review receipts are audit artifacts and stay hidden unless explicitly queried by review mode.",
+      "query": "Should candidate review artifacts appear as normal memory?",
+      "record_count": 3,
+      "scenario": "hidden review lane",
+      "task_results": [
+        {
+          "as_of": "2026-06-23T00:00:00+00:00",
+          "governed": {
+            "blocked": [
+              {
+                "id": "candidate-runtime-rule",
+                "reason": "review-lane-hidden"
+              },
+              {
+                "id": "review-runtime-rule",
+                "reason": "review-lane-hidden"
+              }
+            ],
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "candidate-runtime-rule",
+                  "review-runtime-rule"
+                ],
+                "leaked": []
+              },
+              "case_passed": true,
+              "expected_preferred_id": "durable-runtime-rule",
+              "preferred_id": "durable-runtime-rule",
+              "preferred_matches": true,
+              "required_block_reasons": {
+                "expected": {
+                  "candidate-runtime-rule": "review-lane-hidden",
+                  "review-runtime-rule": "review-lane-hidden"
+                },
+                "hit_count": 2,
+                "missing": [],
+                "total": 2
+              },
+              "required_visible": {
+                "expected": [
+                  "durable-runtime-rule"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "review-lane-hidden"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "durable-runtime-rule"
+            ],
+            "warnings": [
+              "review-lane-hidden"
+            ]
+          },
+          "id": "normal-memory-view",
+          "raw": {
+            "score": {
+              "blocked_records": {
+                "expected_absent": [
+                  "candidate-runtime-rule",
+                  "review-runtime-rule"
+                ],
+                "leaked": [
+                  "candidate-runtime-rule",
+                  "review-runtime-rule"
+                ]
+              },
+              "case_passed": false,
+              "expected_preferred_id": "durable-runtime-rule",
+              "preferred_id": "candidate-runtime-rule",
+              "preferred_matches": false,
+              "required_block_reasons": {
+                "expected": {
+                  "candidate-runtime-rule": "review-lane-hidden",
+                  "review-runtime-rule": "review-lane-hidden"
+                },
+                "hit_count": 0,
+                "missing": [
+                  {
+                    "actual_reason": null,
+                    "expected_reason": "review-lane-hidden",
+                    "id": "candidate-runtime-rule"
+                  },
+                  {
+                    "actual_reason": null,
+                    "expected_reason": "review-lane-hidden",
+                    "id": "review-runtime-rule"
+                  }
+                ],
+                "total": 2
+              },
+              "required_visible": {
+                "expected": [
+                  "durable-runtime-rule"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              },
+              "required_warnings": {
+                "expected": [
+                  "review-lane-hidden"
+                ],
+                "hit_count": 0,
+                "missing": [
+                  "review-lane-hidden"
+                ],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "candidate-runtime-rule",
+              "review-runtime-rule",
+              "durable-runtime-rule"
+            ]
+          },
+          "task_intent": "normal-recall"
+        },
+        {
+          "as_of": "2026-06-23T00:00:00+00:00",
+          "governed": {
+            "blocked": [],
+            "score": {
+              "blocked_records": {
+                "expected_absent": [],
+                "leaked": []
+              },
+              "case_passed": true,
+              "expected_preferred_id": null,
+              "preferred_id": "candidate-runtime-rule",
+              "preferred_matches": true,
+              "required_block_reasons": {
+                "expected": {},
+                "hit_count": 0,
+                "missing": [],
+                "total": 0
+              },
+              "required_visible": {
+                "expected": [
+                  "candidate-runtime-rule",
+                  "review-runtime-rule",
+                  "durable-runtime-rule"
+                ],
+                "hit_count": 3,
+                "missing": [],
+                "total": 3
+              },
+              "required_warnings": {
+                "expected": [
+                  "review-lane-visible-by-explicit-query"
+                ],
+                "hit_count": 1,
+                "missing": [],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "candidate-runtime-rule",
+              "review-runtime-rule",
+              "durable-runtime-rule"
+            ],
+            "warnings": [
+              "review-lane-visible-by-explicit-query"
+            ]
+          },
+          "id": "explicit-review-view",
+          "raw": {
+            "score": {
+              "blocked_records": {
+                "expected_absent": [],
+                "leaked": []
+              },
+              "case_passed": false,
+              "expected_preferred_id": null,
+              "preferred_id": "candidate-runtime-rule",
+              "preferred_matches": true,
+              "required_block_reasons": {
+                "expected": {},
+                "hit_count": 0,
+                "missing": [],
+                "total": 0
+              },
+              "required_visible": {
+                "expected": [
+                  "candidate-runtime-rule",
+                  "review-runtime-rule",
+                  "durable-runtime-rule"
+                ],
+                "hit_count": 3,
+                "missing": [],
+                "total": 3
+              },
+              "required_warnings": {
+                "expected": [
+                  "review-lane-visible-by-explicit-query"
+                ],
+                "hit_count": 0,
+                "missing": [
+                  "review-lane-visible-by-explicit-query"
+                ],
+                "total": 1
+              }
+            },
+            "visible_ids": [
+              "candidate-runtime-rule",
+              "review-runtime-rule",
+              "durable-runtime-rule"
+            ]
+          },
+          "task_intent": "review-audit"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "blocked_reason_counts": {
+      "governance:deleted": 1,
+      "governance:superseded": 1,
+      "principal-scope-mismatch": 1,
+      "quarantine:quarantined": 1,
+      "review-lane-hidden": 2,
+      "validity:expired": 1
+    },
+    "case_count": 6,
+    "governed_blocked_record_leak_rate": 0.0,
+    "governed_disposition_reason_hit_rate": 1.0,
+    "governed_preferred_match_rate": 1.0,
+    "governed_required_visible_hit_rate": 1.0,
+    "governed_required_warning_hit_rate": 1.0,
+    "governed_task_pass_rate": 1.0,
+    "raw_blocked_record_leak_rate": 1.0,
+    "raw_task_pass_rate": 0.0,
+    "scenario_pass_rates": {
+      "forgetting audit without retained deleted content": 1.0,
+      "hidden review lane": 1.0,
+      "point-in-time validity": 1.0,
+      "principal scope warning": 1.0,
+      "reviewed revision lineage": 1.0,
+      "untrusted provenance quarantine": 1.0
+    },
+    "task_count": 7,
+    "warning_counts": {
+      "forgetting-audit-present": 1,
+      "forgetting-delete-filtered": 1,
+      "principal-scope-filtered": 1,
+      "quarantine-filtered": 1,
+      "review-lane-hidden": 1,
+      "review-lane-visible-by-explicit-query": 1,
+      "revision-lineage-applied": 3
+    }
+  }
+}

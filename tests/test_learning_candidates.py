@@ -85,6 +85,35 @@ def test_learning_candidate_can_be_reviewed_by_status_tag(tmp_path: Path) -> Non
     assert "candidate_status:needs_review" in review["items"][0]["tags"]
 
 
+def test_learning_review_tag_is_hidden_from_normal_recall(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+
+    stored = store.store(
+        namespace="project:mem-store",
+        kind="memory",
+        title="Manual learning review",
+        content="record_type: learning-review\nreviewed_by: reviewer-a",
+        tags=["kind:learning-review", "schema:memory.review_receipt.v1"],
+    )
+
+    normal = store.recall(namespace="project:mem-store", query="learning review", kind="memory", limit=10)
+    review = store.recall(
+        namespace="project:mem-store",
+        tags_any=["kind:learning-review"],
+        kind="memory",
+        limit=10,
+    )
+    browsed = store.browse(namespace="project:mem-store", kind="memory", limit=10)
+    exported = store.export(namespace="project:mem-store", format="json", kind="memory", limit=10)
+
+    assert stored["stored"] is True
+    assert normal["count"] == 0
+    assert browsed["count"] == 0
+    assert exported["count"] == 0
+    assert review["count"] == 1
+    assert review["items"][0]["is_learning_candidate"] is True
+
+
 def test_learning_candidate_status_is_validated(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
 

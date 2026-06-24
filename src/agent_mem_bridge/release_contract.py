@@ -52,6 +52,13 @@ REQUIRED_ADVERSARIAL_KEYS = (
     "adversarial_governed_task_pass_rate",
     "adversarial_governed_blocked_record_leak_rate",
 )
+REQUIRED_MEMORY_EVOLUTION_KEYS = (
+    "memory_evolution_case_count",
+    "memory_evolution_task_count",
+    "memory_evolution_governed_task_pass_rate",
+    "memory_evolution_governed_blocked_record_leak_rate",
+    "memory_evolution_governed_disposition_reason_hit_rate",
+)
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -159,6 +166,7 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
         + REQUIRED_PROCEDURE_KEYS
         + REQUIRED_SIGNAL_CONTENTION_KEYS
         + REQUIRED_ADVERSARIAL_KEYS
+        + REQUIRED_MEMORY_EVOLUTION_KEYS
     )
     mismatches: list[dict[str, Any]] = []
     ok = True
@@ -297,11 +305,15 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float]:
     adversarial_report = json.loads(
         (project_root / "benchmark" / "latest-adversarial-memory-report.json").read_text(encoding="utf-8")
     )
+    memory_evolution_report = json.loads(
+        (project_root / "benchmark" / "latest-memory-evolution-report.json").read_text(encoding="utf-8")
+    )
     benchmark_summary = benchmark_report["summary"]
     calibration_summary = calibration_report["summary"]
     procedure_summary = procedure_report["summary"]
     signal_contention_summary = signal_contention_report["summary"]
     adversarial_summary = adversarial_report["summary"]
+    memory_evolution_summary = memory_evolution_report["summary"]
     expected: dict[str, int | float] = {}
     for key in REQUIRED_BENCHMARK_KEYS:
         expected[key] = benchmark_summary[key]
@@ -319,6 +331,15 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float]:
     expected["adversarial_governed_task_pass_rate"] = adversarial_summary["governed_task_pass_rate"]
     expected["adversarial_governed_blocked_record_leak_rate"] = adversarial_summary[
         "governed_blocked_record_leak_rate"
+    ]
+    expected["memory_evolution_case_count"] = memory_evolution_summary["case_count"]
+    expected["memory_evolution_task_count"] = memory_evolution_summary["task_count"]
+    expected["memory_evolution_governed_task_pass_rate"] = memory_evolution_summary["governed_task_pass_rate"]
+    expected["memory_evolution_governed_blocked_record_leak_rate"] = memory_evolution_summary[
+        "governed_blocked_record_leak_rate"
+    ]
+    expected["memory_evolution_governed_disposition_reason_hit_rate"] = memory_evolution_summary[
+        "governed_disposition_reason_hit_rate"
     ]
     return expected
 

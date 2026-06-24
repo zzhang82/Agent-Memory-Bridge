@@ -18,6 +18,7 @@ the engine gets more expressive.
 - `python ./scripts/run_procedure_governance_benchmark.py`
 - `python ./scripts/run_signal_contention_benchmark.py`
 - `python ./scripts/run_adversarial_benchmark.py`
+- `python ./scripts/run_memory_evolution_benchmark.py`
 
 ## What The Reports Cover
 
@@ -36,6 +37,7 @@ The checked-in proof and benchmark flow covers:
 - reviewed procedure-governance packet comparison between flat/current assembly and governed procedure assembly
 - reviewed signal contention lifecycle cases for unique claims, stale-owner avoidance, reclaim, and done/expired leakage
 - adversarial memory-governance fixtures for stale/current scope conflicts, contradictions, task intent, noisy summaries, provenance collisions, and validity windows
+- reviewed memory-evolution fixtures for supersession lineage, tombstone audit, quarantine, principal-scope warnings, bitemporal validity, and hidden review lanes
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.
@@ -213,6 +215,38 @@ tracks:
 
 These metrics are fixture governance checks. They are not ranking changes, live
 bridge measurements, broad retrieval claims, or productivity claims.
+
+## Reviewed Memory-Evolution Benchmark
+
+The reviewed memory-evolution benchmark is a small deterministic slice for the
+0.15 governance question:
+
+> Given synthetic records that represent memory revision hazards, can a report
+> harness prove that reviewed governance keeps current records visible while
+> blocking obsolete, deleted, quarantined, scope-mismatched, or review-lane-only
+> records?
+
+The reviewed cases live in `benchmark/memory-evolution-cases.json`. They
+exercise reviewed supersession lineage, deletion/tombstone audit without
+retaining deleted content, untrusted provenance quarantine, principal-scope
+filter warnings, point-in-time validity, and hidden learning-candidate/review
+lanes.
+
+The report is written to `benchmark/latest-memory-evolution-report.json` and
+tracks:
+
+- `raw_task_pass_rate`
+- `governed_task_pass_rate`
+- required visible record hit rate
+- blocked record leak rates
+- required warning hit rate
+- disposition reason hit rate
+- blocked reason and warning counts
+- scenario pass rates
+
+These metrics are local governance checks. They are not ACL enforcement, privacy
+compliance, poisoning certification, autonomous mutation, or graph-memory
+claims.
 
 ## Activation Stress
 
