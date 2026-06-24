@@ -19,6 +19,7 @@ the engine gets more expressive.
 - `python ./scripts/run_signal_contention_benchmark.py`
 - `python ./scripts/run_adversarial_benchmark.py`
 - `python ./scripts/run_memory_evolution_benchmark.py`
+- `python ./scripts/run_review_queue_benchmark.py`
 
 ## What The Reports Cover
 
@@ -38,6 +39,7 @@ The checked-in proof and benchmark flow covers:
 - reviewed signal contention lifecycle cases for unique claims, stale-owner avoidance, reclaim, and done/expired leakage
 - adversarial memory-governance fixtures for stale/current scope conflicts, contradictions, task intent, noisy summaries, provenance collisions, and validity windows
 - reviewed memory-evolution fixtures for supersession lineage, tombstone audit, quarantine, principal-scope warnings, bitemporal validity, and hidden review lanes
+- reviewed memory-operations queue fixtures for staged candidates, review receipts, tombstones, quarantined claims, stale records, and proposal-only writeback plans
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.
@@ -247,6 +249,29 @@ tracks:
 These metrics are local governance checks. They are not ACL enforcement, privacy
 compliance, poisoning certification, autonomous mutation, or graph-memory
 claims.
+
+## Reviewed Memory-Operations Queue Benchmark
+
+The reviewed memory-operations queue benchmark is a small deterministic slice
+for the 0.16 operator workflow question:
+
+> Given staged learning candidates, review receipts, tombstones, quarantined
+> claims, and stale records, can AMB produce a read-only operator queue without
+> turning review material into durable authority?
+
+The report is written to `benchmark/latest-review-queue-report.json` and tracks:
+
+- `review_queue_item_count`
+- `review_queue_actionable_count`
+- `review_queue_hidden_lane_count`
+- `review_queue_writeback_plan_count`
+- `review_queue_no_auto_mutation`
+- `review_queue_public_mcp_surface_change`
+- `review_queue_item_type_count`
+
+These metrics are local operator-workflow checks. They are not a review UI,
+autonomous promotion, deletion automation, policy approval, or a new MCP
+surface.
 
 ## Activation Stress
 

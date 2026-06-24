@@ -135,6 +135,13 @@ def create_release_fixture(root: Path) -> Path:
         - `memory_evolution_governed_task_pass_rate = 1.0`
         - `memory_evolution_governed_blocked_record_leak_rate = 0.0`
         - `memory_evolution_governed_disposition_reason_hit_rate = 1.0`
+        - `review_queue_item_count = 6`
+        - `review_queue_actionable_count = 6`
+        - `review_queue_hidden_lane_count = 2`
+        - `review_queue_writeback_plan_count = 6`
+        - `review_queue_no_auto_mutation = true`
+        - `review_queue_public_mcp_surface_change = false`
+        - `review_queue_item_type_count = 6`
 
         ## MCP Tools
 
@@ -240,6 +247,23 @@ def create_release_fixture(root: Path) -> Path:
                     "governed_task_pass_rate": 1.0,
                     "governed_blocked_record_leak_rate": 0.0,
                     "governed_disposition_reason_hit_rate": 1.0,
+                }
+            },
+            indent=2,
+        ),
+    )
+    write_file(
+        root / "benchmark" / "latest-review-queue-report.json",
+        json.dumps(
+            {
+                "summary": {
+                    "review_queue_item_count": 6,
+                    "review_queue_actionable_count": 6,
+                    "review_queue_hidden_lane_count": 2,
+                    "review_queue_writeback_plan_count": 6,
+                    "review_queue_no_auto_mutation": True,
+                    "review_queue_public_mcp_surface_change": False,
+                    "review_queue_item_type_count": 6,
                 }
             },
             indent=2,

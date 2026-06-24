@@ -59,6 +59,15 @@ REQUIRED_MEMORY_EVOLUTION_KEYS = (
     "memory_evolution_governed_blocked_record_leak_rate",
     "memory_evolution_governed_disposition_reason_hit_rate",
 )
+REQUIRED_REVIEW_QUEUE_KEYS = (
+    "review_queue_item_count",
+    "review_queue_actionable_count",
+    "review_queue_hidden_lane_count",
+    "review_queue_writeback_plan_count",
+    "review_queue_no_auto_mutation",
+    "review_queue_public_mcp_surface_change",
+    "review_queue_item_type_count",
+)
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -159,7 +168,7 @@ def build_version_check(pyproject_version: str, readme_paths: list[Path]) -> dic
     }
 
 
-def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | float]) -> dict[str, Any]:
+def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | float | bool]) -> dict[str, Any]:
     required_keys = (
         REQUIRED_BENCHMARK_KEYS
         + REQUIRED_CALIBRATION_KEYS
@@ -167,6 +176,7 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
         + REQUIRED_SIGNAL_CONTENTION_KEYS
         + REQUIRED_ADVERSARIAL_KEYS
         + REQUIRED_MEMORY_EVOLUTION_KEYS
+        + REQUIRED_REVIEW_QUEUE_KEYS
     )
     mismatches: list[dict[str, Any]] = []
     ok = True
@@ -291,7 +301,7 @@ def load_pyproject_version(path: Path) -> str:
     return str(data["project"]["version"])
 
 
-def load_expected_facts(project_root: Path) -> dict[str, int | float]:
+def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     benchmark_report = json.loads((project_root / "benchmark" / "latest-report.json").read_text(encoding="utf-8"))
     calibration_report = json.loads(
         (project_root / "benchmark" / "latest-calibration-report.json").read_text(encoding="utf-8")
@@ -308,13 +318,17 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float]:
     memory_evolution_report = json.loads(
         (project_root / "benchmark" / "latest-memory-evolution-report.json").read_text(encoding="utf-8")
     )
+    review_queue_report = json.loads(
+        (project_root / "benchmark" / "latest-review-queue-report.json").read_text(encoding="utf-8")
+    )
     benchmark_summary = benchmark_report["summary"]
     calibration_summary = calibration_report["summary"]
     procedure_summary = procedure_report["summary"]
     signal_contention_summary = signal_contention_report["summary"]
     adversarial_summary = adversarial_report["summary"]
     memory_evolution_summary = memory_evolution_report["summary"]
-    expected: dict[str, int | float] = {}
+    review_queue_summary = review_queue_report["summary"]
+    expected: dict[str, int | float | bool] = {}
     for key in REQUIRED_BENCHMARK_KEYS:
         expected[key] = benchmark_summary[key]
     for key in REQUIRED_CALIBRATION_KEYS:
@@ -341,6 +355,8 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float]:
     expected["memory_evolution_governed_disposition_reason_hit_rate"] = memory_evolution_summary[
         "governed_disposition_reason_hit_rate"
     ]
+    for key in REQUIRED_REVIEW_QUEUE_KEYS:
+        expected[key] = review_queue_summary[key]
     return expected
 
 

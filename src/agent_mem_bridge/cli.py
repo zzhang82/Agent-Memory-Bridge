@@ -11,6 +11,7 @@ from .client_config import build_client_config_options, render_client_config, su
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
 from .paths import resolve_bridge_home, resolve_config_path
+from .review_queue import build_review_queue_report, render_review_queue_markdown
 from .server import main as serve_server
 from .storage import MemoryStore
 
@@ -42,6 +43,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_index_health(namespace)
     if namespace.command == "index-rebuild":
         return _run_index_rebuild(namespace)
+    if namespace.command == "review-queue":
+        return _run_review_queue(namespace)
 
     parser.print_help()
     return 2
@@ -136,6 +139,24 @@ def _build_parser() -> argparse.ArgumentParser:
     index_rebuild_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
     index_rebuild_parser.add_argument("--fts", action="store_true", help="Rebuild the FTS5 derived index.")
     index_rebuild_parser.add_argument("--embeddings", action="store_true", help="Rebuild the local semantic sidecar index.")
+
+    review_queue_parser = subparsers.add_parser(
+        "review-queue",
+        help="Render a read-only operator review queue for staged and dispositioned memory records.",
+    )
+    review_queue_parser.add_argument("--namespace", required=True, help="Namespace to inspect.")
+    review_queue_parser.add_argument("--limit", type=int, default=100, help="Maximum rows/items to scan and return.")
+    review_queue_parser.add_argument(
+        "--include-closed",
+        action="store_true",
+        help="Include closed review receipts in addition to open/actionable items.",
+    )
+    review_queue_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
     return parser
 
 
@@ -225,6 +246,21 @@ def _run_index_rebuild(namespace: argparse.Namespace) -> int:
     if rebuild_embeddings:
         healthy = healthy and bool(report["embeddings"]["healthy"])
     return 0 if healthy else 1
+
+
+def _run_review_queue(namespace: argparse.Namespace) -> int:
+    store = MemoryStore.from_env()
+    report = build_review_queue_report(
+        store,
+        namespace=namespace.namespace,
+        limit=namespace.limit,
+        include_closed=namespace.include_closed,
+    )
+    if namespace.format == "json":
+        print(json.dumps(report, indent=2))
+    else:
+        print(render_review_queue_markdown(report))
+    return 0
 
 
 def _index_health_ok(report: dict[str, object], *, strict_embeddings: bool = False) -> bool:

@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-05-26 (America/Toronto)
+Last updated: 2026-06-24 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.14.0`, plus likely post-0.14 research tracks. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.16.0`, plus likely post-0.16 research tracks. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -253,6 +253,57 @@ Status: shipped in `v0.14.0`.
 - not a new public MCP learning API
 - not a replacement for reviewed promotion or supersession flows
 
+### 0.15 = reviewed memory revision gates
+
+Status: shipped in `v0.15.0`.
+
+#### Thesis
+
+`0.15` adds deterministic proof that reviewed memory revision artifacts can
+remain auditable without letting deleted, quarantined, obsolete, or review-lane
+records become normal authority.
+
+#### What it shipped
+
+- deterministic learning review receipt hashes
+- review receipts with `writeback_boundary:review_receipt_only`
+- explicit `durable_mutation_performed_by_review: false`
+- reviewed memory-evolution fixtures for supersession lineage, tombstone audit,
+  quarantine, principal-scope warnings, bitemporal validity, and hidden review
+  lanes
+- release-contract coverage for the memory-evolution snapshot facts
+
+#### What it is not
+
+- not autonomous self-evolving memory
+- not automatic durable promotion from raw transcripts
+- not automatic deletion or retention compliance
+- not a graph database or graph-memory platform
+
+### 0.16 = reviewed memory operations queue
+
+Status: shipped in `v0.16.0`.
+
+#### Thesis
+
+`0.16` makes hidden/stale/quarantined memory review work operator-visible
+without widening the MCP surface or executing durable writes automatically.
+
+#### What it shipped
+
+- `agent-memory-bridge review-queue`, a CLI/report for staged candidates,
+  learning reviews, tombstones, stale/expired records, and quarantined claims
+- proposal-only writeback plans with `proposal_only_no_auto_mutation`
+- deterministic review-queue benchmark snapshot with release-contract coverage
+- explicit docs that `review-queue` is not a public MCP tool
+
+#### What it is not
+
+- not a review UI
+- not automatic review, promotion, deletion, or writeback
+- not a new MCP tool surface
+- not a scheduler, worker runtime, or queue platform
+
 ## Parallel Research Track
 
 These are real gaps, but they do not need to become the thesis of the next full
@@ -262,9 +313,9 @@ release immediately:
 - broader reviewed retrieval fixtures to keep credibility from overfitting the current corpus
 - stronger write-side calibration for promotion quality
 - deeper real multi-client contention dogfood beyond serialized benchmark cases
-- review/promote ergonomics for accepted learning candidates
+- human-facing review/promote ergonomics beyond the current CLI report
 
-Treat these as cross-cutting tracks that can land in `0.14.x` and later
+Treat these as cross-cutting tracks that can land in `0.16.x` and later
 as they become stable and portable.
 
 ## What 1.0 Should Mean

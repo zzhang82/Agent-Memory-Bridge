@@ -1,0 +1,12 @@
+{
+  "schema": "memory.review_queue_benchmark.v1",
+  "summary": {
+    "review_queue_actionable_count": 6,
+    "review_queue_hidden_lane_count": 2,
+    "review_queue_item_count": 6,
+    "review_queue_item_type_count": 6,
+    "review_queue_no_auto_mutation": true,
+    "review_queue_public_mcp_surface_change": false,
+    "review_queue_writeback_plan_count": 6
+  }
+}
