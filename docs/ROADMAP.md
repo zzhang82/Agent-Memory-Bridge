@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-24 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.16.0`, plus likely post-0.16 research tracks. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.17.0`, plus likely post-0.17 research tracks. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -304,6 +304,32 @@ without widening the MCP surface or executing durable writes automatically.
 - not a new MCP tool surface
 - not a scheduler, worker runtime, or queue platform
 
+### 0.17 = human review workflow
+
+Status: shipped in `v0.17.0`.
+
+#### Thesis
+
+`0.17` turns reviewed memory operations into explicit human decision workflows
+without making AMB an auto-reviewer, workflow runner, or larger MCP surface.
+
+#### What it shipped
+
+- `agent-memory-bridge review-workflow`, a CLI/report layered over
+  `review-queue`
+- decision prompts, manual steps, allowed outcomes, and blocked-until gates for
+  each review item
+- deterministic review-workflow benchmark snapshot with release-contract coverage
+- explicit docs that `review-workflow` is not a public MCP tool and performs no
+  automatic durable writeback
+
+#### What it is not
+
+- not a review UI
+- not automatic approval, promotion, deletion, merge, or writeback
+- not a new MCP tool surface
+- not a scheduler, worker runtime, or queue platform
+
 ## Parallel Research Track
 
 These are real gaps, but they do not need to become the thesis of the next full
@@ -315,7 +341,7 @@ release immediately:
 - deeper real multi-client contention dogfood beyond serialized benchmark cases
 - human-facing review/promote ergonomics beyond the current CLI report
 
-Treat these as cross-cutting tracks that can land in `0.16.x` and later
+Treat these as cross-cutting tracks that can land in `0.17.x` and later
 as they become stable and portable.
 
 ## What 1.0 Should Mean

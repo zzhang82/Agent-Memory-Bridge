@@ -12,6 +12,7 @@ from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
 from .paths import resolve_bridge_home, resolve_config_path
 from .review_queue import build_review_queue_report, render_review_queue_markdown
+from .review_workflow import build_review_workflow_report, render_review_workflow_markdown
 from .server import main as serve_server
 from .storage import MemoryStore
 
@@ -45,6 +46,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_index_rebuild(namespace)
     if namespace.command == "review-queue":
         return _run_review_queue(namespace)
+    if namespace.command == "review-workflow":
+        return _run_review_workflow(namespace)
 
     parser.print_help()
     return 2
@@ -157,6 +160,23 @@ def _build_parser() -> argparse.ArgumentParser:
         default="markdown",
         help="Output format.",
     )
+    review_workflow_parser = subparsers.add_parser(
+        "review-workflow",
+        help="Render a proposal-only human workflow plan from the operator review queue.",
+    )
+    review_workflow_parser.add_argument("--namespace", required=True, help="Namespace to inspect.")
+    review_workflow_parser.add_argument("--limit", type=int, default=100, help="Maximum rows/items to scan and return.")
+    review_workflow_parser.add_argument(
+        "--include-closed",
+        action="store_true",
+        help="Include closed review receipts in addition to open/actionable items.",
+    )
+    review_workflow_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
     return parser
 
 
@@ -260,6 +280,21 @@ def _run_review_queue(namespace: argparse.Namespace) -> int:
         print(json.dumps(report, indent=2))
     else:
         print(render_review_queue_markdown(report))
+    return 0
+
+
+def _run_review_workflow(namespace: argparse.Namespace) -> int:
+    store = MemoryStore.from_env()
+    report = build_review_workflow_report(
+        store,
+        namespace=namespace.namespace,
+        limit=namespace.limit,
+        include_closed=namespace.include_closed,
+    )
+    if namespace.format == "json":
+        print(json.dumps(report, indent=2))
+    else:
+        print(render_review_workflow_markdown(report))
     return 0
 
 

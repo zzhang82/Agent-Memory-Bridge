@@ -20,6 +20,7 @@ the engine gets more expressive.
 - `python ./scripts/run_adversarial_benchmark.py`
 - `python ./scripts/run_memory_evolution_benchmark.py`
 - `python ./scripts/run_review_queue_benchmark.py`
+- `python ./scripts/run_review_workflow_benchmark.py`
 
 ## What The Reports Cover
 
@@ -40,6 +41,7 @@ The checked-in proof and benchmark flow covers:
 - adversarial memory-governance fixtures for stale/current scope conflicts, contradictions, task intent, noisy summaries, provenance collisions, and validity windows
 - reviewed memory-evolution fixtures for supersession lineage, tombstone audit, quarantine, principal-scope warnings, bitemporal validity, and hidden review lanes
 - reviewed memory-operations queue fixtures for staged candidates, review receipts, tombstones, quarantined claims, stale records, and proposal-only writeback plans
+- human review workflow fixtures for decision prompts, manual steps, allowed outcomes, blocked-until gates, zero auto-writeback, and stable MCP surface boundaries
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.
@@ -256,7 +258,7 @@ The reviewed memory-operations queue benchmark is a small deterministic slice
 for the 0.16 operator workflow question:
 
 > Given staged learning candidates, review receipts, tombstones, quarantined
-> claims, and stale records, can AMB produce a read-only operator queue without
+> claims, and stale records, can AMB produce a proposal-only operator queue without
 > turning review material into durable authority?
 
 The report is written to `benchmark/latest-review-queue-report.json` and tracks:
@@ -271,6 +273,30 @@ The report is written to `benchmark/latest-review-queue-report.json` and tracks:
 
 These metrics are local operator-workflow checks. They are not a review UI,
 autonomous promotion, deletion automation, policy approval, or a new MCP
+surface.
+
+## Human Review Workflow Benchmark
+
+The human review workflow benchmark is a small deterministic slice for the 0.17
+operator workflow question:
+
+> Given the reviewed memory-operations queue, can AMB produce explicit human
+> decision prompts and manual steps without executing durable writeback?
+
+The report is written to `benchmark/latest-review-workflow-report.json` and
+tracks:
+
+- `review_workflow_source_queue_item_count`
+- `review_workflow_item_count`
+- `review_workflow_manual_step_count`
+- `review_workflow_requires_human_count`
+- `review_workflow_auto_write_count`
+- `review_workflow_no_auto_writeback`
+- `review_workflow_public_mcp_surface_change`
+- `review_workflow_item_type_count`
+
+These metrics are local human-review checks. They are not a review UI,
+autonomous reviewer, writeback executor, policy approval system, or a new MCP
 surface.
 
 ## Activation Stress

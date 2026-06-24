@@ -68,6 +68,16 @@ REQUIRED_REVIEW_QUEUE_KEYS = (
     "review_queue_public_mcp_surface_change",
     "review_queue_item_type_count",
 )
+REQUIRED_REVIEW_WORKFLOW_KEYS = (
+    "review_workflow_source_queue_item_count",
+    "review_workflow_item_count",
+    "review_workflow_manual_step_count",
+    "review_workflow_requires_human_count",
+    "review_workflow_auto_write_count",
+    "review_workflow_no_auto_writeback",
+    "review_workflow_public_mcp_surface_change",
+    "review_workflow_item_type_count",
+)
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -177,6 +187,7 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
         + REQUIRED_ADVERSARIAL_KEYS
         + REQUIRED_MEMORY_EVOLUTION_KEYS
         + REQUIRED_REVIEW_QUEUE_KEYS
+        + REQUIRED_REVIEW_WORKFLOW_KEYS
     )
     mismatches: list[dict[str, Any]] = []
     ok = True
@@ -321,6 +332,9 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     review_queue_report = json.loads(
         (project_root / "benchmark" / "latest-review-queue-report.json").read_text(encoding="utf-8")
     )
+    review_workflow_report = json.loads(
+        (project_root / "benchmark" / "latest-review-workflow-report.json").read_text(encoding="utf-8")
+    )
     benchmark_summary = benchmark_report["summary"]
     calibration_summary = calibration_report["summary"]
     procedure_summary = procedure_report["summary"]
@@ -328,6 +342,7 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     adversarial_summary = adversarial_report["summary"]
     memory_evolution_summary = memory_evolution_report["summary"]
     review_queue_summary = review_queue_report["summary"]
+    review_workflow_summary = review_workflow_report["summary"]
     expected: dict[str, int | float | bool] = {}
     for key in REQUIRED_BENCHMARK_KEYS:
         expected[key] = benchmark_summary[key]
@@ -357,6 +372,8 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     ]
     for key in REQUIRED_REVIEW_QUEUE_KEYS:
         expected[key] = review_queue_summary[key]
+    for key in REQUIRED_REVIEW_WORKFLOW_KEYS:
+        expected[key] = review_workflow_summary[key]
     return expected
 
 

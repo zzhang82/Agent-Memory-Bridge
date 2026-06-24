@@ -110,17 +110,7 @@ def render_review_queue_markdown(report: dict[str, Any]) -> str:
 def run_review_queue_benchmark() -> dict[str, Any]:
     """Run a deterministic fixture proof for the review queue workflow."""
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        store = MemoryStore(Path(temp_dir) / "bridge.db", log_dir=Path(temp_dir) / "logs")
-        _seed_review_queue_fixture(store)
-        report = build_review_queue_report(
-            store,
-            namespace="project:review-queue-fixture",
-            limit=50,
-            generated_at="2026-06-24T00:00:00+00:00",
-        )
-        del store
-        gc.collect()
+    report = build_review_queue_fixture_report()
     summary = report["summary"]
     return {
         "schema": REVIEW_QUEUE_BENCHMARK_SCHEMA,
@@ -134,6 +124,23 @@ def run_review_queue_benchmark() -> dict[str, Any]:
             "review_queue_item_type_count": len(summary["item_type_counts"]),
         },
     }
+
+
+def build_review_queue_fixture_report() -> dict[str, Any]:
+    """Build the stable fixture report shared by review-queue proof layers."""
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        store = MemoryStore(Path(temp_dir) / "bridge.db", log_dir=Path(temp_dir) / "logs")
+        _seed_review_queue_fixture(store)
+        report = build_review_queue_report(
+            store,
+            namespace="project:review-queue-fixture",
+            limit=50,
+            generated_at="2026-06-24T00:00:00+00:00",
+        )
+        del store
+        gc.collect()
+    return report
 
 
 def _load_candidate_rows(store: MemoryStore, *, namespace: str, limit: int) -> list[MemoryRow]:

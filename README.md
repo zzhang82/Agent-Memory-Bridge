@@ -36,7 +36,7 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Governed learning: runtime learning can be staged as policy-gated learning candidates before promotion into durable records.
 - Context assembly: startup and task-time context can be compiled from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `302 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `306 passed`.
 
 ## Who It Is For
 
@@ -148,17 +148,18 @@ The bridge exposes `10` public MCP tools:
 - `forget`, `promote`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The richer behavior stays behind that surface: reflex promotion, consolidation, startup/task-time assembly, procedure governance, telemetry summaries, signal contention checks, and learning-candidate review queues. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, or `review_queue` MCP tools.
+The richer behavior stays behind that surface: reflex promotion, consolidation, startup/task-time assembly, procedure governance, telemetry summaries, signal contention checks, learning-candidate review queues, and human review workflows. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `review_queue`, or `review_workflow` MCP tools.
 
 For normal always-on service use, Codex-log watcher capture, reflex promotion, and strong consolidation are disabled by default. That lets multi-runtime installs run governance checks and embedding sidecar maintenance without silently promoting raw session/process chatter into durable memory.
 
-Operator review work is available as a CLI report, not an MCP tool:
+Operator review work is available as CLI reports, not MCP tools:
 
 ```bash
 agent-memory-bridge review-queue --namespace project:demo --format markdown
+agent-memory-bridge review-workflow --namespace project:demo --format markdown
 ```
 
-It shows staged candidates, review receipts, tombstones, stale records, and quarantined claims with proposal-only next steps.
+`review-queue` shows staged candidates, review receipts, tombstones, stale records, and quarantined claims. `review-workflow` turns those queue items into explicit human decision prompts and manual steps. Both are proposal-only and perform no automatic durable writeback.
 
 ### Static-schema client compatibility
 
@@ -166,7 +167,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.16.0` is a reviewed memory operations release: it adds a read-only operator review queue over staged candidates, review receipts, tombstones, stale records, and quarantined claims while keeping the public tool surface stable.
+`0.17.0` is a human review workflow release: it adds a proposal-only workflow plan over the reviewed memory operations queue, turning staged candidates, review receipts, tombstones, stale records, and quarantined claims into explicit human decision prompts while keeping the public tool surface stable.
 
 | Track | Current signal |
 |---|---|
@@ -178,7 +179,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory operations | `review_queue_item_count = 6`, `review_queue_actionable_count = 6`, `review_queue_no_auto_mutation = true`, `review_queue_public_mcp_surface_change = false` |
-| Test suite | `302 passed` |
+| Human review workflow | `review_workflow_item_count = 6`, `review_workflow_manual_step_count = 27`, `review_workflow_auto_write_count = 0`, `review_workflow_public_mcp_surface_change = false` |
+| Test suite | `306 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -234,6 +236,15 @@ review_queue_writeback_plan_count = 6
 review_queue_no_auto_mutation = true
 review_queue_public_mcp_surface_change = false
 review_queue_item_type_count = 6
+
+review_workflow_source_queue_item_count = 6
+review_workflow_item_count = 6
+review_workflow_manual_step_count = 27
+review_workflow_requires_human_count = 6
+review_workflow_auto_write_count = 0
+review_workflow_no_auto_writeback = true
+review_workflow_public_mcp_surface_change = false
+review_workflow_item_type_count = 6
 ```
 
 </details>

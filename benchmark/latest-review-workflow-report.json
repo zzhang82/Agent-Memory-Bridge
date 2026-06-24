@@ -1,0 +1,13 @@
+{
+  "schema": "memory.review_workflow_benchmark.v1",
+  "summary": {
+    "review_workflow_auto_write_count": 0,
+    "review_workflow_item_count": 6,
+    "review_workflow_item_type_count": 6,
+    "review_workflow_manual_step_count": 27,
+    "review_workflow_no_auto_writeback": true,
+    "review_workflow_public_mcp_surface_change": false,
+    "review_workflow_requires_human_count": 6,
+    "review_workflow_source_queue_item_count": 6
+  }
+}

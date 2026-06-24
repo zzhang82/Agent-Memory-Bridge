@@ -142,6 +142,14 @@ def create_release_fixture(root: Path) -> Path:
         - `review_queue_no_auto_mutation = true`
         - `review_queue_public_mcp_surface_change = false`
         - `review_queue_item_type_count = 6`
+        - `review_workflow_source_queue_item_count = 6`
+        - `review_workflow_item_count = 6`
+        - `review_workflow_manual_step_count = 27`
+        - `review_workflow_requires_human_count = 6`
+        - `review_workflow_auto_write_count = 0`
+        - `review_workflow_no_auto_writeback = true`
+        - `review_workflow_public_mcp_surface_change = false`
+        - `review_workflow_item_type_count = 6`
 
         ## MCP Tools
 
@@ -264,6 +272,24 @@ def create_release_fixture(root: Path) -> Path:
                     "review_queue_no_auto_mutation": True,
                     "review_queue_public_mcp_surface_change": False,
                     "review_queue_item_type_count": 6,
+                }
+            },
+            indent=2,
+        ),
+    )
+    write_file(
+        root / "benchmark" / "latest-review-workflow-report.json",
+        json.dumps(
+            {
+                "summary": {
+                    "review_workflow_source_queue_item_count": 6,
+                    "review_workflow_item_count": 6,
+                    "review_workflow_manual_step_count": 27,
+                    "review_workflow_requires_human_count": 6,
+                    "review_workflow_auto_write_count": 0,
+                    "review_workflow_no_auto_writeback": True,
+                    "review_workflow_public_mcp_surface_change": False,
+                    "review_workflow_item_type_count": 6,
                 }
             },
             indent=2,
