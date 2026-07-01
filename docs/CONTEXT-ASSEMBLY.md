@@ -1,8 +1,9 @@
 # Context Assembly
 
 Agent Memory Bridge can be described as a small context compiler for coding
-agents: it turns stored engineering memory into the context an agent needs at
-startup or during a task.
+agents: it turns stored project memory into the context an agent needs at
+startup or during a task, so a session starts with the right context instead of
+a stale dump.
 
 This is a story over the existing MCP surface. It does not add `task_packet`,
 `startup_packet`, or any other new MCP tool.
@@ -16,7 +17,8 @@ The public MCP contract stays:
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
 Assembly happens behind that surface by selecting, filtering, and rendering
-records that were already stored through ordinary memory operations.
+records that were already stored through ordinary memory operations. AMB remains
+the durable authority; assembled context is a derived view.
 
 ## Startup Context
 
@@ -45,6 +47,21 @@ combine:
 
 The result can look like a task packet, but it is not a separate public tool. It
 is a compact rendering of existing records for the current job.
+
+## Optional Task Brief
+
+AMB can render a Task Brief report for a specific task:
+
+```bash
+agent-memory-bridge task-brief --namespace project:demo --query "release handoff" --format markdown
+```
+
+The brief makes the selection policy visible by separating context that was used,
+ignored, or marked as needing review.
+
+The Task Brief is optional and derived. It is not an AMB release version, a
+second durable memory product, a scheduler, a watcher, or an unreviewed
+writeback path.
 
 ## Why Not Add Packet Tools
 

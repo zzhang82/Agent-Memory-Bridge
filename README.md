@@ -9,9 +9,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-Your coding agent should not rediscover the same project decisions every session.
+Your coding agent should start with the right project context, not a stale dump.
 
-Agent Memory Bridge is persistent engineering memory for coding agents: a local-first MCP memory layer and context compiler with SQLite/WAL as the durable store, FTS5 for lexical recall, and an optional local embedding sidecar for semantic or hybrid retrieval. It captures durable repo decisions, gotchas, procedures, and handoffs while keeping short-lived coordination separate.
+Agent Memory Bridge is persistent project memory for coding agents: a local-first MCP memory layer with SQLite/WAL as the durable store, FTS5 for lexical recall, and an optional local embedding sidecar for semantic or hybrid retrieval. It stores durable repo decisions, gotchas, procedures, and handoffs while keeping short-lived coordination separate.
 
 > Codex is the reference workflow, not the product boundary. If a client can launch a local stdio MCP server, it can use Agent Memory Bridge.
 
@@ -25,7 +25,7 @@ Most agent memory either feels too shallow or too heavy:
 
 - summaries become stale blobs
 - vector stores hide why something was recalled
-- every new session re-learns the same gotchas
+- every new session starts cold or gets a stale context dump
 - handoff state turns into ad hoc notes or a queue you did not want to build
 
 AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectable records, benchmarked lexical/hybrid recall, and a signal lifecycle for lightweight coordination.
@@ -34,9 +34,9 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 
 - Durable memory: decisions, gotchas, procedures, concepts, beliefs, and supporting records.
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
-- Governed learning: runtime learning can be staged as policy-gated learning candidates before promotion into durable records.
-- Context assembly: startup and task-time context can be compiled from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `306 passed`.
+- Review-first writeback: learning candidates can be staged for human review before explicit promotion into durable records.
+- Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `312 passed`.
 
 ## Who It Is For
 
@@ -124,6 +124,11 @@ WITH AMB
 agent> I found the previous gotcha: run the generator after schema edits.
 ```
 
+An optional helper layer can turn recalled AMB records into a Task Brief for a
+specific task, including what context was used, ignored, or marked for review.
+That brief is a derived view over AMB memory; it is not a second durable store
+and does not add MCP tools.
+
 The terminal demo and the before/after gotcha story are in [examples/demo](examples/demo/README.md), with the story source at [examples/demo/before-after-gotcha.cast.md](examples/demo/before-after-gotcha.cast.md).
 
 ## Client Support
@@ -148,18 +153,19 @@ The bridge exposes `10` public MCP tools:
 - `forget`, `promote`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The richer behavior stays behind that surface: reflex promotion, consolidation, startup/task-time assembly, procedure governance, telemetry summaries, signal contention checks, learning-candidate review queues, and human review workflows. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `review_queue`, or `review_workflow` MCP tools.
+The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, and human review workflows. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, or `review_workflow` MCP tools.
 
-For normal always-on service use, Codex-log watcher capture, reflex promotion, and strong consolidation are disabled by default. That lets multi-runtime installs run governance checks and embedding sidecar maintenance without silently promoting raw session/process chatter into durable memory.
+For normal service use, log capture helpers, promotion helpers, and strong consolidation are disabled by default. That lets installs run review checks and embedding sidecar maintenance without silently promoting raw session/process chatter into durable memory.
 
 Operator review work is available as CLI reports, not MCP tools:
 
 ```bash
 agent-memory-bridge review-queue --namespace project:demo --format markdown
 agent-memory-bridge review-workflow --namespace project:demo --format markdown
+agent-memory-bridge task-brief --namespace project:demo --query "release handoff" --format markdown
 ```
 
-`review-queue` shows staged candidates, review receipts, tombstones, stale records, and quarantined claims. `review-workflow` turns those queue items into explicit human decision prompts and manual steps. Both are proposal-only and perform no automatic durable writeback.
+`review-queue` shows staged candidates, review receipts, tombstones, stale records, and quarantined claims. `review-workflow` turns those queue items into explicit human decision prompts and manual steps. `task-brief` composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections. All three are proposal-only/read-only reports and perform no automatic durable writeback.
 
 ### Static-schema client compatibility
 
@@ -167,7 +173,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.17.0` is a human review workflow release: it adds a proposal-only workflow plan over the reviewed memory operations queue, turning staged candidates, review receipts, tombstones, stale records, and quarantined claims into explicit human decision prompts while keeping the public tool surface stable.
+`0.18.0` is a Task Brief context-assembly release: it adds a read-only CLI report that composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections while keeping the public MCP surface stable.
 
 | Track | Current signal |
 |---|---|
@@ -180,7 +186,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory operations | `review_queue_item_count = 6`, `review_queue_actionable_count = 6`, `review_queue_no_auto_mutation = true`, `review_queue_public_mcp_surface_change = false` |
 | Human review workflow | `review_workflow_item_count = 6`, `review_workflow_manual_step_count = 27`, `review_workflow_auto_write_count = 0`, `review_workflow_public_mcp_surface_change = false` |
-| Test suite | `306 passed` |
+| Task Brief | `task_brief_used_count = 2`, `task_brief_ignored_count = 1`, `task_brief_needs_review_count = 4`, `task_brief_no_auto_writeback = true`, `task_brief_public_mcp_surface_change = false` |
+| Test suite | `312 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -245,6 +252,15 @@ review_workflow_auto_write_count = 0
 review_workflow_no_auto_writeback = true
 review_workflow_public_mcp_surface_change = false
 review_workflow_item_type_count = 6
+
+task_brief_used_count = 2
+task_brief_ignored_count = 1
+task_brief_needs_review_count = 4
+task_brief_review_queue_item_count = 2
+task_brief_active_signal_count = 1
+task_brief_no_auto_writeback = true
+task_brief_public_mcp_surface_change = false
+task_brief_needs_review_source_type_count = 3
 ```
 
 </details>
@@ -253,7 +269,7 @@ Full proof details are in [benchmark/README.md](benchmark/README.md).
 
 ## Boundaries
 
-AMB is not a graph database, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, or automatic durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination.
+AMB is not a graph database, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, or unreviewed durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination.
 
 For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 

@@ -1,5 +1,11 @@
 # Harness Design
 
+Status: historical design note. The current integration direction is now tracked
+in [ROADMAP.md](ROADMAP.md) under "Active Integration Track: AMB As The Unified
+Entry" and in [CONTEXT-ASSEMBLY.md](CONTEXT-ASSEMBLY.md). Treat this document as
+background for why helper behavior belongs outside the public MCP surface, not
+as a commitment to keep AMH as a separate product line.
+
 Agent Memory Bridge can support a GBrain-like agent experience, but the bridge
 should not become a full brain runtime. This document defines the boundary.
 

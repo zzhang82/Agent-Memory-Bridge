@@ -3,7 +3,7 @@
 This guide is written for coding agents that are helping a human install Agent
 Memory Bridge into an MCP-compatible client.
 
-Use it as an agent-readable setup protocol. Do not treat it as a new runtime,
+Use it as an agent-readable setup protocol. Do not treat it as a runtime,
 watcher, scheduler, or hosted service.
 
 ## What You Are Installing
@@ -17,8 +17,8 @@ The public MCP surface is intentionally small:
 - `forget`, `promote`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-Startup and task-time context assembly are compiled views over those records.
-There are no separate `startup_packet` or `task_packet` MCP tools.
+Startup and task-time context assembly are derived views over those records.
+There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
 
 ## Ask Before You Configure
 
@@ -98,22 +98,27 @@ recall(
 The goal is not to create a large memory dump. The goal is to prove that a later
 session can recover a specific engineering gotcha without the human retyping it.
 
+If an AMH/helper `0.8` first-run flow is present, keep it on this path: check
+AMB, connect one MCP client, store one real gotcha, recall it, and optionally
+render a Task Brief that labels used, ignored, and needs-review context. AMB
+remains the durable authority for the memory.
+
 ## What Not To Do
 
 Do not:
 
 - store secrets, tokens, or private credentials
 - create a watcher or scheduler inside the core bridge
-- add new MCP tools just to expose startup or task packets
+- add new MCP tools just to expose startup packets, task packets, or Task Briefs
 - write machine-specific paths into public examples
 - claim a client is verified unless it has been locally tested
 - replace human review with generated summaries
 
-## Harness Boundary
+## Helper Boundary
 
-A future harness or brain-kit can sit around Agent Memory Bridge. It may provide
-setup wizards, watcher config, skillpacks, and evaluation replay.
+A helper layer can sit around Agent Memory Bridge to guide setup, run checks, or
+render a Task Brief.
 
-That harness should depend on the bridge. It should not turn the bridge itself
-into a hosted runtime, autonomous task runner, scheduler, or full brain system.
-
+That helper should depend on the bridge and treat AMB as the durable source of
+truth. It should not turn the bridge itself into a hosted runtime, autonomous
+task runner, scheduler, watcher, or unreviewed writeback path.

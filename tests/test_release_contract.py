@@ -150,6 +150,14 @@ def create_release_fixture(root: Path) -> Path:
         - `review_workflow_no_auto_writeback = true`
         - `review_workflow_public_mcp_surface_change = false`
         - `review_workflow_item_type_count = 6`
+        - `task_brief_used_count = 2`
+        - `task_brief_ignored_count = 1`
+        - `task_brief_needs_review_count = 4`
+        - `task_brief_review_queue_item_count = 2`
+        - `task_brief_active_signal_count = 1`
+        - `task_brief_no_auto_writeback = true`
+        - `task_brief_public_mcp_surface_change = false`
+        - `task_brief_needs_review_source_type_count = 3`
 
         ## MCP Tools
 
@@ -290,6 +298,24 @@ def create_release_fixture(root: Path) -> Path:
                     "review_workflow_no_auto_writeback": True,
                     "review_workflow_public_mcp_surface_change": False,
                     "review_workflow_item_type_count": 6,
+                }
+            },
+            indent=2,
+        ),
+    )
+    write_file(
+        root / "benchmark" / "latest-task-brief-report.json",
+        json.dumps(
+            {
+                "summary": {
+                    "task_brief_used_count": 2,
+                    "task_brief_ignored_count": 1,
+                    "task_brief_needs_review_count": 4,
+                    "task_brief_review_queue_item_count": 2,
+                    "task_brief_active_signal_count": 1,
+                    "task_brief_no_auto_writeback": True,
+                    "task_brief_public_mcp_surface_change": False,
+                    "task_brief_needs_review_source_type_count": 3,
                 }
             },
             indent=2,

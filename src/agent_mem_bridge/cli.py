@@ -15,6 +15,7 @@ from .review_queue import build_review_queue_report, render_review_queue_markdow
 from .review_workflow import build_review_workflow_report, render_review_workflow_markdown
 from .server import main as serve_server
 from .storage import MemoryStore
+from .task_brief import build_task_brief_report, render_task_brief_markdown
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -48,6 +49,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_review_queue(namespace)
     if namespace.command == "review-workflow":
         return _run_review_workflow(namespace)
+    if namespace.command == "task-brief":
+        return _run_task_brief(namespace)
 
     parser.print_help()
     return 2
@@ -177,6 +180,35 @@ def _build_parser() -> argparse.ArgumentParser:
         default="markdown",
         help="Output format.",
     )
+    task_brief_parser = subparsers.add_parser(
+        "task-brief",
+        help="Render a read-only Task Brief from task memory, review queue, and active signals.",
+    )
+    task_brief_parser.add_argument("--namespace", required=True, help="Project namespace to inspect.")
+    task_brief_parser.add_argument("--query", required=True, help="Task query used to assemble task memory.")
+    task_brief_parser.add_argument(
+        "--global-namespace",
+        default="global",
+        help="Global namespace used for supporting task memory.",
+    )
+    task_brief_parser.add_argument(
+        "--review-limit",
+        type=int,
+        default=100,
+        help="Maximum review-queue rows/items to scan.",
+    )
+    task_brief_parser.add_argument(
+        "--signal-limit",
+        type=int,
+        default=20,
+        help="Maximum active signals to include.",
+    )
+    task_brief_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
     return parser
 
 
@@ -295,6 +327,23 @@ def _run_review_workflow(namespace: argparse.Namespace) -> int:
         print(json.dumps(report, indent=2))
     else:
         print(render_review_workflow_markdown(report))
+    return 0
+
+
+def _run_task_brief(namespace: argparse.Namespace) -> int:
+    store = MemoryStore.from_env()
+    report = build_task_brief_report(
+        store,
+        query=namespace.query,
+        namespace=namespace.namespace,
+        global_namespace=namespace.global_namespace,
+        review_limit=namespace.review_limit,
+        signal_limit=namespace.signal_limit,
+    )
+    if namespace.format == "json":
+        print(json.dumps(report, indent=2))
+    else:
+        print(render_task_brief_markdown(report))
     return 0
 
 

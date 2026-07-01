@@ -21,6 +21,7 @@ the engine gets more expressive.
 - `python ./scripts/run_memory_evolution_benchmark.py`
 - `python ./scripts/run_review_queue_benchmark.py`
 - `python ./scripts/run_review_workflow_benchmark.py`
+- `python ./scripts/run_task_brief_benchmark.py`
 
 ## What The Reports Cover
 
@@ -42,6 +43,7 @@ The checked-in proof and benchmark flow covers:
 - reviewed memory-evolution fixtures for supersession lineage, tombstone audit, quarantine, principal-scope warnings, bitemporal validity, and hidden review lanes
 - reviewed memory-operations queue fixtures for staged candidates, review receipts, tombstones, quarantined claims, stale records, and proposal-only writeback plans
 - human review workflow fixtures for decision prompts, manual steps, allowed outcomes, blocked-until gates, zero auto-writeback, and stable MCP surface boundaries
+- Task Brief fixtures for used, ignored, and needs-review sections over task-memory assembly, review queue items, and active signals
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.
@@ -297,6 +299,30 @@ tracks:
 
 These metrics are local human-review checks. They are not a review UI,
 autonomous reviewer, writeback executor, policy approval system, or a new MCP
+surface.
+
+## Task Brief Benchmark
+
+The Task Brief benchmark is a small deterministic slice for the context-assembly
+question:
+
+> Given existing AMB task memory, review queue items, and active signals, can AMB
+> render an operator-facing brief that separates used, ignored, and needs-review
+> context without executing durable writeback?
+
+The report is written to `benchmark/latest-task-brief-report.json` and tracks:
+
+- `task_brief_used_count`
+- `task_brief_ignored_count`
+- `task_brief_needs_review_count`
+- `task_brief_review_queue_item_count`
+- `task_brief_active_signal_count`
+- `task_brief_no_auto_writeback`
+- `task_brief_public_mcp_surface_change`
+- `task_brief_needs_review_source_type_count`
+
+These metrics are local context-assembly checks. They are not a runtime adapter,
+watcher, scheduler, automatic reviewer, writeback executor, or a new MCP
 surface.
 
 ## Activation Stress

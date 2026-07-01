@@ -1,7 +1,7 @@
 # Agent Memory Bridge
 
-Agent Memory Bridge is a local-first stdio MCP server for persistent engineering
-memory and lightweight coordination.
+Agent Memory Bridge is a local-first stdio MCP server for persistent project
+memory that helps coding agents start with the right context.
 
 Primary docs:
 
@@ -30,12 +30,12 @@ Stable public MCP tools:
 
 Important boundaries:
 
-- No separate startup_packet or task_packet MCP tools.
+- No separate startup_packet, task_packet, or Task Brief MCP tools.
 - No watcher, scheduler, autonomous runner, hosted backend, or graph database in
   AMB Core.
 - Startup and task-time packets are compiled views over existing records.
-- Future harness tools should live around the bridge, not inside the core MCP
-  surface.
+- Optional helper commands can render Task Brief reports around the bridge;
+  Task Brief is a derived CLI/report view, not part of the core MCP surface.
 
 Useful commands:
 
@@ -44,4 +44,3 @@ agent-memory-bridge doctor
 agent-memory-bridge verify
 agent-memory-bridge config --client generic --example
 ```
-

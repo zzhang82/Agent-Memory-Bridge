@@ -1,0 +1,13 @@
+{
+  "schema": "memory.task_brief_benchmark.v1",
+  "summary": {
+    "task_brief_active_signal_count": 1,
+    "task_brief_ignored_count": 1,
+    "task_brief_needs_review_count": 4,
+    "task_brief_needs_review_source_type_count": 3,
+    "task_brief_no_auto_writeback": true,
+    "task_brief_public_mcp_surface_change": false,
+    "task_brief_review_queue_item_count": 2,
+    "task_brief_used_count": 2
+  }
+}

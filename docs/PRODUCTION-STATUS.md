@@ -1,10 +1,10 @@
 # Production Status
 
-Last updated: 2026-06-24 (America/New_York)
+Last updated: 2026-07-01 (America/New_York)
 
-This maintainer note describes the `0.17.0` human review workflow release-candidate shape plus the validation snapshot used to support it.
+This maintainer note describes the `0.18.0` Task Brief release-candidate shape plus the validation snapshot used to support it.
 
-## 0.17.0 Runtime Shape
+## 0.18.0 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -25,10 +25,11 @@ This maintainer note describes the `0.17.0` human review workflow release-candid
 15. reviewed memory revision receipts and deterministic evolution fixtures for supersession, tombstone audit, quarantine, scope warnings, bitemporal validity, and hidden review lanes
 16. a proposal-only review queue CLI/report over hidden candidates, learning reviews, tombstones, stale/expired records, and quarantined claims, with no automatic durable writeback
 17. a human review workflow CLI/report that turns review-queue items into explicit decision prompts, manual steps, allowed outcomes, and blocked-until gates without adding an MCP tool
+18. a Task Brief CLI/report that composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections without adding an MCP tool
 
-## Verified On 2026-06-24
+## Verified On 2026-07-01
 
-- `pytest` passes: `306 passed`
+- `pytest` passes: `312 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
@@ -84,6 +85,14 @@ This maintainer note describes the `0.17.0` human review workflow release-candid
   - `review_workflow_no_auto_writeback = true`
   - `review_workflow_public_mcp_surface_change = false`
   - `review_workflow_item_type_count = 6`
+  - `task_brief_used_count = 2`
+  - `task_brief_ignored_count = 1`
+  - `task_brief_needs_review_count = 4`
+  - `task_brief_review_queue_item_count = 2`
+  - `task_brief_active_signal_count = 1`
+  - `task_brief_no_auto_writeback = true`
+  - `task_brief_public_mcp_surface_change = false`
+  - `task_brief_needs_review_source_type_count = 3`
 - learning candidates are stored with review tags such as `kind:learning-candidate` and `candidate_status:*`
 - learning reviews now include deterministic review-receipt hashes, `writeback_boundary:review_receipt_only`, and `durable_mutation_performed_by_review: false`
 - normal recall, browse, export, and stats suppress learning candidates unless explicit review tags are requested
@@ -112,7 +121,7 @@ This maintainer note describes the `0.17.0` human review workflow release-candid
 - the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, and Antigravity
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.17.0 Actually Means
+## What 0.18.0 Actually Means
 
 - the public MCP surface is still the same small bridge
 - runtime learning can be proposed as a policy-gated candidate instead of becoming ordinary durable memory immediately
@@ -149,7 +158,7 @@ The release still does **not** mean:
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.17.0
+## Pressure Points After 0.18.0
 
 The most important remaining gaps are:
 
@@ -164,7 +173,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.17.0` keeps the public MCP surface small while adding human review workflow ergonomics on top of the governed learning-candidate lane. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, and explicit manual decision plans for review work.
+`0.18.0` keeps the public MCP surface small while adding Task Brief ergonomics on top of task-time assembly and human review workflow reports. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, and read-only task brief reports.
 
 It now behaves like:
 

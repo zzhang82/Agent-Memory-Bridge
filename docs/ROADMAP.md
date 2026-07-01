@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-06-24 (America/New_York)
+Last updated: 2026-07-01 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.17.0`, plus likely post-0.17 research tracks. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.17.0`, plus the active `0.18.0` Task Brief integration track and likely post-0.18 research tracks. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -329,6 +329,86 @@ without making AMB an auto-reviewer, workflow runner, or larger MCP surface.
 - not automatic approval, promotion, deletion, merge, or writeback
 - not a new MCP tool surface
 - not a scheduler, worker runtime, or queue platform
+
+## Active Integration Track: AMB As The Unified Entry
+
+Status: planned, not implemented.
+
+### Thesis
+
+AMB should become the user-facing product entry for durable memory plus
+operator-friendly context views. AMH 0.8 is useful incubator evidence for that
+direction, especially the Task Brief language, but it should not keep rolling
+forward as a separate product line unless there is a narrow migration reason.
+
+The boundary stays:
+
+- AMB owns durable memory, signals, governed mutation, review queues, and the
+  stable MCP/export contract.
+- AMH-style behavior may inform CLI/report UX, setup flows, and Task Brief
+  rendering.
+- AMH outputs are derived working context or proposal evidence, not durable
+  authority.
+
+### Smallest Safe Slice
+
+The first integration slice should be docs/proof first:
+
+1. Start from a normal AMB install and the existing 10-tool MCP surface.
+2. Store one real project gotcha or procedure in AMB.
+3. Recall or export that namespace through existing AMB tools.
+4. Render a Task Brief view with three operator-facing sections:
+   - `Used`: current evidence that belongs in working context.
+   - `Ignored`: stale, suppressed, superseded, or out-of-scope evidence kept
+     inactive.
+   - `Needs Review`: contradictions, active signals, review-queue items, or
+     uncertain evidence that should not become guidance yet.
+5. Prove that the flow performs no durable mutation, adds no MCP tools, and
+   does not require AMH as a second product.
+
+### Likely Implementation Shape
+
+If the docs/proof slice passes, the first code slice should follow the existing
+CLI/report pattern used by `review-queue` and `review-workflow`:
+
+- a proposal-only CLI/report command or formatter
+- JSON and Markdown output
+- deterministic fixture coverage
+- release-contract facts only after the report is stable
+- no `server.py` changes and no public MCP tool expansion
+
+The likely inputs are existing AMB recall/export/task-memory/review-workflow
+data. The integration should not read an AMH database, depend on AMH as a
+runtime package, or copy AMH's standalone product story.
+
+### What To Reuse From AMH 0.8
+
+- the Task Brief labels: `Used`, `Ignored`, `Needs Review`
+- the read-only boundary language
+- tests that block hype terms such as self-learning, agent brain, and automatic
+  writeback
+- the idea of copyable operator commands
+- the distinction between startup packet previews and task-level Task Briefs
+
+### What Not To Reuse Yet
+
+- AMH as a separate public product release line
+- AMH version/release history as part of AMB's product story
+- `first-run` as a full orchestration claim
+- runtime adapters, watcher wiring, scheduler behavior, or daemon behavior
+- static packet fixtures as proof of live runtime integration
+- direct AMB database access from helper code
+
+### Failure Triggers
+
+Block or redesign the integration if it:
+
+- adds `startup_packet`, `task_packet`, or Task Brief MCP tools
+- treats a generated Task Brief as durable memory authority
+- performs automatic `store`, `promote`, `forget`, or review approval
+- depends on AMH as a required second install for basic AMB use
+- implies runtime integration, watcher/scheduler behavior, or live safety
+  certification before a clean-room proof exists
 
 ## Parallel Research Track
 
