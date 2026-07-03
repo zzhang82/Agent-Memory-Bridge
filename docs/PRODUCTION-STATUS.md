@@ -1,10 +1,10 @@
 # Production Status
 
-Last updated: 2026-07-01 (America/New_York)
+Last updated: 2026-07-02 (America/New_York)
 
-This maintainer note describes the `0.18.0` Task Brief release-candidate shape plus the validation snapshot used to support it.
+This maintainer note describes the `0.18.1` first-run adoption polish release-candidate shape plus the validation snapshot used to support it.
 
-## 0.18.0 Runtime Shape
+## 0.18.1 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -26,10 +26,11 @@ This maintainer note describes the `0.18.0` Task Brief release-candidate shape p
 16. a proposal-only review queue CLI/report over hidden candidates, learning reviews, tombstones, stale/expired records, and quarantined claims, with no automatic durable writeback
 17. a human review workflow CLI/report that turns review-queue items into explicit decision prompts, manual steps, allowed outcomes, and blocked-until gates without adding an MCP tool
 18. a Task Brief CLI/report that composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections without adding an MCP tool
+19. a first-run CLI/report that renders install steps, client config snippets, verification steps, and a read-only Task Brief without writing client config or requiring AMH
 
-## Verified On 2026-07-01
+## Verified On 2026-07-02
 
-- `pytest` passes: `312 passed`
+- `pytest` passes: `318 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
@@ -118,10 +119,11 @@ This maintainer note describes the `0.18.0` Task Brief release-candidate shape p
   - `kind:belief`
   - linked supporting records via relation metadata
 - `recall_first(...)` can surface procedure, concept, belief, and supporting layers alongside project/global gotcha and domain retrieval
-- the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, and Antigravity
+- the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, Antigravity, OpenCode, and Hermes
+- `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.18.0 Actually Means
+## What 0.18.1 Actually Means
 
 - the public MCP surface is still the same small bridge
 - runtime learning can be proposed as a policy-gated candidate instead of becoming ordinary durable memory immediately
@@ -129,6 +131,7 @@ This maintainer note describes the `0.18.0` Task Brief release-candidate shape p
 - review receipts are audit material, not a hidden promotion/delete mechanism
 - `review-queue` is an operator-facing CLI/report, not an MCP tool and not an auto-reviewer
 - `review-workflow` is an operator-facing CLI/report, not an MCP tool and not a workflow executor
+- `first-run` is an operator-facing CLI/report, not an MCP tool, not a config writer, and not a plugin runtime
 - review-queue and review-workflow plans are proposal-only; they explain next steps but do not mutate durable memory
 - the store boundary owns policy verification; callers do not get to provide authoritative allow decisions
 - governance triggers may open review signals for staged candidates, but they do not approve, promote, rewrite, or delete memory
@@ -138,7 +141,7 @@ This maintainer note describes the `0.18.0` Task Brief release-candidate shape p
 - deterministic review-workflow fixtures now check source-queue coverage, human-required decisions, manual steps, zero auto-writeback, and no public MCP surface expansion
 - watcher/reflex/consolidation automation is opt-in for the always-on service
 - derived FTS and embedding indexes are cache/proof surfaces, not memory authority
-- relation-lite structure, task assembly, onboarding, and signal contention semantics from 0.13 remain intact
+- relation-lite structure, task assembly, onboarding, and signal contention semantics from prior releases remain intact
 
 ## Honest Boundaries
 
@@ -158,7 +161,7 @@ The release still does **not** mean:
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.18.0
+## Pressure Points After 0.18.1
 
 The most important remaining gaps are:
 
@@ -173,7 +176,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.18.0` keeps the public MCP surface small while adding Task Brief ergonomics on top of task-time assembly and human review workflow reports. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, and read-only task brief reports.
+`0.18.1` keeps the public MCP surface small while making the first useful install path easier: one command can now show a client-specific config snippet, verification steps, and a read-only Task Brief. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, read-only task brief reports, and a simpler first-run adoption path.
 
 It now behaves like:
 

@@ -27,6 +27,8 @@ That means the generic stdio shape matters more than any one IDE's UI.
 | Cursor | Documented | Current docs describe MCP JSON config with stdio entries |
 | Cline | Documented | Uses `mcpServers` JSON config |
 | Antigravity | Locally tested | Shared-MCP writes were observed locally; exact config file path can vary |
+| OpenCode | Locally tested | Local JSON `mcp` command shape was dogfooded locally |
+| Hermes | Locally tested | Local YAML `mcp_servers` shape was dogfooded locally; adapter workflows remain manual |
 
 ## Generic Stdio First
 
@@ -53,8 +55,11 @@ If your client can launch a local subprocess and speak stdio MCP, start here:
 Use the built-in renderer if you want client-specific output:
 
 ```bash
+agent-memory-bridge first-run --client generic --example
 agent-memory-bridge config --client generic --example
 agent-memory-bridge config --client codex --example
+agent-memory-bridge config --client opencode --example
+agent-memory-bridge config --client hermes --example
 agent-memory-bridge config --client cursor --example
 ```
 
@@ -266,6 +271,68 @@ location.
     }
   }
 }
+```
+
+## OpenCode
+
+Status: `Locally tested`
+
+OpenCode can use a local-command JSON shape under `mcp`. Exact config location
+can vary by install, so prefer generating a placeholder-safe snippet first:
+
+```bash
+agent-memory-bridge first-run --client opencode --example
+agent-memory-bridge config --client opencode --example
+```
+
+```json
+{
+  "mcp": {
+    "agentMemoryBridge": {
+      "type": "local",
+      "command": [
+        "/path/to/agent-memory-bridge/.venv/bin/python",
+        "-m",
+        "agent_mem_bridge"
+      ],
+      "enabled": true,
+      "cwd": "/path/to/agent-memory-bridge",
+      "env": {
+        "AGENT_MEMORY_BRIDGE_HOME": "/path/to/bridge-home",
+        "AGENT_MEMORY_BRIDGE_CONFIG": "/path/to/agent-memory-bridge-config.toml",
+        "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT": "opencode",
+        "AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT": "stdio"
+      }
+    }
+  }
+}
+```
+
+## Hermes
+
+Status: `Locally tested`
+
+Hermes local profiles can use `mcp_servers` YAML. AMH/Hermes adapter commands
+remain a manual helper workflow; AMB itself is still the MCP memory substrate.
+
+```bash
+agent-memory-bridge first-run --client hermes --example
+agent-memory-bridge config --client hermes --example
+```
+
+```yaml
+mcp_servers:
+  agentMemoryBridge:
+    command: '/path/to/agent-memory-bridge/.venv/bin/python'
+    args:
+      - '-m'
+      - 'agent_mem_bridge'
+    cwd: '/path/to/agent-memory-bridge'
+    env:
+      AGENT_MEMORY_BRIDGE_HOME: '/path/to/bridge-home'
+      AGENT_MEMORY_BRIDGE_CONFIG: '/path/to/agent-memory-bridge-config.toml'
+      AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT: 'hermes'
+      AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT: 'stdio'
 ```
 
 ## Verify Before You Trust It

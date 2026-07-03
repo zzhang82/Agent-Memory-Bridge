@@ -14,8 +14,10 @@ ClientName = Literal[
     "cursor",
     "cline",
     "antigravity",
+    "opencode",
+    "hermes",
 ]
-ConfigFormat = Literal["json", "toml"]
+ConfigFormat = Literal["json", "toml", "yaml"]
 
 DEFAULT_SERVER_NAME = "agentMemoryBridge"
 PLACEHOLDER_PYTHON = "/path/to/agent-memory-bridge/.venv/bin/python"
@@ -35,6 +37,10 @@ CLIENT_ALIASES: dict[str, ClientName] = {
     "cursor": "cursor",
     "cline": "cline",
     "antigravity": "antigravity",
+    "opencode": "opencode",
+    "open-code": "opencode",
+    "open_code": "opencode",
+    "hermes": "hermes",
 }
 
 CLIENT_STATUSES: dict[ClientName, str] = {
@@ -45,6 +51,8 @@ CLIENT_STATUSES: dict[ClientName, str] = {
     "cursor": "documented",
     "cline": "documented",
     "antigravity": "locally-tested",
+    "opencode": "locally-tested",
+    "hermes": "locally-tested",
 }
 
 CLIENT_FILE_HINTS: dict[ClientName, str] = {
@@ -55,6 +63,8 @@ CLIENT_FILE_HINTS: dict[ClientName, str] = {
     "cursor": ".cursor/mcp.json",
     "cline": "cline_mcp_settings.json",
     "antigravity": "mcp_config.json",
+    "opencode": "opencode.json",
+    "hermes": "~/.hermes/config.yaml",
 }
 
 
@@ -97,6 +107,8 @@ def supported_client_names() -> list[str]:
         "cursor",
         "cline",
         "antigravity",
+        "opencode",
+        "hermes",
     ]
 
 
@@ -146,6 +158,14 @@ def render_client_config(options: ClientConfigOptions) -> RenderedClientConfig:
             file_hint=CLIENT_FILE_HINTS[options.client],
             status=CLIENT_STATUSES[options.client],
         )
+    if options.client == "hermes":
+        return RenderedClientConfig(
+            client=options.client,
+            format="yaml",
+            content=_render_hermes_config(options),
+            file_hint=CLIENT_FILE_HINTS[options.client],
+            status=CLIENT_STATUSES[options.client],
+        )
 
     return RenderedClientConfig(
         client=options.client,
@@ -172,6 +192,20 @@ def render_example_client_configs() -> list[RenderedClientConfig]:
 
 
 def _render_json_config(options: ClientConfigOptions) -> str:
+    if options.client == "opencode":
+        server: dict[str, object] = {
+            "type": "local",
+            "command": [options.command, *options.args],
+            "enabled": True,
+        }
+        if options.cwd:
+            server["cwd"] = options.cwd
+        env = _build_env(options)
+        if env:
+            server["env"] = env
+        payload = {"mcp": {options.server_name: server}}
+        return json.dumps(payload, indent=2)
+
     server: dict[str, object] = {
         "command": options.command,
         "args": list(options.args),
@@ -201,6 +235,25 @@ def _render_codex_config(options: ClientConfigOptions) -> str:
         lines.append(f"[mcp_servers.{options.server_name}.env]")
         for key, value in env.items():
             lines.append(f'{key} = "{_escape_toml_string(value)}"')
+    return "\n".join(lines)
+
+
+def _render_hermes_config(options: ClientConfigOptions) -> str:
+    lines = [
+        "mcp_servers:",
+        f"  {options.server_name}:",
+        f"    command: {_quote_yaml(options.command)}",
+        "    args:",
+    ]
+    for arg in options.args:
+        lines.append(f"      - {_quote_yaml(arg)}")
+    if options.cwd:
+        lines.append(f"    cwd: {_quote_yaml(options.cwd)}")
+    env = _build_env(options)
+    if env:
+        lines.append("    env:")
+        for key, value in env.items():
+            lines.append(f"      {key}: {_quote_yaml(value)}")
     return "\n".join(lines)
 
 
@@ -238,3 +291,7 @@ def _quote_toml(value: str) -> str:
 
 def _escape_toml_string(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _quote_yaml(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"

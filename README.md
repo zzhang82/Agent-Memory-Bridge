@@ -36,7 +36,7 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Review-first writeback: learning candidates can be staged for human review before explicit promotion into durable records.
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `312 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `318 passed`.
 
 ## Who It Is For
 
@@ -71,8 +71,11 @@ agent-memory-bridge verify
 Generate a placeholder-safe client config:
 
 ```bash
+agent-memory-bridge first-run --client generic --example
 agent-memory-bridge config --client generic --example
 agent-memory-bridge config --client codex --example
+agent-memory-bridge config --client opencode --example
+agent-memory-bridge config --client hermes --example
 agent-memory-bridge config --client cursor --example
 ```
 
@@ -144,6 +147,8 @@ Status labels are intentionally narrow.
 | Cursor | documented | JSON `mcpServers` config |
 | Cline | documented | JSON `mcpServers` config |
 | Antigravity | locally tested | Exercised in a local setup; UI/config details can vary |
+| OpenCode | locally tested | JSON `mcp` config shape for local commands |
+| Hermes | locally tested | YAML `mcp_servers` shape in local profiles; adapter workflows remain manual |
 
 ## MCP Tools
 
@@ -173,7 +178,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.18.0` is a Task Brief context-assembly release: it adds a read-only CLI report that composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections while keeping the public MCP surface stable.
+`0.18.1` is a first-run adoption polish release: it adds a read-only `first-run` CLI guide that combines install steps, client config snippets, verification steps, and a Task Brief while keeping the public MCP surface stable.
 
 | Track | Current signal |
 |---|---|
@@ -187,7 +192,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Reviewed memory operations | `review_queue_item_count = 6`, `review_queue_actionable_count = 6`, `review_queue_no_auto_mutation = true`, `review_queue_public_mcp_surface_change = false` |
 | Human review workflow | `review_workflow_item_count = 6`, `review_workflow_manual_step_count = 27`, `review_workflow_auto_write_count = 0`, `review_workflow_public_mcp_surface_change = false` |
 | Task Brief | `task_brief_used_count = 2`, `task_brief_ignored_count = 1`, `task_brief_needs_review_count = 4`, `task_brief_no_auto_writeback = true`, `task_brief_public_mcp_surface_change = false` |
-| Test suite | `312 passed` |
+| Test suite | `318 passed` |
 
 <details>
 <summary>Release contract facts</summary>

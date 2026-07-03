@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .client_config import build_client_config_options, render_client_config, supported_client_names
+from .first_run import build_first_run_report, render_first_run_markdown
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
 from .paths import resolve_bridge_home, resolve_config_path
@@ -37,6 +38,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_service(namespace)
     if namespace.command == "config":
         return _run_config(namespace)
+    if namespace.command == "first-run":
+        return _run_first_run(namespace)
     if namespace.command == "doctor":
         return _run_doctor(namespace)
     if namespace.command == "verify":
@@ -102,6 +105,49 @@ def _build_parser() -> argparse.ArgumentParser:
         "--example",
         action="store_true",
         help="Render placeholder-safe example output instead of local runtime paths.",
+    )
+
+    first_run_parser = subparsers.add_parser(
+        "first-run",
+        help="Render a copy/paste first-run guide with config, verification, and a Task Brief.",
+    )
+    first_run_parser.add_argument("--client", default="generic", choices=supported_client_names())
+    first_run_parser.add_argument("--namespace", default="project:demo", help="Project namespace for the first Task Brief.")
+    first_run_parser.add_argument("--query", default="first task", help="Task query for the first Task Brief.")
+    first_run_parser.add_argument(
+        "--python",
+        dest="python_path",
+        default=sys.executable,
+        help="Python executable that should launch `-m agent_mem_bridge`.",
+    )
+    first_run_parser.add_argument(
+        "--cwd",
+        type=Path,
+        default=Path.cwd(),
+        help="Working directory to embed in the client config.",
+    )
+    first_run_parser.add_argument(
+        "--bridge-home",
+        type=Path,
+        default=resolve_bridge_home(),
+        help="Bridge home path to embed in the client config.",
+    )
+    first_run_parser.add_argument(
+        "--config-path",
+        type=Path,
+        default=resolve_config_path(),
+        help="Config path to embed in the client config.",
+    )
+    first_run_parser.add_argument(
+        "--example",
+        action="store_true",
+        help="Render placeholder-safe setup output instead of local runtime paths.",
+    )
+    first_run_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
     )
 
     doctor_parser = subparsers.add_parser("doctor", help="Run non-invasive onboarding checks.")
@@ -234,6 +280,26 @@ def _run_config(namespace: argparse.Namespace) -> int:
         return 0
 
     print(rendered.content)
+    return 0
+
+
+def _run_first_run(namespace: argparse.Namespace) -> int:
+    store = MemoryStore.from_env()
+    report = build_first_run_report(
+        store,
+        client=namespace.client,
+        namespace=namespace.namespace,
+        query=namespace.query,
+        python_path=namespace.python_path,
+        cwd=namespace.cwd,
+        bridge_home=namespace.bridge_home,
+        config_path=namespace.config_path,
+        example=namespace.example,
+    )
+    if namespace.format == "json":
+        print(json.dumps(report, indent=2))
+    else:
+        print(render_first_run_markdown(report))
     return 0
 
 

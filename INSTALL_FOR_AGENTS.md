@@ -40,6 +40,7 @@ examples from `docs/INTEGRATIONS.md`.
 3. Render a placeholder-safe config before writing a real one:
 
    ```bash
+   agent-memory-bridge first-run --client generic --example
    agent-memory-bridge config --client generic --example
    ```
 
@@ -77,6 +78,28 @@ Use this shape when the client supports JSON `mcpServers` config:
 ```
 
 Client-specific examples live in `docs/INTEGRATIONS.md`.
+
+## One-Command First Run
+
+Use `first-run` when the human wants the shortest safe path from install to a
+useful memory loop:
+
+```bash
+agent-memory-bridge first-run --client codex --namespace project:demo --query "first task" --example
+agent-memory-bridge first-run --client claude-code --namespace project:demo --query "first task" --example
+agent-memory-bridge first-run --client opencode --namespace project:demo --query "first task" --example
+agent-memory-bridge first-run --client hermes --namespace project:demo --query "first task" --example
+```
+
+The report includes:
+
+- install commands
+- a copy/paste client config snippet
+- `doctor` / `verify` steps
+- a read-only Task Brief for the first namespace/query
+
+It does not write client config, add MCP tools, require AMH, or mutate durable
+memory.
 
 ## First Useful Memory Loop
 

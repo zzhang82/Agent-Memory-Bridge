@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-07-01 (America/New_York)
+Last updated: 2026-07-02 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.17.0`, plus the active `0.18.0` Task Brief integration track and likely post-0.18 research tracks. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.18.1`, including Task Brief reports and the limited first-run adoption helper, plus likely post-0.18 research tracks. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -394,7 +394,7 @@ runtime package, or copy AMH's standalone product story.
 
 - AMH as a separate public product release line
 - AMH version/release history as part of AMB's product story
-- `first-run` as a full orchestration claim
+- `first-run` as a full orchestration claim; the shipped `first-run` helper is only install/config/verify/Task Brief guidance
 - runtime adapters, watcher wiring, scheduler behavior, or daemon behavior
 - static packet fixtures as proof of live runtime integration
 - direct AMB database access from helper code

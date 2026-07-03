@@ -90,9 +90,13 @@ def _example_configs_check() -> dict[str, Any]:
         try:
             if rendered.format == "json":
                 json.loads(rendered.content)
-            else:
+            elif rendered.format == "toml":
                 tomllib.loads(rendered.content)
-        except (json.JSONDecodeError, tomllib.TOMLDecodeError) as exc:
+            elif rendered.format == "yaml":
+                _validate_yaml_like_mcp_config(rendered.content)
+            else:
+                raise ValueError(f"Unsupported rendered config format: {rendered.format}")
+        except (json.JSONDecodeError, tomllib.TOMLDecodeError, ValueError) as exc:
             failures.append(
                 {
                     "client": rendered.client,
@@ -115,6 +119,19 @@ def _example_configs_check() -> dict[str, Any]:
         "ok": not failures,
         "failures": failures,
     }
+
+
+def _validate_yaml_like_mcp_config(content: str) -> None:
+    required_lines = (
+        "mcp_servers:",
+        "  agentMemoryBridge:",
+        "    command:",
+        "    args:",
+        "    env:",
+    )
+    for line in required_lines:
+        if line not in content:
+            raise ValueError(f"Missing YAML config line: {line}")
 
 
 def _onboarding_docs_leak_check(project_root: Path) -> dict[str, Any]:

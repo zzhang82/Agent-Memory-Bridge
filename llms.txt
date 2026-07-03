@@ -42,5 +42,6 @@ Useful commands:
 ```bash
 agent-memory-bridge doctor
 agent-memory-bridge verify
+agent-memory-bridge first-run --client generic --example
 agent-memory-bridge config --client generic --example
 ```

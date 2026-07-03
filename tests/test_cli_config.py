@@ -5,21 +5,30 @@ import tomllib
 from pathlib import Path
 
 from agent_mem_bridge.cli import main
-from agent_mem_bridge.client_config import build_client_config_options, render_client_config, render_example_client_configs
+from agent_mem_bridge.client_config import (
+    build_client_config_options,
+    render_client_config,
+    render_example_client_configs,
+    supported_client_names,
+)
 
 
 def test_rendered_example_configs_parse() -> None:
     for rendered in render_example_client_configs():
         if rendered.format == "json":
             payload = json.loads(rendered.content)
-            assert "mcpServers" in payload
+            assert "mcpServers" in payload or "mcp" in payload
         else:
-            payload = tomllib.loads(rendered.content)
-            assert "mcp_servers" in payload
+            if rendered.format == "toml":
+                payload = tomllib.loads(rendered.content)
+                assert "mcp_servers" in payload
+            else:
+                assert rendered.format == "yaml"
+                assert "mcp_servers:" in rendered.content
 
 
 def test_non_codex_configs_do_not_reference_codex_home() -> None:
-    for client in ("generic", "claude-desktop", "claude-code", "cursor", "cline", "antigravity"):
+    for client in ("generic", "claude-desktop", "claude-code", "cursor", "cline", "antigravity", "opencode", "hermes"):
         rendered = render_client_config(
             build_client_config_options(
                 client,
@@ -31,6 +40,50 @@ def test_non_codex_configs_do_not_reference_codex_home() -> None:
             )
         )
         assert "CODEX_HOME" not in rendered.content
+
+
+def test_opencode_and_hermes_are_supported_clients() -> None:
+    names = supported_client_names()
+
+    assert "opencode" in names
+    assert "hermes" in names
+
+
+def test_opencode_config_uses_opencode_mcp_shape() -> None:
+    rendered = render_client_config(
+        build_client_config_options(
+            "opencode",
+            python_path="/path/to/python",
+            cwd="/path/to/repo",
+            bridge_home="/path/to/bridge-home",
+            config_path="/path/to/config.toml",
+            example=True,
+        )
+    )
+    payload = json.loads(rendered.content)
+    server = payload["mcp"]["agentMemoryBridge"]
+
+    assert rendered.format == "json"
+    assert server["type"] == "local"
+    assert server["command"] == ["/path/to/agent-memory-bridge/.venv/bin/python", "-m", "agent_mem_bridge"]
+    assert server["env"]["AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT"] == "opencode"
+
+
+def test_hermes_config_uses_yaml_mcp_servers_shape() -> None:
+    rendered = render_client_config(
+        build_client_config_options(
+            "hermes",
+            python_path="/path/to/python",
+            cwd="/path/to/repo",
+            bridge_home="/path/to/bridge-home",
+            config_path="/path/to/config.toml",
+        )
+    )
+
+    assert rendered.format == "yaml"
+    assert "mcp_servers:" in rendered.content
+    assert "agentMemoryBridge:" in rendered.content
+    assert "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT: 'hermes'" in rendered.content
 
 
 def test_config_output_refuses_overwrite_without_force(tmp_path: Path) -> None:
