@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-07-02 (America/New_York)
+Last updated: 2026-07-03 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.18.1`, including Task Brief reports and the limited first-run adoption helper, plus likely post-0.18 research tracks. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.18.1`, including Task Brief reports and the limited first-run adoption helper, plus the next bounded planning gate. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -330,16 +330,16 @@ without making AMB an auto-reviewer, workflow runner, or larger MCP surface.
 - not a new MCP tool surface
 - not a scheduler, worker runtime, or queue platform
 
-## Active Integration Track: AMB As The Unified Entry
+## 0.18 / 0.18.1 = AMB As The Unified Entry
 
-Status: planned, not implemented.
+Status: shipped across `v0.18.0` and `v0.18.1`.
 
 ### Thesis
 
 AMB should become the user-facing product entry for durable memory plus
-operator-friendly context views. AMH 0.8 is useful incubator evidence for that
-direction, especially the Task Brief language, but it should not keep rolling
-forward as a separate product line unless there is a narrow migration reason.
+operator-friendly context views. AMH 0.8 remains useful incubator evidence,
+especially the Task Brief language, but it should not keep rolling forward as a
+separate product line unless there is a narrow migration reason.
 
 The boundary stays:
 
@@ -350,36 +350,21 @@ The boundary stays:
 - AMH outputs are derived working context or proposal evidence, not durable
   authority.
 
-### Smallest Safe Slice
+### What Shipped
 
-The first integration slice should be docs/proof first:
+- `v0.18.0` added the read-only `task-brief` CLI/report over existing AMB
+  assembly, review queue items, and active signals.
+- `v0.18.1` added the `first-run` CLI/report so a new operator can see install
+  steps, client config snippets, verification steps, and a first Task Brief
+  preview without requiring AMH or widening the MCP surface.
 
-1. Start from a normal AMB install and the existing 10-tool MCP surface.
-2. Store one real project gotcha or procedure in AMB.
-3. Recall or export that namespace through existing AMB tools.
-4. Render a Task Brief view with three operator-facing sections:
-   - `Used`: current evidence that belongs in working context.
-   - `Ignored`: stale, suppressed, superseded, or out-of-scope evidence kept
-     inactive.
-   - `Needs Review`: contradictions, active signals, review-queue items, or
-     uncertain evidence that should not become guidance yet.
-5. Prove that the flow performs no durable mutation, adds no MCP tools, and
-   does not require AMH as a second product.
+Both releases keep the same boundary:
 
-### Likely Implementation Shape
-
-If the docs/proof slice passes, the first code slice should follow the existing
-CLI/report pattern used by `review-queue` and `review-workflow`:
-
-- a proposal-only CLI/report command or formatter
-- JSON and Markdown output
-- deterministic fixture coverage
-- release-contract facts only after the report is stable
-- no `server.py` changes and no public MCP tool expansion
-
-The likely inputs are existing AMB recall/export/task-memory/review-workflow
-data. The integration should not read an AMH database, depend on AMH as a
-runtime package, or copy AMH's standalone product story.
+- no new public MCP tools
+- no automatic client config mutation
+- no automatic durable writeback
+- no required AMH install for basic AMB use
+- Task Briefs remain derived operator reports, not durable authority
 
 ### What To Reuse From AMH 0.8
 
@@ -394,12 +379,97 @@ runtime package, or copy AMH's standalone product story.
 
 - AMH as a separate public product release line
 - AMH version/release history as part of AMB's product story
-- `first-run` as a full orchestration claim; the shipped `first-run` helper is only install/config/verify/Task Brief guidance
 - runtime adapters, watcher wiring, scheduler behavior, or daemon behavior
 - static packet fixtures as proof of live runtime integration
 - direct AMB database access from helper code
 
+## 0.19 = proof breadth and adoption proof
+
+Status: planned, not started.
+
+### Thesis
+
+`0.19` should not add another feature layer by default. It should prove that the
+current product shape is broader than the original dogfood path: new users can
+start through the unified AMB entry, and the existing retrieval/task-brief
+behavior holds across a wider reviewed fixture set.
+
+One sentence:
+
+`0.19 = widen proof before widening product surface.`
+
+### Scope
+
+Start with a fixed denominator before implementation:
+
+1. Before implementation, write and review
+   [benchmark/v0.19-fixture-manifest.json](../benchmark/v0.19-fixture-manifest.json),
+   which names every `0.19` fixture, its expected behavior, and its failure
+   reason.
+2. Add one reviewed `0.19` fixture pack with exactly `12` cases:
+   - `4` retrieval cases covering durable decisions, gotchas, procedures, and
+     concepts across more than one namespace.
+   - `4` Task Brief cases covering `Used`, `Ignored`, `Needs Review`, and active
+     signal inclusion without durable mutation.
+   - `4` first-run/adoption cases covering generic stdio, Codex, Claude Code,
+     and Cursor config guidance.
+3. Add or update benchmark/report snapshots only for those cases.
+4. Add release-contract facts for the new denominator and pass rates.
+5. Update README proof facts only after snapshots exist.
+
+### Acceptance Gate
+
+`0.19` is ready only when all of these are true:
+
+- `0.19` fixture count is exactly `12`.
+- the 12 fixture names, expected behaviors, and failure reasons are reviewed
+  in [benchmark/v0.19-fixture-manifest.json](../benchmark/v0.19-fixture-manifest.json)
+  before fixture implementation starts.
+- every fixture has a named expected behavior and failure reason.
+- retrieval and Task Brief fixtures pass without adding MCP tools.
+- first-run/adoption fixtures stay placeholder-safe and perform no client config
+  writes.
+- release contract passes and includes the new `0.19` fixture denominator.
+- public MCP surface remains `10` tools.
+- README and `README.zh-CN.md` facts match generated snapshots.
+- CI is green on the final release commit.
+
+### Non-Goals
+
+These are explicitly out of scope for `0.19`:
+
+- new public MCP tools
+- new production CLI commands unless Frank explicitly re-scopes `0.19`
+- client config writers or plugin installers
+- review UI
+- scheduler, watcher, worker, or runtime loop expansion
+- automatic `store`, `promote`, `forget`, merge, approval, or writeback
+- AMH as a required dependency or second public product line
+- broad README redesign unrelated to the `0.19` evidence
+- parallel research-track features unless they fit the predeclared 12-case
+  denominator
+
+### Stop Line
+
+Stop the release when the acceptance gate passes and the tag/release exists.
+Do not use a passing `0.19` gate as permission to start the next feature in the
+same release. New ideas discovered during fixture work become later candidates
+unless they are required to make a predeclared fixture pass.
+
 ### Failure Triggers
+
+Block or redesign `0.19` if it:
+
+- needs a new MCP tool to demonstrate value
+- grows beyond the `12`-case denominator before the first release candidate
+- starts fixture implementation before the 12 fixture names and expected
+  outcomes are reviewed
+- turns first-run into a config writer
+- treats Task Briefs as durable memory authority
+- makes AMH required for the normal install path
+- improves README claims without updating generated proof snapshots
+
+### Inherited Integration Failure Triggers
 
 Block or redesign the integration if it:
 
@@ -421,8 +491,8 @@ release immediately:
 - deeper real multi-client contention dogfood beyond serialized benchmark cases
 - human-facing review/promote ergonomics beyond the current CLI report
 
-Treat these as cross-cutting tracks that can land in `0.17.x` and later
-as they become stable and portable.
+Treat these as cross-cutting tracks that can land only after a release gives
+them a bounded denominator and stop line.
 
 ## What 1.0 Should Mean
 

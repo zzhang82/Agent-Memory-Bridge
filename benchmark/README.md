@@ -23,6 +23,12 @@ the engine gets more expressive.
 - `python ./scripts/run_review_workflow_benchmark.py`
 - `python ./scripts/run_task_brief_benchmark.py`
 
+## Planning Manifests
+
+- `benchmark/v0.19-fixture-manifest.json` is the planned `0.19` proof-breadth
+  denominator. It names the 12 reviewed fixture cases before implementation so
+  `0.19` cannot silently grow from proof work into new product surface.
+
 ## What The Reports Cover
 
 The checked-in proof and benchmark flow covers:
