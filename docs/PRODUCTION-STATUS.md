@@ -26,7 +26,7 @@ This maintainer note describes the `0.18.1` first-run adoption polish release-ca
 16. a proposal-only review queue CLI/report over hidden candidates, learning reviews, tombstones, stale/expired records, and quarantined claims, with no automatic durable writeback
 17. a human review workflow CLI/report that turns review-queue items into explicit decision prompts, manual steps, allowed outcomes, and blocked-until gates without adding an MCP tool
 18. a Task Brief CLI/report that composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections without adding an MCP tool
-19. a first-run CLI/report that renders install steps, client config snippets, verification steps, and a read-only Task Brief without writing client config or requiring AMH
+19. a first-run CLI/report that renders install steps, client config snippets, verification steps, and a Task Brief without writing client config, durable memory records, or requiring AMH
 
 ## Verified On 2026-07-02
 
@@ -176,7 +176,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.18.1` keeps the public MCP surface small while making the first useful install path easier: one command can now show a client-specific config snippet, verification steps, and a read-only Task Brief. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, read-only task brief reports, and a simpler first-run adoption path.
+`0.18.1` keeps the public MCP surface small while making the first useful install path easier: one command can now show a client-specific config snippet, verification steps, and a Task Brief without writing client config or durable memory records. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, read-only task brief reports, and a simpler first-run adoption path.
 
 It now behaves like:
 

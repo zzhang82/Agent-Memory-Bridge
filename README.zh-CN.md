@@ -175,7 +175,7 @@ agent-memory-bridge task-brief --namespace project:demo --query "release handoff
 
 ## Proof Snapshot
 
-`0.18.1` 是 first-run adoption polish release：它新增一个 read-only `first-run` CLI guide，把安装步骤、client config snippet、验证步骤和 Task Brief 放在同一个入口里，同时保持 public MCP surface 稳定。
+`0.18.1` 是 first-run adoption polish release：它新增一个 `first-run` CLI guide，把安装步骤、client config snippet、验证步骤和 Task Brief 放在同一个入口里，但不会写 client config 或 durable memory records，同时保持 public MCP surface 稳定。
 
 | Track | Current signal |
 |---|---|

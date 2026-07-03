@@ -178,7 +178,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.18.1` is a first-run adoption polish release: it adds a read-only `first-run` CLI guide that combines install steps, client config snippets, verification steps, and a Task Brief while keeping the public MCP surface stable.
+`0.18.1` is a first-run adoption polish release: it adds a `first-run` CLI guide that combines install steps, client config snippets, verification steps, and a Task Brief without writing client config or durable memory records, while keeping the public MCP surface stable.
 
 | Track | Current signal |
 |---|---|
