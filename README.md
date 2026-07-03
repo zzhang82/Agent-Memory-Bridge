@@ -68,10 +68,23 @@ agent-memory-bridge doctor
 agent-memory-bridge verify
 ```
 
-Generate a placeholder-safe client config:
+### Quick Start: Unified First-Run
+
+Use `first-run` when you want a complete copy/paste setup guide for a client.
+It renders install steps, a placeholder-safe config snippet, verification
+commands, and a first Task Brief preview. It does not write client config files
+or durable memory records.
 
 ```bash
 agent-memory-bridge first-run --client generic --example
+agent-memory-bridge first-run --client codex --example
+agent-memory-bridge first-run --client opencode --example
+agent-memory-bridge first-run --client hermes --example
+```
+
+If you only need the config snippet, use `config` directly:
+
+```bash
 agent-memory-bridge config --client generic --example
 agent-memory-bridge config --client codex --example
 agent-memory-bridge config --client opencode --example
@@ -127,10 +140,10 @@ WITH AMB
 agent> I found the previous gotcha: run the generator after schema edits.
 ```
 
-An optional helper layer can turn recalled AMB records into a Task Brief for a
-specific task, including what context was used, ignored, or marked for review.
-That brief is a derived view over AMB memory; it is not a second durable store
-and does not add MCP tools.
+Task Briefs do not require Agent Memory Harness (AMH). The AMB CLI can render a
+derived task context report over recalled records, including what context was
+used, ignored, or marked for review. That brief is a derived view over AMB
+memory; it is not a second durable store and does not add MCP tools.
 
 The terminal demo and the before/after gotcha story are in [examples/demo](examples/demo/README.md), with the story source at [examples/demo/before-after-gotcha.cast.md](examples/demo/before-after-gotcha.cast.md).
 

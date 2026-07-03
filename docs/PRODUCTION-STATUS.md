@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-02 (America/New_York)
 
-This maintainer note describes the `0.18.1` first-run adoption polish release-candidate shape plus the validation snapshot used to support it.
+This maintainer note describes the `0.18.1` first-run adoption polish release shape plus the validation snapshot used to support it.
 
 ## 0.18.1 Runtime Shape
 

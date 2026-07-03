@@ -68,10 +68,23 @@ agent-memory-bridge doctor
 agent-memory-bridge verify
 ```
 
-生成 placeholder-safe 的客户端配置：
+### 快速开始：Unified First-Run
+
+如果你想直接得到某个客户端的完整 copy/paste setup guide，先用
+`first-run`。它会渲染安装步骤、placeholder-safe config snippet、验证命令，
+以及第一份 Task Brief preview。它不会写 client config 文件，也不会写 durable
+memory records。
 
 ```bash
 agent-memory-bridge first-run --client generic --example
+agent-memory-bridge first-run --client codex --example
+agent-memory-bridge first-run --client opencode --example
+agent-memory-bridge first-run --client hermes --example
+```
+
+如果你只需要 config snippet，再直接用 `config`：
+
+```bash
 agent-memory-bridge config --client generic --example
 agent-memory-bridge config --client codex --example
 agent-memory-bridge config --client opencode --example
@@ -129,7 +142,10 @@ agent> I found the previous gotcha: run the generator after schema edits.
 
 终端 demo 和 before/after gotcha story 都在 [examples/demo](examples/demo/README.md)，故事源文件在 [examples/demo/before-after-gotcha.cast.md](examples/demo/before-after-gotcha.cast.md)。
 
-可选 helper layer 可以把召回的 AMB records 渲染成针对具体任务的 Task Brief，标出哪些 context 被 used、ignored 或 needs review。这个 brief 是 AMB memory 之上的 derived view；它不是第二个 durable store，也不会增加 MCP tools。
+Task Brief 不需要 Agent Memory Harness (AMH)。AMB CLI 可以把召回的 AMB
+records 渲染成针对具体任务的 derived context report，标出哪些 context 被
+used、ignored 或 needs review。这个 brief 是 AMB memory 之上的 derived
+view；它不是第二个 durable store，也不会增加 MCP tools。
 
 ## 客户端支持
 
