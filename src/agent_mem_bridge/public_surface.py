@@ -20,6 +20,8 @@ PUBLIC_DOC_PATHS = (
     Path("benchmark/README.md"),
     Path("benchmark/adversarial-memory-cases.json"),
     Path("benchmark/latest-adversarial-memory-report.json"),
+    Path("benchmark/latest-v0.19-adoption-proof-report.json"),
+    Path("benchmark/v0.19-fixture-manifest.json"),
     Path("docs/AUTHORITY-CONTRACT.md"),
     Path("docs/CLIENT-PROVENANCE.md"),
     Path("docs/COMPARISON.md"),

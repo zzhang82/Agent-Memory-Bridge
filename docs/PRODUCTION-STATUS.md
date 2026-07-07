@@ -1,10 +1,10 @@
 # Production Status
 
-Last updated: 2026-07-02 (America/New_York)
+Last updated: 2026-07-07 (America/New_York)
 
-This maintainer note describes the `0.18.1` first-run adoption polish release shape plus the validation snapshot used to support it.
+This maintainer note describes the `0.19.0` proof-breadth release shape plus the validation snapshot used to support it.
 
-## 0.18.1 Runtime Shape
+## 0.19.0 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -30,7 +30,7 @@ This maintainer note describes the `0.18.1` first-run adoption polish release sh
 
 ## Verified On 2026-07-02
 
-- `pytest` passes: `318 passed`
+- `pytest` passes: `323 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
@@ -94,6 +94,22 @@ This maintainer note describes the `0.18.1` first-run adoption polish release sh
   - `task_brief_no_auto_writeback = true`
   - `task_brief_public_mcp_surface_change = false`
   - `task_brief_needs_review_source_type_count = 3`
+- v0.19 adoption-proof snapshot reports:
+  - `v019_case_count = 12`
+  - `v019_pass_count = 12`
+  - `v019_pass_rate = 1.0`
+  - `v019_retrieval_case_count = 4`
+  - `v019_retrieval_pass_rate = 1.0`
+  - `v019_task_brief_case_count = 4`
+  - `v019_task_brief_pass_rate = 1.0`
+  - `v019_first_run_adoption_case_count = 4`
+  - `v019_first_run_adoption_pass_rate = 1.0`
+  - `v019_public_mcp_tool_count = 10`
+  - `v019_public_mcp_surface_change = false`
+  - `v019_client_config_write_count = 0`
+  - `v019_durable_writeback_count = 0`
+  - `v019_amh_required = false`
+  - `v019_native_memory_comparison_required = true`
 - learning candidates are stored with review tags such as `kind:learning-candidate` and `candidate_status:*`
 - learning reviews now include deterministic review-receipt hashes, `writeback_boundary:review_receipt_only`, and `durable_mutation_performed_by_review: false`
 - normal recall, browse, export, and stats suppress learning candidates unless explicit review tags are requested
@@ -123,7 +139,7 @@ This maintainer note describes the `0.18.1` first-run adoption polish release sh
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.18.1 Actually Means
+## What 0.19.0 Actually Means
 
 - the public MCP surface is still the same small bridge
 - runtime learning can be proposed as a policy-gated candidate instead of becoming ordinary durable memory immediately
@@ -161,7 +177,7 @@ The release still does **not** mean:
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.18.1
+## Pressure Points After 0.19.0
 
 The most important remaining gaps are:
 
@@ -176,7 +192,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.18.1` keeps the public MCP surface small while making the first useful install path easier: one command can now show a client-specific config snippet, verification steps, and a Task Brief without writing client config or durable memory records. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, read-only task brief reports, and a simpler first-run adoption path.
+`0.19.0` keeps the public MCP surface small while widening proof before widening product surface: the release adds an executable 12-case adoption-proof pack across retrieval, Task Brief behavior, and first-run client guidance without writing client config or durable memory records. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, read-only task brief reports, a simpler first-run adoption path, and fixed-denominator adoption proof.
 
 It now behaves like:
 

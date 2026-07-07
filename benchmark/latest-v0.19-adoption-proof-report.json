@@ -1,0 +1,348 @@
+{
+  "cases": [
+    {
+      "category": "retrieval",
+      "checks": {
+        "global_support_available": true,
+        "project_top_hit_is_current_decision": true
+      },
+      "expected_behavior": "The top result is a current project release-cutover decision, with global support allowed as secondary context.",
+      "failure_reason": "Fails if a stale global summary outranks the project decision, if namespace scoping hides the project decision, or if relation support is required to create a new MCP tool.",
+      "id": "retrieval-durable-decision-cross-namespace",
+      "non_goal_guard": "Do not add graph traversal or a new recall API for this case.",
+      "observations": {
+        "global_titles": [
+          "[[Domain]] release cutover verification defaults"
+        ],
+        "project_titles": [
+          "[[Decision]] release cutover default verification",
+          "[[Procedure]] current release checklist",
+          "[[Procedure]] old release checklist"
+        ]
+      },
+      "passed": true,
+      "purpose": "Show that durable project decisions can be recalled with supporting global context instead of being lost in a single namespace.",
+      "query_or_command": "release cutover default verification"
+    },
+    {
+      "category": "retrieval",
+      "checks": {
+        "compact_gotcha_top_hit": true,
+        "summary_noise_not_top_hit": true
+      },
+      "expected_behavior": "The recalled packet includes the specific gotcha about running the generator after schema edits and suppresses unrelated session summaries.",
+      "failure_reason": "Fails if long summaries dominate the result, if the gotcha is absent, or if the fix is to store more transcript-like memory.",
+      "id": "retrieval-gotcha-beats-summary-noise",
+      "non_goal_guard": "Do not solve by broadening transcript capture.",
+      "observations": {
+        "titles": [
+          "[[Gotcha]] schema edit generator gotcha",
+          "[[Summary]] schema edit generator session"
+        ]
+      },
+      "passed": true,
+      "purpose": "Show that a compact gotcha can beat broad session-summary noise for a concrete engineering query.",
+      "query_or_command": "schema edit generator gotcha"
+    },
+    {
+      "category": "retrieval",
+      "checks": {
+        "concept_support_present": true,
+        "procedure_present": true,
+        "report_is_informational": true
+      },
+      "expected_behavior": "The result includes the relevant procedure plus a supporting concept note or belief, while remaining an informational packet.",
+      "failure_reason": "Fails if the procedure is missing, if support records are noisy, or if the implementation tries to execute the procedure automatically.",
+      "id": "retrieval-procedure-with-concept-support",
+      "non_goal_guard": "No procedure execution, scheduler, or worker loop.",
+      "observations": {
+        "concept_titles": [
+          "[[Concept]] task brief is derived context"
+        ],
+        "procedure_titles": [
+          "[[Procedure]] prepare task brief release handoff",
+          "[[Procedure]] current release handoff path",
+          "[[Procedure]] current release checklist"
+        ],
+        "supporting_titles": []
+      },
+      "passed": true,
+      "purpose": "Show that a procedure can be retrieved with relevant concept support without becoming a procedure execution engine.",
+      "query_or_command": "prepare task brief release handoff"
+    },
+    {
+      "category": "retrieval",
+      "checks": {
+        "broad_domain_note_not_top_hit": true,
+        "concept_note_top_hit": true
+      },
+      "expected_behavior": "The result prefers a compact concept note or authority-boundary record over generic domain prose.",
+      "failure_reason": "Fails if broad domain notes bury the answer or if the answer overclaims Task Brief as durable authority.",
+      "id": "retrieval-concept-not-broad-domain-note",
+      "non_goal_guard": "Do not add a concept graph or cross-domain synthesis feature.",
+      "observations": {
+        "titles": [
+          "[[Concept]] task brief is derived context",
+          "[[Domain]] task brief broad notes"
+        ]
+      },
+      "passed": true,
+      "purpose": "Show that a concept note can be found as compact understanding instead of falling back to a broad domain note.",
+      "query_or_command": "why task brief is derived context not authority"
+    },
+    {
+      "category": "task_brief",
+      "checks": {
+        "no_auto_writeback": true,
+        "used_has_current_procedure": true,
+        "used_items_have_reasons": true
+      },
+      "expected_behavior": "`Used` includes a current procedure or decision relevant to the query with a reason for inclusion.",
+      "failure_reason": "Fails if the relevant current item is absent, if inclusion has no reason, or if the report performs durable writeback.",
+      "id": "task-brief-used-current-procedure",
+      "non_goal_guard": "Task Brief remains a read-only report.",
+      "observations": {
+        "used_titles": [
+          "[[Procedure]] current release handoff path",
+          "[[Procedure]] prepare task brief release handoff",
+          "[[Procedure]] current release checklist",
+          "[[Concept]] task brief is derived context",
+          "[[Belief]] safe release requires proof",
+          "[[Domain]] release cutover verification defaults"
+        ]
+      },
+      "passed": true,
+      "purpose": "Show that Task Brief `Used` can include current actionable context for a task.",
+      "query_or_command": "agent-memory-bridge task-brief --namespace project:demo --query \"release handoff\" --format json"
+    },
+    {
+      "category": "task_brief",
+      "checks": {
+        "ignored_has_superseded_record": true,
+        "old_record_not_used": true,
+        "superseding_record_known": true
+      },
+      "expected_behavior": "`Ignored` includes a superseded or stale record with a clear suppression reason and no leakage into `Used`.",
+      "failure_reason": "Fails if stale evidence appears in `Used`, if the suppression reason is missing, or if deletion is used instead of audit-preserving suppression.",
+      "id": "task-brief-ignored-superseded-record",
+      "non_goal_guard": "No automatic forget, tombstone mutation, or cleanup action.",
+      "observations": {
+        "ignored_reasons": [
+          "superseded"
+        ],
+        "used_titles": [
+          "[[Procedure]] current release checklist",
+          "[[Procedure]] current release handoff path",
+          "[[Procedure]] prepare task brief release handoff",
+          "[[Concept]] task brief is derived context",
+          "[[Belief]] safe release requires proof",
+          "[[Domain]] release cutover verification defaults"
+        ]
+      },
+      "passed": true,
+      "purpose": "Show that Task Brief `Ignored` can explain why superseded or stale evidence is not working context.",
+      "query_or_command": "agent-memory-bridge task-brief --namespace project:demo --query \"old release checklist\" --format json"
+    },
+    {
+      "category": "task_brief",
+      "checks": {
+        "needs_review_has_contradiction": true,
+        "no_auto_resolution": true,
+        "used_not_confidently_presenting_contradiction": true
+      },
+      "expected_behavior": "`Needs Review` includes the contradiction with a reason, while `Used` does not present both sides as equally safe guidance.",
+      "failure_reason": "Fails if contradictory records both appear as confident `Used` guidance or if the report auto-resolves the conflict.",
+      "id": "task-brief-needs-review-contradiction",
+      "non_goal_guard": "No automatic merge, promotion, approval, or contradiction resolution.",
+      "observations": {
+        "needs_review_reasons": [
+          "contradicted",
+          "signal_status:pending"
+        ],
+        "used_reasons": [
+          "direct:belief",
+          "direct:concept",
+          "direct:domain",
+          "direct:procedure",
+          "namespace:global",
+          "namespace:project",
+          "selected_as:belief-overlay",
+          "selected_as:concept-overlay",
+          "selected_as:domain-context",
+          "selected_as:procedure-anchor"
+        ]
+      },
+      "passed": true,
+      "purpose": "Show that contradictory memory becomes review material rather than confident guidance.",
+      "query_or_command": "agent-memory-bridge task-brief --namespace project:demo --query \"safe release shortcut\" --format json"
+    },
+    {
+      "category": "task_brief",
+      "checks": {
+        "active_signal_visible": true,
+        "signal_not_claimed_or_acked": true,
+        "signal_separate_from_durable_memory": true
+      },
+      "expected_behavior": "The report includes one relevant active signal with status/ownership context and keeps it separate from durable memory.",
+      "failure_reason": "Fails if signals are hidden from the operator, mixed into durable memory, or claimed/acked by the report.",
+      "id": "task-brief-active-signal-inclusion",
+      "non_goal_guard": "No signal claim, ack, worker, scheduler, or active consumer loop.",
+      "observations": {
+        "signal_items": [
+          {
+            "kind": "signal",
+            "reason_codes": [
+              "signal_status:pending"
+            ],
+            "signal_status": "pending",
+            "source": "signal",
+            "title": "Review handoff active signal"
+          }
+        ]
+      },
+      "passed": true,
+      "purpose": "Show that active coordination state can be visible without turning AMB into a scheduler.",
+      "query_or_command": "agent-memory-bridge task-brief --namespace project:demo --query \"review handoff\" --format json"
+    },
+    {
+      "category": "first_run_adoption",
+      "checks": {
+        "amh_not_required": true,
+        "client_matches": true,
+        "json_config_parseable": true,
+        "manual_copy_only": true,
+        "no_mutation": true,
+        "no_private_user_path": true,
+        "placeholder_safe": true,
+        "public_surface_unchanged": true
+      },
+      "expected_behavior": "The output includes install steps, a placeholder-safe stdio config snippet, verification commands, and no client-specific private paths.",
+      "failure_reason": "Fails if placeholders are not parseable, private paths leak, or the command writes config/memory.",
+      "id": "first-run-generic-stdio-placeholder-safe",
+      "non_goal_guard": "No config writer or platform-specific installer.",
+      "observations": {
+        "client": "generic",
+        "client_status": "supported",
+        "config_format": "json",
+        "file_hint": "client MCP config"
+      },
+      "passed": true,
+      "purpose": "Show that the lowest-common-denominator MCP path is understandable and safe for a new user.",
+      "query_or_command": "agent-memory-bridge first-run --client generic --example --format json"
+    },
+    {
+      "category": "first_run_adoption",
+      "checks": {
+        "amh_not_required": true,
+        "client_matches": true,
+        "codex_toml_shape": true,
+        "manual_copy_only": true,
+        "no_mutation": true,
+        "no_private_user_path": true,
+        "placeholder_safe": true,
+        "public_surface_unchanged": true
+      },
+      "expected_behavior": "The output gives Codex-oriented setup guidance while preserving generic MCP language and no AMH requirement.",
+      "failure_reason": "Fails if the text implies Codex-only support, requires AMH, or emits local maintainer paths.",
+      "id": "first-run-codex-reference-path",
+      "non_goal_guard": "Do not make Codex-specific behavior authoritative for other clients.",
+      "observations": {
+        "client": "codex",
+        "client_status": "verified",
+        "config_format": "toml",
+        "file_hint": "~/.codex/config.toml"
+      },
+      "passed": true,
+      "purpose": "Show that Codex remains the reference workflow without becoming the product boundary.",
+      "query_or_command": "agent-memory-bridge first-run --client codex --example --format json"
+    },
+    {
+      "category": "first_run_adoption",
+      "checks": {
+        "amh_not_required": true,
+        "client_matches": true,
+        "json_config_parseable": true,
+        "manual_copy_only": true,
+        "no_mutation": true,
+        "no_private_user_path": true,
+        "placeholder_safe": true,
+        "public_surface_unchanged": true
+      },
+      "expected_behavior": "The output includes a documented Claude Code setup path, verification commands, and conservative support labeling.",
+      "failure_reason": "Fails if the output overclaims vendor certification, writes config, or omits verification steps.",
+      "id": "first-run-claude-code-documented-client",
+      "non_goal_guard": "Do not claim full vendor-verified support without fresh evidence.",
+      "observations": {
+        "client": "claude-code",
+        "client_status": "documented",
+        "config_format": "json",
+        "file_hint": ".mcp.json"
+      },
+      "passed": true,
+      "purpose": "Show that a mainstream non-Codex client can follow the same adoption proof lane.",
+      "query_or_command": "agent-memory-bridge first-run --client claude-code --example --format json"
+    },
+    {
+      "category": "first_run_adoption",
+      "checks": {
+        "amh_not_required": true,
+        "client_matches": true,
+        "json_config_parseable": true,
+        "manual_copy_only": true,
+        "no_mutation": true,
+        "no_private_user_path": true,
+        "placeholder_safe": true,
+        "public_surface_unchanged": true
+      },
+      "expected_behavior": "The output includes parseable Cursor-style `mcpServers` guidance, verification steps, and placeholder-safe values.",
+      "failure_reason": "Fails if the JSON snippet is invalid, if the path is platform-specific by default, or if the solution becomes a Cursor plugin.",
+      "id": "first-run-cursor-documented-client",
+      "non_goal_guard": "No plugin installer, config writer, or IDE extension work.",
+      "observations": {
+        "client": "cursor",
+        "client_status": "documented",
+        "config_format": "json",
+        "file_hint": ".cursor/mcp.json"
+      },
+      "passed": true,
+      "purpose": "Show that a common IDE-style MCP client receives parseable setup guidance without becoming a plugin project.",
+      "query_or_command": "agent-memory-bridge first-run --client cursor --example --format json"
+    }
+  ],
+  "generated_at": "2026-07-07T00:00:00+00:00",
+  "manifest": {
+    "declared_case_count": 12,
+    "path": "benchmark/v0.19-fixture-manifest.json",
+    "schema": "amb.v0.19.fixture_manifest.v1",
+    "status": "planning_manifest_not_benchmark",
+    "thesis": "0.19 widens proof before widening product surface."
+  },
+  "release": "0.19.0",
+  "schema": "memory.v0_19_adoption_proof.v1",
+  "scope_boundary": {
+    "amh_dependency_allowed": false,
+    "clean_room_external_adoption": "required_after_v0.19_not_claimed_by_this_fixture",
+    "client_config_writes_allowed": false,
+    "durable_writeback_allowed": false,
+    "new_mcp_tools_added": false,
+    "public_mcp_tool_count_must_remain": 10,
+    "scheduler_or_runtime_loop_allowed": false
+  },
+  "summary": {
+    "v019_amh_required": false,
+    "v019_case_count": 12,
+    "v019_client_config_write_count": 0,
+    "v019_durable_writeback_count": 0,
+    "v019_first_run_adoption_case_count": 4,
+    "v019_first_run_adoption_pass_rate": 1.0,
+    "v019_native_memory_comparison_required": true,
+    "v019_pass_count": 12,
+    "v019_pass_rate": 1.0,
+    "v019_public_mcp_surface_change": false,
+    "v019_public_mcp_tool_count": 10,
+    "v019_retrieval_case_count": 4,
+    "v019_retrieval_pass_rate": 1.0,
+    "v019_task_brief_case_count": 4,
+    "v019_task_brief_pass_rate": 1.0
+  }
+}

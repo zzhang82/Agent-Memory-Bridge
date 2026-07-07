@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-07-03 (America/New_York)
+Last updated: 2026-07-07 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.18.1`, including Task Brief reports and the limited first-run adoption helper, plus the next bounded planning gate. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.19.0`, including Task Brief reports, the limited first-run adoption helper, and the fixed 12-case v0.19 adoption-proof pack. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -385,7 +385,7 @@ Both releases keep the same boundary:
 
 ## 0.19 = proof breadth and adoption proof
 
-Status: planned, not started.
+Status: shipped as `v0.19.0`.
 
 ### Thesis
 
@@ -417,6 +417,13 @@ Start with a fixed denominator before implementation:
 4. Add release-contract facts for the new denominator and pass rates.
 5. Update README proof facts only after snapshots exist.
 
+Implementation checkpoint:
+
+- [benchmark/latest-v0.19-adoption-proof-report.json](../benchmark/latest-v0.19-adoption-proof-report.json)
+  now records the fixed `12`-case executable proof pack.
+- The report is synthetic fixture evidence only. It does not claim clean-room
+  external adoption or replace the post-release adoption gate.
+
 ### Acceptance Gate
 
 `0.19` is ready only when all of these are true:
@@ -439,7 +446,7 @@ Start with a fixed denominator before implementation:
 These are explicitly out of scope for `0.19`:
 
 - new public MCP tools
-- new production CLI commands unless Frank explicitly re-scopes `0.19`
+- new production CLI commands unless the maintainer explicitly re-scopes `0.19`
 - client config writers or plugin installers
 - review UI
 - scheduler, watcher, worker, or runtime loop expansion
@@ -479,6 +486,55 @@ Block or redesign the integration if it:
 - depends on AMH as a required second install for basic AMB use
 - implies runtime integration, watcher/scheduler behavior, or live safety
   certification before a clean-room proof exists
+
+## 0.20 = clean-room adoption proof
+
+Status: recommended next release, not implemented.
+
+### Thesis
+
+`0.20` should close the main caveat left by `0.19`: the v0.19 adoption-proof
+pack is synthetic fixture evidence, not clean-room external adoption. The next
+release should prove that a fresh local environment can install AMB, start the
+stdio MCP server, perform a minimal memory round trip, render first-run guidance,
+and render a Task Brief without requiring AMH or writing client configuration.
+
+One sentence:
+
+`0.20 = clean-room adoption before product expansion.`
+
+### Proposed Scope
+
+1. Add a fixed clean-room proof runner that uses a temp home/store and launches
+   AMB through the real local stdio entrypoint.
+2. Exercise a small end-to-end path:
+   - install/import sanity
+   - `store -> recall` over MCP or the closest local stdio-compatible harness
+   - `first-run` output
+   - `task-brief` output
+3. Emit machine-readable JSON and a short Markdown transcript.
+4. Keep the public MCP surface at `10` tools.
+5. Keep AMH optional and absent from the proof path.
+
+### Non-Goals
+
+- client certification claims
+- plugin packages or client config writers
+- watcher, scheduler, daemon, or runtime-loop behavior
+- AMH as an install dependency
+- native-memory vendor comparisons unless they fit a separately reviewed fixed
+  denominator
+
+### Acceptance Gate
+
+`0.20` is ready only when:
+
+- the clean-room proof is reproducible from a fresh temp store.
+- the proof performs no client config writes.
+- the proof performs only explicit demo memory writes in the temp store.
+- public MCP surface remains `10` tools.
+- release contract and public-surface checks pass.
+- README wording says local reproducible proof, not external vendor adoption.
 
 ## Parallel Research Track
 

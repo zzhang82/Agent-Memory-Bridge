@@ -22,12 +22,17 @@ the engine gets more expressive.
 - `python ./scripts/run_review_queue_benchmark.py`
 - `python ./scripts/run_review_workflow_benchmark.py`
 - `python ./scripts/run_task_brief_benchmark.py`
+- `python ./scripts/run_v019_adoption_proof.py`
 
 ## Planning Manifests
 
 - `benchmark/v0.19-fixture-manifest.json` is the planned `0.19` proof-breadth
   denominator. It names the 12 reviewed fixture cases before implementation so
   `0.19` cannot silently grow from proof work into new product surface.
+- `benchmark/latest-v0.19-adoption-proof-report.json` is the executable
+  snapshot for that denominator. It is a synthetic fixture proof for retrieval,
+  Task Brief, and first-run guidance; it is not a claim of clean-room external
+  adoption.
 
 ## What The Reports Cover
 
@@ -50,6 +55,8 @@ The checked-in proof and benchmark flow covers:
 - reviewed memory-operations queue fixtures for staged candidates, review receipts, tombstones, quarantined claims, stale records, and proposal-only writeback plans
 - human review workflow fixtures for decision prompts, manual steps, allowed outcomes, blocked-until gates, zero auto-writeback, and stable MCP surface boundaries
 - Task Brief fixtures for used, ignored, and needs-review sections over task-memory assembly, review queue items, and active signals
+- v0.19 adoption-proof fixtures for fixed-denominator retrieval, Task Brief,
+  and first-run guidance while preserving the `10`-tool MCP surface
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.

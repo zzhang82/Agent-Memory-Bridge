@@ -88,6 +88,23 @@ REQUIRED_TASK_BRIEF_KEYS = (
     "task_brief_public_mcp_surface_change",
     "task_brief_needs_review_source_type_count",
 )
+REQUIRED_V019_ADOPTION_PROOF_KEYS = (
+    "v019_case_count",
+    "v019_pass_count",
+    "v019_pass_rate",
+    "v019_retrieval_case_count",
+    "v019_retrieval_pass_rate",
+    "v019_task_brief_case_count",
+    "v019_task_brief_pass_rate",
+    "v019_first_run_adoption_case_count",
+    "v019_first_run_adoption_pass_rate",
+    "v019_public_mcp_tool_count",
+    "v019_public_mcp_surface_change",
+    "v019_client_config_write_count",
+    "v019_durable_writeback_count",
+    "v019_amh_required",
+    "v019_native_memory_comparison_required",
+)
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -199,6 +216,7 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
         + REQUIRED_REVIEW_QUEUE_KEYS
         + REQUIRED_REVIEW_WORKFLOW_KEYS
         + REQUIRED_TASK_BRIEF_KEYS
+        + REQUIRED_V019_ADOPTION_PROOF_KEYS
     )
     mismatches: list[dict[str, Any]] = []
     ok = True
@@ -349,6 +367,9 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     task_brief_report = json.loads(
         (project_root / "benchmark" / "latest-task-brief-report.json").read_text(encoding="utf-8")
     )
+    v019_report = json.loads(
+        (project_root / "benchmark" / "latest-v0.19-adoption-proof-report.json").read_text(encoding="utf-8")
+    )
     benchmark_summary = benchmark_report["summary"]
     calibration_summary = calibration_report["summary"]
     procedure_summary = procedure_report["summary"]
@@ -358,6 +379,7 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     review_queue_summary = review_queue_report["summary"]
     review_workflow_summary = review_workflow_report["summary"]
     task_brief_summary = task_brief_report["summary"]
+    v019_summary = v019_report["summary"]
     expected: dict[str, int | float | bool] = {}
     for key in REQUIRED_BENCHMARK_KEYS:
         expected[key] = benchmark_summary[key]
@@ -391,6 +413,8 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
         expected[key] = review_workflow_summary[key]
     for key in REQUIRED_TASK_BRIEF_KEYS:
         expected[key] = task_brief_summary[key]
+    for key in REQUIRED_V019_ADOPTION_PROOF_KEYS:
+        expected[key] = v019_summary[key]
     return expected
 
 

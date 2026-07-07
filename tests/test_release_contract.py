@@ -158,6 +158,21 @@ def create_release_fixture(root: Path) -> Path:
         - `task_brief_no_auto_writeback = true`
         - `task_brief_public_mcp_surface_change = false`
         - `task_brief_needs_review_source_type_count = 3`
+        - `v019_case_count = 12`
+        - `v019_pass_count = 12`
+        - `v019_pass_rate = 1.0`
+        - `v019_retrieval_case_count = 4`
+        - `v019_retrieval_pass_rate = 1.0`
+        - `v019_task_brief_case_count = 4`
+        - `v019_task_brief_pass_rate = 1.0`
+        - `v019_first_run_adoption_case_count = 4`
+        - `v019_first_run_adoption_pass_rate = 1.0`
+        - `v019_public_mcp_tool_count = 10`
+        - `v019_public_mcp_surface_change = false`
+        - `v019_client_config_write_count = 0`
+        - `v019_durable_writeback_count = 0`
+        - `v019_amh_required = false`
+        - `v019_native_memory_comparison_required = true`
 
         ## MCP Tools
 
@@ -316,6 +331,31 @@ def create_release_fixture(root: Path) -> Path:
                     "task_brief_no_auto_writeback": True,
                     "task_brief_public_mcp_surface_change": False,
                     "task_brief_needs_review_source_type_count": 3,
+                }
+            },
+            indent=2,
+        ),
+    )
+    write_file(
+        root / "benchmark" / "latest-v0.19-adoption-proof-report.json",
+        json.dumps(
+            {
+                "summary": {
+                    "v019_case_count": 12,
+                    "v019_pass_count": 12,
+                    "v019_pass_rate": 1.0,
+                    "v019_retrieval_case_count": 4,
+                    "v019_retrieval_pass_rate": 1.0,
+                    "v019_task_brief_case_count": 4,
+                    "v019_task_brief_pass_rate": 1.0,
+                    "v019_first_run_adoption_case_count": 4,
+                    "v019_first_run_adoption_pass_rate": 1.0,
+                    "v019_public_mcp_tool_count": 10,
+                    "v019_public_mcp_surface_change": False,
+                    "v019_client_config_write_count": 0,
+                    "v019_durable_writeback_count": 0,
+                    "v019_amh_required": False,
+                    "v019_native_memory_comparison_required": True,
                 }
             },
             indent=2,

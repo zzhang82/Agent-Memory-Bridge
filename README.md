@@ -36,7 +36,7 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Review-first writeback: learning candidates can be staged for human review before explicit promotion into durable records.
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `318 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `323 passed`.
 
 ## Who It Is For
 
@@ -191,7 +191,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.18.1` is a first-run adoption polish release: it adds a `first-run` CLI guide that combines install steps, client config snippets, verification steps, and a Task Brief without writing client config or durable memory records, while keeping the public MCP surface stable.
+`0.19.0` is a proof-breadth release: it turns the v0.19 adoption plan into an executable 12-case fixture pack covering retrieval, Task Brief behavior, and first-run client guidance without writing client config or durable memory records, while keeping the public MCP surface stable.
 
 | Track | Current signal |
 |---|---|
@@ -205,7 +205,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Reviewed memory operations | `review_queue_item_count = 6`, `review_queue_actionable_count = 6`, `review_queue_no_auto_mutation = true`, `review_queue_public_mcp_surface_change = false` |
 | Human review workflow | `review_workflow_item_count = 6`, `review_workflow_manual_step_count = 27`, `review_workflow_auto_write_count = 0`, `review_workflow_public_mcp_surface_change = false` |
 | Task Brief | `task_brief_used_count = 2`, `task_brief_ignored_count = 1`, `task_brief_needs_review_count = 4`, `task_brief_no_auto_writeback = true`, `task_brief_public_mcp_surface_change = false` |
-| Test suite | `318 passed` |
+| v0.19 adoption proof | synthetic fixture proof only, not clean-room external adoption: `v019_case_count = 12`, `v019_pass_rate = 1.0`, `v019_public_mcp_surface_change = false`, `v019_client_config_write_count = 0` |
+| Test suite | `323 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -279,6 +280,22 @@ task_brief_active_signal_count = 1
 task_brief_no_auto_writeback = true
 task_brief_public_mcp_surface_change = false
 task_brief_needs_review_source_type_count = 3
+
+v019_case_count = 12
+v019_pass_count = 12
+v019_pass_rate = 1.0
+v019_retrieval_case_count = 4
+v019_retrieval_pass_rate = 1.0
+v019_task_brief_case_count = 4
+v019_task_brief_pass_rate = 1.0
+v019_first_run_adoption_case_count = 4
+v019_first_run_adoption_pass_rate = 1.0
+v019_public_mcp_tool_count = 10
+v019_public_mcp_surface_change = false
+v019_client_config_write_count = 0
+v019_durable_writeback_count = 0
+v019_amh_required = false
+v019_native_memory_comparison_required = true
 ```
 
 </details>
