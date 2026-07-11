@@ -53,10 +53,49 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
     assert report["ok"] is False
     check_names = {check["name"]: check for check in report["checks"]}
     assert check_names["pyproject_version_matches_readmes"]["ok"] is False
+    assert check_names["v020_proof_version_matches_pyproject"]["ok"] is False
     assert check_names["readme_facts_match_snapshot_reports"]["ok"] is False
     assert check_names["readme_test_count_matches_collected_suite"]["ok"] is False
     assert check_names["public_mcp_tool_count_matches_server_surface"]["ok"] is False
     assert check_names["current_demo_assets_exist"]["ok"] is False
+
+
+def test_release_contract_rejects_stale_v020_proof_version(tmp_path: Path) -> None:
+    root = create_release_fixture(tmp_path)
+    report_path = root / "benchmark" / "latest-v0.20-clean-room-proof-report.json"
+    proof = json.loads(report_path.read_text(encoding="utf-8"))
+    proof["release"] = "0.8.0"
+    proof["environment"]["package_version"] = "0.8.0"
+    report_path.write_text(json.dumps(proof, indent=2) + "\n", encoding="utf-8")
+
+    report = run_release_contract_check(root, test_count_provider=lambda _: 146)
+
+    check = next(item for item in report["checks"] if item["name"] == "v020_proof_version_matches_pyproject")
+    assert check["ok"] is False
+    assert {item["field"] for item in check["mismatches"]} == {
+        "release",
+        "environment.package_version",
+    }
+
+
+def test_release_contract_rejects_stale_v020_cli_version_evidence(tmp_path: Path) -> None:
+    root = create_release_fixture(tmp_path)
+    report_path = root / "benchmark" / "latest-v0.20-clean-room-proof-report.json"
+    proof = json.loads(report_path.read_text(encoding="utf-8"))
+    proof["cases"][0]["evidence"]["version"] = "0.8.0"
+    report_path.write_text(json.dumps(proof, indent=2) + "\n", encoding="utf-8")
+
+    report = run_release_contract_check(root, test_count_provider=lambda _: 146)
+
+    check = next(item for item in report["checks"] if item["name"] == "v020_proof_version_matches_pyproject")
+    assert check["ok"] is False
+    assert check["mismatches"] == [
+        {
+            "field": "cases[v020-local-entrypoint-import].evidence.version",
+            "expected": "0.9.0",
+            "actual": "0.8.0",
+        }
+    ]
 
 
 def test_check_release_contract_script_exits_zero_for_aligned_fixture(tmp_path: Path) -> None:
@@ -173,6 +212,21 @@ def create_release_fixture(root: Path) -> Path:
         - `v019_durable_writeback_count = 0`
         - `v019_amh_required = false`
         - `v019_native_memory_comparison_required = true`
+        - `v020_case_count = 6`
+        - `v020_pass_count = 6`
+        - `v020_pass_rate = 1.0`
+        - `v020_import_sanity_pass = true`
+        - `v020_stdio_round_trip_pass = true`
+        - `v020_first_run_pass = true`
+        - `v020_task_brief_pass = true`
+        - `v020_public_mcp_tool_count = 10`
+        - `v020_public_mcp_surface_change = false`
+        - `v020_client_config_write_count = 0`
+        - `v020_explicit_demo_memory_write_count = 1`
+        - `v020_explicit_demo_signal_write_count = 0`
+        - `v020_non_demo_durable_writeback_count = 0`
+        - `v020_amh_required = false`
+        - `v020_external_vendor_adoption_claim = false`
 
         ## MCP Tools
 
@@ -356,6 +410,39 @@ def create_release_fixture(root: Path) -> Path:
                     "v019_durable_writeback_count": 0,
                     "v019_amh_required": False,
                     "v019_native_memory_comparison_required": True,
+                }
+            },
+            indent=2,
+        ),
+    )
+    write_file(
+        root / "benchmark" / "latest-v0.20-clean-room-proof-report.json",
+        json.dumps(
+            {
+                "release": "0.9.0",
+                "environment": {"package_version": "0.9.0"},
+                "cases": [
+                    {
+                        "id": "v020-local-entrypoint-import",
+                        "evidence": {"version": "0.9.0"},
+                    }
+                ],
+                "summary": {
+                    "v020_case_count": 6,
+                    "v020_pass_count": 6,
+                    "v020_pass_rate": 1.0,
+                    "v020_import_sanity_pass": True,
+                    "v020_stdio_round_trip_pass": True,
+                    "v020_first_run_pass": True,
+                    "v020_task_brief_pass": True,
+                    "v020_public_mcp_tool_count": 10,
+                    "v020_public_mcp_surface_change": False,
+                    "v020_client_config_write_count": 0,
+                    "v020_explicit_demo_memory_write_count": 1,
+                    "v020_explicit_demo_signal_write_count": 0,
+                    "v020_non_demo_durable_writeback_count": 0,
+                    "v020_amh_required": False,
+                    "v020_external_vendor_adoption_claim": False,
                 }
             },
             indent=2,

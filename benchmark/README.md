@@ -23,6 +23,7 @@ the engine gets more expressive.
 - `python ./scripts/run_review_workflow_benchmark.py`
 - `python ./scripts/run_task_brief_benchmark.py`
 - `python ./scripts/run_v019_adoption_proof.py`
+- `python ./scripts/run_v020_clean_room_proof.py`
 
 ## Planning Manifests
 
@@ -33,6 +34,10 @@ the engine gets more expressive.
   snapshot for that denominator. It is a synthetic fixture proof for retrieval,
   Task Brief, and first-run guidance; it is not a claim of clean-room external
   adoption.
+- `benchmark/latest-v0.20-clean-room-proof-report.json` is the executable
+  snapshot for the local clean-room adoption path. It launches the real stdio
+  entrypoint against a temp store, performs one demo `store -> recall`, renders
+  first-run and Task Brief CLI reports, and keeps client config writes at zero.
 
 ## What The Reports Cover
 
@@ -57,6 +62,9 @@ The checked-in proof and benchmark flow covers:
 - Task Brief fixtures for used, ignored, and needs-review sections over task-memory assembly, review queue items, and active signals
 - v0.19 adoption-proof fixtures for fixed-denominator retrieval, Task Brief,
   and first-run guidance while preserving the `10`-tool MCP surface
+- v0.20 clean-room proof cases for local import sanity, real stdio MCP
+  `store -> recall`, first-run CLI rendering, Task Brief CLI rendering, and
+  temp-store write-scope isolation
 
 The current canonical retrieval fixture has `11` questions, including overlap-heavy
 review queue, release cutover, and context-compaction cases.

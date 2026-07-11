@@ -36,7 +36,7 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Review-first writeback: learning candidates can be staged for human review before explicit promotion into durable records.
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `323 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `336 passed`.
 
 ## Who It Is For
 
@@ -191,7 +191,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.19.0` is a proof-breadth release: it turns the v0.19 adoption plan into an executable 12-case fixture pack covering retrieval, Task Brief behavior, and first-run client guidance without writing client config or durable memory records, while keeping the public MCP surface stable.
+`0.20.0` is a clean-room adoption proof release: it runs a local fresh-start path through the real stdio MCP entrypoint, performs a tokened `store -> recall` round trip, renders first-run guidance, and renders a Task Brief from an isolated temp store without writing client config or requiring AMH.
 
 | Track | Current signal |
 |---|---|
@@ -206,7 +206,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Human review workflow | `review_workflow_item_count = 6`, `review_workflow_manual_step_count = 27`, `review_workflow_auto_write_count = 0`, `review_workflow_public_mcp_surface_change = false` |
 | Task Brief | `task_brief_used_count = 2`, `task_brief_ignored_count = 1`, `task_brief_needs_review_count = 4`, `task_brief_no_auto_writeback = true`, `task_brief_public_mcp_surface_change = false` |
 | v0.19 adoption proof | synthetic fixture proof only, not clean-room external adoption: `v019_case_count = 12`, `v019_pass_rate = 1.0`, `v019_public_mcp_surface_change = false`, `v019_client_config_write_count = 0` |
-| Test suite | `323 passed` |
+| v0.20 clean-room proof | local reproducible proof only, not vendor certification: `v020_case_count = 6`, `v020_pass_rate = 1.0`, `v020_stdio_round_trip_pass = true`, `v020_client_config_write_count = 0`, `v020_external_vendor_adoption_claim = false` |
+| Test suite | `336 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -296,6 +297,22 @@ v019_client_config_write_count = 0
 v019_durable_writeback_count = 0
 v019_amh_required = false
 v019_native_memory_comparison_required = true
+
+v020_case_count = 6
+v020_pass_count = 6
+v020_pass_rate = 1.0
+v020_import_sanity_pass = true
+v020_stdio_round_trip_pass = true
+v020_first_run_pass = true
+v020_task_brief_pass = true
+v020_public_mcp_tool_count = 10
+v020_public_mcp_surface_change = false
+v020_client_config_write_count = 0
+v020_explicit_demo_memory_write_count = 1
+v020_explicit_demo_signal_write_count = 0
+v020_non_demo_durable_writeback_count = 0
+v020_amh_required = false
+v020_external_vendor_adoption_claim = false
 ```
 
 </details>

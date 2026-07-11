@@ -105,6 +105,23 @@ REQUIRED_V019_ADOPTION_PROOF_KEYS = (
     "v019_amh_required",
     "v019_native_memory_comparison_required",
 )
+REQUIRED_V020_CLEAN_ROOM_PROOF_KEYS = (
+    "v020_case_count",
+    "v020_pass_count",
+    "v020_pass_rate",
+    "v020_import_sanity_pass",
+    "v020_stdio_round_trip_pass",
+    "v020_first_run_pass",
+    "v020_task_brief_pass",
+    "v020_public_mcp_tool_count",
+    "v020_public_mcp_surface_change",
+    "v020_client_config_write_count",
+    "v020_explicit_demo_memory_write_count",
+    "v020_explicit_demo_signal_write_count",
+    "v020_non_demo_durable_writeback_count",
+    "v020_amh_required",
+    "v020_external_vendor_adoption_claim",
+)
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -149,6 +166,12 @@ def run_release_contract_check(
         build_fact_check(
             readme_paths=readme_paths,
             expected_facts=expected_facts,
+        )
+    )
+    checks.append(
+        build_v020_proof_version_check(
+            project_root=project_root,
+            pyproject_version=pyproject_version,
         )
     )
     checks.append(
@@ -205,6 +228,66 @@ def build_version_check(pyproject_version: str, readme_paths: list[Path]) -> dic
     }
 
 
+def build_v020_proof_version_check(project_root: Path, pyproject_version: str) -> dict[str, Any]:
+    report_path = project_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json"
+    if not report_path.exists():
+        return {
+            "name": "v020_proof_version_matches_pyproject",
+            "ok": False,
+            "expected_version": pyproject_version,
+            "report_path": str(report_path),
+            "actual_release": None,
+            "actual_package_version": None,
+            "mismatches": [{"field": "report", "expected": "present", "actual": "missing"}],
+        }
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    actual_release = report.get("release")
+    environment = report.get("environment") or {}
+    actual_package_version = environment.get("package_version")
+    entrypoint_cases = [
+        case
+        for case in (report.get("cases") or [])
+        if case.get("id") == "v020-local-entrypoint-import"
+    ]
+    actual_cli_version = None
+    mismatches = []
+    for field, actual in (
+        ("release", actual_release),
+        ("environment.package_version", actual_package_version),
+    ):
+        if actual != pyproject_version:
+            mismatches.append({"field": field, "expected": pyproject_version, "actual": actual})
+    if len(entrypoint_cases) != 1:
+        mismatches.append(
+            {
+                "field": "cases[v020-local-entrypoint-import]",
+                "expected": "exactly one case",
+                "actual": len(entrypoint_cases),
+            }
+        )
+    else:
+        actual_cli_version = (entrypoint_cases[0].get("evidence") or {}).get("version")
+        if actual_cli_version != pyproject_version:
+            mismatches.append(
+                {
+                    "field": "cases[v020-local-entrypoint-import].evidence.version",
+                    "expected": pyproject_version,
+                    "actual": actual_cli_version,
+                }
+            )
+    return {
+        "name": "v020_proof_version_matches_pyproject",
+        "ok": not mismatches,
+        "expected_version": pyproject_version,
+        "report_path": str(report_path),
+        "actual_release": actual_release,
+        "actual_package_version": actual_package_version,
+        "actual_cli_version": actual_cli_version,
+        "mismatches": mismatches,
+    }
+
+
 def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | float | bool]) -> dict[str, Any]:
     required_keys = (
         REQUIRED_BENCHMARK_KEYS
@@ -217,6 +300,7 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
         + REQUIRED_REVIEW_WORKFLOW_KEYS
         + REQUIRED_TASK_BRIEF_KEYS
         + REQUIRED_V019_ADOPTION_PROOF_KEYS
+        + REQUIRED_V020_CLEAN_ROOM_PROOF_KEYS
     )
     mismatches: list[dict[str, Any]] = []
     ok = True
@@ -370,6 +454,9 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     v019_report = json.loads(
         (project_root / "benchmark" / "latest-v0.19-adoption-proof-report.json").read_text(encoding="utf-8")
     )
+    v020_report = json.loads(
+        (project_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(encoding="utf-8")
+    )
     benchmark_summary = benchmark_report["summary"]
     calibration_summary = calibration_report["summary"]
     procedure_summary = procedure_report["summary"]
@@ -380,6 +467,7 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     review_workflow_summary = review_workflow_report["summary"]
     task_brief_summary = task_brief_report["summary"]
     v019_summary = v019_report["summary"]
+    v020_summary = v020_report["summary"]
     expected: dict[str, int | float | bool] = {}
     for key in REQUIRED_BENCHMARK_KEYS:
         expected[key] = benchmark_summary[key]
@@ -415,6 +503,8 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
         expected[key] = task_brief_summary[key]
     for key in REQUIRED_V019_ADOPTION_PROOF_KEYS:
         expected[key] = v019_summary[key]
+    for key in REQUIRED_V020_CLEAN_ROOM_PROOF_KEYS:
+        expected[key] = v020_summary[key]
     return expected
 
 

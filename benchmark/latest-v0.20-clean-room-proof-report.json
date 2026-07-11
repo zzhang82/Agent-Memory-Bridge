@@ -1,0 +1,236 @@
+{
+  "artifacts": {
+    "json_report": "benchmark/latest-v0.20-clean-room-proof-report.json",
+    "markdown_transcript": "benchmark/latest-v0.20-clean-room-proof-transcript.md"
+  },
+  "cases": [
+    {
+      "category": "install_import",
+      "evidence": {
+        "command": "python -m agent_mem_bridge --version",
+        "returncode": 0,
+        "version": "0.20.0"
+      },
+      "expected_behavior": "`python -m agent_mem_bridge --version` exits 0 with a package version.",
+      "failure_reason": "",
+      "id": "v020-local-entrypoint-import",
+      "non_goal_guard": "Does not claim PyPI, vendor-client, or external clean-room certification.",
+      "passed": true,
+      "purpose": "Prove the installed/local package entrypoint can import and report a version.",
+      "query_or_command": "python -m agent_mem_bridge --version"
+    },
+    {
+      "category": "stdio_mcp",
+      "evidence": {
+        "tool_count": 10,
+        "tool_names": [
+          "ack_signal",
+          "browse",
+          "claim_signal",
+          "export",
+          "extend_signal_lease",
+          "forget",
+          "promote",
+          "recall",
+          "stats",
+          "store"
+        ]
+      },
+      "expected_behavior": "MCP `list_tools` returns the documented 10 tools and no v0.20 tool.",
+      "failure_reason": "",
+      "id": "v020-stdio-tool-surface",
+      "non_goal_guard": "Does not add startup_packet, task_packet, plugin, watcher, or harness tools.",
+      "passed": true,
+      "purpose": "Prove the real stdio MCP server exposes exactly the documented public surface.",
+      "query_or_command": "MCP list_tools over python -m agent_mem_bridge"
+    },
+    {
+      "category": "stdio_mcp",
+      "evidence": {
+        "recall_count": 1,
+        "recalled_client_transports": [
+          "stdio"
+        ],
+        "recalled_source_clients": [
+          "v020-clean-room-proof"
+        ],
+        "stored_id_recalled": true,
+        "token_found": true
+      },
+      "expected_behavior": "`store` writes one demo memory and `recall` finds the same record with stdio provenance.",
+      "failure_reason": "",
+      "id": "v020-stdio-store-recall",
+      "non_goal_guard": "Does not count direct MemoryStore calls as MCP round-trip evidence.",
+      "passed": true,
+      "purpose": "Prove a tokened demo memory can round-trip through MCP stdio store and recall.",
+      "query_or_command": "MCP store/recall query: clean room adoption handoff v020-clean-room-stdio-token"
+    },
+    {
+      "category": "cli_report",
+      "evidence": {
+        "client_config_write_mode": "manual_copy_only",
+        "command": "python -m agent_mem_bridge first-run --client generic --namespace project:v020-clean-room --query clean room adoption handoff --example --format json",
+        "contains_private_path": false,
+        "schema": "memory.first_run.v1",
+        "task_brief_schema": "memory.task_brief.v1"
+      },
+      "expected_behavior": "`first-run --format json --example` parses, stays manual-copy-only, and includes Task Brief.",
+      "failure_reason": "",
+      "id": "v020-first-run-cli",
+      "non_goal_guard": "Does not write client config or claim runtime-specific plugin support.",
+      "passed": true,
+      "purpose": "Prove first-run output is available as a placeholder-safe local CLI report.",
+      "query_or_command": "python -m agent_mem_bridge first-run --client generic --namespace project:v020-clean-room --query clean room adoption handoff --example --format json"
+    },
+    {
+      "category": "cli_report",
+      "evidence": {
+        "command": "python -m agent_mem_bridge task-brief --namespace project:v020-clean-room --query clean room adoption handoff --format json",
+        "needs_review_count": 0,
+        "no_auto_writeback": true,
+        "schema": "memory.task_brief.v1",
+        "used_count": 1
+      },
+      "expected_behavior": "`task-brief --format json` parses and includes used/review sections from the temp store.",
+      "failure_reason": "",
+      "id": "v020-task-brief-cli",
+      "non_goal_guard": "Does not mutate memory, promote records, or require AMH.",
+      "passed": true,
+      "purpose": "Prove Task Brief output is available as a read-only local CLI report.",
+      "query_or_command": "python -m agent_mem_bridge task-brief --namespace project:v020-clean-room --query clean room adoption handoff --format json"
+    },
+    {
+      "category": "isolation",
+      "evidence": {
+        "config_path_exists_after": false,
+        "explicit_demo_memory_write_count": 1,
+        "explicit_demo_signal_write_count": 0,
+        "non_demo_durable_writeback_count": 0
+      },
+      "expected_behavior": "No client config file, no live DB mutation, no non-demo durable writeback.",
+      "failure_reason": "",
+      "id": "v020-isolation-write-scope",
+      "non_goal_guard": "Does not touch user/client config, live AMB home, watcher, scheduler, or AMH runtime.",
+      "passed": true,
+      "purpose": "Prove the proof writes only explicit demo data into an isolated temp store.",
+      "query_or_command": "inspect temp DB/config boundaries"
+    }
+  ],
+  "cli_reports": {
+    "first_run": {
+      "amh_required": false,
+      "client": "generic",
+      "client_config_format": "json",
+      "client_config_write_mode": "manual_copy_only",
+      "client_status": "supported",
+      "command": "python -m agent_mem_bridge first-run --client generic --namespace project:v020-clean-room --query clean room adoption handoff --example --format json",
+      "contains_private_path": false,
+      "file_hint": "client MCP config",
+      "mutation_allowed": false,
+      "placeholder_safe": true,
+      "public_mcp_surface_change": false,
+      "returncode": 0,
+      "schema": "memory.first_run.v1",
+      "task_brief_schema": "memory.task_brief.v1",
+      "task_brief_used_count": 1
+    },
+    "task_brief": {
+      "command": "python -m agent_mem_bridge task-brief --namespace project:v020-clean-room --query clean room adoption handoff --format json",
+      "contains_private_path": false,
+      "ignored_count": 0,
+      "mutation_boundary": "read_only_report_no_auto_writeback",
+      "needs_review_count": 0,
+      "no_auto_writeback": true,
+      "public_mcp_surface_change": false,
+      "returncode": 0,
+      "schema": "memory.task_brief.v1",
+      "used_count": 1,
+      "writeback_boundary": "proposal_only_no_auto_writeback"
+    }
+  },
+  "environment": {
+    "ephemeral_runtime": true,
+    "package_version": "0.20.0",
+    "package_version_source": "pyproject.toml",
+    "project_root": "<repo>",
+    "python": "python",
+    "runtime_dir": "<temp>",
+    "runtime_paths_are_sanitized": true
+  },
+  "generated_at": "2026-07-11T00:30:16.702188+00:00",
+  "proof_kind": "local_clean_room_adoption_not_vendor_certification",
+  "release": "0.20.0",
+  "runtime": {
+    "bridge_home": "<temp>/home",
+    "config_path": "<temp>/home/config.toml",
+    "config_path_exists_after": false,
+    "config_path_exists_before": false,
+    "db_path": "<temp>/home/bridge.db",
+    "log_dir": "<temp>/home/logs",
+    "namespace_counts": {
+      "memory": 1,
+      "signal": 0
+    },
+    "table_count_delta_from_cli_reports": 0
+  },
+  "schema": "memory.v0_20_clean_room_proof.v1",
+  "scope_boundary": {
+    "amh_dependency_allowed": false,
+    "client_config_writes_allowed": false,
+    "durable_writeback_allowed_outside_temp_store": false,
+    "external_vendor_adoption_claim": false,
+    "local_reproducible_proof_only": true,
+    "new_mcp_tools_added": false,
+    "public_mcp_tool_count_must_remain": 10,
+    "scheduler_or_runtime_loop_allowed": false
+  },
+  "stdio": {
+    "entrypoint": {
+      "command": "python -m agent_mem_bridge",
+      "cwd": "<repo>"
+    },
+    "private_ids_redacted": true,
+    "recall_count": 1,
+    "recalled_client_transports": [
+      "stdio"
+    ],
+    "recalled_source_clients": [
+      "v020-clean-room-proof"
+    ],
+    "store_recall_round_trip": true,
+    "store_stored": true,
+    "stored_id_recalled": true,
+    "token_found": true,
+    "tool_count": 10,
+    "tool_names": [
+      "ack_signal",
+      "browse",
+      "claim_signal",
+      "export",
+      "extend_signal_lease",
+      "forget",
+      "promote",
+      "recall",
+      "stats",
+      "store"
+    ]
+  },
+  "summary": {
+    "v020_amh_required": false,
+    "v020_case_count": 6,
+    "v020_client_config_write_count": 0,
+    "v020_explicit_demo_memory_write_count": 1,
+    "v020_explicit_demo_signal_write_count": 0,
+    "v020_external_vendor_adoption_claim": false,
+    "v020_first_run_pass": true,
+    "v020_import_sanity_pass": true,
+    "v020_non_demo_durable_writeback_count": 0,
+    "v020_ok": true,
+    "v020_pass_count": 6,
+    "v020_pass_rate": 1.0,
+    "v020_public_mcp_surface_change": false,
+    "v020_public_mcp_tool_count": 10,
+    "v020_stdio_round_trip_pass": true,
+    "v020_task_brief_pass": true
+  }
+}

@@ -7,6 +7,8 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Sequence
 
+import tomllib
+
 from .client_config import build_client_config_options, render_client_config, supported_client_names
 from .first_run import build_first_run_report, render_first_run_markdown
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
@@ -449,12 +451,13 @@ def _render_index_health(report: dict[str, object]) -> str:
 
 
 def _package_version() -> str:
+    # A source checkout's manifest is authoritative during release preparation.
+    # Installed editable metadata can lag after a local version bump.
+    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    if pyproject_path.exists():
+        with pyproject_path.open("rb") as handle:
+            return str(tomllib.load(handle)["project"]["version"])
     try:
         return version("agent-memory-bridge")
     except PackageNotFoundError:
-        pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
-        if pyproject_path.exists():
-            for line in pyproject_path.read_text(encoding="utf-8").splitlines():
-                if line.startswith("version = "):
-                    return line.split("=", 1)[1].strip().strip('"')
         return "0.0.0"

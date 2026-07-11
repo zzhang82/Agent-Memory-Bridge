@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-07 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.19.0`, including Task Brief reports, the limited first-run adoption helper, and the fixed 12-case v0.19 adoption-proof pack. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.20.0`, including Task Brief reports, the limited first-run adoption helper, the fixed 12-case v0.19 adoption-proof pack, and the fixed 6-case v0.20 clean-room proof pack. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -489,7 +489,7 @@ Block or redesign the integration if it:
 
 ## 0.20 = clean-room adoption proof
 
-Status: recommended next release, not implemented.
+Status: shipped as `v0.20.0`.
 
 ### Thesis
 
@@ -503,16 +503,20 @@ One sentence:
 
 `0.20 = clean-room adoption before product expansion.`
 
-### Proposed Scope
+### Scope
 
 1. Add a fixed clean-room proof runner that uses a temp home/store and launches
    AMB through the real local stdio entrypoint.
-2. Exercise a small end-to-end path:
-   - install/import sanity
-   - `store -> recall` over MCP or the closest local stdio-compatible harness
-   - `first-run` output
-   - `task-brief` output
-3. Emit machine-readable JSON and a short Markdown transcript.
+2. Exercise exactly `6` reviewed cases:
+   - local entrypoint/import sanity
+   - stdio MCP tool-surface check
+   - tokened `store -> recall` over MCP stdio
+   - `first-run` CLI output
+   - `task-brief` CLI output
+   - isolated write-scope guard
+3. Emit machine-readable JSON and a short Markdown transcript:
+   - [benchmark/latest-v0.20-clean-room-proof-report.json](../benchmark/latest-v0.20-clean-room-proof-report.json)
+   - [benchmark/latest-v0.20-clean-room-proof-transcript.md](../benchmark/latest-v0.20-clean-room-proof-transcript.md)
 4. Keep the public MCP surface at `10` tools.
 5. Keep AMH optional and absent from the proof path.
 
@@ -535,6 +539,12 @@ One sentence:
 - public MCP surface remains `10` tools.
 - release contract and public-surface checks pass.
 - README wording says local reproducible proof, not external vendor adoption.
+
+### Stop Line
+
+Stop once the `6` clean-room proof cases pass and the release hygiene checks
+match the generated snapshot. Do not turn the proof runner into a plugin
+installer, client config writer, AMH dependency, watcher, scheduler, or daemon.
 
 ## Parallel Research Track
 

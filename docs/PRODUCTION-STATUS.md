@@ -2,9 +2,9 @@
 
 Last updated: 2026-07-07 (America/New_York)
 
-This maintainer note describes the `0.19.0` proof-breadth release shape plus the validation snapshot used to support it.
+This maintainer note describes the `0.20.0` clean-room proof release shape plus the validation snapshot used to support it.
 
-## 0.19.0 Runtime Shape
+## 0.20.0 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -27,10 +27,11 @@ This maintainer note describes the `0.19.0` proof-breadth release shape plus the
 17. a human review workflow CLI/report that turns review-queue items into explicit decision prompts, manual steps, allowed outcomes, and blocked-until gates without adding an MCP tool
 18. a Task Brief CLI/report that composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections without adding an MCP tool
 19. a first-run CLI/report that renders install steps, client config snippets, verification steps, and a Task Brief without writing client config, durable memory records, or requiring AMH
+20. a clean-room proof runner that launches the real stdio MCP entrypoint against an isolated temp store, performs one tokened demo `store -> recall`, renders first-run and Task Brief CLI reports, and proves zero client config writes
 
 ## Verified On 2026-07-02
 
-- `pytest` passes: `323 passed`
+- `pytest` passes: `336 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
@@ -110,6 +111,22 @@ This maintainer note describes the `0.19.0` proof-breadth release shape plus the
   - `v019_durable_writeback_count = 0`
   - `v019_amh_required = false`
   - `v019_native_memory_comparison_required = true`
+- v0.20 clean-room proof snapshot reports:
+  - `v020_case_count = 6`
+  - `v020_pass_count = 6`
+  - `v020_pass_rate = 1.0`
+  - `v020_import_sanity_pass = true`
+  - `v020_stdio_round_trip_pass = true`
+  - `v020_first_run_pass = true`
+  - `v020_task_brief_pass = true`
+  - `v020_public_mcp_tool_count = 10`
+  - `v020_public_mcp_surface_change = false`
+  - `v020_client_config_write_count = 0`
+  - `v020_explicit_demo_memory_write_count = 1`
+  - `v020_explicit_demo_signal_write_count = 0`
+  - `v020_non_demo_durable_writeback_count = 0`
+  - `v020_amh_required = false`
+  - `v020_external_vendor_adoption_claim = false`
 - learning candidates are stored with review tags such as `kind:learning-candidate` and `candidate_status:*`
 - learning reviews now include deterministic review-receipt hashes, `writeback_boundary:review_receipt_only`, and `durable_mutation_performed_by_review: false`
 - normal recall, browse, export, and stats suppress learning candidates unless explicit review tags are requested
@@ -139,15 +156,17 @@ This maintainer note describes the `0.19.0` proof-breadth release shape plus the
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.19.0 Actually Means
+## What 0.20.0 Actually Means
 
 - the public MCP surface is still the same small bridge
+- the clean-room proof is local reproducible evidence through the real stdio entrypoint, not a vendor certification claim
 - runtime learning can be proposed as a policy-gated candidate instead of becoming ordinary durable memory immediately
 - candidate records are review material, not source-of-truth memory
 - review receipts are audit material, not a hidden promotion/delete mechanism
 - `review-queue` is an operator-facing CLI/report, not an MCP tool and not an auto-reviewer
 - `review-workflow` is an operator-facing CLI/report, not an MCP tool and not a workflow executor
 - `first-run` is an operator-facing CLI/report, not an MCP tool, not a config writer, and not a plugin runtime
+- `v0.20` clean-room proof writes exactly one explicit demo memory in a temp store and performs no client config writes, signals, non-demo writeback, or AMH-required work
 - review-queue and review-workflow plans are proposal-only; they explain next steps but do not mutate durable memory
 - the store boundary owns policy verification; callers do not get to provide authoritative allow decisions
 - governance triggers may open review signals for staged candidates, but they do not approve, promote, rewrite, or delete memory
@@ -177,7 +196,7 @@ The release still does **not** mean:
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.19.0
+## Pressure Points After 0.20.0
 
 The most important remaining gaps are:
 
@@ -192,7 +211,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.19.0` keeps the public MCP surface small while widening proof before widening product surface: the release adds an executable 12-case adoption-proof pack across retrieval, Task Brief behavior, and first-run client guidance without writing client config or durable memory records. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, read-only task brief reports, a simpler first-run adoption path, and fixed-denominator adoption proof.
+`0.20.0` keeps the public MCP surface small while upgrading adoption proof from synthetic fixtures to a local clean-room run: the release launches the real stdio MCP server in an isolated temp runtime, performs one tokened demo memory round trip, renders first-run guidance, renders a Task Brief, and records zero client config writes or AMH requirements. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, read-only task brief reports, a simpler first-run adoption path, fixed-denominator adoption proof, and a fresh-start proof lane.
 
 It now behaves like:
 
