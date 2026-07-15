@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .learning_policy import evaluate_learning_candidate
+from .relation_metadata import parse_content_fields
 from .review_queue import REVIEW_QUEUE_SCHEMA, build_review_queue_report
 from .storage import MemoryStore
 from .task_memory import assemble_task_memory
@@ -25,7 +26,13 @@ USED_TASK_SECTIONS = (
     "domain_hits",
     "supporting_hits",
 )
-REVIEW_SUPPRESSION_REASONS = {"contradicted", "procedure_status:unsafe"}
+REVIEW_SUPPRESSION_REASONS = {
+    "contradicted",
+    "depends_on:ineligible",
+    "depends_on:unresolved",
+    "lineage_status:degraded",
+    "procedure_status:unsafe",
+}
 
 
 def build_task_brief_report(
@@ -37,6 +44,8 @@ def build_task_brief_report(
     review_limit: int = 100,
     signal_limit: int = 20,
     generated_at: str | None = None,
+    as_of: datetime | str | None = None,
+    task_domain: str | None = None,
 ) -> dict[str, Any]:
     """Render an operator Task Brief from existing AMB reports without durable writes."""
 
@@ -53,6 +62,8 @@ def build_task_brief_report(
         query=cleaned_query,
         project_namespace=cleaned_namespace,
         global_namespace=cleaned_global_namespace,
+        as_of=as_of,
+        task_domain=task_domain,
     )
     review_queue = build_review_queue_report(
         store,
@@ -81,6 +92,8 @@ def build_task_brief_report(
         "query": cleaned_query,
         "namespace": cleaned_namespace,
         "global_namespace": cleaned_global_namespace,
+        "as_of": task_memory.get("as_of"),
+        "task_domain": task_memory.get("task_domain"),
         "generated_at": generated_at or datetime.now(UTC).isoformat(),
         "mutation_boundary": TASK_BRIEF_BOUNDARY,
         "writeback_boundary": "proposal_only_no_auto_writeback",
@@ -158,9 +171,24 @@ def build_task_brief_fixture_report() -> dict[str, Any]:
 
 def _used_items(task_memory: dict[str, Any]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
+    corrective_ids = {
+        str(item.get("id") or "")
+        for item in task_memory.get("corrective_items") or []
+    }
     for section_name in USED_TASK_SECTIONS:
         for item in task_memory.get(section_name) or []:
             decision = item.get("task_memory") or {}
+            extras = {
+                "selected_as": decision.get("selected_as"),
+                "score": decision.get("score"),
+            }
+            if str(item.get("id") or "") in corrective_ids:
+                extras.update(
+                    {
+                        "corrective_evidence": _corrective_evidence(item),
+                        "recommended_action": "review_current_evidence_before_replacing_procedure",
+                    }
+                )
             items.append(
                 _base_brief_item(
                     source="task_memory",
@@ -170,10 +198,7 @@ def _used_items(task_memory: dict[str, Any]) -> list[dict[str, Any]]:
                     namespace=item.get("namespace"),
                     kind=item.get("kind"),
                     reason_codes=[*decision.get("reasons", []), f"selected_as:{decision.get('selected_as', 'unknown')}"],
-                    extras={
-                        "selected_as": decision.get("selected_as"),
-                        "score": decision.get("score"),
-                    },
+                    extras=extras,
                 )
             )
     return items
@@ -184,7 +209,13 @@ def _task_decision_items(task_memory: dict[str, Any]) -> tuple[list[dict[str, An
     needs_review: list[dict[str, Any]] = []
     for item in task_memory.get("suppressed_items") or []:
         reason = str(item.get("reason") or "suppressed")
-        target = needs_review if reason in REVIEW_SUPPRESSION_REASONS else ignored
+        lineage_issue_ids = _lineage_issue_ids(item.get("lineage_issues"))
+        corrective_supersession = (
+            reason == "superseded"
+            and item.get("section") == "procedure"
+            and item.get("by_record_type") in {"belief", "state-change"}
+        )
+        target = needs_review if reason in REVIEW_SUPPRESSION_REASONS or corrective_supersession else ignored
         target.append(
             _base_brief_item(
                 source="task_memory",
@@ -197,8 +228,16 @@ def _task_decision_items(task_memory: dict[str, Any]) -> tuple[list[dict[str, An
                 extras={
                     "blocked_by_id": item.get("by_id"),
                     "blocked_by_title": item.get("by_title"),
+                    "blocked_by_record_type": item.get("by_record_type"),
                     "source_task_section": item.get("section"),
                     "score": item.get("score"),
+                    "lineage_issue_count": len(item.get("lineage_issues") or []) or None,
+                    "missing_lineage_record_ids": lineage_issue_ids or None,
+                    "recommended_action": (
+                        "review_current_evidence_before_replacing_procedure"
+                        if corrective_supersession
+                        else None
+                    ),
                 },
             )
         )
@@ -212,10 +251,80 @@ def _task_decision_items(task_memory: dict[str, Any]) -> tuple[list[dict[str, An
                 namespace=None,
                 kind=None,
                 reason_codes=["unresolved_relation_target", str(item.get("reason") or "unknown")],
-                extras={"blocked_until": "relation_target_resolved_or_removed"},
+                extras={
+                    "blocked_until": "relation_target_resolved_or_removed",
+                    "tombstone_namespace": item.get("tombstone_namespace"),
+                    "tombstone_kind": item.get("tombstone_kind"),
+                    "tombstone_deleted_at": item.get("tombstone_deleted_at"),
+                    "tombstone_root_forget_id": item.get("tombstone_root_forget_id"),
+                    "tombstone_cause": item.get("tombstone_cause"),
+                },
             )
         )
+    for item in task_memory.get("descriptive_dependencies") or []:
+        ignored.append(
+            _base_brief_item(
+                source="task_memory",
+                source_section="descriptive_dependencies",
+                source_record_id=item.get("source_id"),
+                title=item.get("source_title"),
+                namespace=None,
+                kind=None,
+                reason_codes=["descriptive-dependency"],
+                extras={
+                    "dependency_value": item.get("value"),
+                    "classification_reason": item.get("reason"),
+                },
+            )
+        )
+    used_ids = {
+        str(item.get("id") or "")
+        for section_name in USED_TASK_SECTIONS
+        for item in task_memory.get(section_name) or []
+    }
+    for item in task_memory.get("corrective_items") or []:
+        if str(item.get("id") or "") in used_ids:
+            continue
+        needs_review.append(_corrective_item(item))
     return ignored, needs_review
+
+
+def _corrective_item(item: dict[str, Any]) -> dict[str, Any]:
+    decision = item.get("task_memory") or {}
+    return _base_brief_item(
+        source="task_memory",
+        source_section="corrective_items",
+        source_record_id=item.get("id"),
+        title=item.get("title"),
+        namespace=item.get("namespace"),
+        kind=item.get("kind"),
+        reason_codes=[*decision.get("reasons", []), "corrective-evidence"],
+        extras={
+            "selected_as": "corrective-evidence",
+            "corrective_evidence": _corrective_evidence(item),
+            "recommended_action": "review_current_evidence_before_replacing_procedure",
+        },
+    )
+
+
+def _corrective_evidence(item: dict[str, Any]) -> str | None:
+    fields = parse_content_fields(str(item.get("content") or ""))
+    return next(
+        (fields[name] for name in ("claim", "current_state", "change", "summary") if fields.get(name)),
+        None,
+    )
+
+
+def _lineage_issue_ids(raw_issues: object) -> list[str]:
+    if not isinstance(raw_issues, list):
+        return []
+    return _dedupe(
+        [
+            str(issue.get("missing_record_id") or "")
+            for issue in raw_issues
+            if isinstance(issue, dict)
+        ]
+    )
 
 
 def _review_queue_item(item: dict[str, Any]) -> dict[str, Any]:
@@ -340,9 +449,30 @@ def _render_section(title: str, items: list[dict[str, Any]]) -> list[str]:
                 f"- reason_codes: `{', '.join(item['reason_codes']) or 'none'}`",
             ]
         )
-        for key in ("selected_as", "item_type", "priority", "status", "recommended_action", "blocked_until"):
+        for key in (
+            "selected_as",
+            "item_type",
+            "priority",
+            "status",
+            "recommended_action",
+            "blocked_until",
+            "blocked_by_id",
+            "blocked_by_title",
+            "corrective_evidence",
+            "dependency_value",
+            "classification_reason",
+            "lineage_issue_count",
+            "missing_lineage_record_ids",
+            "tombstone_namespace",
+            "tombstone_kind",
+            "tombstone_deleted_at",
+            "tombstone_root_forget_id",
+            "tombstone_cause",
+        ):
             value = item.get(key)
             if value is not None:
+                if isinstance(value, list):
+                    value = ", ".join(str(part) for part in value)
                 lines.append(f"- {key}: `{value}`")
         lines.append("")
     return lines

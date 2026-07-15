@@ -40,9 +40,20 @@ def init_db(conn: sqlite3.Connection) -> None:
             expires_at TEXT,
             acknowledged_at TEXT,
             is_learning_candidate INTEGER NOT NULL DEFAULT 0,
+            lineage_status TEXT NOT NULL DEFAULT 'intact',
+            lineage_issues_json TEXT NOT NULL DEFAULT '[]',
             content_hash TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS memory_tombstones (
+            forgotten_id TEXT PRIMARY KEY,
+            namespace TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            deleted_at TEXT NOT NULL,
+            root_forget_id TEXT NOT NULL,
+            cause TEXT NOT NULL
+        ) WITHOUT ROWID;
         """
     )
     ensure_column(conn, "memories", "title", "ALTER TABLE memories ADD COLUMN title TEXT")
@@ -62,6 +73,8 @@ def init_db(conn: sqlite3.Connection) -> None:
     ensure_column(conn, "memories", "expires_at", "ALTER TABLE memories ADD COLUMN expires_at TEXT")
     ensure_column(conn, "memories", "acknowledged_at", "ALTER TABLE memories ADD COLUMN acknowledged_at TEXT")
     ensure_column(conn, "memories", "is_learning_candidate", "ALTER TABLE memories ADD COLUMN is_learning_candidate INTEGER NOT NULL DEFAULT 0")
+    ensure_column(conn, "memories", "lineage_status", "ALTER TABLE memories ADD COLUMN lineage_status TEXT NOT NULL DEFAULT 'intact'")
+    ensure_column(conn, "memories", "lineage_issues_json", "ALTER TABLE memories ADD COLUMN lineage_issues_json TEXT NOT NULL DEFAULT '[]'")
     conn.execute(
         """
         UPDATE memories

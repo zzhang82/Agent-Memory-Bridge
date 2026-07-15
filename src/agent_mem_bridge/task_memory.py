@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from .procedure_governance import (
-    INELIGIBLE_PROCEDURE_STATUSES,
+    normalize_task_domain,
     parse_procedure_artifact,
     procedure_governance_status,
     procedure_score_adjustment,
 )
-from .repository import MemoryRow, fetch_row_by_id
+from .relation_metadata import parse_content_fields, parse_relation_metadata
+from .repository import MemoryRow, fetch_row_by_id, fetch_tombstone_metadata
 from .storage import MemoryStore
 
 
@@ -41,6 +44,15 @@ SECTION_PRIORITY = {
 }
 ELIGIBLE_VALIDITY_STATUSES = {"unbounded", "current"}
 INELIGIBLE_VALIDITY_STATUSES = {"expired", "future", "invalid"}
+DEPENDENCY_BLOCKING_REASONS = {
+    "depends_on:ineligible",
+    "depends_on:unresolved",
+    "lineage_status:degraded",
+}
+MAX_RELATION_TRAVERSAL_DEPTH = 8
+MAX_RELATION_GRAPH_RECORDS = 96
+RECORD_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$")
+GENERATED_RECORD_ID_PATTERN = re.compile(r"^\d{20,}-[0-9a-fA-F]{8,}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +65,8 @@ class TaskMemoryConfig:
     domain_limit: int = 2
     support_limit: int = 6
     relation_aware: bool = True
+    as_of: datetime | None = None
+    task_domain: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +91,8 @@ def assemble_task_memory(
     domain_limit: int = 2,
     support_limit: int = 6,
     relation_aware: bool = True,
+    as_of: datetime | str | None = None,
+    task_domain: str | None = None,
 ) -> dict[str, Any]:
     config = TaskMemoryConfig(
         project_namespace=project_namespace.strip(),
@@ -87,6 +103,8 @@ def assemble_task_memory(
         domain_limit=domain_limit,
         support_limit=support_limit,
         relation_aware=relation_aware,
+        as_of=_parse_as_of(as_of),
+        task_domain=normalize_task_domain(task_domain),
     )
     if not config.relation_aware:
         return _assemble_flat_task_memory(store, query=query, config=config)
@@ -134,7 +152,8 @@ def _assemble_flat_task_memory(store: MemoryStore, *, query: str, config: TaskMe
         limit=config.domain_limit,
     )
 
-    enriched_procedures = [_enrich_procedure_hit(item) for item in procedure_hits]
+    procedure_hits, suppressed = _filter_flat_procedures(procedure_hits, config=config)
+    enriched_procedures = [_enrich_procedure_hit(item, task_domain=config.task_domain) for item in procedure_hits]
     supporting_ids = _collect_supporting_ids([*procedure_hits, *concept_hits])
     supporting_hits = _fetch_items_by_id(store, supporting_ids, limit=config.support_limit)
 
@@ -142,13 +161,17 @@ def _assemble_flat_task_memory(store: MemoryStore, *, query: str, config: TaskMe
         "query": query.strip(),
         "project_namespace": config.project_namespace,
         "global_namespace": config.global_namespace,
+        "as_of": config.as_of.isoformat() if config.as_of else None,
+        "task_domain": config.task_domain or None,
         "procedure_hits": enriched_procedures,
         "concept_hits": concept_hits,
         "belief_hits": belief_hits,
         "domain_hits": domain_hits,
         "supporting_hits": supporting_hits,
-        "suppressed_items": [],
+        "corrective_items": [],
+        "suppressed_items": suppressed,
         "unresolved_relation_targets": [],
+        "descriptive_dependencies": [],
         "assembly_mode": "flat",
     }
     report["summary"] = render_task_memory_text(report)
@@ -202,6 +225,23 @@ def _assemble_relation_aware_task_memory(
         tags_any=[SECTION_TAGS["domain"]],
         limit=max(config.domain_limit, candidate_limit),
     )
+    raw_state_change_hits = _merge_hits(
+        _recall_hits(
+            store,
+            namespace=config.project_namespace,
+            query=query,
+            tags_any=["kind:state-change"],
+            limit=candidate_limit,
+        ),
+        _recall_hits(
+            store,
+            namespace=config.global_namespace,
+            query=query,
+            tags_any=["kind:state-change"],
+            limit=candidate_limit,
+        ),
+        candidate_limit * 2,
+    )
 
     candidates = _build_direct_candidates(
         {
@@ -209,23 +249,59 @@ def _assemble_relation_aware_task_memory(
             "concept": raw_concept_hits,
             "belief": raw_belief_hits,
             "domain": raw_domain_hits,
+            "support": raw_state_change_hits,
         },
         project_namespace=config.project_namespace,
     )
-    relation_edges = _collect_relation_edges(candidates)
-    target_ids = _ordered_relation_targets(relation_edges)
-    fetched_items, unresolved_targets = _fetch_items_by_id_with_unresolved(store, target_ids)
-    _add_support_candidates(candidates, fetched_items)
+    relation_edges, unresolved_targets, descriptive_dependencies = _resolve_relation_graph(
+        store,
+        candidates,
+    )
 
     suppressed: list[dict[str, Any]] = []
+    corrective_items: list[dict[str, Any]] = []
     active_ids = set(candidates)
-    _apply_validity_suppression(candidates, active_ids, suppressed)
-    _apply_procedure_governance_suppression(candidates, active_ids, suppressed)
-    scores = _score_candidates(candidates, relation_edges, active_ids)
-    _apply_supersession(candidates, active_ids, scores, relation_edges, suppressed)
-    scores = _score_candidates(candidates, relation_edges, active_ids)
+    _apply_validity_suppression(candidates, active_ids, suppressed, as_of=config.as_of)
+    _apply_lineage_suppression(candidates, active_ids, suppressed)
+    _apply_procedure_governance_suppression(
+        candidates,
+        active_ids,
+        suppressed,
+        task_domain=config.task_domain,
+    )
+    _apply_dependency_suppression(
+        candidates,
+        active_ids,
+        relation_edges,
+        unresolved_targets,
+        suppressed,
+    )
+    scores = _score_candidates(candidates, relation_edges, active_ids, task_domain=config.task_domain)
+    _apply_supersession(
+        candidates,
+        active_ids,
+        scores,
+        relation_edges,
+        suppressed,
+        corrective_items,
+    )
+    _apply_dependency_suppression(
+        candidates,
+        active_ids,
+        relation_edges,
+        unresolved_targets,
+        suppressed,
+    )
+    scores = _score_candidates(candidates, relation_edges, active_ids, task_domain=config.task_domain)
     _apply_contradictions(candidates, active_ids, scores, relation_edges, suppressed)
-    scores = _score_candidates(candidates, relation_edges, active_ids)
+    _apply_dependency_suppression(
+        candidates,
+        active_ids,
+        relation_edges,
+        unresolved_targets,
+        suppressed,
+    )
+    scores = _score_candidates(candidates, relation_edges, active_ids, task_domain=config.task_domain)
 
     selected_ids: set[str] = set()
     procedure_hits = _select_section(
@@ -277,18 +353,22 @@ def _assemble_relation_aware_task_memory(
         if item_id in candidates and item_id not in selected_ids
     ]
 
-    enriched_procedures = [_enrich_procedure_hit(item) for item in procedure_hits]
+    enriched_procedures = [_enrich_procedure_hit(item, task_domain=config.task_domain) for item in procedure_hits]
     report = {
         "query": query.strip(),
         "project_namespace": config.project_namespace,
         "global_namespace": config.global_namespace,
+        "as_of": config.as_of.isoformat() if config.as_of else None,
+        "task_domain": config.task_domain or None,
         "procedure_hits": enriched_procedures,
         "concept_hits": concept_hits,
         "belief_hits": belief_hits,
         "domain_hits": domain_hits,
         "supporting_hits": supporting_hits,
+        "corrective_items": corrective_items,
         "suppressed_items": suppressed,
         "unresolved_relation_targets": unresolved_targets,
+        "descriptive_dependencies": descriptive_dependencies,
         "assembly_mode": "relation-aware",
     }
     report["summary"] = render_task_memory_text(report)
@@ -407,11 +487,58 @@ def _merge_hits(primary: list[dict[str, Any]], secondary: list[dict[str, Any]], 
     return merged
 
 
-def _enrich_procedure_hit(item: dict[str, Any]) -> dict[str, Any]:
+def _enrich_procedure_hit(item: dict[str, Any], *, task_domain: str = "") -> dict[str, Any]:
     return {
         **item,
-        "procedure": parse_procedure_artifact(item.get("content") or ""),
+        "procedure": parse_procedure_artifact(
+            item.get("content") or "",
+            tags=item.get("tags") or [],
+            task_domain=task_domain,
+        ),
     }
+
+
+def _filter_flat_procedures(
+    items: list[dict[str, Any]],
+    *,
+    config: TaskMemoryConfig,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    if config.as_of is None and not config.task_domain:
+        return items, []
+    eligible: list[dict[str, Any]] = []
+    suppressed: list[dict[str, Any]] = []
+    for item in items:
+        reason: str | None = None
+        if config.as_of is not None:
+            validity = str(
+                parse_relation_metadata(str(item.get("content") or ""), now=config.as_of)["validity_status"]
+            )
+            if validity in INELIGIBLE_VALIDITY_STATUSES:
+                reason = f"validity:{validity}"
+        if reason is None and config.task_domain:
+            governance = parse_procedure_artifact(
+                str(item.get("content") or ""),
+                tags=item.get("tags") or [],
+                task_domain=config.task_domain,
+            )["governance"]
+            if not governance["eligible"]:
+                reason = str(governance["ineligible_reason"])
+        if reason is None:
+            eligible.append(item)
+            continue
+        suppressed.append(
+            {
+                "id": _item_id(item),
+                "title": item.get("title"),
+                "section": "procedure",
+                "reason": reason,
+                "by_id": None,
+                "by_title": None,
+                "by_record_type": None,
+                "score": None,
+            }
+        )
+    return eligible, suppressed
 
 
 def _collect_supporting_ids(items: list[dict[str, Any]]) -> list[str]:
@@ -475,71 +602,129 @@ def _build_direct_candidates(
     return candidates
 
 
-def _add_support_candidates(candidates: dict[str, TaskCandidate], fetched_items: dict[str, dict[str, Any]]) -> None:
-    for item_id, item in fetched_items.items():
-        if item_id in candidates:
-            continue
-        candidates[item_id] = TaskCandidate(
-            item=item,
-            section="support",
-            raw_rank=999,
-            direct=False,
-            namespace_role="project" if str(item.get("namespace") or "").startswith("project:") else "global",
-            reasons=("relation-target",),
-        )
-
-
-def _collect_relation_edges(candidates: dict[str, TaskCandidate]) -> list[dict[str, str]]:
-    edges: list[dict[str, str]] = []
-    for source_id, candidate in candidates.items():
-        relations = candidate.item.get("relations") or {}
-        for relation_name in ("depends_on", "supports", "contradicts", "supersedes"):
-            for target in relations.get(relation_name, []) or []:
-                target_id = str(target).strip()
-                if not target_id:
-                    continue
-                edges.append({"source_id": source_id, "relation": relation_name, "target_id": target_id})
-    return edges
-
-
-def _ordered_relation_targets(relation_edges: list[dict[str, str]]) -> list[str]:
-    ordered: list[str] = []
-    seen: set[str] = set()
-    for edge in relation_edges:
-        target_id = edge["target_id"]
-        if target_id in seen:
-            continue
-        seen.add(target_id)
-        ordered.append(target_id)
-    return ordered
-
-
-def _fetch_items_by_id_with_unresolved(
+def _resolve_relation_graph(
     store: MemoryStore,
-    ids: list[str],
-) -> tuple[dict[str, dict[str, Any]], list[dict[str, str]]]:
-    items: dict[str, dict[str, Any]] = {}
-    unresolved: list[dict[str, str]] = []
-    if not ids:
-        return items, unresolved
+    candidates: dict[str, TaskCandidate],
+) -> tuple[list[dict[str, str]], list[dict[str, Any]], list[dict[str, str]]]:
+    edges: list[dict[str, str]] = []
+    unresolved_by_id: dict[str, dict[str, Any]] = {}
+    descriptive_dependencies: list[dict[str, str]] = []
+    seen_edges: set[tuple[str, str, str]] = set()
+    seen_descriptions: set[tuple[str, str]] = set()
+    frontier = list(candidates)
+
     with store._connect() as conn:
-        for memory_id in ids:
-            row = fetch_row_by_id(conn, memory_id)
-            if row is None:
-                unresolved.append({"target_id": memory_id, "reason": "not-found"})
-                continue
-            item = MemoryRow.from_sqlite(row).as_dict()
-            items[item["id"]] = item
-    return items, unresolved
+        for _depth in range(MAX_RELATION_TRAVERSAL_DEPTH):
+            if not frontier:
+                break
+            next_frontier: list[str] = []
+            for source_id in frontier:
+                candidate = candidates[source_id]
+                relations = candidate.item.get("relations") or {}
+                for relation_name in ("depends_on", "supports", "contradicts", "supersedes"):
+                    for raw_target in relations.get(relation_name, []) or []:
+                        target_id = str(raw_target).strip()
+                        if not target_id:
+                            continue
+                        row = fetch_row_by_id(conn, target_id)
+                        tombstone = fetch_tombstone_metadata(conn, target_id)
+                        if row is None and tombstone is None and not _looks_like_record_id(target_id):
+                            if relation_name == "depends_on":
+                                description_key = (source_id, target_id)
+                                if description_key not in seen_descriptions:
+                                    seen_descriptions.add(description_key)
+                                    descriptive_dependencies.append(
+                                        {
+                                            "source_id": source_id,
+                                            "source_title": str(candidate.item.get("title") or ""),
+                                            "relation": relation_name,
+                                            "value": target_id,
+                                            "reason": "descriptive-not-record-id",
+                                        }
+                                    )
+                            continue
+
+                        edge_key = (source_id, relation_name, target_id)
+                        if edge_key not in seen_edges:
+                            seen_edges.add(edge_key)
+                            edges.append(
+                                {
+                                    "source_id": source_id,
+                                    "relation": relation_name,
+                                    "target_id": target_id,
+                                }
+                            )
+
+                        if row is not None:
+                            if target_id in candidates:
+                                continue
+                            if len(candidates) >= MAX_RELATION_GRAPH_RECORDS:
+                                unresolved_by_id.setdefault(
+                                    target_id,
+                                    {
+                                        "target_id": target_id,
+                                        "reason": "relation-expansion-limit",
+                                    },
+                                )
+                                continue
+                            item = MemoryRow.from_sqlite(row).as_dict()
+                            candidates[target_id] = TaskCandidate(
+                                item=item,
+                                section="support",
+                                raw_rank=999,
+                                direct=False,
+                                namespace_role=(
+                                    "project"
+                                    if str(item.get("namespace") or "").startswith("project:")
+                                    else "global"
+                                ),
+                                reasons=("relation-target",),
+                            )
+                            next_frontier.append(target_id)
+                            continue
+
+                        if tombstone is not None:
+                            unresolved_by_id.setdefault(
+                                target_id,
+                                {
+                                    "target_id": target_id,
+                                    "reason": "forgotten",
+                                    "tombstone_namespace": tombstone["namespace"],
+                                    "tombstone_kind": tombstone["kind"],
+                                    "tombstone_deleted_at": tombstone["deleted_at"],
+                                    "tombstone_root_forget_id": tombstone["root_forget_id"],
+                                    "tombstone_cause": tombstone["cause"],
+                                },
+                            )
+                        else:
+                            unresolved_by_id.setdefault(
+                                target_id,
+                                {"target_id": target_id, "reason": "not-found"},
+                            )
+            frontier = next_frontier
+
+    return edges, list(unresolved_by_id.values()), descriptive_dependencies
+
+
+def _looks_like_record_id(value: str) -> bool:
+    if GENERATED_RECORD_ID_PATTERN.fullmatch(value):
+        return True
+    if not RECORD_ID_PATTERN.fullmatch(value):
+        return False
+    return any(marker in value for marker in ("-", "_", "/", ":"))
 
 
 def _apply_validity_suppression(
     candidates: dict[str, TaskCandidate],
     active_ids: set[str],
     suppressed: list[dict[str, Any]],
+    *,
+    as_of: datetime | None,
 ) -> None:
     for item_id, candidate in candidates.items():
-        validity = str(candidate.item.get("validity_status") or "unbounded")
+        validity = str(
+            parse_relation_metadata(str(candidate.item.get("content") or ""), now=as_of)["validity_status"]
+        )
         if validity not in INELIGIBLE_VALIDITY_STATUSES:
             continue
         if item_id in active_ids:
@@ -547,22 +732,87 @@ def _apply_validity_suppression(
             suppressed.append(_suppressed_payload(candidate, reason=f"validity:{validity}"))
 
 
-def _apply_procedure_governance_suppression(
+def _apply_lineage_suppression(
     candidates: dict[str, TaskCandidate],
     active_ids: set[str],
     suppressed: list[dict[str, Any]],
 ) -> None:
     for item_id, candidate in candidates.items():
+        if item_id not in active_ids:
+            continue
+        fields = parse_content_fields(str(candidate.item.get("content") or ""))
+        persisted_status = _normalize_field_value(candidate.item.get("lineage_status"))
+        declared_status = _normalize_field_value(fields.get("lineage_status"))
+        if persisted_status != "degraded" and declared_status != "degraded":
+            continue
+        active_ids.remove(item_id)
+        suppressed.append(_suppressed_payload(candidate, reason="lineage_status:degraded"))
+
+
+def _apply_dependency_suppression(
+    candidates: dict[str, TaskCandidate],
+    active_ids: set[str],
+    relation_edges: list[dict[str, str]],
+    unresolved_targets: list[dict[str, Any]],
+    suppressed: list[dict[str, Any]],
+) -> None:
+    unresolved_ids = {item["target_id"] for item in unresolved_targets}
+    changed = True
+    while changed:
+        changed = False
+        blocking_inactive_ids = {
+            str(item.get("id") or "")
+            for item in suppressed
+            if item.get("reason") in DEPENDENCY_BLOCKING_REASONS
+        }
+        for edge in relation_edges:
+            source_id = edge["source_id"]
+            target_id = edge["target_id"]
+            if edge["relation"] != "depends_on" or source_id not in active_ids:
+                continue
+            target_is_unresolved = target_id in unresolved_ids
+            target_is_ineligible = target_id in blocking_inactive_ids
+            if not target_is_unresolved and not target_is_ineligible:
+                continue
+            active_ids.remove(source_id)
+            suppressed.append(
+                _suppressed_payload(
+                    candidates[source_id],
+                    reason=(
+                        "depends_on:unresolved"
+                        if target_is_unresolved
+                        else "depends_on:ineligible"
+                    ),
+                    by_id=target_id,
+                )
+            )
+            changed = True
+            break
+
+
+def _apply_procedure_governance_suppression(
+    candidates: dict[str, TaskCandidate],
+    active_ids: set[str],
+    suppressed: list[dict[str, Any]],
+    *,
+    task_domain: str,
+) -> None:
+    for item_id, candidate in candidates.items():
         if candidate.section != "procedure" or item_id not in active_ids:
             continue
-        status = procedure_governance_status(candidate.item)
-        if status not in INELIGIBLE_PROCEDURE_STATUSES:
+        procedure = parse_procedure_artifact(
+            str(candidate.item.get("content") or ""),
+            tags=candidate.item.get("tags") or [],
+            task_domain=task_domain,
+        )
+        governance = procedure["governance"]
+        if governance["eligible"]:
             continue
         active_ids.remove(item_id)
         suppressed.append(
             _suppressed_payload(
                 candidate,
-                reason=f"procedure_status:{status}",
+                reason=str(governance["ineligible_reason"]),
             )
         )
 
@@ -571,6 +821,8 @@ def _score_candidates(
     candidates: dict[str, TaskCandidate],
     relation_edges: list[dict[str, str]],
     active_ids: set[str],
+    *,
+    task_domain: str,
 ) -> dict[str, float]:
     inbound: dict[str, dict[str, int]] = {}
     for edge in relation_edges:
@@ -589,15 +841,15 @@ def _score_candidates(
             inbound.get(item_id, {}).get("depends_on", 0) * 18.0
             + inbound.get(item_id, {}).get("supports", 0) * 10.0
         )
-        scores[item_id] = round(_base_score(candidate) + relation_bonus, 3)
+        scores[item_id] = round(_base_score(candidate, task_domain=task_domain) + relation_bonus, 3)
     return scores
 
 
-def _base_score(candidate: TaskCandidate) -> float:
+def _base_score(candidate: TaskCandidate, *, task_domain: str = "") -> float:
     rank_penalty = 5.0 if candidate.section in {"procedure", "concept", "belief"} else 4.0
     namespace_bonus = 4.0 if candidate.namespace_role == "project" else 0.0
     direct_bonus = 5.0 if candidate.direct else 0.0
-    procedure_governance_bonus = _procedure_governance_score(candidate)
+    procedure_governance_bonus = _procedure_governance_score(candidate, task_domain=task_domain)
     return (
         SECTION_BASE_SCORES[candidate.section]
         - (rank_penalty * max(candidate.raw_rank - 1, 0))
@@ -607,10 +859,10 @@ def _base_score(candidate: TaskCandidate) -> float:
     )
 
 
-def _procedure_governance_score(candidate: TaskCandidate) -> float:
+def _procedure_governance_score(candidate: TaskCandidate, *, task_domain: str = "") -> float:
     if candidate.section != "procedure":
         return 0.0
-    return procedure_score_adjustment(candidate.item)
+    return procedure_score_adjustment(candidate.item, task_domain=task_domain)
 
 
 def _apply_supersession(
@@ -619,16 +871,47 @@ def _apply_supersession(
     scores: dict[str, float],
     relation_edges: list[dict[str, str]],
     suppressed: list[dict[str, Any]],
+    corrective_items: list[dict[str, Any]],
 ) -> None:
+    eligible_at_start = set(active_ids)
+    adjacency: dict[str, list[str]] = {}
+    supersession_targets: set[str] = set()
     for edge in relation_edges:
         if edge["relation"] != "supersedes":
             continue
         source_id = edge["source_id"]
         target_id = edge["target_id"]
-        if source_id not in active_ids or target_id not in active_ids:
+        if source_id not in eligible_at_start or target_id not in eligible_at_start:
             continue
         if source_id == target_id:
             continue
+        adjacency.setdefault(source_id, []).append(target_id)
+        supersession_targets.add(target_id)
+
+    roots = [source_id for source_id in adjacency if source_id not in supersession_targets]
+    superseded_by: dict[str, str] = {}
+    for root_id in roots:
+        frontier = [(root_id, 0)]
+        visited = {root_id}
+        while frontier:
+            source_id, depth = frontier.pop(0)
+            if depth >= MAX_RELATION_TRAVERSAL_DEPTH:
+                continue
+            for target_id in adjacency.get(source_id, []):
+                if target_id in visited:
+                    continue
+                visited.add(target_id)
+                superseded_by.setdefault(target_id, source_id)
+                frontier.append((target_id, depth + 1))
+
+    for target_id, source_id in superseded_by.items():
+        if target_id not in active_ids:
+            continue
+        source_record_type = _record_type(candidates[source_id])
+        is_corrective_procedure_change = (
+            candidates[target_id].section == "procedure"
+            and source_record_type in {"belief", "state-change"}
+        )
         active_ids.remove(target_id)
         suppressed.append(
             _suppressed_payload(
@@ -636,9 +919,20 @@ def _apply_supersession(
                 reason="superseded",
                 by_id=source_id,
                 by_title=candidates[source_id].item.get("title"),
+                by_record_type=source_record_type if is_corrective_procedure_change else None,
                 score=scores.get(target_id),
             )
         )
+        if is_corrective_procedure_change and not any(
+            _item_id(item) == source_id for item in corrective_items
+        ):
+            corrective_items.append(
+                _annotate_candidate(
+                    candidates[source_id],
+                    selected_as="corrective-evidence",
+                    score=scores.get(source_id, 0.0),
+                )
+            )
 
 
 def _apply_contradictions(
@@ -764,6 +1058,7 @@ def _suppressed_payload(
     reason: str,
     by_id: str | None = None,
     by_title: str | None = None,
+    by_record_type: str | None = None,
     score: float | None = None,
 ) -> dict[str, Any]:
     return {
@@ -773,6 +1068,9 @@ def _suppressed_payload(
         "reason": reason,
         "by_id": by_id,
         "by_title": by_title,
+        "by_record_type": by_record_type,
+        "lineage_status": candidate.item.get("lineage_status"),
+        "lineage_issues": candidate.item.get("lineage_issues") or [],
         "score": round(score, 3) if score is not None else None,
     }
 
@@ -788,6 +1086,20 @@ def _candidate_reasons(candidate: TaskCandidate) -> tuple[str, ...]:
         if status != "unspecified":
             reasons.append(f"procedure_status:{status}")
     return tuple(reasons)
+
+
+def _record_type(candidate: TaskCandidate) -> str:
+    fields = parse_content_fields(str(candidate.item.get("content") or ""))
+    record_type = _normalize_field_value(fields.get("record_type"))
+    if record_type:
+        return record_type
+    if candidate.section == "belief":
+        return "belief"
+    for tag in candidate.item.get("tags") or []:
+        text = str(tag).strip().lower()
+        if text.startswith("kind:"):
+            return text.removeprefix("kind:")
+    return ""
 
 
 def _collect_ids(items: list[dict[str, Any]]) -> set[str]:
@@ -806,3 +1118,27 @@ def _split_pipe_list(value: str) -> list[str]:
         seen.add(cleaned)
         parts.append(cleaned)
     return parts
+
+
+def _normalize_field_value(value: str | None) -> str:
+    return "-".join(str(value or "").strip().lower().replace("_", "-").split())
+
+
+def _parse_as_of(value: datetime | str | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError as exc:
+            raise ValueError("as_of must be an ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)

@@ -1,0 +1,657 @@
+{
+  "schema": "amb.v0.21.governed_change_manifest.v1",
+  "title": "Governed Memory Under Change",
+  "current_release": "0.20.0",
+  "target_release": "0.21.0",
+  "status": "planning/pre-v0.21",
+  "case_count": 20,
+  "categories": {
+    "deletion_residue": 5,
+    "lifecycle_supersession": 5,
+    "changed_premise_usefulness": 5,
+    "cross_domain_transfer": 5
+  },
+  "required_case_fields": [
+    "id",
+    "category",
+    "transition",
+    "expected_governed_outcome",
+    "flat_baseline_hazard",
+    "failure_reason",
+    "metric_mappings",
+    "no_go_guard",
+    "checkpoints"
+  ],
+  "execution_contract": {
+    "memory_store_isolation": "one_fresh_temp_MemoryStore_per_case",
+    "checkpoints_per_case": 2,
+    "transition_count": 20,
+    "storage_mutation_count": 19,
+    "clock_transition_count": 1
+  },
+  "metrics": {
+    "flat_baseline_hazards": {
+      "expected": "17/20",
+      "hazard_count": 17
+    },
+    "governed_failures": {
+      "target": "0/20",
+      "failure_count": 0
+    },
+    "governed_checkpoint_passes": {
+      "target": "40/40",
+      "pass_count": 40
+    }
+  },
+  "boundaries": {
+    "public_mcp_tool_count": 10,
+    "no_new_mcp_tools": true,
+    "no_auto_mutation": true,
+    "no_auto_writeback": true,
+    "no_config_writes": true,
+    "no_outside_temp_writes": true,
+    "no_private_or_local_cole_data": true
+  },
+  "cases": [
+    {
+      "id": "gmuc-del-01-forget-clears-primary-fts-embedding",
+      "category": "deletion_residue",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Forget a record that exists in the primary table, FTS index, and embedding index."
+      },
+      "expected_governed_outcome": "The forgotten record is absent from primary lookup, lexical recall, and embedding recall after the transition.",
+      "flat_baseline_hazard": {
+        "expected": false,
+        "description": "Control case: a correctly implemented direct delete can clear all three storage representations without governance ranking."
+      },
+      "failure_reason": "Fails if any primary row, FTS match, embedding candidate, or retrievable content remains after forget.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not add a cleanup MCP tool or scan outside the case temp store.",
+      "checkpoints": [
+        {
+          "id": "gmuc-del-01-cp1",
+          "assertion": "The record is present through primary, FTS, and embedding lookup before forget."
+        },
+        {
+          "id": "gmuc-del-01-cp2",
+          "assertion": "All three lookup paths are empty for the record after forget."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-del-02-tombstone-redacts-forgotten-content",
+      "category": "deletion_residue",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Forget a record while preserving only a content-redacted tombstone."
+      },
+      "expected_governed_outcome": "The tombstone preserves deletion identity and audit metadata without retaining the forgotten content.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "A flat audit copy can preserve the deleted payload and leak it through inspection or retrieval."
+      },
+      "failure_reason": "Fails if the tombstone contains the original title, body, secret token, or any reconstructable forgotten payload.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not weaken the audit trail by removing tombstone identity, and do not copy content to a sidecar.",
+      "checkpoints": [
+        {
+          "id": "gmuc-del-02-cp1",
+          "assertion": "The live record contains a unique payload before forget."
+        },
+        {
+          "id": "gmuc-del-02-cp2",
+          "assertion": "The tombstone retains identity and deletion metadata but none of the unique payload."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-del-03-tombstone-prevents-predecessor-resurrection",
+      "category": "deletion_residue",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Forget a superseder while its older predecessor remains in storage."
+      },
+      "expected_governed_outcome": "The tombstone blocks the predecessor from becoming current or actionable after the superseder is forgotten.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat retrieval can promote the remaining predecessor once the newer record disappears."
+      },
+      "failure_reason": "Fails if the predecessor is recalled as current, used as guidance, or loses its suppressed lineage state.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not solve predecessor resurrection by deleting unrelated lineage records automatically.",
+      "checkpoints": [
+        {
+          "id": "gmuc-del-03-cp1",
+          "assertion": "The superseder is current and the predecessor is suppressed before forget."
+        },
+        {
+          "id": "gmuc-del-03-cp2",
+          "assertion": "The forgotten superseder's tombstone keeps the predecessor suppressed."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-del-04-deleted-dependency-demotes-procedure",
+      "category": "deletion_residue",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Forget a dependency required by an otherwise valid procedure."
+      },
+      "expected_governed_outcome": "The dependent procedure is demoted from actionable guidance and reports the missing dependency.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat retrieval can continue returning the procedure without checking whether its dependency still exists."
+      },
+      "failure_reason": "Fails if the procedure remains actionable, hides the missing dependency, or is executed automatically.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not cascade-delete or automatically rewrite the dependent procedure.",
+      "checkpoints": [
+        {
+          "id": "gmuc-del-04-cp1",
+          "assertion": "The procedure is actionable while its required dependency is present."
+        },
+        {
+          "id": "gmuc-del-04-cp2",
+          "assertion": "The procedure is demoted with a missing-dependency reason after forget."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-del-05-rebuild-cannot-resurrect-forgotten-record",
+      "category": "deletion_residue",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Rebuild search and embedding indexes after a record has been forgotten."
+      },
+      "expected_governed_outcome": "Rebuild derives only from live, non-forgotten records and cannot recreate the forgotten record or payload.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "A rebuild fed by stale index material or unredacted audit rows can resurrect forgotten content."
+      },
+      "failure_reason": "Fails if rebuild recreates a row, index hit, embedding candidate, or content-bearing tombstone for the forgotten record.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not read backup, cache, or user directories outside the fresh case temp store.",
+      "checkpoints": [
+        {
+          "id": "gmuc-del-05-cp1",
+          "assertion": "The record is absent from live storage and indexes before rebuild."
+        },
+        {
+          "id": "gmuc-del-05-cp2",
+          "assertion": "The record remains absent from all storage and retrieval paths after rebuild."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-life-01-stale-decoy-added-after-current",
+      "category": "lifecycle_supersession",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add a stale but lexically strong decoy after the current record."
+      },
+      "expected_governed_outcome": "The current record remains preferred and the later stale decoy is suppressed with a lifecycle reason.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat recency or similarity ranking can let a later stale decoy outrank current guidance."
+      },
+      "failure_reason": "Fails if insertion order makes the stale decoy current, actionable, or unexplained in the result.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not mutate or delete the decoy merely because it should be suppressed at retrieval time.",
+      "checkpoints": [
+        {
+          "id": "gmuc-life-01-cp1",
+          "assertion": "The current record is selected before the stale decoy is added."
+        },
+        {
+          "id": "gmuc-life-01-cp2",
+          "assertion": "The current record remains selected after the stale decoy is added."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-life-02-superseder-arrives-after-old",
+      "category": "lifecycle_supersession",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add a record that explicitly supersedes an older matching record."
+      },
+      "expected_governed_outcome": "The new superseder becomes current and the old record remains visible only as suppressed lineage evidence.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat retrieval can return both generations as equally valid or rank the older lexical match first."
+      },
+      "failure_reason": "Fails if the old record remains actionable, both records appear equally current, or lineage is lost.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not auto-delete the old record or add a new public relation tool.",
+      "checkpoints": [
+        {
+          "id": "gmuc-life-02-cp1",
+          "assertion": "The old record is current before its superseder arrives."
+        },
+        {
+          "id": "gmuc-life-02-cp2",
+          "assertion": "Only the superseder is current after the transition, with old lineage retained."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-life-03-three-generation-supersession-chain",
+      "category": "lifecycle_supersession",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add the third generation to a two-generation supersession chain."
+      },
+      "expected_governed_outcome": "Only generation three is current; generations one and two are transitively suppressed without losing chain auditability.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat or one-hop handling can leak generation one or treat generation two as current."
+      },
+      "failure_reason": "Fails if any earlier generation is actionable, if suppression is only one hop, or if the chain cannot be audited.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not require unbounded graph traversal or physically collapse the chain.",
+      "checkpoints": [
+        {
+          "id": "gmuc-life-03-cp1",
+          "assertion": "Generation two is current and generation one is suppressed before generation three arrives."
+        },
+        {
+          "id": "gmuc-life-03-cp2",
+          "assertion": "Generation three is current and both predecessors are suppressed after the transition."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-life-04-validity-crosses-expiry-boundary",
+      "category": "lifecycle_supersession",
+      "transition": {
+        "kind": "clock_transition",
+        "description": "Advance the injected case clock from immediately before valid_until to immediately after it."
+      },
+      "expected_governed_outcome": "The record changes from current to expired at the boundary and is no longer actionable after the clock transition.",
+      "flat_baseline_hazard": {
+        "expected": false,
+        "description": "Control case: a flat query with a correct valid_until predicate can reject the record after expiry."
+      },
+      "failure_reason": "Fails if wall-clock nondeterminism is used, the boundary is inclusive in both checkpoints, or expired guidance remains actionable.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not sleep, change the system clock, or write storage to simulate the only clock transition.",
+      "checkpoints": [
+        {
+          "id": "gmuc-life-04-cp1",
+          "assertion": "The record is current immediately before valid_until."
+        },
+        {
+          "id": "gmuc-life-04-cp2",
+          "assertion": "The record is expired and non-actionable immediately after valid_until."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-life-05-expired-record-replaced-without-leak",
+      "category": "lifecycle_supersession",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add a current replacement for an already expired record."
+      },
+      "expected_governed_outcome": "The replacement is current, while the expired record is retained only as suppressed historical evidence and does not leak into guidance.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat retrieval can return the expired record beside or above the replacement because both match the query."
+      },
+      "failure_reason": "Fails if expired content appears in actionable output, contaminates the replacement, or loses its historical status.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not delete the expired record automatically or merge its payload into the replacement.",
+      "checkpoints": [
+        {
+          "id": "gmuc-life-05-cp1",
+          "assertion": "The expired record is non-actionable before its replacement is added."
+        },
+        {
+          "id": "gmuc-life-05-cp2",
+          "assertion": "Only the replacement is actionable, with no expired-content leak."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-state-01-rollout-completed-resists-continue",
+      "category": "changed_premise_usefulness",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add the fact that a previously active rollout has completed."
+      },
+      "expected_governed_outcome": "Guidance acknowledges completion and rejects instructions to continue the rollout.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat retrieval can surface the still-relevant rollout procedure without incorporating the completed state."
+      },
+      "failure_reason": "Fails if the result recommends continuing rollout steps or omits the completed premise.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not execute rollout actions or rewrite historical rollout records automatically.",
+      "checkpoints": [
+        {
+          "id": "gmuc-state-01-cp1",
+          "assertion": "Continue-rollout guidance is useful while the rollout is active."
+        },
+        {
+          "id": "gmuc-state-01-cp2",
+          "assertion": "Continue-rollout guidance is rejected after completion is recorded."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-state-02-incident-closed-resists-escalate",
+      "category": "changed_premise_usefulness",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add the fact that an incident has been closed."
+      },
+      "expected_governed_outcome": "Guidance reports the incident as closed and rejects escalation instructions tied to the active incident premise.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat retrieval can keep an urgent escalation runbook highly ranked after closure."
+      },
+      "failure_reason": "Fails if the result recommends escalation, pages responders, or treats the incident as active.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not contact responders, mutate incident systems, or auto-close memory records.",
+      "checkpoints": [
+        {
+          "id": "gmuc-state-02-cp1",
+          "assertion": "Escalation guidance is useful while the incident is active."
+        },
+        {
+          "id": "gmuc-state-02-cp2",
+          "assertion": "Escalation guidance is rejected after the incident is closed."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-state-03-migration-applied-resists-rerun",
+      "category": "changed_premise_usefulness",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add the fact that a one-time migration has already been applied."
+      },
+      "expected_governed_outcome": "Guidance recognizes the applied migration and rejects instructions to rerun it.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat retrieval can return the migration procedure because its task wording remains an excellent match."
+      },
+      "failure_reason": "Fails if the result recommends rerunning the migration or fails to surface its applied state.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not execute migrations or infer idempotence not declared by the fixture.",
+      "checkpoints": [
+        {
+          "id": "gmuc-state-03-cp1",
+          "assertion": "Run-migration guidance is useful before the migration is applied."
+        },
+        {
+          "id": "gmuc-state-03-cp2",
+          "assertion": "Run-migration guidance is rejected after the applied state is recorded."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-state-04-feature-removed-resists-enable",
+      "category": "changed_premise_usefulness",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add the fact that a previously configurable feature has been removed."
+      },
+      "expected_governed_outcome": "Guidance acknowledges removal and rejects the obsolete enablement procedure.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat retrieval can continue recommending a detailed enablement procedure after the feature no longer exists."
+      },
+      "failure_reason": "Fails if enablement steps remain actionable or the removed premise is treated as a temporary disablement.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not edit configuration or recreate the removed feature.",
+      "checkpoints": [
+        {
+          "id": "gmuc-state-04-cp1",
+          "assertion": "Enablement guidance is useful while the feature exists."
+        },
+        {
+          "id": "gmuc-state-04-cp2",
+          "assertion": "Enablement guidance is rejected after feature removal is recorded."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-state-05-approval-revoked-resists-shortcut",
+      "category": "changed_premise_usefulness",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add the fact that approval for a previously allowed shortcut has been revoked."
+      },
+      "expected_governed_outcome": "Guidance rejects the shortcut, surfaces revoked approval, and requires the normal reviewed path.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Flat retrieval can rank the shortcut instructions without evaluating the newer approval state."
+      },
+      "failure_reason": "Fails if the shortcut remains recommended, revoked approval is hidden, or approval is automatically restored.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not auto-approve, auto-resolve, or execute the shortcut.",
+      "checkpoints": [
+        {
+          "id": "gmuc-state-05-cp1",
+          "assertion": "The shortcut is useful while explicit approval is active."
+        },
+        {
+          "id": "gmuc-state-05-cp2",
+          "assertion": "The shortcut is rejected after approval is revoked."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-xfer-01-sqlite-rejects-postgres-backup",
+      "category": "cross_domain_transfer",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add SQLite task context after storing a lexically similar PostgreSQL backup procedure."
+      },
+      "expected_governed_outcome": "The PostgreSQL backup procedure is rejected as non-transferable to the SQLite task.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Shared database and backup vocabulary can make the PostgreSQL procedure a strong flat match."
+      },
+      "failure_reason": "Fails if PostgreSQL commands are presented as SQLite guidance or domain mismatch is unexplained.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not execute database commands or invent a translated SQLite procedure.",
+      "checkpoints": [
+        {
+          "id": "gmuc-xfer-01-cp1",
+          "assertion": "The PostgreSQL procedure is useful in its original PostgreSQL context."
+        },
+        {
+          "id": "gmuc-xfer-01-cp2",
+          "assertion": "The procedure is rejected after the task context changes to SQLite."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-xfer-02-python-release-rejects-k8s-rollback",
+      "category": "cross_domain_transfer",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add Python package release context after storing a Kubernetes release rollback procedure."
+      },
+      "expected_governed_outcome": "The Kubernetes rollback procedure is rejected for the Python package release task.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Release, version, deploy, and rollback terms can dominate flat similarity despite incompatible runtimes."
+      },
+      "failure_reason": "Fails if kubectl or cluster rollback steps appear as actionable Python release guidance.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not contact a cluster, publish a package, or synthesize an unreviewed rollback procedure.",
+      "checkpoints": [
+        {
+          "id": "gmuc-xfer-02-cp1",
+          "assertion": "The rollback procedure is useful for a Kubernetes release."
+        },
+        {
+          "id": "gmuc-xfer-02-cp2",
+          "assertion": "The rollback procedure is rejected for a Python package release."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-xfer-03-signing-key-rejects-cloud-api-rotation",
+      "category": "cross_domain_transfer",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add artifact-signing key context after storing a cloud API credential rotation procedure."
+      },
+      "expected_governed_outcome": "The cloud API credential rotation procedure is rejected for artifact-signing key rotation.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Key, credential, secret, revoke, and rotate vocabulary can mask different trust and verification requirements."
+      },
+      "failure_reason": "Fails if cloud API steps are recommended for signing keys or the trust-domain mismatch is absent.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not rotate real credentials, access key material, or emit secret values.",
+      "checkpoints": [
+        {
+          "id": "gmuc-xfer-03-cp1",
+          "assertion": "The cloud API rotation procedure is useful in its original credential context."
+        },
+        {
+          "id": "gmuc-xfer-03-cp2",
+          "assertion": "The procedure is rejected after context changes to artifact signing."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-xfer-04-obsidian-vault-rejects-sql-schema-migration",
+      "category": "cross_domain_transfer",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add Obsidian vault structure-change context after storing a SQL schema migration procedure."
+      },
+      "expected_governed_outcome": "The SQL schema migration procedure is rejected for the Obsidian vault task.",
+      "flat_baseline_hazard": {
+        "expected": false,
+        "description": "Control case: distinct vault and SQL vocabulary should let a conservative flat baseline avoid the mismatch."
+      },
+      "failure_reason": "Fails if SQL DDL is presented for Markdown vault changes or the domain rejection cannot be explained.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not edit a real vault, execute SQL, or create cross-domain conversion behavior.",
+      "checkpoints": [
+        {
+          "id": "gmuc-xfer-04-cp1",
+          "assertion": "The SQL migration procedure is useful for a relational schema change."
+        },
+        {
+          "id": "gmuc-xfer-04-cp2",
+          "assertion": "The procedure is rejected for an Obsidian vault structure change."
+        }
+      ]
+    },
+    {
+      "id": "gmuc-xfer-05-skill-sync-rejects-deployment-sync",
+      "category": "cross_domain_transfer",
+      "transition": {
+        "kind": "storage_mutation",
+        "description": "Add governed skill-store synchronization context after storing an application deployment synchronization procedure."
+      },
+      "expected_governed_outcome": "The deployment synchronization procedure is rejected for governed skill synchronization.",
+      "flat_baseline_hazard": {
+        "expected": true,
+        "description": "Shared sync, source, target, version, verify, and rollback terms can produce a high flat match."
+      },
+      "failure_reason": "Fails if deployment commands are recommended for skill governance or approval boundaries are omitted.",
+      "metric_mappings": {
+        "flat_baseline": "flat_baseline_hazards",
+        "governed_outcome": "governed_failures",
+        "checkpoints": "governed_checkpoint_passes"
+      },
+      "no_go_guard": "Do not publish, deploy, alter registries, or perform bidirectional synchronization.",
+      "checkpoints": [
+        {
+          "id": "gmuc-xfer-05-cp1",
+          "assertion": "The deployment sync procedure is useful in its original application deployment context."
+        },
+        {
+          "id": "gmuc-xfer-05-cp2",
+          "assertion": "The procedure is rejected for governed skill-store synchronization."
+        }
+      ]
+    }
+  ]
+}

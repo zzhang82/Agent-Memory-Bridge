@@ -1,10 +1,10 @@
 # Production Status
 
-Last updated: 2026-07-07 (America/New_York)
+Last updated: 2026-07-15 (America/New_York)
 
-This maintainer note describes the `0.20.0` clean-room proof release shape plus the validation snapshot used to support it.
+This maintainer note describes the `0.21.0` governed-change release shape plus the validation snapshot used to support it.
 
-## 0.20.0 Runtime Shape
+## 0.21.0 Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -28,10 +28,11 @@ This maintainer note describes the `0.20.0` clean-room proof release shape plus 
 18. a Task Brief CLI/report that composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections without adding an MCP tool
 19. a first-run CLI/report that renders install steps, client config snippets, verification steps, and a Task Brief without writing client config, durable memory records, or requiring AMH
 20. a clean-room proof runner that launches the real stdio MCP entrypoint against an isolated temp store, performs one tokened demo `store -> recall`, renders first-run and Task Brief CLI reports, and proves zero client config writes
+21. governed change handling for transactional redacted tombstones, conservative exact-lineage cascades, degraded audit retention, bounded transitive supersession, current-premise evidence, and declared task-domain applicability
 
-## Verified On 2026-07-02
+## Verified On 2026-07-15
 
-- `pytest` passes: `336 passed`
+- `pytest` passes: `372 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
@@ -127,6 +128,23 @@ This maintainer note describes the `0.20.0` clean-room proof release shape plus 
   - `v020_non_demo_durable_writeback_count = 0`
   - `v020_amh_required = false`
   - `v020_external_vendor_adoption_claim = false`
+- v0.21 governed-change snapshot reports:
+  - `v021_case_count = 20`
+  - `v021_category_count = 4`
+  - `v021_flat_baseline_hazards = 17`
+  - `v021_flat_baseline_hazards_expected = 17/20`
+  - `v021_governed_case_pass_count = 20`
+  - `v021_governed_failures = 0`
+  - `v021_governed_failures_target = 0/20`
+  - `v021_governed_checkpoint_passes = 40`
+  - `v021_governed_checkpoint_passes_target = 40/40`
+  - `v021_governed_checkpoint_result_count = 40`
+  - `v021_useful_current_retention_pass = true`
+  - `v021_public_mcp_tool_count = 10`
+  - `v021_public_mcp_surface_change = false`
+  - `v021_auto_writeback_count = 0`
+  - `v021_config_write_count = 0`
+  - `v021_durable_live_writeback_count = 0`
 - learning candidates are stored with review tags such as `kind:learning-candidate` and `candidate_status:*`
 - learning reviews now include deterministic review-receipt hashes, `writeback_boundary:review_receipt_only`, and `durable_mutation_performed_by_review: false`
 - normal recall, browse, export, and stats suppress learning candidates unless explicit review tags are requested
@@ -156,9 +174,13 @@ This maintainer note describes the `0.20.0` clean-room proof release shape plus 
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.20.0 Actually Means
+## What 0.21.0 Actually Means
 
 - the public MCP surface is still the same small bridge
+- explicit forgetting records content-redacted tombstones transactionally with memory and derived-index deletion
+- tombstones audit deleted record IDs; they do not prevent later explicit re-storage of the same content under a new ID
+- only exact structured machine-owned descendants cascade; uncertain lineage is retained with degraded audit metadata
+- task assembly suppresses bounded transitive predecessors, retains current corrective evidence when premises change, and rejects explicitly domain-mismatched procedures
 - the clean-room proof is local reproducible evidence through the real stdio entrypoint, not a vendor certification claim
 - runtime learning can be proposed as a policy-gated candidate instead of becoming ordinary durable memory immediately
 - candidate records are review material, not source-of-truth memory
@@ -172,6 +194,7 @@ This maintainer note describes the `0.20.0` clean-room proof release shape plus 
 - governance triggers may open review signals for staged candidates, but they do not approve, promote, rewrite, or delete memory
 - learning candidates are hidden from normal user-facing memory operations unless explicitly queried through review tags
 - deterministic evolution fixtures now check supersession, tombstone audit, quarantine, principal-scope warnings, bitemporal validity, and hidden review lanes
+- the fixed v0.21 proof checks 20 governed-change cases at 40 checkpoints; it is executable evidence rather than an automatic policy engine
 - deterministic review-queue fixtures now check candidate/review/tombstone/quarantine/validity slices and assert no public MCP surface expansion
 - deterministic review-workflow fixtures now check source-queue coverage, human-required decisions, manual steps, zero auto-writeback, and no public MCP surface expansion
 - watcher/reflex/consolidation automation is opt-in for the always-on service
@@ -189,20 +212,21 @@ The release still does **not** mean:
 - automatic execution of review-queue writeback plans
 - automatic execution of review-workflow manual steps
 - autonomous memory revision, deletion, or policy promotion
-- ACL enforcement, GDPR/privacy compliance, or certified poisoning defense
+- general machine unlearning, unbounded graph traversal, or automatic policy enforcement
+- ACL enforcement, GDPR/privacy compliance, vendor certification, or certified poisoning defense
 - a full agent runtime, scheduler, queue platform, or distributed lock
 - pre-compaction capture before model-side context loss
 - active pubsub or consumer execution on top of stored signals
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
 
-## Pressure Points After 0.20.0
+## Pressure Points After 0.21.0
 
 The most important remaining gaps are:
 
 1. broader reviewed retrieval and task-success fixtures so credibility does not overfit the current corpus
 2. stronger write-side calibration for promotion quality and merge/reject decisions
-3. safe, explicit tombstone/audit ergonomics for real deletion workflows
+3. operator ergonomics for reviewing degraded lineage and tombstone evidence at larger store sizes
 4. cross-domain concept synthesis beyond the current domain-local concept-note step
 5. more deliberate procedure curation or promotion instead of only manual procedure records
 6. pre-compaction capture before model-side loss
@@ -211,7 +235,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.20.0` keeps the public MCP surface small while upgrading adoption proof from synthetic fixtures to a local clean-room run: the release launches the real stdio MCP server in an isolated temp runtime, performs one tokened demo memory round trip, renders first-run guidance, renders a Task Brief, and records zero client config writes or AMH requirements. The project now reads as a general MCP memory product with local proof for memory, task assembly, procedure governance, onboarding, signal ownership, governed learning writeback, conservative service operation, audit-preserving revision/forgetting gates, an operator queue, explicit manual decision plans for review work, read-only task brief reports, a simpler first-run adoption path, fixed-denominator adoption proof, and a fresh-start proof lane.
+`0.21.0` keeps the 10-tool public MCP surface while making explicit change safer to interpret. Forgetting is transactional and content-redacted; cascade deletion requires exact machine-owned lineage; uncertain relationships remain visible as degraded audit evidence; and task assembly accounts for bounded supersession, changed premises, and declared domains. The fixed executable proof found hazards in 17 of 20 equal-budget flat cases and recorded zero governed failures across all 40 checkpoints.
 
 It now behaves like:
 
@@ -219,9 +243,10 @@ It now behaves like:
 - a governed learning layer with candidate staging
 - a structured relation-lite memory layer
 - a first pass at applicable/compositional task memory
+- a bounded governed-change layer for deletion, lineage, current premises, and declared task domains
 - a platform-neutral stdio bridge with real install confidence
 - a lightweight coordination layer with measured claim/reclaim boundaries
 - an operator-facing review queue that keeps hidden/stale/quarantined memory work visible without making it authority
 - an operator-facing human workflow plan that makes each review decision explicit without becoming an auto-writer
 
-The next work should protect those gains and improve review/promote ergonomics without widening the public surface too fast or letting proposal-only review plans become automatic durable writes.
+The next work should protect those gains and improve review ergonomics without turning bounded relation-lite handling into a graph-memory claim or letting proposal-only plans become automatic durable writes.

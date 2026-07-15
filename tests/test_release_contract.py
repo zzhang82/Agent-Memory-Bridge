@@ -25,6 +25,19 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert report["test_count_source"] == "pytest_collect_only"
     assert all(check["ok"] for check in report["checks"])
 
+    v021_root = create_v021_release_fixture(tmp_path / "v021")
+    v021_report = run_release_contract_check(v021_root, test_count_provider=lambda _: 146)
+    checks = {check["name"]: check for check in v021_report["checks"]}
+    assert v021_report["ok"] is True
+    assert "v020_proof_version_matches_pyproject" not in checks
+    assert checks["v021_governed_change_proof_matches_release_gate"]["ok"] is True
+    historical_v020 = json.loads(
+        (v021_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert historical_v020["release"] == "0.9.0"
+
 
 def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) -> None:
     root = create_release_fixture(tmp_path)
@@ -58,6 +71,83 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
     assert check_names["readme_test_count_matches_collected_suite"]["ok"] is False
     assert check_names["public_mcp_tool_count_matches_server_surface"]["ok"] is False
     assert check_names["current_demo_assets_exist"]["ok"] is False
+
+    gate_mismatches = [
+        (None, "release", "0.20.0", "release"),
+        (None, "target_release", "0.22.0", "target_release"),
+        ("summary", "gate_passed", False, "summary.gate_passed"),
+        ("summary", "gate_passed", 1, "summary.gate_passed"),
+        ("summary", "case_count", 19, "summary.case_count"),
+        (
+            "summary",
+            "governed_checkpoint_result_count",
+            39,
+            "summary.governed_checkpoint_result_count",
+        ),
+        ("summary", "governed_checkpoint_passes", 39, "summary.governed_checkpoint_passes"),
+        (
+            "summary",
+            "governed_checkpoint_passes_target",
+            "39/40",
+            "summary.governed_checkpoint_passes_target",
+        ),
+        ("summary", "governed_failures", 1, "summary.governed_failures"),
+        ("summary", "flat_baseline_hazards", 16, "summary.flat_baseline_hazards"),
+        (
+            "summary",
+            "flat_baseline_hazards_expected",
+            "16/20",
+            "summary.flat_baseline_hazards_expected",
+        ),
+        (
+            "summary",
+            "useful_current_retention_pass",
+            False,
+            "summary.useful_current_retention_pass",
+        ),
+        (
+            "summary",
+            "suppress_all_can_pass",
+            True,
+            "summary.suppress_all_can_pass",
+        ),
+        ("boundaries", "public_mcp_tool_count", 11, "boundaries.public_mcp_tool_count"),
+        (
+            "boundaries",
+            "public_mcp_surface_unchanged",
+            False,
+            "boundaries.public_mcp_surface_unchanged",
+        ),
+        ("boundaries", "config_write_count", 1, "boundaries.config_write_count"),
+        (
+            "boundaries",
+            "durable_live_writeback_count",
+            1,
+            "boundaries.durable_live_writeback_count",
+        ),
+        ("boundaries", "auto_writeback_count", 1, "boundaries.auto_writeback_count"),
+    ]
+    for index, (section, field, invalid_value, mismatch_field) in enumerate(gate_mismatches):
+        v021_root = create_v021_release_fixture(tmp_path / f"v021-mismatch-{index}")
+        report_path = v021_root / "benchmark" / "latest-v0.21-governed-change-report.json"
+        proof = json.loads(report_path.read_text(encoding="utf-8"))
+        target = proof if section is None else proof[section]
+        target[field] = invalid_value
+        report_path.write_text(json.dumps(proof, indent=2) + "\n", encoding="utf-8")
+
+        mismatch_report = run_release_contract_check(
+            v021_root,
+            test_count_provider=lambda _: 146,
+        )
+        proof_check = next(
+            item
+            for item in mismatch_report["checks"]
+            if item["name"] == "v021_governed_change_proof_matches_release_gate"
+        )
+        assert proof_check["ok"] is False
+        assert {mismatch["field"] for mismatch in proof_check["mismatches"]} == {
+            mismatch_field
+        }
 
 
 def test_release_contract_rejects_stale_v020_proof_version(tmp_path: Path) -> None:
@@ -96,6 +186,31 @@ def test_release_contract_rejects_stale_v020_cli_version_evidence(tmp_path: Path
             "actual": "0.8.0",
         }
     ]
+
+
+def test_release_contract_rejects_v021_readme_fact_drift(tmp_path: Path) -> None:
+    root = create_v021_release_fixture(tmp_path)
+    readme = root / "README.md"
+    readme.write_text(
+        readme.read_text(encoding="utf-8").replace(
+            "v021_governed_failures = 0",
+            "v021_governed_failures = 1",
+        ),
+        encoding="utf-8",
+    )
+
+    report = run_release_contract_check(root, test_count_provider=lambda _: 146)
+
+    checks = {check["name"]: check for check in report["checks"]}
+    assert checks["v021_governed_change_proof_matches_release_gate"]["ok"] is True
+    fact_check = checks["readme_facts_match_snapshot_reports"]
+    assert fact_check["ok"] is False
+    assert any(
+        mismatch["key"] == "v021_governed_failures"
+        and mismatch["expected"] == 0
+        and mismatch["actual"] == [1]
+        for mismatch in fact_check["mismatches"]
+    )
 
 
 def test_check_release_contract_script_exits_zero_for_aligned_fixture(tmp_path: Path) -> None:
@@ -515,6 +630,72 @@ def create_release_fixture(root: Path) -> Path:
         for index in range(146)
     )
     write_file(root / "tests" / "test_sample.py", sample_tests)
+    return root
+
+
+def create_v021_release_fixture(root: Path) -> Path:
+    create_release_fixture(root)
+    pyproject = root / "pyproject.toml"
+    pyproject.write_text(
+        pyproject.read_text(encoding="utf-8").replace('version = "0.9.0"', 'version = "0.21.0"'),
+        encoding="utf-8",
+    )
+    for readme_name in ("README.md", "README.zh-CN.md"):
+        readme = root / readme_name
+        v021_facts = """
+
+v021_case_count = 20
+v021_category_count = 4
+v021_flat_baseline_hazards = 17
+v021_governed_case_pass_count = 20
+v021_governed_failures = 0
+v021_governed_checkpoint_passes = 40
+v021_governed_checkpoint_result_count = 40
+v021_useful_current_retention_pass = true
+v021_suppress_all_can_pass = false
+v021_public_mcp_tool_count = 10
+v021_public_mcp_surface_change = false
+v021_auto_writeback_count = 0
+v021_config_write_count = 0
+v021_durable_live_writeback_count = 0
+"""
+        readme.write_text(
+            readme.read_text(encoding="utf-8").replace("`0.9.0`", "`0.21.0`")
+            + v021_facts,
+            encoding="utf-8",
+        )
+    write_file(root / "docs" / "v0.21.0-announcement.md", "`pytest`: `146 passed`\n")
+    write_file(
+        root / "benchmark" / "latest-v0.21-governed-change-report.json",
+        json.dumps(
+            {
+                "release": "0.21.0",
+                "target_release": "0.21.0",
+                "summary": {
+                    "gate_passed": True,
+                    "case_count": 20,
+                    "category_count": 4,
+                    "governed_case_pass_count": 20,
+                    "governed_checkpoint_result_count": 40,
+                    "governed_checkpoint_passes": 40,
+                    "governed_checkpoint_passes_target": "40/40",
+                    "governed_failures": 0,
+                    "flat_baseline_hazards": 17,
+                    "flat_baseline_hazards_expected": "17/20",
+                    "useful_current_retention_pass": True,
+                    "suppress_all_can_pass": False,
+                },
+                "boundaries": {
+                    "public_mcp_tool_count": 10,
+                    "public_mcp_surface_unchanged": True,
+                    "config_write_count": 0,
+                    "durable_live_writeback_count": 0,
+                    "auto_writeback_count": 0,
+                },
+            },
+            indent=2,
+        ),
+    )
     return root
 
 

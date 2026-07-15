@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-07-07 (America/New_York)
+Last updated: 2026-07-15 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.20.0`, including Task Brief reports, the limited first-run adoption helper, the fixed 12-case v0.19 adoption-proof pack, and the fixed 6-case v0.20 clean-room proof pack. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.21.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, and the fixed 20-case v0.21 governed-change proof. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -545,6 +545,35 @@ One sentence:
 Stop once the `6` clean-room proof cases pass and the release hygiene checks
 match the generated snapshot. Do not turn the proof runner into a plugin
 installer, client config writer, AMH dependency, watcher, scheduler, or daemon.
+
+## 0.21 = Governed Memory Under Change
+
+Status: shipped as `v0.21.0` only after the executable gate passed.
+
+The fixed target contract is
+[benchmark/v0.21-governed-change-manifest.json](../benchmark/v0.21-governed-change-manifest.json):
+
+- exactly `20` cases across deletion residue, lifecycle/supersession,
+  changed-premise usefulness, and cross-domain transfer (`5` each)
+- one fresh temp `MemoryStore` per case and exactly two checkpoints per case
+- exactly `20` transitions: `19` storage mutations and `1` injected-clock
+  transition
+- flat-baseline hazards: `17/20`
+- governed failures: `0/20`
+- governed checkpoints passed: `40/40`
+
+The experiment is marked shipped only because the executable
+[governed-change report](../benchmark/latest-v0.21-governed-change-report.json)
+has `gate_passed: true`, matches the manifest's exact SHA256, and records those
+fixed case and checkpoint denominators. The report, not this roadmap, remains
+the evidence authority.
+
+The shipped scope keeps the public MCP surface at `10` tools. It adds no MCP
+tools or automatic writeback. The proof wrote no client configuration or live
+durable memory, wrote only inside case temp areas, and used no private operator
+data. This remains a bounded lineage and task-applicability release, not a
+commitment to graph traversal, general unlearning, compliance certification, or
+automatic policy enforcement.
 
 ## Parallel Research Track
 

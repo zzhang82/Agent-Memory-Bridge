@@ -1,0 +1,4654 @@
+{
+  "boundaries": {
+    "auto_writeback_count": 0,
+    "config_write_count": 0,
+    "durable_live_writeback_count": 0,
+    "new_mcp_tools_added": false,
+    "private_or_local_cole_data_used": false,
+    "public_mcp_surface_unchanged": true,
+    "public_mcp_tool_count": 10,
+    "public_mcp_tool_names": [
+      "ack_signal",
+      "browse",
+      "claim_signal",
+      "export",
+      "extend_signal_lease",
+      "forget",
+      "promote",
+      "recall",
+      "stats",
+      "store"
+    ],
+    "writes_only_under_temp": true
+  },
+  "cases": [
+    {
+      "baseline_expectation_match": true,
+      "category": "deletion_residue",
+      "checkpoints": [
+        {
+          "assertion": "The record is present through primary, FTS, and embedding lookup before forget.",
+          "checks": {
+            "browse_path_state_correct": true,
+            "embedding_lookup_state_correct": true,
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "fts_lookup_state_correct": true,
+            "primary_lookup_state_correct": true,
+            "recall_browse_export_exercised": true,
+            "recall_path_state_correct": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "semantic_recall_state_correct": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "forgotten",
+              "safe-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "forgotten",
+              "safe-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "forgotten",
+              "safe-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "01 deletion proof guidance",
+            "required_actionable_labels": [
+              "forgotten",
+              "safe-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "forgotten": {
+                "embedding_count": 1,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-01-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "All three lookup paths are empty for the record after forget.",
+          "checks": {
+            "browse_path_state_correct": true,
+            "embedding_lookup_state_correct": true,
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "fts_lookup_state_correct": true,
+            "primary_lookup_state_correct": true,
+            "recall_browse_export_exercised": true,
+            "recall_path_state_correct": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "semantic_recall_state_correct": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "safe-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "safe-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "safe-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "01 deletion proof guidance",
+            "required_actionable_labels": [
+              "safe-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "forgotten": {
+                "embedding_count": 0,
+                "fts_count": 0,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": null,
+                "primary_count": 0,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": "explicit_forget",
+                "tombstone_count": 1,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 1,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-01-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "safe-current"
+        ],
+        "governed_checkpoint_2_labels": [
+          "safe-current"
+        ],
+        "suppressed_checkpoint_2": {}
+      },
+      "expected_governed_outcome": "The forgotten record is absent from primary lookup, lexical recall, and embedding recall after the transition.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Control case: a correctly implemented direct delete can clear all three storage representations without governance ranking.",
+      "flat_baseline_hazard_expected": false,
+      "flat_baseline_hazard_observed": false,
+      "governed_passed": true,
+      "id": "gmuc-del-01-forget-clears-primary-fts-embedding",
+      "no_go_guard": "Do not add a cleanup MCP tool or scan outside the case temp store.",
+      "transition": {
+        "description": "Forget a record that exists in the primary table, FTS index, and embedding index.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/forget.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "deletion_residue",
+      "checkpoints": [
+        {
+          "assertion": "The live record contains a unique payload before forget.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "flat_forget_response_payload_observed": true,
+            "forbidden_actionable_absent": true,
+            "forgotten_payload_absent_from_live_export": true,
+            "forgotten_payload_absent_from_tombstone": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "tombstone_content_columns_absent": true,
+            "tombstone_state_correct": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "forgotten",
+              "safe-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "forgotten",
+              "safe-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "forget-response-audit",
+            "governed_actionable_labels": [
+              "forgotten",
+              "safe-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "02 deletion proof guidance",
+            "required_actionable_labels": [
+              "forgotten",
+              "safe-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "forgotten": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-02-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The tombstone retains identity and deletion metadata but none of the unique payload.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "flat_forget_response_payload_observed": true,
+            "forbidden_actionable_absent": true,
+            "forgotten_payload_absent_from_live_export": true,
+            "forgotten_payload_absent_from_tombstone": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "tombstone_content_columns_absent": true,
+            "tombstone_state_correct": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "safe-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "safe-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "forget-response-audit",
+            "governed_actionable_labels": [
+              "safe-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "02 deletion proof guidance",
+            "required_actionable_labels": [
+              "safe-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "forgotten": {
+                "embedding_count": 0,
+                "fts_count": 0,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": null,
+                "primary_count": 0,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": "explicit_forget",
+                "tombstone_count": 1,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-02-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "forget-response-audit",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "safe-current"
+        ],
+        "governed_checkpoint_2_labels": [
+          "safe-current"
+        ],
+        "suppressed_checkpoint_2": {}
+      },
+      "expected_governed_outcome": "The tombstone preserves deletion identity and audit metadata without retaining the forgotten content.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "A flat audit copy can preserve the deleted payload and leak it through inspection or retrieval.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-del-02-tombstone-redacts-forgotten-content",
+      "no_go_guard": "Do not weaken the audit trail by removing tombstone identity, and do not copy content to a sidecar.",
+      "transition": {
+        "description": "Forget a record while preserving only a content-redacted tombstone.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/forget.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "deletion_residue",
+      "checkpoints": [
+        {
+          "assertion": "The superseder is current and the predecessor is suppressed before forget.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "inverse_supersession_retirement_persisted": true,
+            "predecessor_dependency_shortcut_absent": true,
+            "predecessor_lineage_state_correct": true,
+            "predecessor_retained_for_audit": true,
+            "real_supersession_edge_declared": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "superseder_tombstone_state_correct": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "safe-current",
+              "superseder"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "predecessor",
+              "safe-current",
+              "superseder"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "safe-current",
+              "superseder"
+            ],
+            "governed_section_budget": 3,
+            "query": "03 deletion proof guidance",
+            "required_actionable_labels": [
+              "safe-current",
+              "superseder"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "predecessor": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "superseder": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "predecessor"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "predecessor": "superseded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-03-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The forgotten superseder's tombstone keeps the predecessor suppressed.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "inverse_supersession_retirement_persisted": true,
+            "predecessor_dependency_shortcut_absent": true,
+            "predecessor_lineage_state_correct": true,
+            "predecessor_retained_for_audit": true,
+            "real_supersession_edge_declared": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "superseder_tombstone_state_correct": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [
+              "predecessor"
+            ],
+            "brief_used_labels": [
+              "safe-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "predecessor",
+              "safe-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "safe-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "03 deletion proof guidance",
+            "required_actionable_labels": [
+              "safe-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "predecessor": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 1,
+                "lineage_issues": [
+                  {
+                    "missing_record_label": "superseder",
+                    "root_forget_label": "superseder",
+                    "type": "forgotten_superseder"
+                  }
+                ],
+                "lineage_status": "degraded",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "superseder": {
+                "embedding_count": 0,
+                "fts_count": 0,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": null,
+                "primary_count": 0,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": "explicit_forget",
+                "tombstone_count": 1,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "predecessor": "lineage_status:degraded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-03-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "predecessor",
+          "safe-current"
+        ],
+        "governed_checkpoint_2_labels": [
+          "safe-current"
+        ],
+        "suppressed_checkpoint_2": {
+          "predecessor": "lineage_status:degraded"
+        }
+      },
+      "expected_governed_outcome": "The tombstone blocks the predecessor from becoming current or actionable after the superseder is forgotten.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat retrieval can promote the remaining predecessor once the newer record disappears.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-del-03-tombstone-prevents-predecessor-resurrection",
+      "no_go_guard": "Do not solve predecessor resurrection by deleting unrelated lineage records automatically.",
+      "transition": {
+        "description": "Forget a superseder while its older predecessor remains in storage.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/forget.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "deletion_residue",
+      "checkpoints": [
+        {
+          "assertion": "The procedure is actionable while its required dependency is present.",
+          "checks": {
+            "dependency_tombstone_state_correct": true,
+            "dependent_lineage_state_correct": true,
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "dependency",
+              "dependent-procedure",
+              "safe-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "dependency",
+              "dependent-procedure",
+              "safe-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "dependency",
+              "dependent-procedure",
+              "safe-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "04 deletion proof guidance",
+            "required_actionable_labels": [
+              "dependent-procedure",
+              "safe-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "dependency": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "dependent-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [
+                    "dependency"
+                  ],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-04-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The procedure is demoted with a missing-dependency reason after forget.",
+          "checks": {
+            "dependency_tombstone_state_correct": true,
+            "dependent_lineage_state_correct": true,
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [
+              "dependency",
+              "dependent-procedure"
+            ],
+            "brief_used_labels": [
+              "safe-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "dependent-procedure",
+              "safe-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "safe-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "04 deletion proof guidance",
+            "required_actionable_labels": [
+              "safe-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "dependency": {
+                "embedding_count": 0,
+                "fts_count": 0,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": null,
+                "primary_count": 0,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": "explicit_forget",
+                "tombstone_count": 1,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "dependent-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 1,
+                "lineage_issues": [
+                  {
+                    "missing_record_label": "dependency",
+                    "relations": [
+                      "depends_on"
+                    ],
+                    "root_forget_label": "dependency",
+                    "type": "missing_dependency"
+                  }
+                ],
+                "lineage_status": "degraded",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [
+                    "dependency"
+                  ],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "dependent-procedure": "lineage_status:degraded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-04-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "dependent-procedure",
+          "safe-current"
+        ],
+        "governed_checkpoint_2_labels": [
+          "safe-current"
+        ],
+        "suppressed_checkpoint_2": {
+          "dependent-procedure": "lineage_status:degraded"
+        }
+      },
+      "expected_governed_outcome": "The dependent procedure is demoted from actionable guidance and reports the missing dependency.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat retrieval can continue returning the procedure without checking whether its dependency still exists.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-del-04-deleted-dependency-demotes-procedure",
+      "no_go_guard": "Do not cascade-delete or automatically rewrite the dependent procedure.",
+      "transition": {
+        "description": "Forget a dependency required by an otherwise valid procedure.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/forget.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "deletion_residue",
+      "checkpoints": [
+        {
+          "assertion": "The record is absent from live storage and indexes before rebuild.",
+          "checks": {
+            "browse_path_state_correct": true,
+            "embedding_lookup_state_correct": true,
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "fts_lookup_state_correct": true,
+            "primary_lookup_state_correct": true,
+            "recall_browse_export_exercised": true,
+            "recall_path_state_correct": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "semantic_recall_state_correct": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "safe-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "flat-stale-feed",
+              "safe-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "safe-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "05 deletion proof guidance",
+            "required_actionable_labels": [
+              "safe-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "flat-stale-feed": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "forgotten": {
+                "embedding_count": 0,
+                "fts_count": 0,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": null,
+                "primary_count": 0,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": "explicit_forget",
+                "tombstone_count": 1,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-05-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The record remains absent from all storage and retrieval paths after rebuild.",
+          "checks": {
+            "browse_path_state_correct": true,
+            "embedding_lookup_state_correct": true,
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "fts_lookup_state_correct": true,
+            "primary_lookup_state_correct": true,
+            "recall_browse_export_exercised": true,
+            "recall_path_state_correct": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "semantic_recall_state_correct": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "safe-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "flat-stale-feed",
+              "safe-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "safe-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "05 deletion proof guidance",
+            "required_actionable_labels": [
+              "safe-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "flat-stale-feed": {
+                "embedding_count": 1,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "forgotten": {
+                "embedding_count": 0,
+                "fts_count": 0,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": null,
+                "primary_count": 0,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": "explicit_forget",
+                "tombstone_count": 1,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "safe-current": {
+                "embedding_count": 1,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-del-05-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "flat-stale-feed",
+          "safe-current"
+        ],
+        "governed_checkpoint_2_labels": [
+          "safe-current"
+        ],
+        "suppressed_checkpoint_2": {}
+      },
+      "expected_governed_outcome": "Rebuild derives only from live, non-forgotten records and cannot recreate the forgotten record or payload.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "A rebuild fed by stale index material or unredacted audit rows can resurrect forgotten content.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-del-05-rebuild-cannot-resurrect-forgotten-record",
+      "no_go_guard": "Do not read backup, cache, or user directories outside the fresh case temp store.",
+      "transition": {
+        "description": "Rebuild search and embedding indexes after a record has been forgotten.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/forget.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "lifecycle_supersession",
+      "checkpoints": [
+        {
+          "assertion": "The current record is selected before the stale decoy is added.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "current"
+            ],
+            "governed_section_budget": 3,
+            "query": "01 lifecycle release guidance",
+            "required_actionable_labels": [
+              "current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-01-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The current record remains selected after the stale decoy is added.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "current",
+              "stale-decoy"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "current"
+            ],
+            "governed_section_budget": 3,
+            "query": "01 lifecycle release guidance",
+            "required_actionable_labels": [
+              "current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "stale-decoy": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "stale-decoy": "procedure_status:stale"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-01-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "current",
+          "stale-decoy"
+        ],
+        "governed_checkpoint_2_labels": [
+          "current"
+        ],
+        "suppressed_checkpoint_2": {
+          "stale-decoy": "procedure_status:stale"
+        }
+      },
+      "expected_governed_outcome": "The current record remains preferred and the later stale decoy is suppressed with a lifecycle reason.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat recency or similarity ranking can let a later stale decoy outrank current guidance.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-life-01-stale-decoy-added-after-current",
+      "no_go_guard": "Do not mutate or delete the decoy merely because it should be suppressed at retrieval time.",
+      "transition": {
+        "description": "Add a stale but lexically strong decoy after the current record.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "lifecycle_supersession",
+      "checkpoints": [
+        {
+          "assertion": "The old record is current before its superseder arrives.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "generation-1"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "generation-1"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "generation-1"
+            ],
+            "governed_section_budget": 3,
+            "query": "02 lifecycle release guidance",
+            "required_actionable_labels": [
+              "generation-1"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "generation-1": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-02-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "Only the superseder is current after the transition, with old lineage retained.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "generation-2"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "generation-1",
+              "generation-2"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "generation-2"
+            ],
+            "governed_section_budget": 3,
+            "query": "02 lifecycle release guidance",
+            "required_actionable_labels": [
+              "generation-2"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "generation-1": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "generation-2": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "generation-1"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "generation-1": "superseded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-02-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "generation-1",
+          "generation-2"
+        ],
+        "governed_checkpoint_2_labels": [
+          "generation-2"
+        ],
+        "suppressed_checkpoint_2": {
+          "generation-1": "superseded"
+        }
+      },
+      "expected_governed_outcome": "The new superseder becomes current and the old record remains visible only as suppressed lineage evidence.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat retrieval can return both generations as equally valid or rank the older lexical match first.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-life-02-superseder-arrives-after-old",
+      "no_go_guard": "Do not auto-delete the old record or add a new public relation tool.",
+      "transition": {
+        "description": "Add a record that explicitly supersedes an older matching record.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "lifecycle_supersession",
+      "checkpoints": [
+        {
+          "assertion": "Generation two is current and generation one is suppressed before generation three arrives.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "generation-2"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "generation-1",
+              "generation-2"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "generation-2"
+            ],
+            "governed_section_budget": 3,
+            "query": "03 lifecycle release guidance",
+            "required_actionable_labels": [
+              "generation-2"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "generation-1": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "generation-2": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "generation-1"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "generation-1": "superseded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-03-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "Generation three is current and both predecessors are suppressed after the transition.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "generation-3"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "generation-1",
+              "generation-2",
+              "generation-3"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "generation-3"
+            ],
+            "governed_section_budget": 3,
+            "query": "03 lifecycle release guidance",
+            "required_actionable_labels": [
+              "generation-3"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "generation-1": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "generation-2": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "generation-1"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "generation-3": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "generation-2"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "generation-1": "superseded",
+              "generation-2": "superseded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-03-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "generation-1",
+          "generation-2",
+          "generation-3"
+        ],
+        "governed_checkpoint_2_labels": [
+          "generation-3"
+        ],
+        "suppressed_checkpoint_2": {
+          "generation-1": "superseded",
+          "generation-2": "superseded"
+        }
+      },
+      "expected_governed_outcome": "Only generation three is current; generations one and two are transitively suppressed without losing chain auditability.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat or one-hop handling can leak generation one or treat generation two as current.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-life-03-three-generation-supersession-chain",
+      "no_go_guard": "Do not require unbounded graph traversal or physically collapse the chain.",
+      "transition": {
+        "description": "Add the third generation to a two-generation supersession chain.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "lifecycle_supersession",
+      "checkpoints": [
+        {
+          "assertion": "The record is current immediately before valid_until.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T11:59:59+00:00",
+            "brief_needs_review_labels": [
+              "expiring"
+            ],
+            "brief_used_labels": [
+              "expiring",
+              "fallback-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "expiring",
+              "fallback-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "flat_task_memory",
+            "governed_actionable_labels": [
+              "expiring",
+              "fallback-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "04 lifecycle release guidance",
+            "required_actionable_labels": [
+              "expiring",
+              "fallback-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "expiring": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "fallback-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-04-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The record is expired and non-actionable immediately after valid_until.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:01+00:00",
+            "brief_needs_review_labels": [
+              "expiring"
+            ],
+            "brief_used_labels": [
+              "fallback-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "fallback-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "flat_task_memory",
+            "governed_actionable_labels": [
+              "fallback-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "04 lifecycle release guidance",
+            "required_actionable_labels": [
+              "fallback-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "expiring": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "fallback-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "expiring": "validity:expired"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-04-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "flat_task_memory",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "fallback-current"
+        ],
+        "governed_checkpoint_2_labels": [
+          "fallback-current"
+        ],
+        "suppressed_checkpoint_2": {
+          "expiring": "validity:expired"
+        }
+      },
+      "expected_governed_outcome": "The record changes from current to expired at the boundary and is no longer actionable after the clock transition.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Control case: a flat query with a correct valid_until predicate can reject the record after expiry.",
+      "flat_baseline_hazard_expected": false,
+      "flat_baseline_hazard_observed": false,
+      "governed_passed": true,
+      "id": "gmuc-life-04-validity-crosses-expiry-boundary",
+      "no_go_guard": "Do not sleep, change the system clock, or write storage to simulate the only clock transition.",
+      "transition": {
+        "description": "Advance the injected case clock from immediately before valid_until to immediately after it.",
+        "kind": "clock_transition"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "lifecycle_supersession",
+      "checkpoints": [
+        {
+          "assertion": "The expired record is non-actionable before its replacement is added.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [
+              "expired-old"
+            ],
+            "brief_used_labels": [
+              "fallback-current"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "expired-old",
+              "fallback-current"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "fallback-current"
+            ],
+            "governed_section_budget": 3,
+            "query": "05 lifecycle release guidance",
+            "required_actionable_labels": [
+              "fallback-current"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "expired-old": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "fallback-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "expired-old": "validity:expired"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-05-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "Only the replacement is actionable, with no expired-content leak.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [
+              "expired-old"
+            ],
+            "brief_used_labels": [
+              "fallback-current",
+              "replacement"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "expired-old",
+              "fallback-current",
+              "replacement"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "fallback-current",
+              "replacement"
+            ],
+            "governed_section_budget": 3,
+            "query": "05 lifecycle release guidance",
+            "required_actionable_labels": [
+              "fallback-current",
+              "replacement"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "expired-old": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "fallback-current": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "replacement": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "expired-old": "validity:expired"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-life-05-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "expired-old",
+          "fallback-current",
+          "replacement"
+        ],
+        "governed_checkpoint_2_labels": [
+          "fallback-current",
+          "replacement"
+        ],
+        "suppressed_checkpoint_2": {
+          "expired-old": "validity:expired"
+        }
+      },
+      "expected_governed_outcome": "The replacement is current, while the expired record is retained only as suppressed historical evidence and does not leak into guidance.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat retrieval can return the expired record beside or above the replacement because both match the query.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-life-05-expired-record-replaced-without-leak",
+      "no_go_guard": "Do not delete the expired record automatically or merge its payload into the replacement.",
+      "transition": {
+        "description": "Add a current replacement for an already expired record.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "changed_premise_usefulness",
+      "checkpoints": [
+        {
+          "assertion": "Continue-rollout guidance is useful while the rollout is active.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "obsolete-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "rollout governed task action",
+            "required_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-01-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "Continue-rollout guidance is rejected after completion is recorded.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "brief_used_labels": [],
+            "corrective_labels": [
+              "current-state"
+            ],
+            "flat_actionable_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [],
+            "governed_section_budget": 3,
+            "query": "rollout governed task action",
+            "required_actionable_labels": [],
+            "required_corrective_labels": [
+              "current-state"
+            ],
+            "storage": {
+              "current-state": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "obsolete-procedure"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "obsolete-procedure": "superseded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-01-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [
+          "current-state"
+        ],
+        "flat_checkpoint_2_labels": [
+          "current-state",
+          "obsolete-procedure"
+        ],
+        "governed_checkpoint_2_labels": [],
+        "suppressed_checkpoint_2": {
+          "obsolete-procedure": "superseded"
+        }
+      },
+      "expected_governed_outcome": "Guidance acknowledges completion and rejects instructions to continue the rollout.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat retrieval can surface the still-relevant rollout procedure without incorporating the completed state.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-state-01-rollout-completed-resists-continue",
+      "no_go_guard": "Do not execute rollout actions or rewrite historical rollout records automatically.",
+      "transition": {
+        "description": "Add the fact that a previously active rollout has completed.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "changed_premise_usefulness",
+      "checkpoints": [
+        {
+          "assertion": "Escalation guidance is useful while the incident is active.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "obsolete-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "incident governed task action",
+            "required_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-02-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "Escalation guidance is rejected after the incident is closed.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "brief_used_labels": [],
+            "corrective_labels": [
+              "current-state"
+            ],
+            "flat_actionable_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [],
+            "governed_section_budget": 3,
+            "query": "incident governed task action",
+            "required_actionable_labels": [],
+            "required_corrective_labels": [
+              "current-state"
+            ],
+            "storage": {
+              "current-state": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "obsolete-procedure"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "obsolete-procedure": "superseded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-02-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [
+          "current-state"
+        ],
+        "flat_checkpoint_2_labels": [
+          "current-state",
+          "obsolete-procedure"
+        ],
+        "governed_checkpoint_2_labels": [],
+        "suppressed_checkpoint_2": {
+          "obsolete-procedure": "superseded"
+        }
+      },
+      "expected_governed_outcome": "Guidance reports the incident as closed and rejects escalation instructions tied to the active incident premise.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat retrieval can keep an urgent escalation runbook highly ranked after closure.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-state-02-incident-closed-resists-escalate",
+      "no_go_guard": "Do not contact responders, mutate incident systems, or auto-close memory records.",
+      "transition": {
+        "description": "Add the fact that an incident has been closed.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "changed_premise_usefulness",
+      "checkpoints": [
+        {
+          "assertion": "Run-migration guidance is useful before the migration is applied.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "obsolete-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "migration governed task action",
+            "required_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-03-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "Run-migration guidance is rejected after the applied state is recorded.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "brief_used_labels": [],
+            "corrective_labels": [
+              "current-state"
+            ],
+            "flat_actionable_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [],
+            "governed_section_budget": 3,
+            "query": "migration governed task action",
+            "required_actionable_labels": [],
+            "required_corrective_labels": [
+              "current-state"
+            ],
+            "storage": {
+              "current-state": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "obsolete-procedure"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "obsolete-procedure": "superseded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-03-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [
+          "current-state"
+        ],
+        "flat_checkpoint_2_labels": [
+          "current-state",
+          "obsolete-procedure"
+        ],
+        "governed_checkpoint_2_labels": [],
+        "suppressed_checkpoint_2": {
+          "obsolete-procedure": "superseded"
+        }
+      },
+      "expected_governed_outcome": "Guidance recognizes the applied migration and rejects instructions to rerun it.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat retrieval can return the migration procedure because its task wording remains an excellent match.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-state-03-migration-applied-resists-rerun",
+      "no_go_guard": "Do not execute migrations or infer idempotence not declared by the fixture.",
+      "transition": {
+        "description": "Add the fact that a one-time migration has already been applied.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "changed_premise_usefulness",
+      "checkpoints": [
+        {
+          "assertion": "Enablement guidance is useful while the feature exists.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "obsolete-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "feature governed task action",
+            "required_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-04-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "Enablement guidance is rejected after feature removal is recorded.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "brief_used_labels": [],
+            "corrective_labels": [
+              "current-state"
+            ],
+            "flat_actionable_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [],
+            "governed_section_budget": 3,
+            "query": "feature governed task action",
+            "required_actionable_labels": [],
+            "required_corrective_labels": [
+              "current-state"
+            ],
+            "storage": {
+              "current-state": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "obsolete-procedure"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "obsolete-procedure": "superseded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-04-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [
+          "current-state"
+        ],
+        "flat_checkpoint_2_labels": [
+          "current-state",
+          "obsolete-procedure"
+        ],
+        "governed_checkpoint_2_labels": [],
+        "suppressed_checkpoint_2": {
+          "obsolete-procedure": "superseded"
+        }
+      },
+      "expected_governed_outcome": "Guidance acknowledges removal and rejects the obsolete enablement procedure.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat retrieval can continue recommending a detailed enablement procedure after the feature no longer exists.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-state-04-feature-removed-resists-enable",
+      "no_go_guard": "Do not edit configuration or recreate the removed feature.",
+      "transition": {
+        "description": "Add the fact that a previously configurable feature has been removed.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "changed_premise_usefulness",
+      "checkpoints": [
+        {
+          "assertion": "The shortcut is useful while explicit approval is active.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "obsolete-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "approval governed task action",
+            "required_actionable_labels": [
+              "obsolete-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-05-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The shortcut is rejected after approval is revoked.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "brief_used_labels": [],
+            "corrective_labels": [
+              "current-state"
+            ],
+            "flat_actionable_labels": [
+              "current-state",
+              "obsolete-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [],
+            "governed_section_budget": 3,
+            "query": "approval governed task action",
+            "required_actionable_labels": [],
+            "required_corrective_labels": [
+              "current-state"
+            ],
+            "storage": {
+              "current-state": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [
+                    "obsolete-procedure"
+                  ],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "obsolete-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "obsolete-procedure": "superseded"
+            },
+            "task_domain": null
+          },
+          "failure_reason": null,
+          "id": "gmuc-state-05-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [
+          "current-state"
+        ],
+        "flat_checkpoint_2_labels": [
+          "current-state",
+          "obsolete-procedure"
+        ],
+        "governed_checkpoint_2_labels": [],
+        "suppressed_checkpoint_2": {
+          "obsolete-procedure": "superseded"
+        }
+      },
+      "expected_governed_outcome": "Guidance rejects the shortcut, surfaces revoked approval, and requires the normal reviewed path.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Flat retrieval can rank the shortcut instructions without evaluating the newer approval state.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-state-05-approval-revoked-resists-shortcut",
+      "no_go_guard": "Do not auto-approve, auto-resolve, or execute the shortcut.",
+      "transition": {
+        "description": "Add the fact that approval for a previously allowed shortcut has been revoked.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "cross_domain_transfer",
+      "checkpoints": [
+        {
+          "assertion": "The PostgreSQL procedure is useful in its original PostgreSQL context.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "source-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "source-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "source-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "database backup restore",
+            "required_actionable_labels": [
+              "source-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": "postgresql"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-01-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The procedure is rejected after the task context changes to SQLite.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "target-context"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "source-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "target-context"
+            ],
+            "governed_section_budget": 3,
+            "query": "sqlite database backup context",
+            "required_actionable_labels": [
+              "target-context"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "target-context": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "source-procedure": "task_domain_mismatch:sqlite"
+            },
+            "task_domain": "sqlite"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-01-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "source-procedure"
+        ],
+        "governed_checkpoint_2_labels": [
+          "target-context"
+        ],
+        "suppressed_checkpoint_2": {
+          "source-procedure": "task_domain_mismatch:sqlite"
+        }
+      },
+      "expected_governed_outcome": "The PostgreSQL backup procedure is rejected as non-transferable to the SQLite task.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Shared database and backup vocabulary can make the PostgreSQL procedure a strong flat match.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-xfer-01-sqlite-rejects-postgres-backup",
+      "no_go_guard": "Do not execute database commands or invent a translated SQLite procedure.",
+      "transition": {
+        "description": "Add SQLite task context after storing a lexically similar PostgreSQL backup procedure.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "cross_domain_transfer",
+      "checkpoints": [
+        {
+          "assertion": "The rollback procedure is useful for a Kubernetes release.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "source-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "source-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "source-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "release rollback deploy",
+            "required_actionable_labels": [
+              "source-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": "kubernetes"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-02-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The rollback procedure is rejected for a Python package release.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "target-context"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "source-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "target-context"
+            ],
+            "governed_section_budget": 3,
+            "query": "python release rollback version",
+            "required_actionable_labels": [
+              "target-context"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "target-context": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "source-procedure": "task_domain_mismatch:python-release"
+            },
+            "task_domain": "python-release"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-02-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "source-procedure"
+        ],
+        "governed_checkpoint_2_labels": [
+          "target-context"
+        ],
+        "suppressed_checkpoint_2": {
+          "source-procedure": "task_domain_mismatch:python-release"
+        }
+      },
+      "expected_governed_outcome": "The Kubernetes rollback procedure is rejected for the Python package release task.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Release, version, deploy, and rollback terms can dominate flat similarity despite incompatible runtimes.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-xfer-02-python-release-rejects-k8s-rollback",
+      "no_go_guard": "Do not contact a cluster, publish a package, or synthesize an unreviewed rollback procedure.",
+      "transition": {
+        "description": "Add Python package release context after storing a Kubernetes release rollback procedure.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "cross_domain_transfer",
+      "checkpoints": [
+        {
+          "assertion": "The cloud API rotation procedure is useful in its original credential context.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "source-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "source-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "source-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "key credential rotate revoke",
+            "required_actionable_labels": [
+              "source-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": "cloud-api"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-03-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The procedure is rejected after context changes to artifact signing.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "target-context"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "source-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "target-context"
+            ],
+            "governed_section_budget": 3,
+            "query": "signing key rotate trust",
+            "required_actionable_labels": [
+              "target-context"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "target-context": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "source-procedure": "task_domain_mismatch:artifact-signing"
+            },
+            "task_domain": "artifact-signing"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-03-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "source-procedure"
+        ],
+        "governed_checkpoint_2_labels": [
+          "target-context"
+        ],
+        "suppressed_checkpoint_2": {
+          "source-procedure": "task_domain_mismatch:artifact-signing"
+        }
+      },
+      "expected_governed_outcome": "The cloud API credential rotation procedure is rejected for artifact-signing key rotation.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Key, credential, secret, revoke, and rotate vocabulary can mask different trust and verification requirements.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-xfer-03-signing-key-rejects-cloud-api-rotation",
+      "no_go_guard": "Do not rotate real credentials, access key material, or emit secret values.",
+      "transition": {
+        "description": "Add artifact-signing key context after storing a cloud API credential rotation procedure.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "cross_domain_transfer",
+      "checkpoints": [
+        {
+          "assertion": "The SQL migration procedure is useful for a relational schema change.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "source-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "source-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "source-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "relational SQL schema migration DDL",
+            "required_actionable_labels": [
+              "source-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": "sql-schema"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-04-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The procedure is rejected for an Obsidian vault structure change.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "target-context"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "target-context"
+            ],
+            "governed_section_budget": 3,
+            "query": "Obsidian vault Markdown structure",
+            "required_actionable_labels": [
+              "target-context"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "target-context": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "source-procedure": "task_domain_mismatch:obsidian"
+            },
+            "task_domain": "obsidian"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-04-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [],
+        "governed_checkpoint_2_labels": [
+          "target-context"
+        ],
+        "suppressed_checkpoint_2": {
+          "source-procedure": "task_domain_mismatch:obsidian"
+        }
+      },
+      "expected_governed_outcome": "The SQL schema migration procedure is rejected for the Obsidian vault task.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Control case: distinct vault and SQL vocabulary should let a conservative flat baseline avoid the mismatch.",
+      "flat_baseline_hazard_expected": false,
+      "flat_baseline_hazard_observed": false,
+      "governed_passed": true,
+      "id": "gmuc-xfer-04-obsidian-vault-rejects-sql-schema-migration",
+      "no_go_guard": "Do not edit a real vault, execute SQL, or create cross-domain conversion behavior.",
+      "transition": {
+        "description": "Add Obsidian vault structure-change context after storing a SQL schema migration procedure.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    },
+    {
+      "baseline_expectation_match": true,
+      "category": "cross_domain_transfer",
+      "checkpoints": [
+        {
+          "assertion": "The deployment sync procedure is useful in its original application deployment context.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "source-procedure"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "source-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "source-procedure"
+            ],
+            "governed_section_budget": 3,
+            "query": "sync source target version verify rollback",
+            "required_actionable_labels": [
+              "source-procedure"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {},
+            "task_domain": "deployment"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-05-cp1",
+          "passed": true
+        },
+        {
+          "assertion": "The procedure is rejected for governed skill-store synchronization.",
+          "checks": {
+            "equal_budget_compared": true,
+            "fixed_as_of_used": true,
+            "forbidden_actionable_absent": true,
+            "recall_browse_export_exercised": true,
+            "required_actionable_present": true,
+            "required_corrective_present": true,
+            "required_retention_labels_declared": true,
+            "required_suppression_explained": true,
+            "suppress_all_structurally_blocked": true,
+            "task_brief_built": true,
+            "task_brief_reflects_actionable_or_review": true,
+            "useful_current_retained": true
+          },
+          "evidence": {
+            "as_of": "2026-07-15T12:00:00+00:00",
+            "brief_needs_review_labels": [],
+            "brief_used_labels": [
+              "target-context"
+            ],
+            "corrective_labels": [],
+            "flat_actionable_labels": [
+              "source-procedure"
+            ],
+            "flat_budget": 3,
+            "flat_mode": "raw_recall",
+            "governed_actionable_labels": [
+              "target-context"
+            ],
+            "governed_section_budget": 3,
+            "query": "skill sync source target version verify approval",
+            "required_actionable_labels": [
+              "target-context"
+            ],
+            "required_corrective_labels": [],
+            "storage": {
+              "source-procedure": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              },
+              "target-context": {
+                "embedding_count": 0,
+                "fts_count": 1,
+                "lineage_issue_count": 0,
+                "lineage_issues": [],
+                "lineage_status": "intact",
+                "primary_count": 1,
+                "relations": {
+                  "contradicts": [],
+                  "depends_on": [],
+                  "supersedes": [],
+                  "supports": []
+                },
+                "tombstone_cause": null,
+                "tombstone_count": 0,
+                "tombstone_has_content_columns": false,
+                "tombstone_payload_redacted": true
+              }
+            },
+            "suppressed": {
+              "source-procedure": "task_domain_mismatch:skill-governance"
+            },
+            "task_domain": "skill-governance"
+          },
+          "failure_reason": null,
+          "id": "gmuc-xfer-05-cp2",
+          "passed": true
+        }
+      ],
+      "checks": {
+        "all_governed_checkpoints_passed": true,
+        "baseline_expectation_matched": true,
+        "equal_budget_compared": true,
+        "fresh_temp_store_used": true,
+        "two_checkpoints_executed": true
+      },
+      "evidence": {
+        "audit_tokens_are_synthetic": true,
+        "baseline_mode": "raw_recall",
+        "corrective_checkpoint_2_labels": [],
+        "flat_checkpoint_2_labels": [
+          "source-procedure"
+        ],
+        "governed_checkpoint_2_labels": [
+          "target-context"
+        ],
+        "suppressed_checkpoint_2": {
+          "source-procedure": "task_domain_mismatch:skill-governance"
+        }
+      },
+      "expected_governed_outcome": "The deployment synchronization procedure is rejected for governed skill synchronization.",
+      "failure_reason": null,
+      "flat_baseline_hazard_description": "Shared sync, source, target, version, verify, and rollback terms can produce a high flat match.",
+      "flat_baseline_hazard_expected": true,
+      "flat_baseline_hazard_observed": true,
+      "governed_passed": true,
+      "id": "gmuc-xfer-05-skill-sync-rejects-deployment-sync",
+      "no_go_guard": "Do not publish, deploy, alter registries, or perform bidirectional synchronization.",
+      "transition": {
+        "description": "Add governed skill-store synchronization context after storing an application deployment synchronization procedure.",
+        "kind": "storage_mutation"
+      },
+      "write_scope": {
+        "config_path": "<temp>/config.toml",
+        "config_write_count": 0,
+        "db_path": "<temp>/bridge.db",
+        "durable_live_writeback_count": 0,
+        "log_dir": "<temp>/logs",
+        "runtime_root": "<temp>",
+        "writes_only_under_temp": true,
+        "written_files": [
+          "bridge.db",
+          "bridge.db-shm",
+          "bridge.db-wal",
+          "logs/browse.log",
+          "logs/export.log",
+          "logs/recall.log",
+          "logs/store.log"
+        ]
+      }
+    }
+  ],
+  "category_slices": {
+    "changed_premise_usefulness": {
+      "case_count": 5,
+      "flat_baseline_hazards": 5,
+      "flat_baseline_hazards_expected": 5,
+      "governed_checkpoint_count": 10,
+      "governed_checkpoint_passes": 10,
+      "governed_failures": 0,
+      "useful_current_retention_pass": true
+    },
+    "cross_domain_transfer": {
+      "case_count": 5,
+      "flat_baseline_hazards": 4,
+      "flat_baseline_hazards_expected": 4,
+      "governed_checkpoint_count": 10,
+      "governed_checkpoint_passes": 10,
+      "governed_failures": 0,
+      "useful_current_retention_pass": true
+    },
+    "deletion_residue": {
+      "case_count": 5,
+      "flat_baseline_hazards": 4,
+      "flat_baseline_hazards_expected": 4,
+      "governed_checkpoint_count": 10,
+      "governed_checkpoint_passes": 10,
+      "governed_failures": 0,
+      "useful_current_retention_pass": true
+    },
+    "lifecycle_supersession": {
+      "case_count": 5,
+      "flat_baseline_hazards": 4,
+      "flat_baseline_hazards_expected": 4,
+      "governed_checkpoint_count": 10,
+      "governed_checkpoint_passes": 10,
+      "governed_failures": 0,
+      "useful_current_retention_pass": true
+    }
+  },
+  "execution": {
+    "case_temp_store_count": 20,
+    "checkpoints_per_case": 2,
+    "embedding_provider": "hash",
+    "equal_budget_comparison": true,
+    "fixed_as_of": "2026-07-15T12:00:00+00:00",
+    "flat_budget": 3,
+    "governed_section_budget": 3,
+    "memory_store_isolation": "one_fresh_temp_MemoryStore_per_case",
+    "paths_sanitized": true
+  },
+  "generated_at": "2026-07-15T12:00:00+00:00",
+  "manifest": {
+    "exact_hash_match": true,
+    "path": "benchmark/v0.21-governed-change-manifest.json",
+    "schema": "amb.v0.21.governed_change_manifest.v1",
+    "sha256": "85e1938ed90cbb9512d44b9a646e7bdca09f2638a7144a5dbe1cc5cf3bd014eb",
+    "sha256_expected": "85e1938ed90cbb9512d44b9a646e7bdca09f2638a7144a5dbe1cc5cf3bd014eb"
+  },
+  "release": "0.21.0",
+  "schema": "amb.v0.21.governed_change_proof.v1",
+  "status": "pre-v0.21-governed-change-proof",
+  "summary": {
+    "case_count": 20,
+    "category_count": 4,
+    "flat_baseline_expectation_matches": true,
+    "flat_baseline_hazards": 17,
+    "flat_baseline_hazards_expected": "17/20",
+    "gate_passed": true,
+    "governed_case_pass_count": 20,
+    "governed_checkpoint_passes": 40,
+    "governed_checkpoint_passes_target": "40/40",
+    "governed_checkpoint_result_count": 40,
+    "governed_failures": 0,
+    "governed_failures_target": "0/20",
+    "suppress_all_can_pass": false,
+    "useful_current_retention_pass": true
+  },
+  "target_release": "0.21.0"
+}

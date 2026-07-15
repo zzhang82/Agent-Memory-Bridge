@@ -30,3 +30,8 @@ def test_public_surface_check_repository_passes() -> None:
 
     assert report["ok"] is True
     assert report["violations"] == []
+    assert {
+        str(Path("benchmark/latest-v0.21-governed-change-report.json")),
+        str(Path("benchmark/v0.21-governed-change-manifest.json")),
+        str(Path("docs/v0.21.0-announcement.md")),
+    }.issubset(set(report["checked_files"]))

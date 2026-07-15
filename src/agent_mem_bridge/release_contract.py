@@ -122,6 +122,24 @@ REQUIRED_V020_CLEAN_ROOM_PROOF_KEYS = (
     "v020_amh_required",
     "v020_external_vendor_adoption_claim",
 )
+REQUIRED_V021_GOVERNED_CHANGE_KEYS = (
+    "v021_case_count",
+    "v021_category_count",
+    "v021_flat_baseline_hazards",
+    "v021_governed_case_pass_count",
+    "v021_governed_failures",
+    "v021_governed_checkpoint_passes",
+    "v021_governed_checkpoint_result_count",
+    "v021_useful_current_retention_pass",
+    "v021_suppress_all_can_pass",
+    "v021_public_mcp_tool_count",
+    "v021_public_mcp_surface_change",
+    "v021_auto_writeback_count",
+    "v021_config_write_count",
+    "v021_durable_live_writeback_count",
+)
+V021_RELEASE = "0.21.0"
+V021_GOVERNED_CHANGE_REPORT = "latest-v0.21-governed-change-report.json"
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -168,12 +186,7 @@ def run_release_contract_check(
             expected_facts=expected_facts,
         )
     )
-    checks.append(
-        build_v020_proof_version_check(
-            project_root=project_root,
-            pyproject_version=pyproject_version,
-        )
-    )
+    checks.append(build_release_proof_check(project_root, pyproject_version))
     checks.append(
         build_test_count_check(
             evidence_paths=evidence_paths,
@@ -288,6 +301,100 @@ def build_v020_proof_version_check(project_root: Path, pyproject_version: str) -
     }
 
 
+def build_release_proof_check(project_root: Path, pyproject_version: str) -> dict[str, Any]:
+    if pyproject_version == V021_RELEASE:
+        return build_v021_governed_change_proof_check(project_root, pyproject_version)
+    return build_v020_proof_version_check(project_root, pyproject_version)
+
+
+def build_v021_governed_change_proof_check(
+    project_root: Path,
+    pyproject_version: str,
+) -> dict[str, Any]:
+    report_path = project_root / "benchmark" / V021_GOVERNED_CHANGE_REPORT
+    if not report_path.exists():
+        return {
+            "name": "v021_governed_change_proof_matches_release_gate",
+            "ok": False,
+            "expected_version": V021_RELEASE,
+            "report_path": str(report_path),
+            "mismatches": [{"field": "report", "expected": "present", "actual": "missing"}],
+        }
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    summary = report.get("summary") or {}
+    boundaries = report.get("boundaries") or {}
+    required_values = (
+        ("release", V021_RELEASE, report.get("release")),
+        ("target_release", V021_RELEASE, report.get("target_release")),
+        ("summary.gate_passed", True, summary.get("gate_passed")),
+        ("summary.case_count", 20, summary.get("case_count")),
+        (
+            "summary.governed_checkpoint_result_count",
+            40,
+            summary.get("governed_checkpoint_result_count"),
+        ),
+        ("summary.governed_checkpoint_passes", 40, summary.get("governed_checkpoint_passes")),
+        (
+            "summary.governed_checkpoint_passes_target",
+            "40/40",
+            summary.get("governed_checkpoint_passes_target"),
+        ),
+        ("summary.governed_failures", 0, summary.get("governed_failures")),
+        ("summary.flat_baseline_hazards", 17, summary.get("flat_baseline_hazards")),
+        (
+            "summary.flat_baseline_hazards_expected",
+            "17/20",
+            summary.get("flat_baseline_hazards_expected"),
+        ),
+        (
+            "summary.useful_current_retention_pass",
+            True,
+            summary.get("useful_current_retention_pass"),
+        ),
+        (
+            "summary.suppress_all_can_pass",
+            False,
+            summary.get("suppress_all_can_pass"),
+        ),
+        ("boundaries.public_mcp_tool_count", 10, boundaries.get("public_mcp_tool_count")),
+        (
+            "boundaries.public_mcp_surface_unchanged",
+            True,
+            boundaries.get("public_mcp_surface_unchanged"),
+        ),
+        ("boundaries.config_write_count", 0, boundaries.get("config_write_count")),
+        (
+            "boundaries.durable_live_writeback_count",
+            0,
+            boundaries.get("durable_live_writeback_count"),
+        ),
+        ("boundaries.auto_writeback_count", 0, boundaries.get("auto_writeback_count")),
+    )
+    mismatches = [
+        {"field": field, "expected": expected, "actual": actual}
+        for field, expected, actual in required_values
+        if type(actual) is not type(expected) or actual != expected
+    ]
+    if pyproject_version != V021_RELEASE:
+        mismatches.append(
+            {
+                "field": "pyproject.version",
+                "expected": V021_RELEASE,
+                "actual": pyproject_version,
+            }
+        )
+    return {
+        "name": "v021_governed_change_proof_matches_release_gate",
+        "ok": not mismatches,
+        "expected_version": V021_RELEASE,
+        "report_path": str(report_path),
+        "actual_release": report.get("release"),
+        "actual_target_release": report.get("target_release"),
+        "mismatches": mismatches,
+    }
+
+
 def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | float | bool]) -> dict[str, Any]:
     required_keys = (
         REQUIRED_BENCHMARK_KEYS
@@ -301,6 +408,11 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
         + REQUIRED_TASK_BRIEF_KEYS
         + REQUIRED_V019_ADOPTION_PROOF_KEYS
         + REQUIRED_V020_CLEAN_ROOM_PROOF_KEYS
+        + tuple(
+            key
+            for key in REQUIRED_V021_GOVERNED_CHANGE_KEYS
+            if key in expected_facts
+        )
     )
     mismatches: list[dict[str, Any]] = []
     ok = True
@@ -457,6 +569,12 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     v020_report = json.loads(
         (project_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(encoding="utf-8")
     )
+    v021_report_path = project_root / "benchmark" / V021_GOVERNED_CHANGE_REPORT
+    v021_report = (
+        json.loads(v021_report_path.read_text(encoding="utf-8"))
+        if v021_report_path.exists()
+        else None
+    )
     benchmark_summary = benchmark_report["summary"]
     calibration_summary = calibration_report["summary"]
     procedure_summary = procedure_report["summary"]
@@ -505,6 +623,35 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
         expected[key] = v019_summary[key]
     for key in REQUIRED_V020_CLEAN_ROOM_PROOF_KEYS:
         expected[key] = v020_summary[key]
+    if v021_report is not None:
+        v021_summary = v021_report["summary"]
+        v021_boundaries = v021_report["boundaries"]
+        expected.update(
+            {
+                "v021_case_count": v021_summary["case_count"],
+                "v021_category_count": v021_summary["category_count"],
+                "v021_flat_baseline_hazards": v021_summary["flat_baseline_hazards"],
+                "v021_governed_case_pass_count": v021_summary["governed_case_pass_count"],
+                "v021_governed_failures": v021_summary["governed_failures"],
+                "v021_governed_checkpoint_passes": v021_summary["governed_checkpoint_passes"],
+                "v021_governed_checkpoint_result_count": v021_summary[
+                    "governed_checkpoint_result_count"
+                ],
+                "v021_useful_current_retention_pass": v021_summary[
+                    "useful_current_retention_pass"
+                ],
+                "v021_suppress_all_can_pass": v021_summary["suppress_all_can_pass"],
+                "v021_public_mcp_tool_count": v021_boundaries["public_mcp_tool_count"],
+                "v021_public_mcp_surface_change": not v021_boundaries[
+                    "public_mcp_surface_unchanged"
+                ],
+                "v021_auto_writeback_count": v021_boundaries["auto_writeback_count"],
+                "v021_config_write_count": v021_boundaries["config_write_count"],
+                "v021_durable_live_writeback_count": v021_boundaries[
+                    "durable_live_writeback_count"
+                ],
+            }
+        )
     return expected
 
 

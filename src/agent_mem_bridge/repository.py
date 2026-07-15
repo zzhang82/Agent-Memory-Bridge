@@ -4,9 +4,11 @@ import hashlib
 import json
 import re
 import sqlite3
+from collections import deque
 from dataclasses import dataclass
 from typing import Any
 
+from .lineage import Lineage, parse_lineage
 from .relation_metadata import extract_relation_tags, parse_relation_metadata
 from .signals import SignalSnapshot, effective_signal_status, resolve_signal_expiry
 
@@ -40,6 +42,8 @@ lease_expires_at,
 expires_at,
 acknowledged_at,
 is_learning_candidate,
+lineage_status,
+lineage_issues_json,
 created_at
 """
 
@@ -68,6 +72,8 @@ class MemoryRow:
     expires_at: str | None
     acknowledged_at: str | None
     is_learning_candidate: bool
+    lineage_status: str
+    lineage_issues: list[dict[str, Any]]
     created_at: str
 
     @classmethod
@@ -95,6 +101,8 @@ class MemoryRow:
             expires_at=row["expires_at"],
             acknowledged_at=row["acknowledged_at"],
             is_learning_candidate=bool(row["is_learning_candidate"]),
+            lineage_status=str(row["lineage_status"] or "intact"),
+            lineage_issues=_load_lineage_issues(row["lineage_issues_json"]),
             created_at=row["created_at"],
         )
 
@@ -124,6 +132,8 @@ class MemoryRow:
             "expires_at": self.expires_at,
             "acknowledged_at": self.acknowledged_at,
             "is_learning_candidate": self.is_learning_candidate,
+            "lineage_status": self.lineage_status,
+            "lineage_issues": self.lineage_issues,
             "created_at": self.created_at,
             "relations": relation_metadata["relations"],
             "valid_from": relation_metadata["valid_from"],
@@ -339,19 +349,228 @@ def forget_entry(store: Any, memory_id: str) -> dict[str, Any]:
         raise ValueError("id must not be empty")
 
     with store._connect() as conn:
-        row = fetch_row_by_id(conn, cleaned_id)
-        if row is None:
-            store._log("forget", {"id": cleaned_id, "deleted": False})
-            return {"id": cleaned_id, "deleted": False, "item": None}
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = fetch_row_by_id(conn, cleaned_id)
+            if row is None:
+                conn.rollback()
+                store._log("forget", {"id": cleaned_id, "deleted": False})
+                return {"id": cleaned_id, "deleted": False, "item": None}
 
-        conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (cleaned_id,))
-        conn.execute("DELETE FROM memory_embeddings WHERE memory_id = ?", (cleaned_id,))
-        conn.execute("DELETE FROM memories WHERE id = ?", (cleaned_id,))
-        conn.commit()
+            all_rows = conn.execute(
+                f"""
+                SELECT
+                    {MEMORY_ROW_SELECT}
+                FROM memories
+                ORDER BY created_at ASC, id ASC
+                """
+            ).fetchall()
+            rows_by_id = {str(candidate["id"]): candidate for candidate in all_rows}
+            lineage_by_id = {str(candidate["id"]): parse_lineage(str(candidate["content"])) for candidate in all_rows}
+            deleted_ids, cascade_deleted_ids = _derivation_closure(
+                all_rows,
+                lineage_by_id=lineage_by_id,
+                root_id=cleaned_id,
+            )
+            retained_dependent_ids = _degrade_retained_dependents(
+                conn,
+                all_rows,
+                lineage_by_id=lineage_by_id,
+                deleted_ids=deleted_ids,
+                root_forget_id=cleaned_id,
+            )
+
+            deletion_order = [cleaned_id, *cascade_deleted_ids]
+            deleted_at = store._utc_now()
+            for forgotten_id in deletion_order:
+                forgotten_row = rows_by_id[forgotten_id]
+                conn.execute(
+                    """
+                    INSERT INTO memory_tombstones (
+                        forgotten_id, namespace, kind, deleted_at, root_forget_id, cause
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        forgotten_id,
+                        forgotten_row["namespace"],
+                        forgotten_row["kind"],
+                        deleted_at,
+                        cleaned_id,
+                        "explicit_forget" if forgotten_id == cleaned_id else "machine_derived_cascade",
+                    ),
+                )
+            conn.executemany("DELETE FROM memories_fts WHERE memory_id = ?", ((item_id,) for item_id in deletion_order))
+            conn.executemany("DELETE FROM memory_embeddings WHERE memory_id = ?", ((item_id,) for item_id in deletion_order))
+            conn.executemany("DELETE FROM memories WHERE id = ?", ((item_id,) for item_id in deletion_order))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
 
     item = MemoryRow.from_sqlite(row).as_dict()
-    store._log("forget", {"id": cleaned_id, "deleted": True, "namespace": item["namespace"], "kind": item["kind"]})
-    return {"id": cleaned_id, "deleted": True, "item": item}
+    store._log(
+        "forget",
+        {
+            "id": cleaned_id,
+            "deleted": True,
+            "namespace": item["namespace"],
+            "kind": item["kind"],
+            "tombstoned": True,
+            "cascade_deleted_count": len(cascade_deleted_ids),
+            "retained_dependent_count": len(retained_dependent_ids),
+        },
+    )
+    return {
+        "id": cleaned_id,
+        "deleted": True,
+        "item": item,
+        "tombstoned": True,
+        "cascade_deleted_ids": cascade_deleted_ids,
+        "retained_dependent_ids": retained_dependent_ids,
+    }
+
+
+def _derivation_closure(
+    rows: list[sqlite3.Row],
+    *,
+    lineage_by_id: dict[str, Lineage],
+    root_id: str,
+) -> tuple[set[str], list[str]]:
+    children_by_source: dict[str, list[str]] = {}
+    for row in rows:
+        row_id = str(row["id"])
+        for source_id in _machine_owned_source_ids(row, lineage_by_id[row_id]):
+            children_by_source.setdefault(source_id, []).append(row_id)
+
+    deleted_ids = {root_id}
+    cascade_deleted_ids: list[str] = []
+    pending_sources = deque([root_id])
+    while pending_sources:
+        source_id = pending_sources.popleft()
+        for row_id in children_by_source.get(source_id, []):
+            if row_id in deleted_ids:
+                continue
+            deleted_ids.add(row_id)
+            cascade_deleted_ids.append(row_id)
+            pending_sources.append(row_id)
+    return deleted_ids, cascade_deleted_ids
+
+
+def _machine_owned_source_ids(row: sqlite3.Row, lineage: Lineage) -> set[str]:
+    tags = set(json.loads(row["tags_json"] or "[]"))
+    record_type = _structured_record_type(str(row["content"]))
+    generated_by_consolidation = (
+        "source:consolidation" in tags
+        or row["actor"] == "bridge-consolidation"
+        or row["source_app"] == "agent-memory-bridge-consolidation"
+    )
+    if generated_by_consolidation and record_type == "belief" and "kind:belief" in tags:
+        return _optional_id_set(lineage.derived_from_candidate_id)
+    if generated_by_consolidation and record_type == "concept-note" and "kind:concept-note" in tags:
+        return _optional_id_set(lineage.derived_from_belief_id)
+    if generated_by_consolidation and record_type == "belief-candidate" and "kind:belief-candidate" in tags:
+        return set(lineage.evidence_refs)
+
+    if bool(row["is_learning_candidate"]) and HIDDEN_REVIEW_LANE_TAGS.intersection(tags):
+        if LEARNING_REVIEW_TAG in tags or record_type == "learning-review":
+            return _optional_id_set(lineage.source_candidate_id)
+        return set(lineage.evidence_refs)
+
+    if (
+        row["kind"] == "signal"
+        and "kind:governance-trigger" in tags
+        and record_type == "governance-trigger"
+    ):
+        return _optional_id_set(lineage.candidate_id)
+    return set()
+
+
+def _degrade_retained_dependents(
+    conn: sqlite3.Connection,
+    rows: list[sqlite3.Row],
+    *,
+    lineage_by_id: dict[str, Lineage],
+    deleted_ids: set[str],
+    root_forget_id: str,
+) -> list[str]:
+    forgotten_superseders_by_predecessor: dict[str, list[str]] = {}
+    for row in rows:
+        superseder_id = str(row["id"])
+        if superseder_id not in deleted_ids:
+            continue
+        for predecessor_id in lineage_by_id[superseder_id].supersedes:
+            if predecessor_id in deleted_ids or predecessor_id not in lineage_by_id:
+                continue
+            forgotten_superseders_by_predecessor.setdefault(predecessor_id, []).append(superseder_id)
+
+    retained_dependent_ids: list[str] = []
+    for row in rows:
+        row_id = str(row["id"])
+        if row_id in deleted_ids:
+            continue
+        references = lineage_by_id[row_id].degrading_references
+        missing_ids = sorted({reference.target_id for reference in references}.intersection(deleted_ids))
+        forgotten_superseder_ids = forgotten_superseders_by_predecessor.get(row_id, [])
+        if not missing_ids and not forgotten_superseder_ids:
+            continue
+
+        issues = _load_lineage_issues(row["lineage_issues_json"])
+        for missing_id in missing_ids:
+            relations = sorted(
+                {
+                    reference.relation.value
+                    for reference in references
+                    if reference.target_id == missing_id
+                }
+            )
+            issue = {
+                "type": "missing_dependency",
+                "missing_record_id": missing_id,
+                "relations": relations,
+                "root_forget_id": root_forget_id,
+            }
+            if issue not in issues:
+                issues.append(issue)
+        for missing_id in forgotten_superseder_ids:
+            issue = {
+                "type": "forgotten_superseder",
+                "missing_record_id": missing_id,
+                "root_forget_id": root_forget_id,
+            }
+            if issue not in issues:
+                issues.append(issue)
+        conn.execute(
+            """
+            UPDATE memories
+            SET lineage_status = 'degraded', lineage_issues_json = ?
+            WHERE id = ?
+            """,
+            (json.dumps(issues, ensure_ascii=True, sort_keys=True, separators=(",", ":")), row_id),
+        )
+        retained_dependent_ids.append(row_id)
+    return retained_dependent_ids
+
+
+def _structured_record_type(content: str) -> str | None:
+    for raw_line in content.splitlines():
+        label, separator, remainder = raw_line.partition(":")
+        if separator and label.strip().lower().replace("-", "_") == "record_type":
+            return remainder.strip().lower() or None
+    return None
+
+
+def _optional_id_set(value: str | None) -> set[str]:
+    return {value} if value is not None else set()
+
+
+def _load_lineage_issues(raw_value: Any) -> list[dict[str, Any]]:
+    try:
+        parsed = json.loads(str(raw_value or "[]"))
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [item for item in parsed if isinstance(item, dict)]
 
 
 def stats_for_namespace(store: Any, namespace: str) -> dict[str, Any]:
@@ -431,6 +650,29 @@ def fetch_row_by_id(conn: sqlite3.Connection, memory_id: str) -> sqlite3.Row | N
         """,
         (memory_id,),
     ).fetchone()
+
+
+def fetch_tombstone_metadata(conn: sqlite3.Connection, memory_id: str) -> dict[str, str] | None:
+    """Return redacted forget metadata without exposing deleted record content."""
+    row = conn.execute(
+        """
+        SELECT forgotten_id, namespace, kind, deleted_at, root_forget_id, cause
+        FROM memory_tombstones
+        WHERE forgotten_id = ?
+        LIMIT 1
+        """,
+        (memory_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "forgotten_id": str(row["forgotten_id"]),
+        "namespace": str(row["namespace"]),
+        "kind": str(row["kind"]),
+        "deleted_at": str(row["deleted_at"]),
+        "root_forget_id": str(row["root_forget_id"]),
+        "cause": str(row["cause"]),
+    }
 
 
 def normalize_content(content: str) -> str:

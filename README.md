@@ -13,6 +13,8 @@ Your coding agent should start with the right project context, not a stale dump.
 
 Agent Memory Bridge is persistent project memory for coding agents: a local-first MCP memory layer with SQLite/WAL as the durable store, FTS5 for lexical recall, and an optional local embedding sidecar for semantic or hybrid retrieval. It stores durable repo decisions, gotchas, procedures, and handoffs while keeping short-lived coordination separate.
 
+`0.21.0` focuses on **Governed Memory Under Change**: explicit forgetting now leaves transactional, content-redacted tombstones; exact machine-owned descendants can be deleted with their source while uncertain lineage is retained as degraded audit evidence; and task context handles transitive supersession, current-premise changes, and declared procedure domains conservatively.
+
 > Codex is the reference workflow, not the product boundary. If a client can launch a local stdio MCP server, it can use Agent Memory Bridge.
 
 <p align="center">
@@ -36,7 +38,8 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
 - Review-first writeback: learning candidates can be staged for human review before explicit promotion into durable records.
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `336 passed`.
+- Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `372 passed`.
 
 ## Who It Is For
 
@@ -191,7 +194,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.20.0` is a clean-room adoption proof release: it runs a local fresh-start path through the real stdio MCP entrypoint, performs a tokened `store -> recall` round trip, renders first-run guidance, and renders a Task Brief from an isolated temp store without writing client config or requiring AMH.
+`0.21.0` adds governed behavior for memory that is deleted, superseded, invalidated by a changed premise, or applied to a different task domain. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, vendor certification, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
 
 | Track | Current signal |
 |---|---|
@@ -207,7 +210,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Task Brief | `task_brief_used_count = 2`, `task_brief_ignored_count = 1`, `task_brief_needs_review_count = 4`, `task_brief_no_auto_writeback = true`, `task_brief_public_mcp_surface_change = false` |
 | v0.19 adoption proof | synthetic fixture proof only, not clean-room external adoption: `v019_case_count = 12`, `v019_pass_rate = 1.0`, `v019_public_mcp_surface_change = false`, `v019_client_config_write_count = 0` |
 | v0.20 clean-room proof | local reproducible proof only, not vendor certification: `v020_case_count = 6`, `v020_pass_rate = 1.0`, `v020_stdio_round_trip_pass = true`, `v020_client_config_write_count = 0`, `v020_external_vendor_adoption_claim = false` |
-| Test suite | `336 passed` |
+| v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
+| Test suite | `372 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -313,6 +317,24 @@ v020_explicit_demo_signal_write_count = 0
 v020_non_demo_durable_writeback_count = 0
 v020_amh_required = false
 v020_external_vendor_adoption_claim = false
+
+v021_case_count = 20
+v021_category_count = 4
+v021_flat_baseline_hazards = 17
+v021_flat_baseline_hazards_expected = 17/20
+v021_governed_case_pass_count = 20
+v021_governed_failures = 0
+v021_governed_failures_target = 0/20
+v021_governed_checkpoint_passes = 40
+v021_governed_checkpoint_passes_target = 40/40
+v021_governed_checkpoint_result_count = 40
+v021_useful_current_retention_pass = true
+v021_suppress_all_can_pass = false
+v021_public_mcp_tool_count = 10
+v021_public_mcp_surface_change = false
+v021_auto_writeback_count = 0
+v021_config_write_count = 0
+v021_durable_live_writeback_count = 0
 ```
 
 </details>
@@ -321,7 +343,7 @@ Full proof details are in [benchmark/README.md](benchmark/README.md).
 
 ## Boundaries
 
-AMB is not a graph database, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, or unreviewed durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination.
+AMB is not a graph database, general unlearning system, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, automatic policy engine, compliance certification, or unreviewed durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination. `forget` remains an explicit mutating operation; v0.21 makes that operation more conservative and auditable rather than automatic.
 
 For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
@@ -332,6 +354,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
+- [v0.21.0 announcement](docs/v0.21.0-announcement.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
 - [Promotion rules](docs/PROMOTION-RULES.md)

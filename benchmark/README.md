@@ -351,3 +351,26 @@ surface.
 The activation stress pack is intentionally conservative. It reuses reviewed belief
 cases plus isolated replay scenarios so we can shake the learning ladder without
 replaying a live bridge back into itself.
+
+## v0.21 Governed Change Proof
+
+The pre-v0.21 governed-change proof executes the exact reviewed manifest in
+`benchmark/v0.21-governed-change-manifest.json`. Each of its 20 cases gets one
+fresh temp `MemoryStore` and two checkpoints. The proof compares an equal-budget
+flat path with governed task memory, builds a Task Brief at every checkpoint,
+and exercises real forget, tombstone, lineage, recall, browse, export, FTS, and
+hash-embedding behavior where the case requires it.
+
+The deterministic report is written to
+`benchmark/latest-v0.21-governed-change-report.json` and gates on:
+
+- the exact manifest SHA256 and fixed 20-case / 40-checkpoint denominators
+- `flat_baseline_hazards: 17/20`
+- `governed_failures: 0/20`
+- `governed_checkpoint_passes: 40/40`
+- useful current guidance or corrective evidence at every checkpoint
+- the unchanged 10-tool public MCP surface
+- temp-only runtime writes, zero config writes, and zero durable live writeback
+
+This is a local deterministic pre-release proof, not a version bump, runtime
+adapter, new MCP surface, auto-writeback system, or use of private operator data.
