@@ -1,5 +1,5 @@
-name: Client integration request
-description: Request or document support for a coding-agent, MCP, or desktop client.
+name: Client integration or install feedback
+description: Report an install result, request support, or correct a client setup recipe.
 title: "Client integration: "
 labels:
   - enhancement
@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this for client setup gaps, compatibility questions, or integration recipes that would make Agent Memory Bridge easier to adopt.
+        Use this for successful install evidence, setup gaps, compatibility questions, or corrections to a client recipe. Remove secrets, private paths, and memory contents before submitting.
   - type: input
     id: client
     attributes:
@@ -24,6 +24,27 @@ body:
       placeholder: "1.2.3, nightly, commit SHA..."
     validations:
       required: false
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system
+      description: Include the OS and version or distribution.
+      placeholder: "Windows 11, macOS 15, Ubuntu 24.04..."
+    validations:
+      required: true
+  - type: dropdown
+    id: install-source
+    attributes:
+      label: Install source
+      options:
+        - GitHub source archive in a Python venv
+        - Editable GitHub checkout
+        - GitHub source through optional uvx
+        - Docker image built from this repository
+        - Existing install or unknown
+        - Not installed yet
+    validations:
+      required: true
   - type: textarea
     id: goal
     attributes:
@@ -33,14 +54,16 @@ body:
     validations:
       required: true
   - type: textarea
-    id: current-state
+    id: observed-result
     attributes:
-      label: Current setup or blocker
-      description: Share the config, command, error, or missing documentation that blocks setup.
+      label: Observed result or blocker
+      description: Share the redacted config shape, validation command, result, error, or missing documentation.
       placeholder: |
-        Current config:
-        Error:
-        Workaround tried:
+        GitHub tag or commit:
+        Redacted config shape:
+        Validation command and result:
+        MCP tools visible in the client:
+        Error or workaround:
     validations:
       required: true
   - type: dropdown
@@ -48,7 +71,9 @@ body:
     attributes:
       label: Request type
       options:
+        - Successful install feedback
         - Setup documentation
+        - Documentation correction
         - Example config
         - Compatibility fix
         - Client-specific helper
@@ -63,6 +88,14 @@ body:
       placeholder: "stdio only, no shell expansion, Windows paths require escaping..."
     validations:
       required: false
+  - type: input
+    id: official-client-docs
+    attributes:
+      label: Official client documentation
+      description: Link the first-party client page that supports a requested config correction, if applicable.
+      placeholder: "https://official-client.example/docs/mcp"
+    validations:
+      required: false
   - type: checkboxes
     id: checks
     attributes:
@@ -71,4 +104,6 @@ body:
         - label: I included the client name and enough setup detail for maintainers to reason about compatibility.
           required: true
         - label: I removed secrets, tokens, and private local paths from pasted config.
+          required: true
+        - label: I did not treat a marketplace listing or client certification as established unless I linked direct evidence.
           required: true

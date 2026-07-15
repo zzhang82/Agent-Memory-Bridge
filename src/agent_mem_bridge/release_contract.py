@@ -140,6 +140,7 @@ REQUIRED_V021_GOVERNED_CHANGE_KEYS = (
 )
 V021_RELEASE = "0.21.0"
 V021_GOVERNED_CHANGE_REPORT = "latest-v0.21-governed-change-report.json"
+V021_PATCH_PATTERN = re.compile(r"0\.21\.\d+")
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -302,7 +303,7 @@ def build_v020_proof_version_check(project_root: Path, pyproject_version: str) -
 
 
 def build_release_proof_check(project_root: Path, pyproject_version: str) -> dict[str, Any]:
-    if pyproject_version == V021_RELEASE:
+    if V021_PATCH_PATTERN.fullmatch(pyproject_version):
         return build_v021_governed_change_proof_check(project_root, pyproject_version)
     return build_v020_proof_version_check(project_root, pyproject_version)
 
@@ -376,11 +377,11 @@ def build_v021_governed_change_proof_check(
         for field, expected, actual in required_values
         if type(actual) is not type(expected) or actual != expected
     ]
-    if pyproject_version != V021_RELEASE:
+    if V021_PATCH_PATTERN.fullmatch(pyproject_version) is None:
         mismatches.append(
             {
                 "field": "pyproject.version",
-                "expected": V021_RELEASE,
+                "expected": "0.21.x",
                 "actual": pyproject_version,
             }
         )
@@ -388,6 +389,7 @@ def build_v021_governed_change_proof_check(
         "name": "v021_governed_change_proof_matches_release_gate",
         "ok": not mismatches,
         "expected_version": V021_RELEASE,
+        "package_version": pyproject_version,
         "report_path": str(report_path),
         "actual_release": report.get("release"),
         "actual_target_release": report.get("target_release"),
@@ -513,7 +515,7 @@ def build_demo_assets_check(project_root: Path) -> dict[str, Any]:
     required_assets = {
         demo_dir / "terminal-demo.cast",
         demo_dir / "terminal-demo.gif",
-        project_root / "examples" / "diagrams" / "amb-overview.png",
+        project_root / "examples" / "diagrams" / "amb-overview.svg",
     }
 
     demo_readme = demo_dir / "README.md"

@@ -22,6 +22,7 @@ That means the generic stdio shape matters more than any one IDE's UI.
 |---|---|---|
 | Codex | Verified reference client | Strongest dogfood path today |
 | Generic stdio MCP | Supported | Works anywhere the client can launch a local stdio server |
+| VS Code / Copilot | Documented | Uses VS Code's `servers` object in `mcp.json` |
 | Claude Code | Documented | Official `claude mcp add --transport stdio` flow exists |
 | Claude Desktop | Documented | Local `mcpServers` JSON is documented; desktop extensions are separate |
 | Cursor | Documented | Current docs describe MCP JSON config with stdio entries |
@@ -29,6 +30,23 @@ That means the generic stdio shape matters more than any one IDE's UI.
 | Antigravity | Locally tested | Shared-MCP writes were observed locally; exact config file path can vary |
 | OpenCode | Locally tested | Local JSON `mcp` command shape was dogfooded locally |
 | Hermes | Locally tested | Local YAML `mcp_servers` shape was dogfooded locally; adapter workflows remain manual |
+
+## Evidence And Contributions
+
+`Documented` means the example matches the linked first-party client docs. It
+does not mean the client vendor certified Agent Memory Bridge or that a
+marketplace listing exists.
+
+To report a successful install, blocker, or stale client shape, use the
+[client integration issue form](https://github.com/zzhang82/Agent-Memory-Bridge/issues/new?template=client_integration_request.yml).
+Include the client and version, operating system, GitHub revision or install
+source, redacted config shape, and exact validation result. A status should move
+to `Locally tested` or `Verified` only with reproducible evidence.
+
+Contributions should stay client-specific: cite the official client docs,
+update the renderer test when generated output changes, and avoid secrets,
+machine paths, marketplace claims, or claims that AMB replaces client-native
+memory.
 
 ## Generic Stdio First
 
@@ -58,6 +76,7 @@ Use the built-in renderer if you want client-specific output:
 agent-memory-bridge first-run --client generic --example
 agent-memory-bridge config --client generic --example
 agent-memory-bridge config --client codex --example
+agent-memory-bridge config --client vscode --example
 agent-memory-bridge config --client opencode --example
 agent-memory-bridge config --client hermes --example
 agent-memory-bridge config --client cursor --example
@@ -65,6 +84,10 @@ agent-memory-bridge config --client cursor --example
 
 `--example` keeps the output placeholder-safe. Without it, the renderer uses
 your current Python path together with the resolved bridge home and config path.
+
+For a GitHub-source install that does not assume `uv`, follow
+[`llms-install.md`](../llms-install.md), derive the isolated venv interpreter,
+and use that value as the stdio command. `uvx` is an optional shortcut only.
 
 ### Static-schema placeholders
 
@@ -128,6 +151,35 @@ docker run --rm -i \
   agent-memory-bridge:local
 ```
 
+## VS Code / Copilot
+
+Status: `Documented`
+
+[VS Code's current MCP configuration reference](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)
+uses a top-level `servers` object in workspace or user-profile `mcp.json`. The
+workspace file is `.vscode/mcp.json`; use **MCP: Open User Configuration** for a
+user-scoped install.
+
+```json
+{
+  "servers": {
+    "agentMemoryBridge": {
+      "type": "stdio",
+      "command": "<venv-python>",
+      "args": ["-m", "agent_mem_bridge"],
+      "env": {
+        "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT": "vscode",
+        "AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT": "stdio"
+      }
+    }
+  }
+}
+```
+
+Review the command and trust prompt before starting the server. This is a VS
+Code MCP configuration for use by agent chat, not a Visual Studio Marketplace
+extension or an MCP gallery claim.
+
 ## Codex
 
 Status: `Verified reference client`
@@ -154,7 +206,8 @@ TOML example above is the most direct bridge-side shape.
 
 Status: `Documented`
 
-Claude Code has a local stdio add flow:
+[Claude Code documents](https://code.claude.com/docs/en/mcp) a local stdio add
+flow:
 
 ```bash
 claude mcp add --transport stdio \
@@ -165,8 +218,9 @@ claude mcp add --transport stdio \
   agentMemoryBridge -- /path/to/agent-memory-bridge/.venv/bin/python -m agent_mem_bridge
 ```
 
-If you prefer file-based configuration, use the same generic `mcpServers` JSON
-shape shown above.
+For a checked-in project configuration, use the generic `mcpServers` shape in
+`.mcp.json` and review Claude Code's project trust prompt. For user scope, prefer
+`claude mcp add --scope user ...` rather than editing internal config by hand.
 
 ## Claude Desktop
 
@@ -199,8 +253,9 @@ distribution path and are intentionally out of scope for this release.
 
 Status: `Documented`
 
-Cursor's current MCP docs describe JSON config with `mcpServers` entries, and
-the field tables currently call out `type = "stdio"` for stdio servers.
+[Cursor's MCP docs](https://docs.cursor.com/en/tools/mcp)
+describe project or user JSON config with `mcpServers` entries. This repository
+does not claim an **Add to Cursor** listing; use the JSON path below.
 
 ```json
 {
@@ -225,8 +280,11 @@ the field tables currently call out `type = "stdio"` for stdio servers.
 
 Status: `Documented`
 
-Cline uses JSON `mcpServers` entries. Its stdio examples do not require a
-separate `type` field.
+[Cline's MCP docs](https://docs.cline.bot/mcp/mcp-overview) use JSON
+`mcpServers` entries for local stdio servers and expose an MCP configuration UI
+and `cline mcp` wizard. An agent-led GitHub install should follow
+[`llms-install.md`](../llms-install.md), then add the derived interpreter and
+arguments below through Cline's approved config flow.
 
 ```json
 {
@@ -277,8 +335,10 @@ location.
 
 Status: `Locally tested`
 
-OpenCode can use a local-command JSON shape under `mcp`. Exact config location
-can vary by install, so prefer generating a placeholder-safe snippet first:
+[OpenCode's current MCP docs](https://opencode.ai/docs/mcp-servers/) define
+local servers under `mcp`, with a command array and an `environment` object.
+Use `opencode mcp add` for the guided flow or merge the generated shape into the
+intended user or project config:
 
 ```bash
 agent-memory-bridge first-run --client opencode --example
@@ -296,8 +356,7 @@ agent-memory-bridge config --client opencode --example
         "agent_mem_bridge"
       ],
       "enabled": true,
-      "cwd": "/path/to/agent-memory-bridge",
-      "env": {
+      "environment": {
         "AGENT_MEMORY_BRIDGE_HOME": "/path/to/bridge-home",
         "AGENT_MEMORY_BRIDGE_CONFIG": "/path/to/agent-memory-bridge-config.toml",
         "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT": "opencode",
@@ -312,8 +371,10 @@ agent-memory-bridge config --client opencode --example
 
 Status: `Locally tested`
 
-Hermes local profiles can use `mcp_servers` YAML. AMH/Hermes adapter commands
-remain a manual helper workflow; AMB itself is still the MCP memory substrate.
+[Hermes's current MCP docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)
+use `mcp_servers` in `~/.hermes/config.yaml` for local stdio servers. AMH/Hermes
+adapter commands remain a manual helper workflow; AMB itself remains a separate
+MCP store.
 
 ```bash
 agent-memory-bridge first-run --client hermes --example
@@ -327,13 +388,16 @@ mcp_servers:
     args:
       - '-m'
       - 'agent_mem_bridge'
-    cwd: '/path/to/agent-memory-bridge'
     env:
       AGENT_MEMORY_BRIDGE_HOME: '/path/to/bridge-home'
       AGENT_MEMORY_BRIDGE_CONFIG: '/path/to/agent-memory-bridge-config.toml'
       AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT: 'hermes'
       AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT: 'stdio'
 ```
+
+After editing the config, run `hermes mcp test agentMemoryBridge` and
+`hermes mcp list`, or reload MCP servers from Hermes and inspect the connection
+status.
 
 ## Verify Before You Trust It
 

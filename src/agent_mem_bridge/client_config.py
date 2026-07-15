@@ -11,6 +11,7 @@ ClientName = Literal[
     "codex",
     "claude-desktop",
     "claude-code",
+    "vscode",
     "cursor",
     "cline",
     "antigravity",
@@ -34,6 +35,9 @@ CLIENT_ALIASES: dict[str, ClientName] = {
     "claude_desktop": "claude-desktop",
     "claude-code": "claude-code",
     "claude_code": "claude-code",
+    "vscode": "vscode",
+    "vs-code": "vscode",
+    "copilot": "vscode",
     "cursor": "cursor",
     "cline": "cline",
     "antigravity": "antigravity",
@@ -48,6 +52,7 @@ CLIENT_STATUSES: dict[ClientName, str] = {
     "codex": "verified",
     "claude-desktop": "documented",
     "claude-code": "documented",
+    "vscode": "documented",
     "cursor": "documented",
     "cline": "documented",
     "antigravity": "locally-tested",
@@ -60,8 +65,9 @@ CLIENT_FILE_HINTS: dict[ClientName, str] = {
     "codex": "~/.codex/config.toml",
     "claude-desktop": "claude_desktop_config.json",
     "claude-code": ".mcp.json",
+    "vscode": ".vscode/mcp.json",
     "cursor": ".cursor/mcp.json",
-    "cline": "cline_mcp_settings.json",
+    "cline": "Cline MCP settings JSON",
     "antigravity": "mcp_config.json",
     "opencode": "opencode.json",
     "hermes": "~/.hermes/config.yaml",
@@ -104,6 +110,7 @@ def supported_client_names() -> list[str]:
         "codex",
         "claude-desktop",
         "claude-code",
+        "vscode",
         "cursor",
         "cline",
         "antigravity",
@@ -198,12 +205,24 @@ def _render_json_config(options: ClientConfigOptions) -> str:
             "command": [options.command, *options.args],
             "enabled": True,
         }
+        env = _build_env(options)
+        if env:
+            server["environment"] = env
+        payload = {"mcp": {options.server_name: server}}
+        return json.dumps(payload, indent=2)
+
+    if options.client == "vscode":
+        server = {
+            "type": "stdio",
+            "command": options.command,
+            "args": list(options.args),
+        }
         if options.cwd:
             server["cwd"] = options.cwd
         env = _build_env(options)
         if env:
             server["env"] = env
-        payload = {"mcp": {options.server_name: server}}
+        payload = {"servers": {options.server_name: server}}
         return json.dumps(payload, indent=2)
 
     server: dict[str, object] = {
@@ -247,8 +266,6 @@ def _render_hermes_config(options: ClientConfigOptions) -> str:
     ]
     for arg in options.args:
         lines.append(f"      - {_quote_yaml(arg)}")
-    if options.cwd:
-        lines.append(f"    cwd: {_quote_yaml(options.cwd)}")
     env = _build_env(options)
     if env:
         lines.append("    env:")

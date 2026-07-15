@@ -51,9 +51,18 @@ def test_manifest_exact_hash_and_denominators_are_enforced() -> None:
     assert sum(len(case["checkpoints"]) for case in manifest["cases"]) == 40
 
 
-def test_manifest_hash_mismatch_is_a_hard_failure(tmp_path: Path) -> None:
+def test_manifest_hash_handles_platform_line_endings_and_rejects_changes(tmp_path: Path) -> None:
+    raw = DEFAULT_V021_MANIFEST_PATH.read_bytes().replace(b"\r\n", b"\n")
+    windows_manifest = tmp_path / "windows-manifest.json"
+    windows_manifest.write_bytes(raw.replace(b"\n", b"\r\n"))
+
+    manifest, digest = load_v021_governed_change_manifest(windows_manifest)
+
+    assert manifest["case_count"] == 20
+    assert digest == EXPECTED_MANIFEST_SHA256
+
     changed = tmp_path / "changed-manifest.json"
-    changed.write_bytes(DEFAULT_V021_MANIFEST_PATH.read_bytes() + b"\n")
+    changed.write_bytes(raw + b"\n")
 
     with pytest.raises(ValueError, match="SHA256 mismatch"):
         load_v021_governed_change_manifest(changed)

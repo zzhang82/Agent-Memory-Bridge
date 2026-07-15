@@ -14,7 +14,7 @@ from typing import Any, Callable, Iterator
 from .embedding_index import EmbeddingConfig, ensure_embeddings_for_rows
 from .query import recall_via_semantic
 from .relation_metadata import parse_relation_metadata
-from .release_contract import load_pyproject_version, load_server_tool_names
+from .release_contract import load_server_tool_names
 from .storage import MemoryStore
 from .task_brief import build_task_brief_report
 from .task_memory import assemble_task_memory
@@ -87,7 +87,9 @@ class CaseState:
 def load_v021_governed_change_manifest(path: Path | None = None) -> tuple[dict[str, Any], str]:
     manifest_path = (path or DEFAULT_V021_MANIFEST_PATH).resolve()
     raw = manifest_path.read_bytes()
-    digest = hashlib.sha256(raw).hexdigest()
+    # Git may materialize text files with CRLF on Windows; hash canonical LF bytes.
+    canonical_raw = raw.replace(b"\r\n", b"\n")
+    digest = hashlib.sha256(canonical_raw).hexdigest()
     if digest != EXPECTED_MANIFEST_SHA256:
         raise ValueError(
             "v0.21 governed-change manifest SHA256 mismatch: "
@@ -148,7 +150,7 @@ def run_v021_governed_change_proof(
 
     return {
         "schema": V021_GOVERNED_CHANGE_PROOF_SCHEMA,
-        "release": load_pyproject_version(resolved_root / "pyproject.toml"),
+        "release": manifest["target_release"],
         "target_release": manifest["target_release"],
         "status": "pre-v0.21-governed-change-proof",
         "generated_at": FIXED_GENERATED_AT,

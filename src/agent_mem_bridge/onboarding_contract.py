@@ -12,6 +12,7 @@ from .client_config import render_example_client_configs
 
 PUBLIC_ONBOARDING_FILES = (
     Path("INSTALL_FOR_AGENTS.md"),
+    Path("llms-install.md"),
     Path("llms.txt"),
     Path("README.md"),
     Path("README.zh-CN.md"),

@@ -9,17 +9,19 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-Your coding agent should start with the right project context, not a stale dump.
+Give coding agents one shared, governed record of project decisions across tools and sessions.
 
-Agent Memory Bridge is persistent project memory for coding agents: a local-first MCP memory layer with SQLite/WAL as the durable store, FTS5 for lexical recall, and an optional local embedding sidecar for semantic or hybrid retrieval. It stores durable repo decisions, gotchas, procedures, and handoffs while keeping short-lived coordination separate.
+Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.21.0` focuses on **Governed Memory Under Change**: explicit forgetting now leaves transactional, content-redacted tombstones; exact machine-owned descendants can be deleted with their source while uncertain lineage is retained as degraded audit evidence; and task context handles transitive supersession, current-premise changes, and declared procedure domains conservatively.
+`0.21.1` keeps the **Governed Memory Under Change** contract while hardening its Windows proof path and expanding client setup assets: explicit forgetting leaves transactional, content-redacted tombstones; exact machine-owned descendants can be deleted with their source while uncertain lineage is retained as degraded audit evidence; and task context handles transitive supersession, current-premise changes, and declared procedure domains conservatively.
 
-> Codex is the reference workflow, not the product boundary. If a client can launch a local stdio MCP server, it can use Agent Memory Bridge.
+> Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
 <p align="center">
-  <img src="examples/diagrams/amb-overview.png" alt="Agent Memory Bridge overview: clients connect to the MCP surface, which fronts the local-first memory core and proof layer." width="1000">
+  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge architecture: generic MCP-compatible coding agents use 10 grouped tools backed by SQLite/WAL authority, derived indexes, governed change, and no-auto-writeback context and reports; proof gates remain outside runtime." width="800">
 </p>
+
+**Runtime:** MCP-compatible coding agents -> 10 public tools -> SQLite/WAL authority -> governed context and reports with no automatic durable writeback. **Proof:** release checks and benchmarks run outside that runtime path.
 
 ## Why It Exists
 
@@ -39,11 +41,12 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Review-first writeback: learning candidates can be staged for human review before explicit promotion into durable records.
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `372 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `373 passed`.
 
 ## Who It Is For
 
-- You use Codex, Claude, Cursor, Cline, Antigravity, or another MCP client and keep re-explaining the same project conventions.
+- You use more than one coding agent and want project decisions, gotchas, and handoffs to remain shared across them.
+- You already use `AGENTS.md`, `CLAUDE.md`, or native preference memory and need a governed cross-agent layer alongside it.
 - You want memory that is local and inspectable instead of a hosted platform or opaque vector stack.
 - You run review, handoff, or multi-agent workflows and need coordination signals without building a full task queue.
 
@@ -54,14 +57,9 @@ Requirements:
 - Python 3.11+
 - SQLite with FTS5 support; optional local embeddings are derived indexes, not durable authority
 - any MCP-compatible client that can launch a local stdio server
+- optional `uv` / `uvx` for the fastest one-command GitHub smoke test
 
-One-command GitHub smoke test with `uvx`:
-
-```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-bridge verify
-```
-
-Local editable install:
+Baseline editable install with Python:
 
 ```bash
 python -m venv .venv
@@ -69,6 +67,12 @@ python -m venv .venv
 python -m pip install -e .
 agent-memory-bridge doctor
 agent-memory-bridge verify
+```
+
+Optional fastest GitHub smoke test with `uvx`:
+
+```bash
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -194,7 +198,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.21.0` adds governed behavior for memory that is deleted, superseded, invalidated by a changed premise, or applied to a different task domain. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, vendor certification, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
+`0.21.1` inherits the fixed v0.21 governed-change proof for memory that is deleted, superseded, invalidated by a changed premise, or applied to a different task domain. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, vendor certification, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
 
 | Track | Current signal |
 |---|---|
@@ -211,7 +215,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.19 adoption proof | synthetic fixture proof only, not clean-room external adoption: `v019_case_count = 12`, `v019_pass_rate = 1.0`, `v019_public_mcp_surface_change = false`, `v019_client_config_write_count = 0` |
 | v0.20 clean-room proof | local reproducible proof only, not vendor certification: `v020_case_count = 6`, `v020_pass_rate = 1.0`, `v020_stdio_round_trip_pass = true`, `v020_client_config_write_count = 0`, `v020_external_vendor_adoption_claim = false` |
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
-| Test suite | `372 passed` |
+| Test suite | `373 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -354,7 +358,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.21.0 announcement](docs/v0.21.0-announcement.md)
+- [v0.21.1 announcement](docs/v0.21.1-announcement.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
 - [Promotion rules](docs/PROMOTION-RULES.md)

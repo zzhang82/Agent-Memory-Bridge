@@ -25,12 +25,16 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert report["test_count_source"] == "pytest_collect_only"
     assert all(check["ok"] for check in report["checks"])
 
-    v021_root = create_v021_release_fixture(tmp_path / "v021")
+    v021_root = create_v021_release_fixture(tmp_path / "v021", package_version="0.21.1")
     v021_report = run_release_contract_check(v021_root, test_count_provider=lambda _: 146)
     checks = {check["name"]: check for check in v021_report["checks"]}
     assert v021_report["ok"] is True
     assert "v020_proof_version_matches_pyproject" not in checks
-    assert checks["v021_governed_change_proof_matches_release_gate"]["ok"] is True
+    proof_check = checks["v021_governed_change_proof_matches_release_gate"]
+    assert proof_check["ok"] is True
+    assert proof_check["package_version"] == "0.21.1"
+    assert proof_check["actual_release"] == "0.21.0"
+    assert proof_check["actual_target_release"] == "0.21.0"
     historical_v020 = json.loads(
         (v021_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(
             encoding="utf-8"
@@ -59,7 +63,8 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
         encoding="utf-8",
     )
 
-    (root / "examples" / "demo" / "terminal-demo.gif").unlink()
+    svg_path = root / "examples" / "diagrams" / "amb-overview.svg"
+    svg_path.unlink()
 
     report = run_release_contract_check(root, test_count_provider=lambda _: 146)
 
@@ -71,6 +76,7 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
     assert check_names["readme_test_count_matches_collected_suite"]["ok"] is False
     assert check_names["public_mcp_tool_count_matches_server_surface"]["ok"] is False
     assert check_names["current_demo_assets_exist"]["ok"] is False
+    assert check_names["current_demo_assets_exist"]["missing_assets"] == [str(svg_path)]
 
     gate_mismatches = [
         (None, "release", "0.20.0", "release"),
@@ -624,7 +630,7 @@ def create_release_fixture(root: Path) -> Path:
     write_file(root / "examples" / "demo" / "terminal-demo.cast", "cast\n")
     write_file(root / "examples" / "demo" / "terminal-demo.gif", "gif\n")
     write_file(root / "examples" / "demo" / "terminal-demo.tape", "tape\n")
-    write_file(root / "examples" / "diagrams" / "amb-overview.png", "png\n")
+    write_file(root / "examples" / "diagrams" / "amb-overview.svg", "<svg/>\n")
     sample_tests = "\n".join(
         f"def test_release_contract_sample_{index:03d}() -> None:\n    assert True\n"
         for index in range(146)
@@ -633,11 +639,14 @@ def create_release_fixture(root: Path) -> Path:
     return root
 
 
-def create_v021_release_fixture(root: Path) -> Path:
+def create_v021_release_fixture(root: Path, *, package_version: str = "0.21.0") -> Path:
     create_release_fixture(root)
     pyproject = root / "pyproject.toml"
     pyproject.write_text(
-        pyproject.read_text(encoding="utf-8").replace('version = "0.9.0"', 'version = "0.21.0"'),
+        pyproject.read_text(encoding="utf-8").replace(
+            'version = "0.9.0"',
+            f'version = "{package_version}"',
+        ),
         encoding="utf-8",
     )
     for readme_name in ("README.md", "README.zh-CN.md"):
@@ -660,11 +669,11 @@ v021_config_write_count = 0
 v021_durable_live_writeback_count = 0
 """
         readme.write_text(
-            readme.read_text(encoding="utf-8").replace("`0.9.0`", "`0.21.0`")
+            readme.read_text(encoding="utf-8").replace("`0.9.0`", f"`{package_version}`")
             + v021_facts,
             encoding="utf-8",
         )
-    write_file(root / "docs" / "v0.21.0-announcement.md", "`pytest`: `146 passed`\n")
+    write_file(root / "docs" / f"v{package_version}-announcement.md", "`pytest`: `146 passed`\n")
     write_file(
         root / "benchmark" / "latest-v0.21-governed-change-report.json",
         json.dumps(

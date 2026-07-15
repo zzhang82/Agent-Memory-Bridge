@@ -17,7 +17,7 @@ def test_rendered_example_configs_parse() -> None:
     for rendered in render_example_client_configs():
         if rendered.format == "json":
             payload = json.loads(rendered.content)
-            assert "mcpServers" in payload or "mcp" in payload
+            assert "mcpServers" in payload or "mcp" in payload or "servers" in payload
         else:
             if rendered.format == "toml":
                 payload = tomllib.loads(rendered.content)
@@ -28,7 +28,17 @@ def test_rendered_example_configs_parse() -> None:
 
 
 def test_non_codex_configs_do_not_reference_codex_home() -> None:
-    for client in ("generic", "claude-desktop", "claude-code", "cursor", "cline", "antigravity", "opencode", "hermes"):
+    for client in (
+        "generic",
+        "claude-desktop",
+        "claude-code",
+        "vscode",
+        "cursor",
+        "cline",
+        "antigravity",
+        "opencode",
+        "hermes",
+    ):
         rendered = render_client_config(
             build_client_config_options(
                 client,
@@ -42,11 +52,33 @@ def test_non_codex_configs_do_not_reference_codex_home() -> None:
         assert "CODEX_HOME" not in rendered.content
 
 
-def test_opencode_and_hermes_are_supported_clients() -> None:
+def test_vscode_opencode_and_hermes_are_supported_clients() -> None:
     names = supported_client_names()
 
+    assert "vscode" in names
     assert "opencode" in names
     assert "hermes" in names
+
+
+def test_vscode_config_uses_vscode_servers_shape() -> None:
+    rendered = render_client_config(
+        build_client_config_options(
+            "copilot",
+            python_path="/path/to/python",
+            cwd="/path/to/repo",
+            bridge_home="/path/to/bridge-home",
+            config_path="/path/to/config.toml",
+            example=True,
+        )
+    )
+    payload = json.loads(rendered.content)
+    server = payload["servers"]["agentMemoryBridge"]
+
+    assert rendered.client == "vscode"
+    assert rendered.file_hint == ".vscode/mcp.json"
+    assert server["type"] == "stdio"
+    assert server["command"] == "/path/to/agent-memory-bridge/.venv/bin/python"
+    assert server["env"]["AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT"] == "vscode"
 
 
 def test_opencode_config_uses_opencode_mcp_shape() -> None:
@@ -66,7 +98,9 @@ def test_opencode_config_uses_opencode_mcp_shape() -> None:
     assert rendered.format == "json"
     assert server["type"] == "local"
     assert server["command"] == ["/path/to/agent-memory-bridge/.venv/bin/python", "-m", "agent_mem_bridge"]
-    assert server["env"]["AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT"] == "opencode"
+    assert "cwd" not in server
+    assert "env" not in server
+    assert server["environment"]["AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT"] == "opencode"
 
 
 def test_hermes_config_uses_yaml_mcp_servers_shape() -> None:
@@ -83,6 +117,7 @@ def test_hermes_config_uses_yaml_mcp_servers_shape() -> None:
     assert rendered.format == "yaml"
     assert "mcp_servers:" in rendered.content
     assert "agentMemoryBridge:" in rendered.content
+    assert "cwd:" not in rendered.content
     assert "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT: 'hermes'" in rendered.content
 
 

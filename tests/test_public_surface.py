@@ -34,4 +34,7 @@ def test_public_surface_check_repository_passes() -> None:
         str(Path("benchmark/latest-v0.21-governed-change-report.json")),
         str(Path("benchmark/v0.21-governed-change-manifest.json")),
         str(Path("docs/v0.21.0-announcement.md")),
+        str(Path("docs/v0.21.1-announcement.md")),
+        str(Path("examples/diagrams/amb-overview.svg")),
+        str(Path("llms-install.md")),
     }.issubset(set(report["checked_files"]))

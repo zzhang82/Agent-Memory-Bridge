@@ -14,6 +14,14 @@ from .task_brief import build_task_brief_report, render_task_brief_markdown
 
 FIRST_RUN_SCHEMA = "memory.first_run.v1"
 FIRST_RUN_BOUNDARY = "manual_config_copy_no_auto_mutation"
+GITHUB_ARCHIVE_URL = (
+    "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/heads/main.zip"
+)
+VENV_VERIFY_COMMAND = (
+    'python -c "import os, subprocess; from pathlib import Path; '
+    "p = Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python'); "
+    "raise SystemExit(subprocess.call([str(p), '-m', 'agent_mem_bridge', 'verify']))\""
+)
 
 
 def build_first_run_report(
@@ -59,9 +67,17 @@ def build_first_run_report(
         "install": {
             "editable_install": [
                 "python -m venv .venv",
-                "python -m pip install -e .",
+                "python -m pip --python .venv install -e .",
             ],
-            "smoke_test": "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-bridge verify",
+            "github_install": [
+                "python -m venv .amb-venv",
+                f'python -m pip --python .amb-venv install "{GITHUB_ARCHIVE_URL}"',
+            ],
+            "smoke_test": VENV_VERIFY_COMMAND,
+            "optional_uv_smoke_test": (
+                "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge "
+                "agent-memory-bridge verify"
+            ),
         },
         "verify": [
             "agent-memory-bridge doctor",
@@ -101,10 +117,22 @@ def render_first_run_markdown(report: dict[str, Any]) -> str:
         *report["install"]["editable_install"],
         "```",
         "",
-        "GitHub smoke test:",
+        "GitHub source install in an isolated venv:",
+        "",
+        "```bash",
+        *report["install"]["github_install"],
+        "```",
+        "",
+        "Platform-neutral verification:",
         "",
         "```bash",
         report["install"]["smoke_test"],
+        "```",
+        "",
+        "Optional `uvx` shortcut (requires `uv`):",
+        "",
+        "```bash",
+        report["install"]["optional_uv_smoke_test"],
         "```",
         "",
         "## Client Config",

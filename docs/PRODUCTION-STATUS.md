@@ -2,7 +2,15 @@
 
 Last updated: 2026-07-15 (America/New_York)
 
-This maintainer note describes the `0.21.0` governed-change release shape plus the validation snapshot used to support it.
+This maintainer note describes the current `0.21.1` patch, the inherited `0.21.0` governed-change release shape, and the validation snapshot used to support both.
+
+## 0.21.1 Patch Status
+
+- Package version: `0.21.1`
+- Fixed governed-change proof release and target: `0.21.0`
+- Patch inheritance: every `0.21.x` package uses the fixed v0.21 governed-change proof gate rather than falling back to the v0.20 clean-room proof
+- Windows proof hashing: manifest bytes are normalized to LF before the fixed SHA256 check
+- Current overview asset: `examples/diagrams/amb-overview.svg`
 
 ## 0.21.0 Runtime Shape
 
@@ -32,7 +40,7 @@ This maintainer note describes the `0.21.0` governed-change release shape plus t
 
 ## Verified On 2026-07-15
 
-- `pytest` passes: `372 passed`
+- `pytest` passes: `373 passed`
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`

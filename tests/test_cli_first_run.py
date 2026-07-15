@@ -54,9 +54,14 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert report["client_config"]["format"] == "json"
     assert report["first_task_brief"]["schema"] == "memory.task_brief.v1"
     assert report["first_task_brief"]["public_mcp_surface_change"] is False
+    assert report["install"]["github_install"][0] == "python -m venv .amb-venv"
+    assert "archive/refs/heads/main.zip" in report["install"]["github_install"][1]
+    assert "Scripts/python.exe" in report["install"]["smoke_test"]
+    assert report["install"]["optional_uv_smoke_test"].startswith("uvx --from git+")
 
     markdown = render_first_run_markdown(report)
     assert "## Install" in markdown
+    assert "Optional `uvx` shortcut (requires `uv`)" in markdown
     assert "## Verify" in markdown
     assert "## First Task Brief" in markdown
     assert "write_mode: `manual_copy_only`" in markdown

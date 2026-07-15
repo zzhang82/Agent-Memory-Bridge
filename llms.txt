@@ -7,6 +7,7 @@ Primary docs:
 
 - README.md - product overview, install, first useful loop, public MCP tools
 - INSTALL_FOR_AGENTS.md - agent-readable install protocol
+- llms-install.md - concise GitHub-source install path for coding agents
 - docs/INTEGRATIONS.md - client configuration examples
 - docs/CONFIGURATION.md - runtime and classifier configuration
 - docs/AUTHORITY-CONTRACT.md - source-of-truth and compiled-view rules
@@ -40,8 +41,12 @@ Important boundaries:
 Useful commands:
 
 ```bash
-agent-memory-bridge doctor
-agent-memory-bridge verify
-agent-memory-bridge first-run --client generic --example
-agent-memory-bridge config --client generic --example
+python -m venv .amb-venv
+python -m pip --python .amb-venv install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/heads/main.zip"
 ```
+
+Then use the derived venv interpreter from `llms-install.md` to run `doctor`,
+`verify`, `first-run`, or `config` through `-m agent_mem_bridge`.
+
+`uvx` is an optional shortcut, not a baseline requirement. See
+`llms-install.md` before writing client config.

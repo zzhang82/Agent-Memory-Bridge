@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100" role="img" aria-labelledby="amb-title amb-desc">
+  <title id="amb-title">Agent Memory Bridge architecture</title>
+  <desc id="amb-desc">Generic MCP-compatible coding agents use ten public tools grouped into memory, governed change, and signals. SQLite in WAL mode is the durable authority. FTS5 and optional embeddings are derived indexes. Governed change checks redacted tombstones, lineage, supersession, current premises, and task domains before producing derived context and reports with no automatic durable writeback. Release proof gates are separate from the runtime path.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#315b66"/>
+    </marker>
+    <style>
+      .bg { fill: #f7f5ef; }
+      .panel { fill: #fffdf8; stroke: #1f4b57; stroke-width: 2; }
+      .panel-soft { fill: #edf5f2; stroke: #2d6f67; stroke-width: 1.8; }
+      .panel-change { fill: #fff4dd; stroke: #9a5a12; stroke-width: 1.8; }
+      .panel-derived { fill: #eef2f7; stroke: #405d78; stroke-width: 1.8; }
+      .proof { fill: #f3f1eb; stroke: #6b6f73; stroke-width: 1.6; stroke-dasharray: 7 6; }
+      .group { fill: #ffffff; stroke: #7f969c; stroke-width: 1.4; }
+      .index { fill: #ffffff; stroke: #2d6f67; stroke-width: 1.4; stroke-dasharray: 5 4; }
+      .line { fill: none; stroke: #315b66; stroke-width: 2.2; marker-end: url(#arrow); }
+      .index-line { fill: none; stroke: #2d6f67; stroke-width: 1.7; stroke-dasharray: 5 4; marker-end: url(#arrow); }
+      .eyebrow { fill: #315b66; font: 700 14px "Segoe UI", sans-serif; letter-spacing: 1.8px; }
+      .heading { fill: #102f3a; font: 700 24px "Segoe UI", sans-serif; }
+      .section { fill: #102f3a; font: 700 20px "Segoe UI", sans-serif; }
+      .label { fill: #173d47; font: 700 16px "Segoe UI", sans-serif; }
+      .body { fill: #29434b; font: 15px "Segoe UI", sans-serif; }
+      .small { fill: #3d535a; font: 14px "Segoe UI", sans-serif; }
+      .tool { fill: #173d47; font: 600 15px Consolas, "Courier New", monospace; }
+      .warning { fill: #70400d; font: 700 15px "Segoe UI", sans-serif; }
+      .proof-text { fill: #4f5559; font: 600 14px "Segoe UI", sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="800" height="1100"/>
+  <text class="eyebrow" x="40" y="34">RUNTIME PATH</text>
+  <text class="heading" x="40" y="64">Shared, governed engineering memory</text>
+
+  <rect class="panel" x="40" y="88" width="720" height="82" rx="10"/>
+  <text class="section" x="64" y="120">MCP-compatible coding agents</text>
+  <text class="body" x="64" y="146">Generic local stdio clients; AMB complements native and project guidance.</text>
+
+  <path class="line" d="M400 170 V198"/>
+
+  <rect class="panel-soft" x="40" y="204" width="720" height="250" rx="10"/>
+  <text class="section" x="64" y="236">Public MCP surface</text>
+  <text class="small" x="248" y="236">exactly 10 tools</text>
+
+  <rect class="group" x="64" y="256" width="210" height="168" rx="8"/>
+  <text class="label" x="82" y="285">Memory - 5</text>
+  <text class="tool" x="82" y="316">store</text>
+  <text class="tool" x="178" y="316">recall</text>
+  <text class="tool" x="82" y="348">browse</text>
+  <text class="tool" x="178" y="348">stats</text>
+  <text class="tool" x="82" y="380">export</text>
+
+  <rect class="group" x="294" y="256" width="190" height="168" rx="8"/>
+  <text class="label" x="312" y="285">Change - 2</text>
+  <text class="tool" x="312" y="324">forget</text>
+  <text class="tool" x="312" y="360">promote</text>
+
+  <rect class="group" x="504" y="256" width="232" height="168" rx="8"/>
+  <text class="label" x="522" y="285">Signals - 3</text>
+  <text class="tool" x="522" y="316">claim_signal</text>
+  <text class="tool" x="522" y="348">extend_signal_lease</text>
+  <text class="tool" x="522" y="380">ack_signal</text>
+
+  <path class="line" d="M400 454 V480"/>
+
+  <rect class="panel" x="40" y="486" width="720" height="184" rx="10"/>
+  <text class="section" x="64" y="518">SQLite / WAL</text>
+  <text class="label" x="199" y="518">durable authority</text>
+  <text class="body" x="64" y="545">Inspectable records, namespaces, memory/signal lanes, and audit metadata</text>
+
+  <path class="index-line" d="M282 558 V580"/>
+  <path class="index-line" d="M518 558 V580"/>
+  <rect class="index" x="100" y="584" width="300" height="62" rx="8"/>
+  <text class="label" x="120" y="609">FTS5</text>
+  <text class="small" x="120" y="630">derived lexical index</text>
+  <rect class="index" x="420" y="584" width="300" height="62" rx="8"/>
+  <text class="label" x="440" y="609">Optional embeddings</text>
+  <text class="small" x="440" y="630">derived semantic / hybrid index</text>
+
+  <path class="line" d="M400 670 V696"/>
+
+  <rect class="panel-change" x="40" y="702" width="720" height="160" rx="10"/>
+  <text class="section" x="64" y="734">Governed change</text>
+  <text class="small" x="242" y="734">checked before guidance becomes actionable</text>
+  <text class="warning" x="64" y="772">Redacted tombstones</text>
+  <text class="body" x="64" y="796">Exact lineage cascade; uncertain dependents retained as degraded evidence</text>
+  <text class="warning" x="64" y="828">Current guidance</text>
+  <text class="body" x="220" y="828">Lineage + transitive supersession + current premise + declared domain checks</text>
+
+  <path class="line" d="M400 862 V888"/>
+
+  <rect class="panel-derived" x="40" y="894" width="720" height="116" rx="10"/>
+  <text class="section" x="64" y="926">Derived context and reports</text>
+  <text class="body" x="64" y="956">Startup/task context / Task Brief / review queue/workflow / exports</text>
+  <text class="label" x="64" y="984">Regenerable / proposal/read-only views / no automatic durable writeback</text>
+
+  <rect class="proof" x="40" y="1028" width="720" height="60" rx="8"/>
+  <text class="eyebrow" x="60" y="1052">PROOF GATES / OUTSIDE RUNTIME</text>
+  <text class="proof-text" x="60" y="1076">release contract / public surface / onboarding / benchmark/test gates</text>
+</svg>
