@@ -2,13 +2,14 @@
 
 Last updated: 2026-07-15 (America/New_York)
 
-This maintainer note describes the current `0.21.1` patch, the inherited `0.21.0` governed-change release shape, and the validation snapshot used to support both.
+This maintainer note describes the current `0.21.2` patch, the inherited `0.21.0` governed-change release shape, and the validation snapshot used to support both.
 
-## 0.21.1 Patch Status
+## 0.21.2 Patch Status
 
-- Package version: `0.21.1`
+- Package version: `0.21.2`
 - Fixed governed-change proof release and target: `0.21.0`
 - Patch inheritance: every `0.21.x` package uses the fixed v0.21 governed-change proof gate rather than falling back to the v0.20 clean-room proof
+- License attribution: MIT retained with `zzhang82 and Agent Memory Bridge contributors` as the public copyright identity
 - Windows proof hashing: manifest bytes are normalized to LF before the fixed SHA256 check
 - Current overview asset: `examples/diagrams/amb-overview.svg`
 

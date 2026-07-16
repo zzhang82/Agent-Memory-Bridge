@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.21.1` keeps the **Governed Memory Under Change** contract while hardening its Windows proof path and expanding client setup assets: explicit forgetting leaves transactional, content-redacted tombstones; exact machine-owned descendants can be deleted with their source while uncertain lineage is retained as degraded audit evidence; and task context handles transitive supersession, current-premise changes, and declared procedure domains conservatively.
+`0.21.2` is a narrow MIT attribution patch over the same **Governed Memory Under Change** contract. The license now identifies the maintainer through the public GitHub handle `zzhang82` while preserving the existing runtime, proof, and 10-tool MCP surface.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -198,7 +198,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.21.1` inherits the fixed v0.21 governed-change proof for memory that is deleted, superseded, invalidated by a changed premise, or applied to a different task domain. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, vendor certification, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
+`0.21.2` inherits the fixed v0.21 governed-change proof for memory that is deleted, superseded, invalidated by a changed premise, or applied to a different task domain. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, vendor certification, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
 
 | Track | Current signal |
 |---|---|
@@ -358,7 +358,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.21.1 announcement](docs/v0.21.1-announcement.md)
+- [v0.21.2 announcement](docs/v0.21.2-announcement.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
 - [Promotion rules](docs/PROMOTION-RULES.md)

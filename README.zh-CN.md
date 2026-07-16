@@ -13,7 +13,7 @@
 
 Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 shared engineering memory。它补充 `AGENTS.md`、`CLAUDE.md` 和客户端原生 preference memory，而不是取代它们。SQLite/WAL 是 durable authority，FTS5 和可选本地 embeddings 则是用于 lexical、semantic 或 hybrid retrieval 的 derived indexes。
 
-`0.21.1` 延续 **Governed Memory Under Change** contract，同时加固 Windows proof path 并扩展 client setup assets：显式 forget 会留下事务内写入且不含原文的 tombstone；来源关系精确、由机器生成的后代可以随源记录级联删除，而不确定的 lineage 会保留为 degraded audit evidence；task context 则会保守处理 transitive supersession、current-premise change 和声明过的 procedure domain。
+`0.21.2` 是基于同一套 **Governed Memory Under Change** contract 的小型 MIT attribution patch。许可证现在通过公开 GitHub handle `zzhang82` 标识维护者，同时保持现有 runtime、proof 和 10-tool MCP surface 不变。
 
 > Codex 是参考工作流，不是产品边界。AMB 使用本地 stdio MCP；客户端集成只按下方标注声明为 documented 或 locally verified。
 
@@ -198,7 +198,7 @@ agent-memory-bridge task-brief --namespace project:demo --query "release handoff
 
 ## Proof Snapshot
 
-`0.21.1` 继承固定的 v0.21 governed-change proof，覆盖被删除、被 supersede、因 premise 变化而失效，或被用于不同 task domain 的 memory。它仍然是边界明确的本地 memory system；本版本不声称通用 machine unlearning、graph-memory traversal、隐私合规、vendor certification 或 automatic policy enforcement。Tombstone 只审计被删除的 record ID；它不会阻止调用方以后把相同内容显式写成一个新的 ID。
+`0.21.2` 继承固定的 v0.21 governed-change proof，覆盖被删除、被 supersede、因 premise 变化而失效，或被用于不同 task domain 的 memory。它仍然是边界明确的本地 memory system；本版本不声称通用 machine unlearning、graph-memory traversal、隐私合规、vendor certification 或 automatic policy enforcement。Tombstone 只审计被删除的 record ID；它不会阻止调用方以后把相同内容显式写成一个新的 ID。
 
 | Track | Current signal |
 |---|---|
@@ -358,7 +358,7 @@ AMB 不是 graph database、通用 unlearning system、hosted memory platform、
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.21.1 announcement](docs/v0.21.1-announcement.md)
+- [v0.21.2 announcement](docs/v0.21.2-announcement.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
 - [Promotion rules](docs/PROMOTION-RULES.md)

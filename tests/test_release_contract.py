@@ -25,14 +25,14 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert report["test_count_source"] == "pytest_collect_only"
     assert all(check["ok"] for check in report["checks"])
 
-    v021_root = create_v021_release_fixture(tmp_path / "v021", package_version="0.21.1")
+    v021_root = create_v021_release_fixture(tmp_path / "v021", package_version="0.21.2")
     v021_report = run_release_contract_check(v021_root, test_count_provider=lambda _: 146)
     checks = {check["name"]: check for check in v021_report["checks"]}
     assert v021_report["ok"] is True
     assert "v020_proof_version_matches_pyproject" not in checks
     proof_check = checks["v021_governed_change_proof_matches_release_gate"]
     assert proof_check["ok"] is True
-    assert proof_check["package_version"] == "0.21.1"
+    assert proof_check["package_version"] == "0.21.2"
     assert proof_check["actual_release"] == "0.21.0"
     assert proof_check["actual_target_release"] == "0.21.0"
     historical_v020 = json.loads(
