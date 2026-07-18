@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import json
+import shlex
 import sqlite3
 from pathlib import Path
 
 from agent_mem_bridge.cli import main
-from agent_mem_bridge.first_run import build_first_run_report, render_first_run_markdown
+from agent_mem_bridge.first_run import (
+    _render_python_module_command,
+    build_first_run_report,
+    render_first_run_markdown,
+)
 from agent_mem_bridge.release_contract import load_server_tool_names
 from agent_mem_bridge.storage import MemoryStore
 
@@ -48,23 +53,58 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert before_counts == after_counts
     assert before_stats == after_stats
     assert report["schema"] == "memory.first_run.v1"
+    assert "Linux systems use `python3`" in report["python_launcher_note"]
     assert report["boundary"]["mutation_allowed"] is False
     assert report["boundary"]["public_mcp_surface_change"] is False
     assert report["boundary"]["amh_required"] is False
     assert report["client_config"]["format"] == "json"
     assert report["first_task_brief"]["schema"] == "memory.task_brief.v1"
     assert report["first_task_brief"]["public_mcp_surface_change"] is False
-    assert report["install"]["github_install"][0] == "python -m venv .amb-venv"
-    assert "archive/refs/heads/main.zip" in report["install"]["github_install"][1]
-    assert "Scripts/python.exe" in report["install"]["smoke_test"]
+    assert report["install"]["baseline"][0] == "python -m venv .amb-venv"
+    assert ".absolute()" in report["install"]["baseline"][1]
+    assert ".resolve()" not in report["install"]["baseline"][1]
+    assert "archive/refs/tags/v0.22.1.zip" in report["install"]["baseline"][2]
+    assert "<venv-python> -m pip install" in report["install"]["baseline"][2]
+    assert report["install"]["github_install"] == report["install"]["baseline"]
+    assert report["install"]["editable_install"][-1] == "<venv-python> -m pip install -e ."
+    assert report["verify"] == [
+        "/path/to/python -m agent_mem_bridge doctor",
+        "/path/to/python -m agent_mem_bridge verify",
+    ]
+    assert report["install"]["smoke_test"] == report["verify"][1]
     assert report["install"]["optional_uv_smoke_test"].startswith("uvx --from git+")
 
     markdown = render_first_run_markdown(report)
     assert "## Install" in markdown
+    assert "Linux systems use `python3`" in markdown
+    assert "archive/refs/tags/v0.22.1.zip" in markdown
+    assert markdown.index("python -m venv .amb-venv") < markdown.index(".absolute()")
+    assert markdown.index(".absolute()") < markdown.index("<venv-python> -m pip install")
+    assert "Editable install:" not in markdown
     assert "Optional `uvx` shortcut (requires `uv`)" in markdown
     assert "## Verify" in markdown
+    assert "Inspect the client's MCP status/tool visibility" in markdown
     assert "## First Task Brief" in markdown
     assert "write_mode: `manual_copy_only`" in markdown
+
+    python_path = "/path with spaces/to/python"
+    spaced_report = build_first_run_report(
+        store,
+        client="generic",
+        namespace=NAMESPACE,
+        query="release handoff",
+        python_path=python_path,
+        cwd="/project path with spaces",
+        bridge_home="/bridge home with spaces",
+        config_path=None,
+    )
+    assert shlex.split(spaced_report["verify"][0]) == [python_path, "-m", "agent_mem_bridge", "doctor"]
+    assert shlex.split(spaced_report["verify"][1]) == [python_path, "-m", "agent_mem_bridge", "verify"]
+    assert _render_python_module_command(
+        r"C:\Program Files\Python311\python.exe",
+        "verify",
+        platform="nt",
+    ) == '"C:\\Program Files\\Python311\\python.exe" -m agent_mem_bridge verify'
 
 
 def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -94,7 +134,12 @@ def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch
     assert payload["boundary"]["client_config_write_mode"] == "manual_copy_only"
     assert payload["boundary"]["amh_required"] is False
     assert "/path/to/agent-memory-bridge" in payload["client_config"]["content"]
+    assert ".amb-venv/bin/python" in payload["client_config"]["content"]
     assert "C:\\Users" not in payload["client_config"]["content"]
+    assert "Linux systems use `python3`" in payload["python_launcher_note"]
+    assert payload["install"]["baseline"][0] == "python -m venv .amb-venv"
+    assert ".absolute()" in payload["install"]["baseline"][1]
+    assert "archive/refs/tags/v0.22.1.zip" in payload["install"]["baseline"][2]
 
 
 def test_first_run_stays_cli_only_not_mcp_tool() -> None:

@@ -29,33 +29,33 @@ Ask the human these questions before writing config:
 
 1. Which MCP client should launch the bridge?
 2. Where should the local bridge home live?
-3. Should the install use an isolated Python venv from GitHub, a local editable
-   checkout, optional `uvx`, or Docker?
-4. Should the bridge use the default config, or a specific config file?
-5. What source client label should be written into provenance metadata?
+3. What source client label should be written into provenance metadata?
 
-If the human is unsure, prefer the generic stdio shape and placeholder-safe
-examples from `docs/INTEGRATIONS.md`.
+Unless the human asks for an alternative, use the pinned isolated Python venv
+baseline below. Local editable checkout, optional `uvx`, and Docker remain
+optional routes. For the Phase 1 pilot, all clients must share the same
+user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
 
 ## Safe Install Path
 
 1. Inspect `llms-install.md`, `docs/INTEGRATIONS.md`, and
    `docs/CONFIGURATION.md`.
-2. Create an isolated environment and install the GitHub source archive:
+2. Use the available Python 3.11+ launcher. Examples use `python`; on many
+   Linux systems use `python3`; on Windows `py -3` may be appropriate. Create
+   an isolated environment:
 
    ```bash
    python -m venv .amb-venv
-   python -m pip --python .amb-venv install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/heads/main.zip"
    ```
 
-3. Derive the venv interpreter as described in `llms-install.md`, then run
-   `doctor` and `verify` with that interpreter.
-4. Create or choose a local bridge home directory owned by the human.
-5. Render a placeholder-safe config before writing a real one:
+3. Derive the venv interpreter as described in `llms-install.md`, then install
+   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.1.zip"`.
+4. Choose one persistent bridge home directory owned by the human and use it in
+   every pilot client config.
+5. Render a real config fragment for the approved client before writing it:
 
    ```text
-   <venv-python> -m agent_mem_bridge first-run --client generic --example
-   <venv-python> -m agent_mem_bridge config --client generic --example
+   <venv-python> -m agent_mem_bridge config --client <client> --python "<venv-python>" --cwd "<absolute-path-to-your-project>" --bridge-home "<absolute-path-to-one-persistent-bridge-home>"
    ```
 
 6. Write the MCP client config only after confirming the target client.
@@ -66,8 +66,15 @@ examples from `docs/INTEGRATIONS.md`.
    <venv-python> -m agent_mem_bridge verify
    ```
 
+   `doctor` checks local prerequisites and paths. `verify` launches an isolated
+   AMB stdio runtime. Neither proves the client loaded its config.
 8. If the client already has a running MCP server process, ask the human to
-   restart that client before assuming the new config is active.
+   restart that client, then use its MCP status/tool view to confirm the server
+   registration and tool visibility. This is the client registration gate.
+
+The custom `config.toml` path emitted by the renderer is optional for this
+baseline. If its default path has no file, `doctor` may warn and the baseline
+server can still run.
 
 `uvx` remains the fastest optional GitHub shortcut when `uv` is already
 installed. It is not a prerequisite for the baseline path.
@@ -80,7 +87,7 @@ Use this shape when the client supports JSON `mcpServers` config:
 {
   "mcpServers": {
     "agentMemoryBridge": {
-      "command": "/path/to/agent-memory-bridge/.venv/bin/python",
+      "command": "/path/to/agent-memory-bridge/.amb-venv/bin/python",
       "args": ["-m", "agent_mem_bridge"],
       "cwd": "/path/to/agent-memory-bridge",
       "env": {
@@ -98,8 +105,8 @@ Client-specific examples live in `docs/INTEGRATIONS.md`.
 
 ## One-Command First Run
 
-Use `first-run` when the human wants the shortest safe path from install to a
-useful memory loop:
+Use `first-run --example` when the human wants one placeholder-safe view of the
+install, client config, verification, and first Task Brief flow:
 
 ```text
 <venv-python> -m agent_mem_bridge first-run --client vscode --namespace project:demo --query "first task" --example
@@ -117,13 +124,15 @@ The report includes:
 - a read-only Task Brief for the first namespace/query
 
 It does not write client config, add MCP tools, require AMH, or mutate durable
-memory.
+memory. For a runnable client registration, render the real config in step 5
+without `--example` and use the approved local paths.
 
 ## First Useful Memory Loop
 
 After the bridge is connected, prove value with a small project memory:
 
 ```text
+# In the configured MCP client, call these MCP tools; they are not terminal commands.
 store(
   namespace="project:demo",
   kind="memory",
@@ -167,6 +176,8 @@ task runner, scheduler, watcher, or unreviewed writeback path.
 
 ## Install Feedback
 
+Reply with pilot outcomes to
+[Discussion #4](https://github.com/zzhang82/Agent-Memory-Bridge/discussions/4).
 Use the [client integration issue form](https://github.com/zzhang82/Agent-Memory-Bridge/issues/new?template=client_integration_request.yml)
-for successful install evidence, blockers, or client-doc corrections. Remove
-secrets, private paths, and memory contents before submitting.
+for a separate reproducible setup or client-doc defect. Remove secrets, private
+paths, and memory contents before submitting.

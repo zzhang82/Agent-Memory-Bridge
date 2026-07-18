@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import shlex
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -14,13 +17,16 @@ from .task_brief import build_task_brief_report, render_task_brief_markdown
 
 FIRST_RUN_SCHEMA = "memory.first_run.v1"
 FIRST_RUN_BOUNDARY = "manual_config_copy_no_auto_mutation"
-GITHUB_ARCHIVE_URL = (
-    "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/heads/main.zip"
+PYTHON_LAUNCHER_NOTE = (
+    "Use the available Python 3.11+ launcher: examples use `python`; on many "
+    "Linux systems use `python3`; on Windows `py -3` may be appropriate."
 )
-VENV_VERIFY_COMMAND = (
-    'python -c "import os, subprocess; from pathlib import Path; '
-    "p = Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python'); "
-    "raise SystemExit(subprocess.call([str(p), '-m', 'agent_mem_bridge', 'verify']))\""
+GITHUB_ARCHIVE_URL = (
+    "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.1.zip"
+)
+VENV_INTERPRETER_COMMAND = (
+    'python -c "import os; from pathlib import Path; '
+    "print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())\""
 )
 
 
@@ -48,6 +54,15 @@ def build_first_run_report(
     )
     rendered = render_client_config(options)
     task_brief = build_task_brief_report(store, query=query, namespace=namespace)
+    baseline_install = [
+        "python -m venv .amb-venv",
+        VENV_INTERPRETER_COMMAND,
+        f'<venv-python> -m pip install "{GITHUB_ARCHIVE_URL}"',
+    ]
+    verify_commands = [
+        _render_python_module_command(options.command, "doctor"),
+        _render_python_module_command(options.command, "verify"),
+    ]
     return {
         "schema": FIRST_RUN_SCHEMA,
         "client": rendered.client,
@@ -56,6 +71,7 @@ def build_first_run_report(
         "client_config_file_hint": rendered.file_hint,
         "namespace": namespace,
         "query": query,
+        "python_launcher_note": PYTHON_LAUNCHER_NOTE,
         "mutation_boundary": FIRST_RUN_BOUNDARY,
         "boundary": {
             "mutation_allowed": False,
@@ -65,24 +81,20 @@ def build_first_run_report(
             "task_brief_is_read_only": True,
         },
         "install": {
+            "baseline": baseline_install,
             "editable_install": [
-                "python -m venv .venv",
-                "python -m pip --python .venv install -e .",
-            ],
-            "github_install": [
                 "python -m venv .amb-venv",
-                f'python -m pip --python .amb-venv install "{GITHUB_ARCHIVE_URL}"',
+                VENV_INTERPRETER_COMMAND,
+                "<venv-python> -m pip install -e .",
             ],
-            "smoke_test": VENV_VERIFY_COMMAND,
+            "github_install": baseline_install,
+            "smoke_test": verify_commands[1],
             "optional_uv_smoke_test": (
                 "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge "
                 "agent-memory-bridge verify"
             ),
         },
-        "verify": [
-            "agent-memory-bridge doctor",
-            "agent-memory-bridge verify",
-        ],
+        "verify": verify_commands,
         "client_config": {
             "server_name": DEFAULT_SERVER_NAME,
             "file_hint": rendered.file_hint,
@@ -111,22 +123,12 @@ def render_first_run_markdown(report: dict[str, Any]) -> str:
         "",
         "## Install",
         "",
-        "Editable install:",
+        report["python_launcher_note"],
+        "",
+        "Pinned GitHub source install in an isolated venv:",
         "",
         "```bash",
-        *report["install"]["editable_install"],
-        "```",
-        "",
-        "GitHub source install in an isolated venv:",
-        "",
-        "```bash",
-        *report["install"]["github_install"],
-        "```",
-        "",
-        "Platform-neutral verification:",
-        "",
-        "```bash",
-        report["install"]["smoke_test"],
+        *report["install"]["baseline"],
         "```",
         "",
         "Optional `uvx` shortcut (requires `uv`):",
@@ -148,6 +150,9 @@ def render_first_run_markdown(report: dict[str, Any]) -> str:
         "## Verify",
         "",
         "Run these after pasting the config and restarting the MCP client if needed:",
+        "`doctor` checks local prerequisites and paths; `verify` launches an isolated",
+        "AMB stdio runtime. Inspect the client's MCP status/tool visibility to prove",
+        "that the client loaded the config.",
         "",
         "```bash",
         *report["verify"],
@@ -166,3 +171,15 @@ def _code_fence_language(config_format: str) -> str:
     if config_format == "yaml":
         return "yaml"
     return "json"
+
+
+def _render_python_module_command(
+    command: str,
+    subcommand: str,
+    *,
+    platform: str | None = None,
+) -> str:
+    args = [command, "-m", "agent_mem_bridge", subcommand]
+    if (platform or os.name) == "nt":
+        return subprocess.list2cmdline(args)
+    return shlex.join(args)

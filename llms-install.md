@@ -20,31 +20,34 @@ enable automatic tool approval without the human's approval.
 ## Python-Only Install
 
 Create an isolated environment and install the project source archive from
-GitHub:
+GitHub. Use the available Python 3.11+ launcher: examples use `python`; on many
+Linux systems use `python3`; on Windows `py -3` may be appropriate.
 
 ```bash
 python -m venv .amb-venv
-python -m pip --python .amb-venv install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/heads/main.zip"
 ```
 
 Find the environment's interpreter without assuming a Windows or POSIX layout:
 
 ```bash
-python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).resolve())"
+python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())"
 ```
 
 Treat the printed value as local configuration data. Do not commit it to this
 repository or include it in an issue report.
 
-Run these commands with that interpreter in place of `<venv-python>`:
+Install and run these commands with that interpreter in place of
+`<venv-python>`:
 
 ```text
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.1.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`verify` uses isolated temporary bridge state. It does not write MCP client
-configuration.
+`doctor` checks local prerequisites and resolved paths. `verify` launches an
+isolated AMB stdio runtime; neither command proves that an MCP client loaded
+the config.
 
 ## Connect One Client
 
@@ -57,14 +60,20 @@ Set the stdio command to the derived venv interpreter and the arguments to:
 
 Supported renderer names are `generic`, `codex`, `claude-desktop`,
 `claude-code`, `vscode`, `cursor`, `cline`, `antigravity`, `opencode`, and
-`hermes`. To inspect a placeholder-safe shape before editing client config:
+`hermes`. For the Phase 1 pilot, every client must use the same user-chosen
+persistent `AGENT_MEMORY_BRIDGE_HOME`. Render one real fragment for the target
+client before editing its config:
 
 ```text
-<venv-python> -m agent_mem_bridge config --client vscode --example
+<venv-python> -m agent_mem_bridge config --client <client> --python "<venv-python>" --cwd "<absolute-path-to-your-project>" --bridge-home "<absolute-path-to-one-persistent-bridge-home>"
 ```
 
-Restart or reload the client, then use its own MCP status view to confirm that
-the server connects and exposes the documented ten-tool public surface.
+The default config path in the generated fragment is optional for this baseline.
+If no such `config.toml` exists, `doctor` may warn and the baseline server can
+still run. Restart or reload the client, then use its own MCP status/tool view
+to confirm the server connects and exposes the documented ten-tool public
+surface. That client registration check is the gate that proves the config was
+loaded.
 
 ## Optional `uvx` Shortcut
 
@@ -79,16 +88,20 @@ requirement.
 
 ## First Useful Check
 
-Store one non-sensitive project gotcha, then recall it from a later task or
-session. Keep the first check small and review the tool input before approval.
+In the configured MCP client, call the `store(...)` and `recall(...)` MCP tools
+to store one non-sensitive project gotcha and recall it from a later task or
+session. They are not terminal subcommands. Keep the first check small and
+review tool input before approval.
 
 Agent Memory Bridge is an additional MCP memory store. Do not claim that it
 replaces a client's built-in memory, instructions, rules, or project context.
 
 ## Report Install Results
 
-Use the [client integration issue form](https://github.com/zzhang82/Agent-Memory-Bridge/issues/new?template=client_integration_request.yml)
-for a successful install, a blocker, or a docs correction. Include the client
-and version, operating system, install source, redacted config shape, and exact
-validation outcome. Remove tokens, private paths, bridge contents, and other
-sensitive data first.
+Reply with pilot outcomes to
+[Discussion #4](https://github.com/zzhang82/Agent-Memory-Bridge/discussions/4).
+For a separate reproducible setup or documentation defect, use the
+[client integration issue form](https://github.com/zzhang82/Agent-Memory-Bridge/issues/new?template=client_integration_request.yml).
+Include the client and version, operating system, install source, redacted
+config shape, and exact validation outcome. Remove tokens, private paths,
+bridge contents, and other sensitive data first.

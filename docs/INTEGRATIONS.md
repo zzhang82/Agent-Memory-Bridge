@@ -43,6 +43,11 @@ Include the client and version, operating system, GitHub revision or install
 source, redacted config shape, and exact validation result. A status should move
 to `Locally tested` or `Verified` only with reproducible evidence.
 
+For the Phase 1 pilot, reply with outcomes to
+[Discussion #4](https://github.com/zzhang82/Agent-Memory-Bridge/discussions/4).
+Use the integration issue form instead for a separate reproducible setup or
+documentation defect.
+
 Contributions should stay client-specific: cite the official client docs,
 update the renderer test when generated output changes, and avoid secrets,
 machine paths, marketplace claims, or claims that AMB replaces client-native
@@ -56,7 +61,7 @@ If your client can launch a local subprocess and speak stdio MCP, start here:
 {
   "mcpServers": {
     "agentMemoryBridge": {
-      "command": "/path/to/agent-memory-bridge/.venv/bin/python",
+      "command": "/path/to/agent-memory-bridge/.amb-venv/bin/python",
       "args": ["-m", "agent_mem_bridge"],
       "cwd": "/path/to/agent-memory-bridge",
       "env": {
@@ -70,20 +75,22 @@ If your client can launch a local subprocess and speak stdio MCP, start here:
 }
 ```
 
-Use the built-in renderer if you want client-specific output:
+For the Phase 1 pilot, choose one persistent `AGENT_MEMORY_BRIDGE_HOME` and use
+it in every client configuration. Render the approved client's real fragment
+before editing its config:
 
-```bash
-agent-memory-bridge first-run --client generic --example
-agent-memory-bridge config --client generic --example
-agent-memory-bridge config --client codex --example
-agent-memory-bridge config --client vscode --example
-agent-memory-bridge config --client opencode --example
-agent-memory-bridge config --client hermes --example
-agent-memory-bridge config --client cursor --example
+```text
+<venv-python> -m agent_mem_bridge config --client <client> --python "<venv-python>" --cwd "<absolute-path-to-your-project>" --bridge-home "<absolute-path-to-one-persistent-bridge-home>"
 ```
 
-`--example` keeps the output placeholder-safe. Without it, the renderer uses
-your current Python path together with the resolved bridge home and config path.
+The generated default config path is optional for this baseline. If no file
+exists there, `doctor` may warn and the baseline server can still run. Use
+`--example` only when you need placeholder-safe output for documentation; without
+it, the renderer uses the supplied Python path and bridge home, plus the project
+cwd where the target client supports one.
+
+After the client registration gate passes, use `store(...)` and `recall(...)` as
+MCP tool calls through that configured client, not as terminal subcommands.
 
 For a GitHub-source install that does not assume `uv`, follow
 [`llms-install.md`](../llms-install.md), derive the isolated venv interpreter,
@@ -251,7 +258,7 @@ Codex uses `config.toml` with `[mcp_servers.<name>]` entries for stdio servers.
 
 ```toml
 [mcp_servers.agentMemoryBridge]
-command = "/path/to/agent-memory-bridge/.venv/bin/python"
+command = "/path/to/agent-memory-bridge/.amb-venv/bin/python"
 args = ["-m", "agent_mem_bridge"]
 cwd = "/path/to/agent-memory-bridge"
 
@@ -278,7 +285,7 @@ claude mcp add --transport stdio \
   --env AGENT_MEMORY_BRIDGE_CONFIG=/path/to/agent-memory-bridge-config.toml \
   --env AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT=claude-code \
   --env AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT=stdio \
-  agentMemoryBridge -- /path/to/agent-memory-bridge/.venv/bin/python -m agent_mem_bridge
+  agentMemoryBridge -- /path/to/agent-memory-bridge/.amb-venv/bin/python -m agent_mem_bridge
 ```
 
 For a checked-in project configuration, use the generic `mcpServers` shape in
@@ -298,7 +305,7 @@ distribution path and are intentionally out of scope for this release.
   "mcpServers": {
     "agentMemoryBridge": {
       "type": "stdio",
-      "command": "/path/to/agent-memory-bridge/.venv/bin/python",
+      "command": "/path/to/agent-memory-bridge/.amb-venv/bin/python",
       "args": ["-m", "agent_mem_bridge"],
       "cwd": "/path/to/agent-memory-bridge",
       "env": {
@@ -325,7 +332,7 @@ does not claim an **Add to Cursor** listing; use the JSON path below.
   "mcpServers": {
     "agentMemoryBridge": {
       "type": "stdio",
-      "command": "/path/to/agent-memory-bridge/.venv/bin/python",
+      "command": "/path/to/agent-memory-bridge/.amb-venv/bin/python",
       "args": ["-m", "agent_mem_bridge"],
       "cwd": "/path/to/agent-memory-bridge",
       "env": {
@@ -353,7 +360,7 @@ arguments below through Cline's approved config flow.
 {
   "mcpServers": {
     "agentMemoryBridge": {
-      "command": "/path/to/agent-memory-bridge/.venv/bin/python",
+      "command": "/path/to/agent-memory-bridge/.amb-venv/bin/python",
       "args": ["-m", "agent_mem_bridge"],
       "cwd": "/path/to/agent-memory-bridge",
       "env": {
@@ -380,7 +387,7 @@ location.
 {
   "mcpServers": {
     "agentMemoryBridge": {
-      "command": "/path/to/agent-memory-bridge/.venv/bin/python",
+      "command": "/path/to/agent-memory-bridge/.amb-venv/bin/python",
       "args": ["-m", "agent_mem_bridge"],
       "cwd": "/path/to/agent-memory-bridge",
       "env": {
@@ -414,7 +421,7 @@ agent-memory-bridge config --client opencode --example
     "agentMemoryBridge": {
       "type": "local",
       "command": [
-        "/path/to/agent-memory-bridge/.venv/bin/python",
+        "/path/to/agent-memory-bridge/.amb-venv/bin/python",
         "-m",
         "agent_mem_bridge"
       ],
@@ -447,7 +454,7 @@ agent-memory-bridge config --client hermes --example
 ```yaml
 mcp_servers:
   agentMemoryBridge:
-    command: '/path/to/agent-memory-bridge/.venv/bin/python'
+    command: '/path/to/agent-memory-bridge/.amb-venv/bin/python'
     args:
       - '-m'
       - 'agent_mem_bridge'
@@ -467,13 +474,16 @@ status.
 After adding the config, run:
 
 ```bash
-agent-memory-bridge doctor
-agent-memory-bridge verify
+<venv-python> -m agent_mem_bridge doctor
+<venv-python> -m agent_mem_bridge verify
 ```
 
 `doctor` explains install problems without touching your live bridge state.
 `verify` launches an isolated temp runtime and proves that the local stdio path
-actually works.
+actually works. It does not prove that a client loaded the configuration.
+`doctor` checks local prerequisites and resolved paths. Restart or reload the
+client and inspect its MCP status/tool visibility; that client registration gate
+proves the configuration was loaded.
 
 ## What This Guide Does Not Claim
 

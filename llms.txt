@@ -42,11 +42,19 @@ Useful commands:
 
 ```bash
 python -m venv .amb-venv
-python -m pip --python .amb-venv install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/heads/main.zip"
+python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())"
 ```
 
-Then use the derived venv interpreter from `llms-install.md` to run `doctor`,
-`verify`, `first-run`, or `config` through `-m agent_mem_bridge`.
+Treat the printed path as `<venv-python>`, then run:
+
+```text
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.1.zip"
+<venv-python> -m agent_mem_bridge doctor
+<venv-python> -m agent_mem_bridge verify
+```
+
+Use that same interpreter for `first-run` or `config`. See `llms-install.md`
+for the real client-config and registration steps.
 
 `uvx` is an optional shortcut, not a baseline requirement. See
 `llms-install.md` before writing client config.

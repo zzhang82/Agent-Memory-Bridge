@@ -15,6 +15,8 @@ from agent_mem_bridge.client_config import (
 
 def test_rendered_example_configs_parse() -> None:
     for rendered in render_example_client_configs():
+        assert ".amb-venv/bin/python" in rendered.content
+        assert ".venv/bin/python" not in rendered.content
         if rendered.format == "json":
             payload = json.loads(rendered.content)
             assert "mcpServers" in payload or "mcp" in payload or "servers" in payload
@@ -77,7 +79,7 @@ def test_vscode_config_uses_vscode_servers_shape() -> None:
     assert rendered.client == "vscode"
     assert rendered.file_hint == ".vscode/mcp.json"
     assert server["type"] == "stdio"
-    assert server["command"] == "/path/to/agent-memory-bridge/.venv/bin/python"
+    assert server["command"] == "/path/to/agent-memory-bridge/.amb-venv/bin/python"
     assert server["env"]["AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT"] == "vscode"
 
 
@@ -97,7 +99,7 @@ def test_opencode_config_uses_opencode_mcp_shape() -> None:
 
     assert rendered.format == "json"
     assert server["type"] == "local"
-    assert server["command"] == ["/path/to/agent-memory-bridge/.venv/bin/python", "-m", "agent_mem_bridge"]
+    assert server["command"] == ["/path/to/agent-memory-bridge/.amb-venv/bin/python", "-m", "agent_mem_bridge"]
     assert "cwd" not in server
     assert "env" not in server
     assert server["environment"]["AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT"] == "opencode"

@@ -21,7 +21,7 @@ ClientName = Literal[
 ConfigFormat = Literal["json", "toml", "yaml"]
 
 DEFAULT_SERVER_NAME = "agentMemoryBridge"
-PLACEHOLDER_PYTHON = "/path/to/agent-memory-bridge/.venv/bin/python"
+PLACEHOLDER_PYTHON = "/path/to/agent-memory-bridge/.amb-venv/bin/python"
 PLACEHOLDER_REPO_ROOT = "/path/to/agent-memory-bridge"
 PLACEHOLDER_BRIDGE_HOME = "/path/to/bridge-home"
 PLACEHOLDER_CONFIG_PATH = "/path/to/agent-memory-bridge-config.toml"
