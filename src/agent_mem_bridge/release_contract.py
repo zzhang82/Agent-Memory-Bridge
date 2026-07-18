@@ -141,6 +141,8 @@ REQUIRED_V021_GOVERNED_CHANGE_KEYS = (
 V021_RELEASE = "0.21.0"
 V021_GOVERNED_CHANGE_REPORT = "latest-v0.21-governed-change-report.json"
 V021_PATCH_PATTERN = re.compile(r"0\.21\.\d+")
+V022_PATCH_PATTERN = re.compile(r"0\.22\.\d+")
+V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (V021_PATCH_PATTERN, V022_PATCH_PATTERN)
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -303,9 +305,13 @@ def build_v020_proof_version_check(project_root: Path, pyproject_version: str) -
 
 
 def build_release_proof_check(project_root: Path, pyproject_version: str) -> dict[str, Any]:
-    if V021_PATCH_PATTERN.fullmatch(pyproject_version):
+    if uses_v021_governed_change_foundation(pyproject_version):
         return build_v021_governed_change_proof_check(project_root, pyproject_version)
     return build_v020_proof_version_check(project_root, pyproject_version)
+
+
+def uses_v021_governed_change_foundation(pyproject_version: str) -> bool:
+    return any(pattern.fullmatch(pyproject_version) for pattern in V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS)
 
 
 def build_v021_governed_change_proof_check(
@@ -377,11 +383,11 @@ def build_v021_governed_change_proof_check(
         for field, expected, actual in required_values
         if type(actual) is not type(expected) or actual != expected
     ]
-    if V021_PATCH_PATTERN.fullmatch(pyproject_version) is None:
+    if not uses_v021_governed_change_foundation(pyproject_version):
         mismatches.append(
             {
                 "field": "pyproject.version",
-                "expected": "0.21.x",
+                "expected": "0.21.x or 0.22.x",
                 "actual": pyproject_version,
             }
         )

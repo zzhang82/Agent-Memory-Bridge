@@ -10,13 +10,13 @@ from typing import Sequence
 import tomllib
 
 from .client_config import build_client_config_options, render_client_config, supported_client_names
+from .cross_client_activation import build_activation_receipt_from_db, render_activation_receipt_markdown
 from .first_run import build_first_run_report, render_first_run_markdown
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
-from .paths import resolve_bridge_home, resolve_config_path
+from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_config_path
 from .review_queue import build_review_queue_report, render_review_queue_markdown
 from .review_workflow import build_review_workflow_report, render_review_workflow_markdown
-from .server import main as serve_server
 from .storage import MemoryStore
 from .task_brief import build_task_brief_report, render_task_brief_markdown
 
@@ -24,6 +24,8 @@ from .task_brief import build_task_brief_report, render_task_brief_markdown
 def main(argv: Sequence[str] | None = None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     if not args:
+        from .server import main as serve_server
+
         serve_server()
         return 0
     if args[0] in {"-V", "--version"}:
@@ -34,6 +36,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     namespace = parser.parse_args(args)
 
     if namespace.command == "serve":
+        from .server import main as serve_server
+
         serve_server()
         return 0
     if namespace.command == "service":
@@ -56,6 +60,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_review_workflow(namespace)
     if namespace.command == "task-brief":
         return _run_task_brief(namespace)
+    if namespace.command == "activation-receipt":
+        return _run_activation_receipt(namespace)
 
     parser.print_help()
     return 2
@@ -257,6 +263,18 @@ def _build_parser() -> argparse.ArgumentParser:
         default="markdown",
         help="Output format.",
     )
+    activation_receipt_parser = subparsers.add_parser(
+        "activation-receipt",
+        help="Render a read-only cross-client activation receipt for a correlation id.",
+    )
+    activation_receipt_parser.add_argument("--namespace", required=True, help="Namespace to inspect.")
+    activation_receipt_parser.add_argument("--correlation-id", required=True, help="Correlation id to inspect.")
+    activation_receipt_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
     return parser
 
 
@@ -413,6 +431,19 @@ def _run_task_brief(namespace: argparse.Namespace) -> int:
     else:
         print(render_task_brief_markdown(report))
     return 0
+
+
+def _run_activation_receipt(namespace: argparse.Namespace) -> int:
+    receipt = build_activation_receipt_from_db(
+        resolve_bridge_db_path(),
+        namespace=namespace.namespace,
+        correlation_id=namespace.correlation_id,
+    )
+    if namespace.format == "json":
+        print(json.dumps(receipt, indent=2))
+    else:
+        print(render_activation_receipt_markdown(receipt))
+    return 0 if receipt["status"] == "pass" else 1
 
 
 def _index_health_ok(report: dict[str, object], *, strict_embeddings: bool = False) -> bool:

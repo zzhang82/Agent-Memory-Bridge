@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.21.2` is a narrow MIT attribution patch over the same **Governed Memory Under Change** contract. The license now identifies the maintainer through the public GitHub handle `zzhang82` while preserving the existing runtime, proof, and 10-tool MCP surface.
+`0.22.0` adds a Cross-Client Activation Receipt. Client A stores one reviewed project memory, client B recalls it and acknowledges a read signal, and the local CLI renders a sanitized receipt showing that two distinct declared `source_client` labels participated under one correlation. This is declared provenance only, not authenticated identity, vendor certification, or external adoption evidence.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -41,7 +41,8 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Review-first writeback: learning candidates can be staged for human review before explicit promotion into durable records.
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `373 passed`.
+- Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `388 passed`.
 
 ## Who It Is For
 
@@ -137,6 +138,43 @@ extend_signal_lease(id="<signal_id>", consumer="reviewer-a", lease_seconds=300)
 ack_signal(id="<signal_id>")
 ```
 
+For a cross-client activation receipt, keep one correlation id across both
+clients:
+
+```text
+# Client A stores one reviewed project memory.
+store(
+  namespace="project:demo",
+  kind="memory",
+  title="Reviewed SQLite guidance",
+  content="record_type: gotcha\nclaim: Use WAL mode for concurrent SQLite readers.",
+  tags=["workflow:cross-client-activation", "activation-role:writer", "reviewed:true"],
+  correlation_id="activation-demo-001",
+  source_client="client-a"
+)
+
+# Client B recalls it, then records and acknowledges the read signal.
+recall(namespace="project:demo", query="SQLite concurrent readers", correlation_id="activation-demo-001")
+store(
+  namespace="project:demo",
+  kind="signal",
+  content="{\"observed_memory_id\":\"<writer_memory_id>\"}",
+  tags=["workflow:cross-client-activation", "activation-role:reader"],
+  correlation_id="activation-demo-001",
+  source_client="client-b"
+)
+ack_signal(id="<reader_signal_id>")
+```
+
+Then render the local receipt:
+
+```bash
+agent-memory-bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
+```
+
+The receipt reports hashes and pass/review status. It does not print raw memory
+content, private paths, session ids, model ids, or authenticated identity claims.
+
 The short version:
 
 ```text
@@ -178,7 +216,7 @@ The bridge exposes `10` public MCP tools:
 - `forget`, `promote`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, and human review workflows. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, or `review_workflow` MCP tools.
+The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, human review workflows, and activation receipts. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, `review_workflow`, or `activation_receipt` MCP tools.
 
 For normal service use, log capture helpers, promotion helpers, and strong consolidation are disabled by default. That lets installs run review checks and embedding sidecar maintenance without silently promoting raw session/process chatter into durable memory.
 
@@ -188,9 +226,10 @@ Operator review work is available as CLI reports, not MCP tools:
 agent-memory-bridge review-queue --namespace project:demo --format markdown
 agent-memory-bridge review-workflow --namespace project:demo --format markdown
 agent-memory-bridge task-brief --namespace project:demo --query "release handoff" --format markdown
+agent-memory-bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
 ```
 
-`review-queue` shows staged candidates, review receipts, tombstones, stale records, and quarantined claims. `review-workflow` turns those queue items into explicit human decision prompts and manual steps. `task-brief` composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections. All three are proposal-only/read-only reports and perform no automatic durable writeback.
+`review-queue` shows staged candidates, review receipts, tombstones, stale records, and quarantined claims. `review-workflow` turns those queue items into explicit human decision prompts and manual steps. `task-brief` composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections. `activation-receipt` reads existing rows for one namespace and correlation id and emits a sanitized declared-provenance receipt. These reports perform no automatic durable writeback.
 
 ### Static-schema client compatibility
 
@@ -198,7 +237,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.21.2` inherits the fixed v0.21 governed-change proof for memory that is deleted, superseded, invalidated by a changed premise, or applied to a different task domain. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, vendor certification, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
+`0.22.0` keeps the fixed v0.21 governed-change proof and adds a local activation receipt for one shared-memory loop across two declared client labels. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, vendor certification, authenticated client identity, external adoption, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
 
 | Track | Current signal |
 |---|---|
@@ -215,7 +254,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.19 adoption proof | synthetic fixture proof only, not clean-room external adoption: `v019_case_count = 12`, `v019_pass_rate = 1.0`, `v019_public_mcp_surface_change = false`, `v019_client_config_write_count = 0` |
 | v0.20 clean-room proof | local reproducible proof only, not vendor certification: `v020_case_count = 6`, `v020_pass_rate = 1.0`, `v020_stdio_round_trip_pass = true`, `v020_client_config_write_count = 0`, `v020_external_vendor_adoption_claim = false` |
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
-| Test suite | `373 passed` |
+| v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
+| Test suite | `388 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -347,7 +387,7 @@ Full proof details are in [benchmark/README.md](benchmark/README.md).
 
 ## Boundaries
 
-AMB is not a graph database, general unlearning system, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, automatic policy engine, compliance certification, or unreviewed durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination. `forget` remains an explicit mutating operation; v0.21 makes that operation more conservative and auditable rather than automatic.
+AMB is not a graph database, general unlearning system, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, automatic policy engine, compliance certification, authenticated identity system, or unreviewed durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination. `forget` remains an explicit mutating operation; governed change makes that operation more conservative and auditable rather than automatic.
 
 For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
@@ -358,7 +398,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.21.2 announcement](docs/v0.21.2-announcement.md)
+- [v0.22.0 announcement](docs/v0.22.0-announcement.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
 - [Promotion rules](docs/PROMOTION-RULES.md)

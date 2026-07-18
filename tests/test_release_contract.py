@@ -42,6 +42,39 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     )
     assert historical_v020["release"] == "0.9.0"
 
+    v022_root = create_v021_release_fixture(tmp_path / "v022", package_version="0.22.0")
+    v022_report = run_release_contract_check(v022_root, test_count_provider=lambda _: 146)
+    v022_checks = {check["name"]: check for check in v022_report["checks"]}
+    assert v022_report["ok"] is True
+    assert "v020_proof_version_matches_pyproject" not in v022_checks
+    v022_proof_check = v022_checks["v021_governed_change_proof_matches_release_gate"]
+    assert v022_proof_check["ok"] is True
+    assert v022_proof_check["package_version"] == "0.22.0"
+    assert v022_proof_check["actual_release"] == "0.21.0"
+    assert v022_proof_check["actual_target_release"] == "0.21.0"
+    v022_historical_v020 = json.loads(
+        (v022_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert v022_historical_v020["release"] == "0.9.0"
+
+    v022_report_path = v022_root / "benchmark" / "latest-v0.21-governed-change-report.json"
+    v022_proof = json.loads(v022_report_path.read_text(encoding="utf-8"))
+    v022_proof["summary"]["governed_failures"] = 1
+    v022_report_path.write_text(json.dumps(v022_proof, indent=2) + "\n", encoding="utf-8")
+
+    failed_v022_report = run_release_contract_check(v022_root, test_count_provider=lambda _: 146)
+    failed_v022_checks = {check["name"]: check for check in failed_v022_report["checks"]}
+    failed_v022_proof_check = failed_v022_checks[
+        "v021_governed_change_proof_matches_release_gate"
+    ]
+    assert failed_v022_report["ok"] is False
+    assert failed_v022_proof_check["ok"] is False
+    assert failed_v022_proof_check["mismatches"] == [
+        {"field": "summary.governed_failures", "expected": 0, "actual": 1}
+    ]
+
 
 def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) -> None:
     root = create_release_fixture(tmp_path)

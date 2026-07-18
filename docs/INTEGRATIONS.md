@@ -101,6 +101,69 @@ That compatibility does not merge the memory and signal lanes. Non-empty signal
 lifecycle values are not applied to `kind="memory"`; they remain valid only on
 `kind="signal"` paths, and lower-level store/repository behavior stays strict.
 
+### Two-Client Activation Receipt
+
+Use this when you want a local receipt that one client wrote reviewed project
+memory and a second client read it under the same correlation. The receipt uses
+declared `source_client` labels only. It does not authenticate identity, certify
+the vendor, or prove external adoption.
+
+The setup uses the existing public MCP operations:
+
+```text
+# Client A stores one reviewed project memory.
+store(
+  namespace="project:demo",
+  kind="memory",
+  title="Reviewed SQLite guidance",
+  content="record_type: gotcha\nclaim: Use WAL mode for concurrent SQLite readers.",
+  tags=["workflow:cross-client-activation", "activation-role:writer", "reviewed:true"],
+  correlation_id="activation-demo-001",
+  source_client="client-a"
+)
+
+# Save the returned id as <writer_memory_id>.
+```
+
+Client B should recall the same correlation before it records the read signal:
+
+```text
+recall(
+  namespace="project:demo",
+  query="SQLite concurrent readers",
+  kind="memory",
+  correlation_id="activation-demo-001"
+)
+
+store(
+  namespace="project:demo",
+  kind="signal",
+  content="{\"observed_memory_id\":\"<writer_memory_id>\"}",
+  tags=["workflow:cross-client-activation", "activation-role:reader"],
+  correlation_id="activation-demo-001",
+  source_client="client-b"
+)
+
+ack_signal(id="<reader_signal_id>")
+```
+
+Then render the local receipt:
+
+```bash
+agent-memory-bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
+```
+
+A passing receipt means exactly one writer memory and one acked reader signal
+matched the namespace and correlation, the reader's `observed_memory_id` matched
+the writer record id, and the two declared `source_client` labels were present
+and distinct. The receipt hashes namespace, correlation id, record ids, and
+source-client labels; it does not include raw memory content, private paths,
+session ids, model ids, or client workspace values.
+
+If a client sets `AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT`, AMB can fill
+`source_client` when the client omits it. For activation receipts, make the two
+declared labels explicit in your review notes so the receipt is inspectable.
+
 ### Dockerized Stdio
 
 If your client can launch Docker as the subprocess, keep stdin open and mount a

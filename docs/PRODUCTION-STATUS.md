@@ -1,15 +1,20 @@
 # Production Status
 
-Last updated: 2026-07-15 (America/New_York)
+Last updated: 2026-07-18 (America/New_York)
 
-This maintainer note describes the current `0.21.2` patch, the inherited `0.21.0` governed-change release shape, and the validation snapshot used to support both.
+This maintainer note describes the current `0.22.0` release shape, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.21.2 Patch Status
+## 0.22.0 Release Status
 
-- Package version: `0.21.2`
-- Fixed governed-change proof release and target: `0.21.0`
-- Patch inheritance: every `0.21.x` package uses the fixed v0.21 governed-change proof gate rather than falling back to the v0.20 clean-room proof
-- License attribution: MIT retained with `zzhang82 and Agent Memory Bridge contributors` as the public copyright identity
+- Package version: `0.22.0`
+- Release thesis: Cross-Client Activation Receipt
+- Receipt command: `agent-memory-bridge activation-receipt --namespace ... --correlation-id ... --format markdown`
+- Receipt proof: one reviewed writer memory plus one acked reader signal under one namespace and correlation id, with two distinct declared `source_client` labels
+- Receipt boundary: declared provenance only; not authenticated identity, vendor certification, or external adoption evidence
+- Public MCP surface: unchanged at exactly `10` tools
+- Automatic writes: no auto durable writeback and no client config writes
+- Fixed governed-change proof report target: `0.21.0`
+- Governed-change manifest releases: `current_release = 0.20.0`, `target_release = 0.21.0`
 - Windows proof hashing: manifest bytes are normalized to LF before the fixed SHA256 check
 - Current overview asset: `examples/diagrams/amb-overview.svg`
 
@@ -38,10 +43,12 @@ This maintainer note describes the current `0.21.2` patch, the inherited `0.21.0
 19. a first-run CLI/report that renders install steps, client config snippets, verification steps, and a Task Brief without writing client config, durable memory records, or requiring AMH
 20. a clean-room proof runner that launches the real stdio MCP entrypoint against an isolated temp store, performs one tokened demo `store -> recall`, renders first-run and Task Brief CLI reports, and proves zero client config writes
 21. governed change handling for transactional redacted tombstones, conservative exact-lineage cascades, degraded audit retention, bounded transitive supersession, current-premise evidence, and declared task-domain applicability
+22. a Cross-Client Activation Receipt CLI/report that reads existing writer memory and reader signal rows for one namespace and correlation id, hashes sensitive identifiers, and performs no durable or config writes
 
-## Verified On 2026-07-15
+## Verified On 2026-07-18
 
-- `pytest` passes: `373 passed`
+- `pytest` passes: `388 passed`
+- cross-client activation receipt tests cover pass/review-required outcomes, distinct declared `source_client` labels, acked reader signals, observed writer-id matching, deterministic redaction, CLI exit codes, no memory mutation, and public MCP surface stability
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
 - deterministic proof and benchmark both report `relation_metadata_passed = true`
@@ -183,6 +190,17 @@ This maintainer note describes the current `0.21.2` patch, the inherited `0.21.0
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
+## What 0.22.0 Actually Means
+
+- the public MCP surface is still the same 10-tool bridge
+- `activation-receipt` is a local CLI/report, not an MCP tool
+- client A can store one reviewed writer memory and client B can record an acked reader signal under the same correlation
+- the pass condition requires two distinct declared `source_client` labels, not authenticated client identity
+- the receipt emits hashes for namespace, correlation, record ids, and source-client labels
+- the receipt does not include raw memory content, private paths, session ids, client workspace values, or model ids
+- the receipt reads existing rows and performs no durable writeback or client config writes
+- this is evidence of a bounded local shared-memory loop, not vendor certification or proof of external adoption
+
 ## What 0.21.0 Actually Means
 
 - the public MCP surface is still the same small bridge
@@ -222,14 +240,15 @@ The release still does **not** mean:
 - automatic execution of review-workflow manual steps
 - autonomous memory revision, deletion, or policy promotion
 - general machine unlearning, unbounded graph traversal, or automatic policy enforcement
-- ACL enforcement, GDPR/privacy compliance, vendor certification, or certified poisoning defense
+- ACL enforcement, GDPR/privacy compliance, vendor certification, authenticated client identity, external adoption proof, or certified poisoning defense
 - a full agent runtime, scheduler, queue platform, or distributed lock
 - pre-compaction capture before model-side context loss
 - active pubsub or consumer execution on top of stored signals
 - exactly-once distributed coordination
 - that every MCP client is fully verified just because the generic stdio contract is stable
+- that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.21.0
+## Pressure Points After 0.22.0
 
 The most important remaining gaps are:
 
@@ -239,12 +258,15 @@ The most important remaining gaps are:
 4. cross-domain concept synthesis beyond the current domain-local concept-note step
 5. more deliberate procedure curation or promotion instead of only manual procedure records
 6. pre-compaction capture before model-side loss
-7. deeper real multi-client contention dogfood beyond serialized benchmark cases
+7. deeper real multi-client contention and activation dogfood beyond serialized benchmark cases
 8. a human-facing review UI or external harness that consumes review-workflow output without moving execution into AMB core
+9. optional receipt ergonomics for operators without moving receipt generation into the MCP tool surface
 
 ## Maintainer Read
 
-`0.21.0` keeps the 10-tool public MCP surface while making explicit change safer to interpret. Forgetting is transactional and content-redacted; cascade deletion requires exact machine-owned lineage; uncertain relationships remain visible as degraded audit evidence; and task assembly accounts for bounded supersession, changed premises, and declared domains. The fixed executable proof found hazards in 17 of 20 equal-budget flat cases and recorded zero governed failures across all 40 checkpoints.
+`0.22.0` keeps the 10-tool public MCP surface and adds a local receipt for one cross-client memory loop. The receipt is intentionally narrow: it shows two distinct declared `source_client` labels participated under one correlation, with one reviewed writer memory and one acked reader signal, while omitting private paths, content, session ids, and model ids.
+
+`0.21.0` remains the governed-change proof base. Forgetting is transactional and content-redacted; cascade deletion requires exact machine-owned lineage; uncertain relationships remain visible as degraded audit evidence; and task assembly accounts for bounded supersession, changed premises, and declared domains. The fixed executable proof found hazards in 17 of 20 equal-budget flat cases and recorded zero governed failures across all 40 checkpoints.
 
 It now behaves like:
 
@@ -257,5 +279,6 @@ It now behaves like:
 - a lightweight coordination layer with measured claim/reclaim boundaries
 - an operator-facing review queue that keeps hidden/stale/quarantined memory work visible without making it authority
 - an operator-facing human workflow plan that makes each review decision explicit without becoming an auto-writer
+- an operator-facing activation receipt that keeps cross-client provenance inspectable without becoming an identity system
 
-The next work should protect those gains and improve review ergonomics without turning bounded relation-lite handling into a graph-memory claim or letting proposal-only plans become automatic durable writes.
+The next work should protect those gains and improve review ergonomics without turning bounded relation-lite handling into a graph-memory claim, letting proposal-only plans become automatic durable writes, or turning declared client labels into identity claims.

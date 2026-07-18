@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-07-15 (America/New_York)
+Last updated: 2026-07-18 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.21.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, and the fixed 20-case v0.21 governed-change proof. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.22.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, and the v0.22 cross-client activation receipt. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -574,6 +574,67 @@ durable memory, wrote only inside case temp areas, and used no private operator
 data. This remains a bounded lineage and task-applicability release, not a
 commitment to graph traversal, general unlearning, compliance certification, or
 automatic policy enforcement.
+
+## 0.22 = Cross-Client Activation Receipt
+
+Status: scoped for `v0.22.0`.
+
+### Thesis
+
+AMB's wedge is shared, inspectable continuity across coding agents. Native
+per-client memory is table stakes; the useful proof is that two configured
+clients can participate in one governed memory loop without widening the MCP
+surface.
+
+One sentence:
+
+`0.22 = client A writes one reviewed memory, client B recalls it and acks a read signal, and the local CLI emits a sanitized declared-provenance receipt.`
+
+### Scope
+
+1. Reuse the existing public MCP operations:
+   - `store` for the reviewed writer memory
+   - `recall` for the reader-side lookup
+   - `store(kind="signal")` for the reader observation
+   - `ack_signal` for the reader acknowledgement
+2. Require one namespace and one correlation id across the writer and reader
+   records.
+3. Require tags that identify the writer and reader roles:
+   - `workflow:cross-client-activation`
+   - `activation-role:writer`
+   - `reviewed:true`
+   - `activation-role:reader`
+4. Render the receipt through:
+
+```bash
+agent-memory-bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
+```
+
+### Acceptance Gate
+
+`0.22` is ready only when:
+
+- the public MCP surface remains exactly `10` tools
+- the receipt is read-only and records `durable_writeback_count = 0`
+- the receipt records `config_write_count = 0`
+- the receipt requires distinct declared `source_client` labels
+- the receipt requires the reader signal to be acked
+- the receipt requires the writer memory to be reviewed
+- the receipt hashes namespace, correlation, record ids, and source-client labels
+- the receipt does not include private paths, content, session ids, client
+  workspace values, or model ids
+- README, integration docs, production status, and the announcement avoid
+  authenticated identity, vendor certification, and external adoption claims
+
+### Non-Goals
+
+- no new MCP tools
+- no auto writeback
+- no client config writes
+- no proof of authenticated identity
+- no vendor certification or marketplace claim
+- no claim that external users adopted the bridge
+- no native-memory comparison unless it is separately scoped and evidenced
 
 ## Parallel Research Track
 
