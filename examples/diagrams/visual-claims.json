@@ -1,0 +1,91 @@
+{
+  "schema_version": 2,
+  "semantic_validation": "not_performed",
+  "validation_boundary": "The release contract verifies inventory hygiene only: asset existence, SVG XML parsing with nonempty title and desc, PNG signature and dimensions, evidence path existence, explicit release applicability status, conceptual/non-semantic/non-authenticated labels for PNG illustration claims, and absence of obvious private Windows/WSL home path markers. It does not semantically prove visual claims.",
+  "claims": [
+    {
+      "id": "amb-overview-runtime-surface",
+      "asset_path": "examples/diagrams/amb-overview.svg",
+      "asset_type": "svg",
+      "claim": "The overview diagram presents AMB's runtime path as MCP-compatible coding agents, a 10-tool public MCP surface, SQLite/WAL durable authority, governed change, and derived context/reports.",
+      "evidence_paths": [
+        "README.md",
+        "README.zh-CN.md",
+        "docs/PRODUCTION-STATUS.md",
+        "src/agent_mem_bridge/server.py"
+      ],
+      "release_applicability": {
+        "status": "current",
+        "release": "0.22.1"
+      }
+    },
+    {
+      "id": "amb-overview-proof-boundary",
+      "asset_path": "examples/diagrams/amb-overview.svg",
+      "asset_type": "svg",
+      "claim": "The overview diagram labels release proof gates as separate from the runtime path.",
+      "evidence_paths": [
+        "README.md",
+        "docs/PRODUCTION-STATUS.md",
+        "scripts/check_release_contract.py",
+        "benchmark/README.md"
+      ],
+      "release_applicability": {
+        "status": "current",
+        "release": "0.22.1"
+      }
+    },
+    {
+      "id": "v022-cross-client-activation-flow",
+      "asset_path": "examples/diagrams/v0.22-cross-client-activation.svg",
+      "asset_type": "svg",
+      "claim": "The v0.22 cross-client activation diagram describes the local activation receipt flow and its declared-provenance boundary.",
+      "evidence_paths": [
+        "src/agent_mem_bridge/cross_client_activation.py",
+        "tests/test_cross_client_activation.py",
+        "docs/CLIENT-PROVENANCE.md",
+        "docs/PRODUCTION-STATUS.md"
+      ],
+      "release_applicability": {
+        "status": "current",
+        "release": "0.22.1"
+      }
+    },
+    {
+      "id": "v022-receipt-anatomy",
+      "asset_path": "examples/diagrams/v0.22-receipt-anatomy.svg",
+      "asset_type": "svg",
+      "claim": "The v0.22 receipt anatomy diagram describes the receipt object's sanitized fields, pass gates, and review-required boundaries.",
+      "evidence_paths": [
+        "src/agent_mem_bridge/cross_client_activation.py",
+        "tests/test_cross_client_activation.py",
+        "docs/CLIENT-PROVENANCE.md",
+        "docs/PRODUCTION-STATUS.md"
+      ],
+      "release_applicability": {
+        "status": "current",
+        "release": "0.22.1"
+      }
+    },
+    {
+      "id": "v022-shared-memory-hero-conceptual",
+      "asset_path": "examples/diagrams/v0.22-shared-memory-hero.png",
+      "asset_type": "png",
+      "classification": "conceptual",
+      "semantic_validation": "not_performed",
+      "authenticated_claim": false,
+      "product_evidence": false,
+      "claim": "The v0.22 shared-memory hero PNG is a conceptual image-model illustration only, not product evidence, authenticated identity evidence, vendor certification, or external adoption proof.",
+      "evidence_paths": [
+        "examples/diagrams/visual-claims.json",
+        "README.md",
+        "docs/CLIENT-PROVENANCE.md",
+        "docs/PRODUCTION-STATUS.md"
+      ],
+      "release_applicability": {
+        "status": "current",
+        "release": "0.22.1"
+      }
+    }
+  ]
+}

@@ -36,17 +36,22 @@ PUBLIC_DOC_PATHS = (
     Path("docs/INTEGRATIONS.md"),
     Path("docs/MEMORY-TAXONOMY.md"),
     Path("docs/PROMOTION-RULES.md"),
+    Path("docs/RELEASE-COMMUNICATIONS.md"),
     Path("docs/v0.20-clean-room-proof.md"),
     Path("docs/v0.20.0-announcement.md"),
     Path("docs/v0.21.0-announcement.md"),
     Path("docs/v0.21.1-announcement.md"),
     Path("docs/v0.21.2-announcement.md"),
     Path("docs/v0.22.0-announcement.md"),
+    Path("docs/v0.22.1-announcement.md"),
     Path("examples/README.md"),
     Path("examples/demo/before-after-gotcha.cast.md"),
     Path("examples/demo/README.md"),
     Path("examples/demo/terminal-demo.cast"),
     Path("examples/demo/terminal-demo.tape"),
+    Path("examples/diagrams/v0.22-cross-client-activation.svg"),
+    Path("examples/diagrams/v0.22-receipt-anatomy.svg"),
+    Path("examples/diagrams/visual-claims.json"),
     Path("examples/harness-preview/README.md"),
     Path("examples/harness-preview/startup-packet.json"),
     Path("examples/harness-preview/task-packet.json"),
@@ -57,6 +62,7 @@ PUBLIC_DOC_PATHS = (
 
 PUBLIC_BINARY_ASSETS = (
     Path("examples/diagrams/amb-overview.svg"),
+    Path("examples/diagrams/v0.22-shared-memory-hero.png"),
 )
 
 README_PATHS = (

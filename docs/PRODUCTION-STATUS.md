@@ -2,23 +2,28 @@
 
 Last updated: 2026-07-18 (America/New_York)
 
-This maintainer note describes the current `0.22.0` release shape, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.22.1` release shape, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.22.0 Release Status
+## 0.22.1 Release Status
 
-- Package version: `0.22.0`
-- Release thesis: Cross-Client Activation Receipt
+- Package version: `0.22.1`
+- Release thesis: visual launch polish for the Cross-Client Activation Receipt
+- Runtime behavior: unchanged from `0.22.0`
 - Receipt command: `agent-memory-bridge activation-receipt --namespace ... --correlation-id ... --format markdown`
 - Receipt proof: one reviewed writer memory plus one acked reader signal under one namespace and correlation id, with two distinct declared `source_client` labels
-- Receipt boundary: declared provenance only; not authenticated identity, vendor certification, or external adoption evidence
+- Receipt boundary: declared provenance only; not identity proof, certification, distribution proof, or use proof
 - Public MCP surface: unchanged at exactly `10` tools
 - Automatic writes: no auto durable writeback and no client config writes
 - Fixed governed-change proof report target: `0.21.0`
 - Governed-change manifest releases: `current_release = 0.20.0`, `target_release = 0.21.0`
 - Windows proof hashing: manifest bytes are normalized to LF before the fixed SHA256 check
-- Current overview asset: `examples/diagrams/amb-overview.svg`
+- Current README hero asset: `examples/diagrams/v0.22-shared-memory-hero.png` (conceptual visual only)
+- Current overview asset: `examples/diagrams/amb-overview.svg` in the README "How It Works" section
+- Current receipt visuals: `examples/diagrams/v0.22-cross-client-activation.svg` and `examples/diagrams/v0.22-receipt-anatomy.svg`
+- Machine visual inventory: `examples/diagrams/visual-claims.json`; the release contract treats it as hygiene, not semantic proof
+- Visual render gate: native-size and README-width raster renders must show no clipping, overlap, or crossed labels before visuals support a release story
 
-## 0.21.0 Runtime Shape
+## Current Runtime Shape
 
 `agent-memory-bridge` now has these cooperating layers:
 
@@ -47,7 +52,7 @@ This maintainer note describes the current `0.22.0` release shape, the inherited
 
 ## Verified On 2026-07-18
 
-- `pytest` passes: `388 passed`
+- `pytest` passes: `395 passed`
 - cross-client activation receipt tests cover pass/review-required outcomes, distinct declared `source_client` labels, acked reader signals, observed writer-id matching, deterministic redaction, CLI exit codes, no memory mutation, and public MCP surface stability
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
@@ -190,6 +195,20 @@ This maintainer note describes the current `0.22.0` release shape, the inherited
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
+## What 0.22.1 Actually Means
+
+- this is release-facing visual polish over the v0.22 activation receipt
+- runtime behavior is unchanged from `0.22.0`
+- the README first screen uses `examples/diagrams/v0.22-shared-memory-hero.png` as a conceptual visual only
+- `examples/diagrams/amb-overview.svg` now belongs in a concise "How It Works" section
+- `docs/v0.22.1-announcement.md` embeds `examples/diagrams/v0.22-cross-client-activation.svg` and `examples/diagrams/v0.22-receipt-anatomy.svg`
+- `docs/v0.22.0-announcement.md` remains historical and text-only
+- `examples/diagrams/visual-claims.json` is the machine visual inventory
+- the visual inventory is release hygiene, not semantic proof
+- native-size and README-width raster renders are a release gate for clipping,
+  overlap, and crossed labels
+- the validation snapshot is `395 passed`
+
 ## What 0.22.0 Actually Means
 
 - the public MCP surface is still the same 10-tool bridge
@@ -248,7 +267,7 @@ The release still does **not** mean:
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.22.0
+## Pressure Points After 0.22.1
 
 The most important remaining gaps are:
 
@@ -263,6 +282,8 @@ The most important remaining gaps are:
 9. optional receipt ergonomics for operators without moving receipt generation into the MCP tool surface
 
 ## Maintainer Read
+
+`0.22.1` keeps the v0.22 receipt runtime unchanged and gives the public docs a clearer visual entry point. The README hero is conceptual only; the detailed overview sits under "How It Works"; the v0.22.1 announcement carries the two receipt-specific SVGs; and the visual inventory plus native-size/README-width render gate record asset hygiene without proving visual semantics.
 
 `0.22.0` keeps the 10-tool public MCP surface and adds a local receipt for one cross-client memory loop. The receipt is intentionally narrow: it shows two distinct declared `source_client` labels participated under one correlation, with one reviewed writer memory and one acked reader signal, while omitting private paths, content, session ids, and model ids.
 

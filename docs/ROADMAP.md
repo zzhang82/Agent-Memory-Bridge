@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-18 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.22.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, and the v0.22 cross-client activation receipt. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.22.1`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, and the v0.22.1 visual launch polish. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -577,7 +577,7 @@ automatic policy enforcement.
 
 ## 0.22 = Cross-Client Activation Receipt
 
-Status: scoped for `v0.22.0`.
+Status: shipped as `v0.22.0`.
 
 ### Thesis
 
@@ -590,7 +590,7 @@ One sentence:
 
 `0.22 = client A writes one reviewed memory, client B recalls it and acks a read signal, and the local CLI emits a sanitized declared-provenance receipt.`
 
-### Scope
+### Shipped Scope
 
 1. Reuse the existing public MCP operations:
    - `store` for the reviewed writer memory
@@ -612,7 +612,7 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 
 ### Acceptance Gate
 
-`0.22` is ready only when:
+`0.22` shipped only after:
 
 - the public MCP surface remains exactly `10` tools
 - the receipt is read-only and records `durable_writeback_count = 0`
@@ -635,6 +635,49 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no vendor certification or marketplace claim
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
+
+## 0.22.1 = Visual Launch Polish
+
+Status: current public version story for `v0.22.1`; runtime behavior is
+unchanged from `v0.22.0`.
+
+### Thesis
+
+The v0.22 receipt is easier to understand when the public docs show the memory
+loop, receipt shape, and visual boundaries without widening the technical claim.
+
+One sentence:
+
+`0.22.1 = explain the v0.22 receipt visually while preserving the v0.22 runtime and 10-tool public MCP surface; validation snapshot: 395 passed.`
+
+### Scope
+
+1. Put `examples/diagrams/v0.22-shared-memory-hero.png` near the README first
+   screen with a conceptual-only caption.
+2. Move `examples/diagrams/amb-overview.svg` into a concise README "How It
+   Works" section.
+3. Add `docs/v0.22.1-announcement.md` with the hero image plus:
+   - `examples/diagrams/v0.22-cross-client-activation.svg`
+   - `examples/diagrams/v0.22-receipt-anatomy.svg`
+4. Keep `docs/v0.22.0-announcement.md` historical and text-only.
+5. Explain the conditional visual-release contract and the machine inventory in
+   `docs/RELEASE-COMMUNICATIONS.md`.
+
+### Acceptance Gate
+
+`0.22.1` is acceptable only when:
+
+- public docs describe `0.22.1` as visual polish with no runtime behavior change
+- README and README.zh-CN stay aligned
+- the v0.22.0 announcement has no visual section
+- referenced visual assets use stable repo paths and descriptive alt text
+- native-size and README-width raster renders show no clipping, overlap, or
+  crossed labels
+- the machine inventory remains `examples/diagrams/visual-claims.json`
+- the visual inventory is described as hygiene, not semantic proof
+- the test snapshot is `395 passed`
+- no new MCP tools, durable writes, client config writes, identity proof,
+  certification, distribution proof, or use proof are claimed
 
 ## Parallel Research Track
 

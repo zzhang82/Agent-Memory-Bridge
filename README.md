@@ -13,15 +13,17 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.22.0` adds a Cross-Client Activation Receipt. Client A stores one reviewed project memory, client B recalls it and acknowledges a read signal, and the local CLI renders a sanitized receipt showing that two distinct declared `source_client` labels participated under one correlation. This is declared provenance only, not authenticated identity, vendor certification, or external adoption evidence.
+`0.22.1` is visual polish for the v0.22 Cross-Client Activation Receipt. Runtime behavior is unchanged. The local receipt checks one reviewed writer memory, one acked reader signal, and two distinct declared `source_client` labels; it is declared provenance only, not identity, certification, distribution, or use proof.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
 <p align="center">
-  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge architecture: generic MCP-compatible coding agents use 10 grouped tools backed by SQLite/WAL authority, derived indexes, governed change, and no-auto-writeback context and reports; proof gates remain outside runtime." width="800">
+  <img src="examples/diagrams/v0.22-shared-memory-hero.png" alt="Rendered workspace scene with three code workstations connected by bridges to a central cabinet holding cards and a scroll." width="900">
 </p>
 
-**Runtime:** MCP-compatible coding agents -> 10 public tools -> SQLite/WAL authority -> governed context and reports with no automatic durable writeback. **Proof:** release checks and benchmarks run outside that runtime path.
+<p align="center"><em>Conceptual visual only: a shared-memory workspace metaphor for AMB. It is not product evidence, identity evidence, certification, distribution, or use proof.</em></p>
+
+Try it locally after install: `agent-memory-bridge first-run --client generic --example`
 
 ## Why It Exists
 
@@ -42,7 +44,19 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
 - Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, and `388 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `395 passed`.
+
+## How It Works
+
+<p align="center">
+  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge architecture: generic MCP-compatible coding agents use 10 grouped tools backed by SQLite/WAL authority, derived indexes, governed change, and no-auto-writeback context and reports; proof gates remain outside runtime." width="760">
+</p>
+
+AMB keeps the runtime path small: MCP-compatible coding agents call `10` public
+tools; SQLite/WAL remains the durable authority; FTS5 and optional local
+embeddings are derived indexes; governed context and CLI reports are rendered
+without automatic durable writeback. Release checks, benchmarks, and the visual
+claim inventory stay outside that runtime path.
 
 ## Who It Is For
 
@@ -237,7 +251,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.22.0` keeps the fixed v0.21 governed-change proof and adds a local activation receipt for one shared-memory loop across two declared client labels. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, vendor certification, authenticated client identity, external adoption, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
+`0.22.1` keeps the v0.22 activation receipt behavior unchanged and adds release-facing visual polish. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, certification, identity proof, distribution proof, use proof, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
 
 | Track | Current signal |
 |---|---|
@@ -255,7 +269,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.20 clean-room proof | local reproducible proof only, not vendor certification: `v020_case_count = 6`, `v020_pass_rate = 1.0`, `v020_stdio_round_trip_pass = true`, `v020_client_config_write_count = 0`, `v020_external_vendor_adoption_claim = false` |
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
-| Test suite | `388 passed` |
+| v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
+| Test suite | `395 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -398,7 +413,8 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.22.0 announcement](docs/v0.22.0-announcement.md)
+- [v0.22.1 announcement](docs/v0.22.1-announcement.md)
+- [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
 - [Promotion rules](docs/PROMOTION-RULES.md)

@@ -95,6 +95,14 @@ python ./scripts/check_onboarding_contract.py
 calibration snapshots, public MCP tools, demo assets, and the collected test
 suite count stay aligned. It does not replace the full `pytest -q` run above.
 
+Release-facing visuals must follow the
+[conditional visual-release contract](docs/RELEASE-COMMUNICATIONS.md#conditional-visual-release-contract):
+committed assets, stable paths, descriptive alt text, short evidence-bound
+captions, and no identity, certification, distribution, or adoption overclaims.
+When visuals ship, keep `examples/diagrams/visual-claims.json` aligned with the
+assets and evidence paths. The inventory is a hygiene check, not semantic proof
+that the artwork makes a claim true.
+
 If a file needs personal operator names, local migration assumptions, or machine
 paths to make sense, keep it out of the public docs index and out of the public
 release story.

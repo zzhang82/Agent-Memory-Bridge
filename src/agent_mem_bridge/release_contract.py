@@ -1,17 +1,44 @@
 from __future__ import annotations
 
 import ast
+import binascii
 import json
 import re
 import subprocess
 import sys
-from pathlib import Path
+import xml.etree.ElementTree as ET
+import zlib
+from pathlib import Path, PureWindowsPath
 from typing import Any, Callable
 
 import tomllib
 
 
 README_NAMES = ("README.md", "README.zh-CN.md")
+VISUAL_CLAIMS_INVENTORY_PATH = Path("examples") / "diagrams" / "visual-claims.json"
+VISUAL_ASSET_TYPES = ("png", "svg")
+VISUAL_RELEASE_APPLICABILITY_STATUSES = (
+    "current",
+    "historical",
+    "planned",
+    "not_applicable",
+)
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+PRIVATE_HOME_PATH_PATTERNS = (
+    (
+        "windows_home",
+        re.compile(r"[A-Za-z]:[\\/](?:Users|Documents and Settings)[\\/][^\s\"'<>]+"),
+    ),
+    (
+        "wsl_unc_home",
+        re.compile(
+            r"(?:\\\\wsl(?:\.localhost|\$)\\[^\\/\s\"'<>]+\\home\\[^\\/\s\"'<>]+"
+            r"|//wsl(?:\.localhost|\$)/[^\\/\s\"'<>]+/home/[^\\/\s\"'<>]+)",
+            re.IGNORECASE,
+        ),
+    ),
+    ("wsl_home", re.compile(r"(?<![A-Za-z0-9_.-])/home/[A-Za-z0-9_.-]+(?:/|\\)")),
+)
 REQUIRED_BENCHMARK_KEYS = (
     "question_count",
     "memory_expected_top1_accuracy",
@@ -205,6 +232,12 @@ def run_release_contract_check(
     checks.append(
         build_demo_assets_check(
             project_root=project_root,
+        )
+    )
+    checks.append(
+        build_visual_claim_inventory_check(
+            project_root=project_root,
+            pyproject_version=pyproject_version,
         )
     )
 
@@ -537,6 +570,673 @@ def build_demo_assets_check(project_root: Path) -> dict[str, Any]:
         "required_assets": [str(path) for path in sorted(required_assets)],
         "missing_assets": missing,
     }
+
+
+def build_visual_claim_inventory_check(
+    project_root: Path,
+    pyproject_version: str,
+) -> dict[str, Any]:
+    inventory_path = project_root / VISUAL_CLAIMS_INVENTORY_PATH
+    mismatches: list[dict[str, Any]] = []
+    claim_reports: list[dict[str, Any]] = []
+    asset_reports: list[dict[str, Any]] = []
+    asset_refs: set[tuple[str, str]] = set()
+    inventory_private_path_matches: list[dict[str, Any]] = []
+
+    if not inventory_path.exists():
+        mismatches.append(mismatch("inventory", "present", "missing"))
+        return visual_claim_inventory_report(
+            inventory_path,
+            claim_reports,
+            asset_reports,
+            inventory_private_path_matches,
+            mismatches,
+        )
+
+    inventory_text = inventory_path.read_text(encoding="utf-8")
+    try:
+        inventory = json.loads(inventory_text)
+    except json.JSONDecodeError as exc:
+        inventory_private_path_matches = scan_private_home_paths(inventory_text)
+        if inventory_private_path_matches:
+            mismatches.append(private_path_mismatch("inventory", inventory_private_path_matches))
+        mismatches.append(mismatch("inventory.json", "valid JSON", str(exc)))
+        return visual_claim_inventory_report(
+            inventory_path,
+            claim_reports,
+            asset_reports,
+            inventory_private_path_matches,
+            mismatches,
+        )
+
+    inventory_private_path_matches = scan_private_home_paths_in_json_values(inventory)
+    if inventory_private_path_matches:
+        mismatches.append(private_path_mismatch("inventory", inventory_private_path_matches))
+
+    if not isinstance(inventory, dict):
+        mismatches.append(mismatch("inventory", "object", type(inventory).__name__))
+        claims: list[Any] = []
+    else:
+        if inventory.get("semantic_validation") != "not_performed":
+            mismatches.append(
+                mismatch(
+                    "inventory.semantic_validation",
+                    "not_performed",
+                    inventory.get("semantic_validation"),
+                )
+            )
+        raw_claims = inventory.get("claims")
+        if not isinstance(raw_claims, list) or not raw_claims:
+            mismatches.append(mismatch("claims", "nonempty list", type(raw_claims).__name__))
+            claims = []
+        else:
+            claims = raw_claims
+
+    for index, claim in enumerate(claims):
+        claim_report = validate_visual_claim_inventory_item(
+            project_root,
+            pyproject_version,
+            claim,
+            index,
+        )
+        claim_reports.append(claim_report)
+        mismatches.extend(claim_report["mismatches"])
+        asset_path = claim_report.get("asset_path")
+        asset_type = claim_report.get("asset_type")
+        if (
+            isinstance(asset_path, str)
+            and asset_type in VISUAL_ASSET_TYPES
+            and claim_report.get("resolved_asset_path") is not None
+        ):
+            asset_refs.add((asset_path, asset_type))
+
+    for asset_path, asset_type in sorted(asset_refs):
+        asset_report = validate_inventoried_visual_asset(project_root, asset_path, asset_type)
+        asset_reports.append(asset_report)
+        mismatches.extend(asset_report["mismatches"])
+
+    return visual_claim_inventory_report(
+        inventory_path,
+        claim_reports,
+        asset_reports,
+        inventory_private_path_matches,
+        mismatches,
+    )
+
+
+def visual_claim_inventory_report(
+    inventory_path: Path,
+    claim_reports: list[dict[str, Any]],
+    asset_reports: list[dict[str, Any]],
+    inventory_private_path_matches: list[dict[str, Any]],
+    mismatches: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "name": "visual_claim_inventory_is_release_hygienic",
+        "ok": not mismatches,
+        "inventory_path": str(inventory_path),
+        "semantic_validation": "not_performed",
+        "allowed_asset_types": list(VISUAL_ASSET_TYPES),
+        "allowed_release_applicability_statuses": list(
+            VISUAL_RELEASE_APPLICABILITY_STATUSES
+        ),
+        "claims": claim_reports,
+        "assets": asset_reports,
+        "inventory_private_path_matches": inventory_private_path_matches,
+        "mismatches": mismatches,
+    }
+
+
+def validate_visual_claim_inventory_item(
+    project_root: Path,
+    pyproject_version: str,
+    claim: Any,
+    index: int,
+) -> dict[str, Any]:
+    if not isinstance(claim, dict):
+        return {
+            "id": None, "asset_path": None, "asset_type": None,
+            "resolved_asset_path": None, "release_applicability_status": None,
+            "release_applicability_release": None, "evidence_paths": None,
+            "missing_evidence_paths": [],
+            "mismatches": [mismatch(f"claims[{index}]", "object", type(claim).__name__)],
+        }
+
+    claim_id = claim.get("id")
+    claim_label = claim_id if isinstance(claim_id, str) and claim_id.strip() else str(index)
+    asset_path = claim.get("asset_path")
+    asset_type = claim.get("asset_type")
+    evidence_paths = claim.get("evidence_paths")
+    release_applicability = claim.get("release_applicability")
+    release_status = (
+        release_applicability.get("status")
+        if isinstance(release_applicability, dict)
+        else None
+    )
+    release_value = (
+        release_applicability.get("release")
+        if isinstance(release_applicability, dict)
+        else None
+    )
+    resolved_asset_path: Path | None = None
+    missing_evidence_paths: list[str] = []
+    mismatches: list[dict[str, Any]] = []
+
+    if not isinstance(claim_id, str) or not claim_id.strip():
+        mismatches.append(mismatch(f"claims[{claim_label}].id", "nonempty string", claim_id))
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        mismatches.append(
+            mismatch(f"claims[{claim_label}].asset_path", "nonempty string", asset_path)
+        )
+    else:
+        resolved_asset_path, path_mismatches = resolve_project_relative_path(
+            project_root,
+            asset_path,
+            f"claims[{claim_label}].asset_path",
+        )
+        mismatches.extend(path_mismatches)
+    if asset_type not in VISUAL_ASSET_TYPES:
+        mismatches.append(
+            mismatch(f"claims[{claim_label}].asset_type", list(VISUAL_ASSET_TYPES), asset_type)
+        )
+    if not isinstance(evidence_paths, list) or not evidence_paths or not all(
+        isinstance(path, str) and path.strip() for path in evidence_paths
+    ):
+        mismatches.append(
+            mismatch(
+                f"claims[{claim_label}].evidence_paths",
+                "nonempty list of nonempty strings",
+                evidence_paths,
+            )
+        )
+    else:
+        for evidence_index, evidence_path in enumerate(evidence_paths):
+            resolved_evidence_path, path_mismatches = resolve_project_relative_path(
+                project_root,
+                evidence_path,
+                f"claims[{claim_label}].evidence_paths[{evidence_index}]",
+            )
+            mismatches.extend(path_mismatches)
+            if path_mismatches:
+                continue
+            if resolved_evidence_path is not None and not resolved_evidence_path.exists():
+                missing_evidence_paths.append(evidence_path)
+        if missing_evidence_paths:
+            mismatches.append(
+                mismatch(
+                    f"claims[{claim_label}].evidence_paths",
+                    "all evidence paths exist",
+                    missing_evidence_paths,
+                )
+            )
+    if release_status not in VISUAL_RELEASE_APPLICABILITY_STATUSES:
+        mismatches.append(
+            mismatch(
+                f"claims[{claim_label}].release_applicability.status",
+                list(VISUAL_RELEASE_APPLICABILITY_STATUSES),
+                release_status,
+            )
+        )
+    elif release_status == "current":
+        if release_value != pyproject_version:
+            mismatches.append(
+                mismatch(
+                    f"claims[{claim_label}].release_applicability.release",
+                    pyproject_version,
+                    release_value,
+                )
+            )
+    elif release_status in {"historical", "planned"}:
+        if not isinstance(release_value, str) or SEMVER_PATTERN.fullmatch(release_value) is None:
+            mismatches.append(
+                mismatch(
+                    f"claims[{claim_label}].release_applicability.release",
+                    "semver string for historical/planned claims",
+                    release_value,
+                )
+            )
+
+    if asset_type == "png":
+        mismatches.extend(validate_conceptual_png_claim_labels(claim, claim_label))
+
+    return {
+        "id": claim_id,
+        "asset_path": asset_path,
+        "resolved_asset_path": str(resolved_asset_path) if resolved_asset_path is not None else None,
+        "asset_type": asset_type,
+        "classification": claim.get("classification"),
+        "semantic_validation": claim.get("semantic_validation"),
+        "authenticated_claim": claim.get("authenticated_claim"),
+        "product_evidence": claim.get("product_evidence"),
+        "release_applicability_status": release_status,
+        "release_applicability_release": release_value,
+        "evidence_paths": evidence_paths,
+        "missing_evidence_paths": missing_evidence_paths,
+        "mismatches": mismatches,
+    }
+
+
+def validate_conceptual_png_claim_labels(
+    claim: dict[str, Any],
+    claim_label: str,
+) -> list[dict[str, Any]]:
+    required_values: tuple[tuple[str, Any], ...] = (
+        ("classification", "conceptual"),
+        ("semantic_validation", "not_performed"),
+        ("authenticated_claim", False),
+        ("product_evidence", False),
+    )
+    return [
+        mismatch(f"claims[{claim_label}].{field}", expected, claim.get(field))
+        for field, expected in required_values
+        if claim.get(field) != expected
+    ]
+
+
+def validate_inventoried_visual_asset(
+    project_root: Path,
+    asset_path: str,
+    asset_type: str,
+) -> dict[str, Any]:
+    if asset_type == "svg":
+        return validate_inventoried_svg(project_root, asset_path)
+    if asset_type == "png":
+        return validate_inventoried_png(project_root, asset_path)
+    return {
+        "path": str(project_root / asset_path),
+        "asset_path": asset_path,
+        "asset_type": asset_type,
+        "exists": (project_root / asset_path).exists(),
+        "private_path_matches": [],
+        "mismatches": [
+            mismatch(f"assets[{asset_path}].asset_type", list(VISUAL_ASSET_TYPES), asset_type)
+        ],
+    }
+
+
+def validate_inventoried_svg(project_root: Path, asset_path: str) -> dict[str, Any]:
+    svg_path, path_mismatches = resolve_project_relative_path(
+        project_root,
+        asset_path,
+        f"assets[{asset_path}].path",
+    )
+    display_path = project_root / asset_path
+    report = {
+        "path": str(display_path),
+        "asset_path": asset_path,
+        "asset_type": "svg",
+        "exists": svg_path.exists() if svg_path is not None else False,
+        "valid_xml_svg": False,
+        "has_title": False,
+        "has_desc": False,
+        "private_path_matches": [],
+        "mismatches": path_mismatches,
+    }
+
+    if path_mismatches or svg_path is None:
+        return report
+
+    if not svg_path.exists():
+        report["mismatches"].append(mismatch(f"assets[{asset_path}].exists", True, False))
+        return report
+
+    try:
+        svg_text = svg_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        report["mismatches"].append(mismatch(f"assets[{asset_path}].text", "UTF-8 SVG text", str(exc)))
+        return report
+
+    private_path_matches = scan_private_home_paths(svg_text)
+    report["private_path_matches"] = private_path_matches
+    if private_path_matches:
+        report["mismatches"].append(private_path_mismatch(f"assets[{asset_path}]", private_path_matches))
+
+    try:
+        svg_root = ET.fromstring(svg_text)
+    except ET.ParseError as exc:
+        report["mismatches"].append(mismatch(f"assets[{asset_path}].xml", "valid XML", str(exc)))
+        return report
+
+    report["valid_xml_svg"] = xml_local_name(svg_root.tag) == "svg"
+    report["has_title"] = has_nonempty_svg_child(svg_root, "title")
+    report["has_desc"] = has_nonempty_svg_child(svg_root, "desc")
+    if not report["valid_xml_svg"]:
+        report["mismatches"].append(
+            mismatch(f"assets[{asset_path}].root", "svg", xml_local_name(svg_root.tag))
+        )
+    if not report["has_title"]:
+        report["mismatches"].append(
+            mismatch(f"assets[{asset_path}].title", "nonempty title", "missing_or_empty")
+        )
+    if not report["has_desc"]:
+        report["mismatches"].append(
+            mismatch(f"assets[{asset_path}].desc", "nonempty desc", "missing_or_empty")
+        )
+    return report
+
+
+def validate_inventoried_png(project_root: Path, asset_path: str) -> dict[str, Any]:
+    png_path, path_mismatches = resolve_project_relative_path(
+        project_root,
+        asset_path,
+        f"assets[{asset_path}].path",
+    )
+    display_path = project_root / asset_path
+    report = {
+        "path": str(display_path),
+        "asset_path": asset_path,
+        "asset_type": "png",
+        "exists": png_path.exists() if png_path is not None else False,
+        "valid_png_signature": False,
+        "valid_png_structure": False,
+        "valid_png_crc": False,
+        "valid_png_iend": False,
+        "idat_zlib_decompressible": False,
+        "width": None,
+        "height": None,
+        "private_path_matches": [],
+        "mismatches": path_mismatches,
+    }
+
+    if path_mismatches or png_path is None:
+        return report
+
+    if not png_path.exists():
+        report["mismatches"].append(mismatch(f"assets[{asset_path}].exists", True, False))
+        return report
+
+    png_bytes = png_path.read_bytes()
+    private_path_matches = scan_private_home_paths(png_bytes.decode("latin-1"))
+    report["private_path_matches"] = private_path_matches
+    if private_path_matches:
+        report["mismatches"].append(private_path_mismatch(f"assets[{asset_path}]", private_path_matches))
+
+    png_validation = validate_png_bytes(png_bytes, f"assets[{asset_path}]")
+    report.update(png_validation["properties"])
+    report["mismatches"].extend(png_validation["mismatches"])
+    return report
+
+
+def validate_png_bytes(png_bytes: bytes, field_prefix: str) -> dict[str, Any]:
+    properties: dict[str, Any] = {
+        "valid_png_signature": False,
+        "valid_png_structure": False,
+        "valid_png_crc": False,
+        "valid_png_iend": False,
+        "idat_zlib_decompressible": False,
+        "width": None,
+        "height": None,
+    }
+    mismatches: list[dict[str, Any]] = []
+
+    if not png_bytes.startswith(PNG_SIGNATURE):
+        mismatches.append(
+            mismatch(f"{field_prefix}.png_signature", "PNG signature", "missing_or_invalid")
+        )
+        return {"properties": properties, "mismatches": mismatches}
+
+    properties["valid_png_signature"] = True
+    offset = len(PNG_SIGNATURE)
+    chunk_index = 0
+    seen_ihdr = False
+    seen_idat = False
+    seen_iend = False
+    valid_structure = True
+    valid_crc = True
+    idat_parts: list[bytes] = []
+
+    while offset < len(png_bytes):
+        remaining = len(png_bytes) - offset
+        if remaining < 12:
+            valid_structure = False
+            mismatches.append(
+                mismatch(
+                    f"{field_prefix}.chunks[{chunk_index}]",
+                    "complete PNG chunk header/data/crc",
+                    f"{remaining} trailing bytes",
+                )
+            )
+            break
+
+        length = int.from_bytes(png_bytes[offset : offset + 4], "big")
+        chunk_type = png_bytes[offset + 4 : offset + 8]
+        data_start = offset + 8
+        data_end = data_start + length
+        crc_end = data_end + 4
+        chunk_name = chunk_type.decode("latin-1")
+
+        if crc_end > len(png_bytes):
+            valid_structure = False
+            mismatches.append(
+                mismatch(
+                    f"{field_prefix}.chunks[{chunk_index}]",
+                    "complete PNG chunk header/data/crc",
+                    {"chunk_type": chunk_name, "declared_length": length},
+                )
+            )
+            break
+
+        chunk_data = png_bytes[data_start:data_end]
+        actual_crc = int.from_bytes(png_bytes[data_end:crc_end], "big")
+        expected_crc = binascii.crc32(chunk_type + chunk_data) & 0xFFFFFFFF
+        if actual_crc != expected_crc:
+            valid_crc = False
+            mismatches.append(
+                mismatch(
+                    f"{field_prefix}.chunks[{chunk_index}].crc",
+                    "valid PNG chunk CRC",
+                    {
+                        "chunk_type": chunk_name,
+                        "expected_crc": expected_crc,
+                        "actual_crc": actual_crc,
+                    },
+                )
+            )
+
+        if not is_png_chunk_type(chunk_type):
+            valid_structure = False
+            mismatches.append(
+                mismatch(
+                    f"{field_prefix}.chunks[{chunk_index}].type",
+                    "four ASCII letters",
+                    chunk_name,
+                )
+            )
+
+        if chunk_index == 0 and chunk_type != b"IHDR":
+            valid_structure = False
+            mismatches.append(
+                mismatch(f"{field_prefix}.ihdr", "first PNG chunk", chunk_name)
+            )
+
+        if chunk_type == b"IHDR":
+            if seen_ihdr:
+                valid_structure = False
+                mismatches.append(mismatch(f"{field_prefix}.ihdr", "single IHDR chunk", "duplicate"))
+            seen_ihdr = True
+            if length != 13:
+                valid_structure = False
+                mismatches.append(
+                    mismatch(f"{field_prefix}.ihdr", "13-byte IHDR chunk", length)
+                )
+            else:
+                width = properties["width"] = int.from_bytes(chunk_data[0:4], "big")
+                height = properties["height"] = int.from_bytes(chunk_data[4:8], "big")
+                if width <= 0 or height <= 0:
+                    valid_structure = False
+                    mismatches.append(
+                        mismatch(
+                            f"{field_prefix}.dimensions",
+                            "positive width and height",
+                            {"width": width, "height": height},
+                        )
+                    )
+        elif chunk_type == b"IDAT":
+            seen_idat = True
+            idat_parts.append(chunk_data)
+        elif chunk_type == b"IEND":
+            seen_iend = True
+            if length != 0:
+                valid_structure = False
+                mismatches.append(mismatch(f"{field_prefix}.iend", "zero-length IEND", length))
+            offset = crc_end
+            chunk_index += 1
+            break
+
+        offset = crc_end
+        chunk_index += 1
+
+    if not seen_ihdr:
+        valid_structure = False
+        mismatches.append(mismatch(f"{field_prefix}.ihdr", "PNG IHDR chunk", "missing"))
+    if not seen_idat:
+        valid_structure = False
+        mismatches.append(mismatch(f"{field_prefix}.idat", "at least one IDAT chunk", "missing"))
+    if not seen_iend:
+        valid_structure = False
+        mismatches.append(mismatch(f"{field_prefix}.iend", "PNG IEND chunk", "missing"))
+    elif offset != len(png_bytes):
+        valid_structure = False
+        mismatches.append(
+            mismatch(f"{field_prefix}.trailing_data", "no bytes after IEND", len(png_bytes) - offset)
+        )
+
+    properties["valid_png_crc"] = valid_crc
+    properties["valid_png_iend"] = seen_iend
+    if idat_parts:
+        try:
+            decompressor = zlib.decompressobj()
+            decompressor.decompress(b"".join(idat_parts))
+            decompressor.flush()
+            if decompressor.eof and not decompressor.unused_data:
+                properties["idat_zlib_decompressible"] = True
+            else:
+                mismatches.append(
+                    mismatch(
+                        f"{field_prefix}.idat_zlib",
+                        "complete zlib-decodable IDAT stream",
+                        "incomplete_or_trailing_data",
+                    )
+                )
+        except zlib.error as exc:
+            mismatches.append(
+                mismatch(f"{field_prefix}.idat_zlib", "zlib-decodable IDAT stream", str(exc))
+            )
+
+    properties["valid_png_structure"] = (
+        valid_structure
+        and seen_ihdr
+        and seen_idat
+        and seen_iend
+        and properties["idat_zlib_decompressible"]
+    )
+    return {"properties": properties, "mismatches": mismatches}
+
+
+def is_png_chunk_type(chunk_type: bytes) -> bool:
+    return len(chunk_type) == 4 and all(
+        65 <= byte <= 90 or 97 <= byte <= 122 for byte in chunk_type
+    )
+
+
+def resolve_project_relative_path(
+    project_root: Path,
+    raw_path: str,
+    field: str,
+) -> tuple[Path | None, list[dict[str, Any]]]:
+    mismatches: list[dict[str, Any]] = []
+    stripped_path = raw_path.strip()
+    path = Path(stripped_path)
+    windows_path = PureWindowsPath(stripped_path)
+
+    if (
+        path.is_absolute()
+        or windows_path.is_absolute()
+        or path.drive
+        or windows_path.drive
+        or stripped_path.startswith(("/", "\\"))
+    ):
+        mismatches.append(mismatch(field, "project-relative path", raw_path))
+
+    if any(part == ".." for part in stripped_path.replace("\\", "/").split("/")):
+        mismatches.append(mismatch(field, "project-relative path without parent traversal", raw_path))
+
+    if mismatches:
+        return None, mismatches
+
+    candidate = project_root / path
+    try:
+        resolved_root = project_root.resolve()
+        resolved_candidate = candidate.resolve(strict=False)
+    except OSError as exc:
+        mismatches.append(mismatch(field, "resolvable project path", str(exc)))
+        return None, mismatches
+
+    if not resolved_candidate.is_relative_to(resolved_root):
+        mismatches.append(mismatch(field, "path resolving inside project", str(resolved_candidate)))
+        return None, mismatches
+
+    return candidate, mismatches
+
+
+def scan_private_home_paths_in_json_values(value: Any, path: str = "$") -> list[dict[str, Any]]:
+    matches: list[dict[str, Any]] = []
+    if isinstance(value, str):
+        for private_match in scan_private_home_paths(value):
+            matches.append({"path": path, **private_match})
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            matches.extend(scan_private_home_paths_in_json_values(item, f"{path}[{index}]"))
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            matches.extend(
+                scan_private_home_paths_in_json_values(
+                    item,
+                    f"{path}.{format_json_path_key(key)}",
+                )
+            )
+    return matches
+
+
+def format_json_path_key(key: Any) -> str:
+    key_text = str(key)
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key_text):
+        return key_text
+    return json.dumps(key_text)
+
+
+def scan_private_home_paths(text: str) -> list[dict[str, Any]]:
+    matches: list[dict[str, Any]] = []
+    for pattern_name, pattern in PRIVATE_HOME_PATH_PATTERNS:
+        count = len(pattern.findall(text))
+        if count:
+            matches.append({"pattern": pattern_name, "count": count})
+    return matches
+
+
+def has_nonempty_svg_child(root: ET.Element, child_name: str) -> bool:
+    for element in root.iter():
+        if xml_local_name(element.tag) != child_name:
+            continue
+        if "".join(element.itertext()).strip():
+            return True
+    return False
+
+
+def xml_local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1] if "}" in tag else tag
+
+
+def mismatch(field: str, expected: Any, actual: Any) -> dict[str, Any]:
+    return {"field": field, "expected": expected, "actual": actual}
+
+
+def private_path_mismatch(field_prefix: str, matches: list[dict[str, Any]]) -> dict[str, Any]:
+    return mismatch(
+        f"{field_prefix}.private_paths",
+        "no private Windows/WSL home paths",
+        matches,
+    )
 
 
 def load_pyproject_version(path: Path) -> str:

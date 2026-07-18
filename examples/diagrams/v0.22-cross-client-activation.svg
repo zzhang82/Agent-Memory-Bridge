@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="activation-title activation-desc">
+  <title id="activation-title">v0.22 cross-client activation flow</title>
+  <desc id="activation-desc">A deterministic diagram of the v0.22 cross-client activation receipt flow. Client A stores one reviewed writer memory with declared source-client provenance. Client B recalls it, stores one reader signal containing the observed writer memory id, and acknowledges that signal. The receipt command reads the database in read-only mode for one namespace and correlation id, then emits only hashes, booleans, counts, status, and reason codes. The diagram highlights that declared provenance is not authenticated origin, vendor certification, or external adoption proof, and that the receipt performs no durable or config writes.</desc>
+
+  <defs>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="8.2" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#285966"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="8.2" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8a5a16"/>
+    </marker>
+    <style>
+      .bg { fill: #f7f5ef; }
+      .title { fill: #102f3a; font: 700 30px "Segoe UI", Arial, sans-serif; }
+      .subtitle { fill: #36515a; font: 16px "Segoe UI", Arial, sans-serif; }
+      .eyebrow { fill: #315b66; font: 700 13px "Segoe UI", Arial, sans-serif; letter-spacing: 1.5px; }
+      .panel { fill: #fffdf8; stroke: #1f4b57; stroke-width: 2; }
+      .client-a { fill: #eef5f2; stroke: #2d6f67; stroke-width: 1.8; }
+      .client-b { fill: #edf2f7; stroke: #405d78; stroke-width: 1.8; }
+      .store { fill: #fff8e9; stroke: #9a5a12; stroke-width: 1.8; }
+      .receipt { fill: #f6f4ee; stroke: #626b70; stroke-width: 1.8; }
+      .boundary { fill: #fff1ee; stroke: #a54431; stroke-width: 1.8; stroke-dasharray: 8 6; }
+      .chip { fill: #ffffff; stroke: #91a5aa; stroke-width: 1.2; }
+      .chip-strong { fill: #ffffff; stroke: #2d6f67; stroke-width: 1.4; }
+      .chip-blue { fill: #ffffff; stroke: #405d78; stroke-width: 1.4; }
+      .line { fill: none; stroke: #285966; stroke-width: 2.3; marker-end: url(#arrow-teal); }
+      .line-amber { fill: none; stroke: #8a5a16; stroke-width: 2.1; marker-end: url(#arrow-amber); }
+      .line-dash { fill: none; stroke: #65777c; stroke-width: 1.8; stroke-dasharray: 6 5; marker-end: url(#arrow-teal); }
+      .heading { fill: #102f3a; font: 700 20px "Segoe UI", Arial, sans-serif; }
+      .label { fill: #173d47; font: 700 15px "Segoe UI", Arial, sans-serif; }
+      .mono { fill: #173d47; font: 600 13px Consolas, "Courier New", monospace; }
+      .mono-small { fill: #173d47; font: 600 12px Consolas, "Courier New", monospace; }
+      .body { fill: #29434b; font: 14px "Segoe UI", Arial, sans-serif; }
+      .small { fill: #43575d; font: 13px "Segoe UI", Arial, sans-serif; }
+      .warn { fill: #8b2f20; font: 700 14px "Segoe UI", Arial, sans-serif; }
+      .safe { fill: #235a52; font: 700 14px "Segoe UI", Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="630"/>
+
+  <text class="eyebrow" x="40" y="36">AMB v0.22 receipt</text>
+  <text class="title" x="40" y="72">Cross-client activation receipt flow</text>
+  <text class="subtitle" x="40" y="101">One reviewed writer memory + one acked reader signal under one correlation; CLI output is sanitized and read-only.</text>
+
+  <rect class="panel" x="40" y="122" width="1120" height="330" rx="8"/>
+
+  <rect class="client-a" x="70" y="154" width="250" height="230" rx="8"/>
+  <text class="heading" x="94" y="187">Client A: writer</text>
+  <text class="body" x="94" y="216">Stores one memory row.</text>
+  <rect class="chip-strong" x="94" y="235" width="202" height="30" rx="6"/>
+  <text class="mono" x="109" y="255">kind = memory</text>
+  <rect class="chip-strong" x="94" y="273" width="202" height="30" rx="6"/>
+  <text class="mono" x="109" y="293">activation-role:writer</text>
+  <rect class="chip-strong" x="94" y="311" width="202" height="30" rx="6"/>
+  <text class="mono" x="109" y="331">reviewed:true</text>
+  <text class="small" x="94" y="362">Declared source_client is stored</text>
+  <text class="small" x="94" y="379">as caller-provided metadata.</text>
+
+  <rect class="store" x="380" y="154" width="270" height="230" rx="8"/>
+  <text class="heading" x="404" y="187">SQLite durable store</text>
+  <text class="body" x="404" y="216">Rows are selected by exact namespace</text>
+  <text class="body" x="404" y="236">and correlation id, ordered stably.</text>
+  <rect class="chip" x="404" y="258" width="222" height="30" rx="6"/>
+  <text class="mono" x="419" y="278">writer memory: count 1</text>
+  <rect class="chip" x="404" y="296" width="222" height="30" rx="6"/>
+  <text class="mono" x="419" y="316">reader signal: count 1</text>
+  <rect class="chip" x="404" y="334" width="222" height="30" rx="6"/>
+  <text class="mono" x="419" y="354">matching rows total 2</text>
+
+  <rect class="client-b" x="710" y="154" width="250" height="230" rx="8"/>
+  <text class="heading" x="734" y="187">Client B: reader</text>
+  <text class="body" x="734" y="216">Recalls writer, then records</text>
+  <text class="body" x="734" y="236">what it observed.</text>
+  <rect class="chip-blue" x="734" y="254" width="202" height="30" rx="6"/>
+  <text class="mono" x="749" y="274">kind = signal</text>
+  <rect class="chip-blue" x="734" y="292" width="202" height="30" rx="6"/>
+  <text class="mono" x="749" y="312">activation-role:reader</text>
+  <rect class="chip-blue" x="734" y="330" width="202" height="30" rx="6"/>
+  <text class="mono" x="749" y="350">observed_memory_id</text>
+  <text class="small" x="734" y="380">Signal must be acked.</text>
+
+  <rect class="receipt" x="1000" y="154" width="130" height="230" rx="8"/>
+  <text class="heading" x="1022" y="187">Receipt</text>
+  <text class="body" x="1022" y="216">CLI report,</text>
+  <text class="body" x="1022" y="236">not an MCP</text>
+  <text class="body" x="1022" y="256">tool.</text>
+  <text class="safe" x="1022" y="290">mode=ro</text>
+  <text class="small" x="1022" y="322">Hashes, counts,</text>
+  <text class="small" x="1022" y="340">booleans, status,</text>
+  <text class="small" x="1022" y="358">reason codes.</text>
+
+  <path class="line" d="M320 269 H372"/>
+  <text class="small" x="333" y="254">store</text>
+  <path class="line-dash" d="M650 246 H702"/>
+  <text class="small" x="660" y="232">recall</text>
+  <path class="line" d="M710 310 H658"/>
+  <text class="small" x="661" y="297">store</text>
+  <path class="line-amber" d="M835 384 V420 H515 V390"/>
+  <text class="small" x="850" y="418">ack_signal marks reader signal acked</text>
+  <path class="line-dash" d="M650 228 C670 148 704 126 744 126 H955 C982 126 998 146 998 176"/>
+  <text class="small" x="765" y="147">receipt reads rows</text>
+
+  <rect class="boundary" x="40" y="464" width="1120" height="132" rx="8"/>
+  <text class="warn" x="64" y="496">Declared-provenance boundary</text>
+  <text class="body" x="64" y="523">source_client values are caller-declared labels, trimmed and casefolded only for same-value comparison.</text>
+  <text class="body" x="64" y="548">The receipt does not authenticate origin, certify a vendor, prove external adoption, add MCP tools, promote memory, write durable rows, or write config.</text>
+  <text class="mono-small" x="64" y="573">declared_provenance_only=true  authenticated_origin=false  external_adoption_claim=false</text>
+  <text class="mono-small" x="64" y="591">public_mcp_surface_change=false  durable_writeback_count=0  config_write_count=0</text>
+
+  <rect class="chip" x="870" y="32" width="260" height="34" rx="6"/>
+  <text class="mono" x="885" y="54">MCP surface remains 10 tools</text>
+</svg>

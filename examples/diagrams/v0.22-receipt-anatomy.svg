@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="receipt-title receipt-desc">
+  <title id="receipt-title">v0.22 activation receipt anatomy</title>
+  <desc id="receipt-desc">A deterministic diagram of the activation receipt returned by src/agent_mem_bridge/cross_client_activation.py and tested by tests/test_cross_client_activation.py. It shows the read-only inputs, the sanitized output fields, the pass criteria, the review-required reason codes, and the declared-provenance boundary. Raw namespace values, correlation values, record ids, content, paths, sessions, workspaces, and model names are represented only as hashes or omitted.</desc>
+
+  <defs>
+    <marker id="arrow-main" viewBox="0 0 10 10" refX="8.2" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#285966"/>
+    </marker>
+    <style>
+      .bg { fill: #f7f5ef; }
+      .title { fill: #102f3a; font: 700 30px "Segoe UI", Arial, sans-serif; }
+      .subtitle { fill: #36515a; font: 16px "Segoe UI", Arial, sans-serif; }
+      .eyebrow { fill: #315b66; font: 700 13px "Segoe UI", Arial, sans-serif; letter-spacing: 1.5px; }
+      .panel { fill: #fffdf8; stroke: #1f4b57; stroke-width: 2; }
+      .input { fill: #eef5f2; stroke: #2d6f67; stroke-width: 1.8; }
+      .output { fill: #edf2f7; stroke: #405d78; stroke-width: 1.8; }
+      .gate { fill: #fff8e9; stroke: #9a5a12; stroke-width: 1.8; }
+      .boundary { fill: #fff1ee; stroke: #a54431; stroke-width: 1.8; stroke-dasharray: 8 6; }
+      .chip { fill: #ffffff; stroke: #91a5aa; stroke-width: 1.1; }
+      .chip-pass { fill: #ffffff; stroke: #2d6f67; stroke-width: 1.3; }
+      .chip-review { fill: #ffffff; stroke: #a54431; stroke-width: 1.3; }
+      .line { fill: none; stroke: #285966; stroke-width: 2.3; marker-end: url(#arrow-main); }
+      .heading { fill: #102f3a; font: 700 20px "Segoe UI", Arial, sans-serif; }
+      .label { fill: #173d47; font: 700 15px "Segoe UI", Arial, sans-serif; }
+      .mono { fill: #173d47; font: 600 13px Consolas, "Courier New", monospace; }
+      .mono-small { fill: #173d47; font: 600 12px Consolas, "Courier New", monospace; }
+      .body { fill: #29434b; font: 14px "Segoe UI", Arial, sans-serif; }
+      .small { fill: #43575d; font: 13px "Segoe UI", Arial, sans-serif; }
+      .warn { fill: #8b2f20; font: 700 14px "Segoe UI", Arial, sans-serif; }
+      .safe { fill: #235a52; font: 700 14px "Segoe UI", Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1200" height="630"/>
+
+  <text class="eyebrow" x="40" y="36">AMB v0.22 receipt</text>
+  <text class="title" x="40" y="72">Activation receipt anatomy</text>
+  <text class="subtitle" x="40" y="101">The object shape, pass gates, redaction behavior, and review reasons exercised by the cross-client activation test module.</text>
+
+  <rect class="input" x="40" y="128" width="285" height="318" rx="8"/>
+  <text class="heading" x="64" y="162">Read-only inputs</text>
+  <text class="body" x="64" y="190">The CLI trims namespace and</text>
+  <text class="body" x="64" y="210">correlation id, then opens SQLite</text>
+  <text class="mono" x="64" y="233">mode=ro</text>
+  <text class="body" x="130" y="233">for one exact query.</text>
+
+  <rect class="chip" x="64" y="258" width="236" height="36" rx="6"/>
+  <text class="mono" x="80" y="281">WHERE namespace = ?</text>
+  <rect class="chip" x="64" y="302" width="236" height="36" rx="6"/>
+  <text class="mono" x="80" y="325">AND correlation_id = ?</text>
+  <rect class="chip" x="64" y="346" width="236" height="36" rx="6"/>
+  <text class="mono" x="80" y="369">ORDER BY created_at,rowid</text>
+  <text class="small" x="64" y="399">If the store cannot be opened, the</text>
+  <text class="small" x="64" y="417">receipt still returns sanitized JSON</text>
+  <text class="mono-small" x="64" y="437">reason_codes=["store_unavailable"]</text>
+
+  <path class="line" d="M325 287 H367"/>
+
+  <rect class="output" x="370" y="128" width="390" height="334" rx="8"/>
+  <text class="heading" x="394" y="162">Sanitized receipt object</text>
+  <text class="mono" x="394" y="190">schema:</text>
+  <text class="mono-small" x="456" y="190">amb.cross-client.activation-receipt.v1</text>
+  <rect class="chip-pass" x="394" y="210" width="154" height="31" rx="6"/>
+  <text class="mono" x="410" y="231">status: pass</text>
+  <rect class="chip-review" x="562" y="210" width="174" height="31" rx="6"/>
+  <text class="mono" x="578" y="231">or review_required</text>
+
+  <text class="label" x="394" y="264">Top-level safety fields</text>
+  <text class="mono-small" x="394" y="286">declared_provenance_only: true</text>
+  <text class="mono-small" x="394" y="304">authenticated_origin: false</text>
+  <text class="mono-small" x="394" y="322">external_adoption_claim: false</text>
+  <text class="mono-small" x="394" y="340">public_mcp_surface_change: false</text>
+  <text class="mono-small" x="394" y="358">durable_writeback_count: 0</text>
+  <text class="mono-small" x="394" y="376">config_write_count: 0</text>
+
+  <text class="label" x="394" y="398">Hashed outputs only</text>
+  <text class="mono-small" x="394" y="418">namespace_hash, correlation_hash</text>
+  <text class="mono-small" x="394" y="436">record_id_hashes, source_client_hash</text>
+  <text class="mono-small" x="394" y="452">observed_memory_id_hash, source_client_relation</text>
+
+  <path class="line" d="M760 287 H802"/>
+
+  <rect class="gate" x="805" y="128" width="355" height="318" rx="8"/>
+  <text class="heading" x="829" y="162">Pass gate</text>
+  <text class="body" x="829" y="190">Status is pass only when all checks</text>
+  <text class="body" x="829" y="210">below are true.</text>
+
+  <rect class="chip-pass" x="829" y="235" width="305" height="30" rx="6"/>
+  <text class="mono-small" x="845" y="255">one writer memory + writer tag</text>
+  <rect class="chip-pass" x="829" y="272" width="305" height="30" rx="6"/>
+  <text class="mono-small" x="845" y="292">writer has reviewed:true</text>
+  <rect class="chip-pass" x="829" y="309" width="305" height="30" rx="6"/>
+  <text class="mono-small" x="845" y="329">one reader signal + reader tag</text>
+  <rect class="chip-pass" x="829" y="346" width="305" height="30" rx="6"/>
+  <text class="mono-small" x="845" y="366">reader signal_status is acked</text>
+  <rect class="chip-pass" x="829" y="383" width="305" height="30" rx="6"/>
+  <text class="mono-small" x="845" y="403">observed_memory_id equals writer id</text>
+  <rect class="chip-pass" x="829" y="420" width="305" height="30" rx="6"/>
+  <text class="mono-small" x="845" y="440">declared source_client values differ</text>
+
+  <rect class="boundary" x="40" y="470" width="1120" height="128" rx="8"/>
+  <text class="warn" x="64" y="501">Review-required reason codes and redaction boundary</text>
+  <text class="mono-small" x="64" y="526">writer_record_count_not_one | writer_memory_not_reviewed | reader_signal_count_not_one | unexpected_correlation_records</text>
+  <text class="mono-small" x="64" y="547">reader_signal_not_acked | reader_observed_memory_id_missing | reader_observed_memory_id_mismatch</text>
+  <text class="mono-small" x="64" y="568">writer_source_client_missing | reader_source_client_missing | source_client_not_cross_client | store_unavailable</text>
+  <text class="body" x="64" y="586">Tests assert deterministic output and no raw content, private paths, namespace/correlation strings, session ids, workspace values, model ids, or record ids.</text>
+
+  <rect class="chip" x="850" y="32" width="280" height="34" rx="6"/>
+  <text class="mono" x="866" y="54">receipt generation mutates 0 rows</text>
+</svg>

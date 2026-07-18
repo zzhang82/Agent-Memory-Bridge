@@ -1,6 +1,8 @@
 .venv/
 .venv*/
 .runtime/
+.runtime-*.json
+.tmp/
 .pytest_cache/
 __pycache__/
 *.pyc
