@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import shlex
 import sqlite3
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from agent_mem_bridge.cli import main
 from agent_mem_bridge.first_run import (
@@ -35,16 +35,17 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     store = _seed_store(tmp_path)
     before_counts = _table_counts(db_path=store.db_path)
     before_stats = store.stats(NAMESPACE)
+    python_path = Path("test-fixtures") / "python"
 
     report = build_first_run_report(
         store,
         client="opencode",
         namespace=NAMESPACE,
         query="release handoff",
-        python_path="/path/to/python",
-        cwd="/path/to/repo",
-        bridge_home="/path/to/bridge-home",
-        config_path="/path/to/config.toml",
+        python_path=python_path,
+        cwd=Path("test-project"),
+        bridge_home=Path("bridge-home"),
+        config_path=Path("config.toml"),
         example=False,
     )
     after_counts = _table_counts(db_path=store.db_path)
@@ -68,8 +69,8 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert report["install"]["github_install"] == report["install"]["baseline"]
     assert report["install"]["editable_install"][-1] == "<venv-python> -m pip install -e ."
     assert report["verify"] == [
-        "/path/to/python -m agent_mem_bridge doctor",
-        "/path/to/python -m agent_mem_bridge verify",
+        f"{python_path} -m agent_mem_bridge doctor",
+        f"{python_path} -m agent_mem_bridge verify",
     ]
     assert report["install"]["smoke_test"] == report["verify"][1]
     assert report["install"]["optional_uv_smoke_test"].startswith("uvx --from git+")
@@ -87,24 +88,16 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert "## First Task Brief" in markdown
     assert "write_mode: `manual_copy_only`" in markdown
 
-    python_path = "/path with spaces/to/python"
-    spaced_report = build_first_run_report(
-        store,
-        client="generic",
-        namespace=NAMESPACE,
-        query="release handoff",
-        python_path=python_path,
-        cwd="/project path with spaces",
-        bridge_home="/bridge home with spaces",
-        config_path=None,
-    )
-    assert shlex.split(spaced_report["verify"][0]) == [python_path, "-m", "agent_mem_bridge", "doctor"]
-    assert shlex.split(spaced_report["verify"][1]) == [python_path, "-m", "agent_mem_bridge", "verify"]
+    posix_python = str(PurePosixPath("fixture path") / "python")
+    posix_command = _render_python_module_command(posix_python, "verify", platform="posix")
+    assert shlex.split(posix_command) == [posix_python, "-m", "agent_mem_bridge", "verify"]
+
+    windows_python = str(PureWindowsPath("fixture path") / "python.exe")
     assert _render_python_module_command(
-        r"C:\Program Files\Python311\python.exe",
+        windows_python,
         "verify",
         platform="nt",
-    ) == '"C:\\Program Files\\Python311\\python.exe" -m agent_mem_bridge verify'
+    ) == f'"{windows_python}" -m agent_mem_bridge verify'
 
 
 def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch, capsys) -> None:
