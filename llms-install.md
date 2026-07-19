@@ -34,13 +34,14 @@ python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scr
 ```
 
 Treat the printed value as local configuration data. Do not commit it to this
-repository or include it in an issue report.
+repository or include it in an issue report. In a POSIX shell, shell-quote the
+path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 
 Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.2.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -80,7 +81,7 @@ loaded.
 If `uvx` is already installed, it can run the GitHub source directly:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.22.2 agent-memory-bridge verify
 ```
 
 Do not make this the only install instruction. `uv` is not a project baseline

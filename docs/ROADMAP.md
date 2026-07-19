@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-18 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.22.1`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, and the v0.22.1 visual launch polish. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.22.2`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.22.1 visual launch polish, and the v0.22.2 onboarding-coherence patch. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,9 +636,49 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.22.2 = Onboarding Coherence
+
+Status: current public version story for `v0.22.2`; the MCP runtime and 10-tool
+public surface are unchanged.
+
+### Thesis
+
+The version installed from the public guide should produce the same first-run,
+client-config, and verification path that the guide describes.
+
+One sentence:
+
+`0.22.2 = one released onboarding contract across the docs and CLI, with client registration kept explicit and manual; validation snapshot: 395 passed.`
+
+### Scope
+
+1. Pin public install surfaces and generated first-run guidance to the immutable
+   `v0.22.2` archive.
+2. Use `.amb-venv` and its derived interpreter consistently across Windows,
+   macOS, and Linux without committing resolved local paths.
+3. Keep placeholder-safe examples separate from runnable config rendered with
+   approved local paths.
+4. Keep `doctor` and `verify` as local checks, with real client MCP status/tool
+   visibility as the registration gate.
+5. Preserve the 10-tool MCP surface and manual config-write boundary.
+
+### Acceptance Gate
+
+`0.22.2` is acceptable only when:
+
+- the candidate archive installs cleanly and reports package version `0.22.2`
+- installed `first-run` matches the public install guide
+- one isolated real client registration exposes exactly 10 tools
+- one synthetic `store -> later recall` loop succeeds through that client
+- the test snapshot is `395 passed`
+- all nine GitHub OS/Python jobs pass
+- public, onboarding, release, dependency, and private-path gates pass
+- no claim of faster onboarding or higher user completion is made before pilot data
+- no new MCP tools, auto config writes, telemetry, or memory features are added
+
 ## 0.22.1 = Visual Launch Polish
 
-Status: current public version story for `v0.22.1`; runtime behavior is
+Status: historical public version story for `v0.22.1`; runtime behavior was
 unchanged from `v0.22.0`.
 
 ### Thesis

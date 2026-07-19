@@ -2,13 +2,16 @@
 
 Last updated: 2026-07-18 (America/New_York)
 
-This maintainer note describes the current `0.22.1` release shape, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.22.2` release shape, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.22.1 Release Status
+## 0.22.2 Release Status
 
-- Package version: `0.22.1`
-- Release thesis: visual launch polish for the Cross-Client Activation Receipt
-- Runtime behavior: unchanged from `0.22.0`
+- Package version: `0.22.2`
+- Release thesis: one released onboarding contract across public docs and the installed CLI
+- MCP runtime behavior: unchanged from `0.22.1`; first-run guidance and version references are aligned
+- Baseline install: immutable `v0.22.2` archive in `.amb-venv`, using the derived venv interpreter
+- Registration boundary: `doctor` and `verify` are local checks; client MCP status/tool visibility proves config loading
+- Config boundary: placeholder-safe examples remain separate from real config rendered with approved local paths; all config writes remain manual
 - Receipt command: `agent-memory-bridge activation-receipt --namespace ... --correlation-id ... --format markdown`
 - Receipt proof: one reviewed writer memory plus one acked reader signal under one namespace and correlation id, with two distinct declared `source_client` labels
 - Receipt boundary: declared provenance only; not identity proof, certification, distribution proof, or use proof
@@ -267,7 +270,7 @@ The release still does **not** mean:
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.22.1
+## Pressure Points After 0.22.2
 
 The most important remaining gaps are:
 
@@ -282,6 +285,8 @@ The most important remaining gaps are:
 9. optional receipt ergonomics for operators without moving receipt generation into the MCP tool surface
 
 ## Maintainer Read
+
+`0.22.2` aligns the immutable install archive, installed `first-run` report, client-config guidance, and verification sequence while keeping client registration explicit and manual. The MCP runtime and 10-tool public surface are unchanged. Independent-user completion time, failure rate, and support burden remain Phase 1 pilot questions rather than release claims.
 
 `0.22.1` keeps the v0.22 receipt runtime unchanged and gives the public docs a clearer visual entry point. The README hero is conceptual only; the detailed overview sits under "How It Works"; the v0.22.1 announcement carries the two receipt-specific SVGs; and the visual inventory plus native-size/README-width render gate record asset hygiene without proving visual semantics.
 

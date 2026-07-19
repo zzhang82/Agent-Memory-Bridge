@@ -49,8 +49,11 @@ def test_public_surface_check_repository_passes() -> None:
     }.issubset(set(report["checked_files"]))
 
 
-def test_v0221_announcement_is_on_public_surface() -> None:
-    assert Path("docs/v0.22.1-announcement.md") in PUBLIC_DOC_PATHS
+def test_v022_release_announcements_are_on_public_surface() -> None:
+    assert {
+        Path("docs/v0.22.1-announcement.md"),
+        Path("docs/v0.22.2-announcement.md"),
+    }.issubset(set(PUBLIC_DOC_PATHS))
 
 
 def test_visual_release_assets_are_on_public_surface_with_png_binary_only() -> None:

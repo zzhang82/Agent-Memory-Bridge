@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import shlex
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -19,10 +18,11 @@ FIRST_RUN_SCHEMA = "memory.first_run.v1"
 FIRST_RUN_BOUNDARY = "manual_config_copy_no_auto_mutation"
 PYTHON_LAUNCHER_NOTE = (
     "Use the available Python 3.11+ launcher: examples use `python`; on many "
-    "Linux systems use `python3`; on Windows `py -3` may be appropriate."
+    "Linux systems use `python3`; on Windows `py -3` may be appropriate. "
+    "Generated Windows verification commands use PowerShell syntax."
 )
 GITHUB_ARCHIVE_URL = (
-    "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.1.zip"
+    "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.2.zip"
 )
 VENV_INTERPRETER_COMMAND = (
     'python -c "import os; from pathlib import Path; '
@@ -90,7 +90,7 @@ def build_first_run_report(
             "github_install": baseline_install,
             "smoke_test": verify_commands[1],
             "optional_uv_smoke_test": (
-                "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge "
+                "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.22.2 "
                 "agent-memory-bridge verify"
             ),
         },
@@ -181,5 +181,6 @@ def _render_python_module_command(
 ) -> str:
     args = [command, "-m", "agent_mem_bridge", subcommand]
     if (platform or os.name) == "nt":
-        return subprocess.list2cmdline(args)
+        quoted_command = "'" + command.replace("'", "''") + "'"
+        return " ".join(["&", quoted_command, *args[1:]])
     return shlex.join(args)

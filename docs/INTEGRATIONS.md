@@ -157,7 +157,7 @@ ack_signal(id="<reader_signal_id>")
 Then render the local receipt:
 
 ```bash
-agent-memory-bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
+<venv-python> -m agent_mem_bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
 ```
 
 A passing receipt means exactly one writer memory and one acked reader signal
@@ -411,8 +411,8 @@ Use `opencode mcp add` for the guided flow or merge the generated shape into the
 intended user or project config:
 
 ```bash
-agent-memory-bridge first-run --client opencode --example
-agent-memory-bridge config --client opencode --example
+<venv-python> -m agent_mem_bridge first-run --client opencode --example
+<venv-python> -m agent_mem_bridge config --client opencode --example
 ```
 
 ```json
@@ -447,8 +447,8 @@ adapter commands remain a manual helper workflow; AMB itself remains a separate
 MCP store.
 
 ```bash
-agent-memory-bridge first-run --client hermes --example
-agent-memory-bridge config --client hermes --example
+<venv-python> -m agent_mem_bridge first-run --client hermes --example
+<venv-python> -m agent_mem_bridge config --client hermes --example
 ```
 
 ```yaml

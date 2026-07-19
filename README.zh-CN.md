@@ -13,7 +13,7 @@
 
 Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 shared engineering memory。它补充 `AGENTS.md`、`CLAUDE.md` 和客户端原生 preference memory，而不是取代它们。SQLite/WAL 是 durable authority，FTS5 和可选本地 embeddings 则是用于 lexical、semantic 或 hybrid retrieval 的 derived indexes。
 
-`0.22.1` 是 v0.22 Cross-Client Activation Receipt 的 visual polish。Runtime behavior 不变。本地 receipt 检查一条 reviewed writer memory、一条 acked reader signal，以及两个不同的声明式 `source_client` label；它只是 declared provenance，不是 identity、certification、distribution 或 use proof。
+`0.22.2` 让已安装版本中的 `first-run`、client-config 输出和公开 onboarding 文档保持一致。它在 Windows、macOS 和 Linux 上使用同一条 pinned `.amb-venv` 安装路径，明确区分本地 `doctor` / `verify` 检查与 client-registration gate，并继续要求人工写入配置。MCP surface 仍为 10 个 public tools。独立用户的 onboarding 用时和完成率仍待 Phase 1 pilot 测量。
 
 > Codex 是参考工作流，不是产品边界。AMB 使用本地 stdio MCP；客户端集成只按下方标注声明为 documented 或 locally verified。
 
@@ -23,7 +23,7 @@ Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 sh
 
 <p align="center"><em>概念图，只表达 AMB 的 shared-memory workspace metaphor；不是 product evidence、identity evidence、certification、distribution 或使用证明。</em></p>
 
-本地试用：安装后运行 `agent-memory-bridge first-run --client generic --example`
+本地试用：安装后运行 `<venv-python> -m agent_mem_bridge first-run --client generic --example`
 
 ## 为什么存在
 
@@ -72,22 +72,29 @@ writeback 的前提下生成。Release checks、benchmarks 和 visual claim inve
 - Python 3.11+
 - 带 FTS5 的 SQLite；可选本地 embeddings 是 derived index，不是 durable authority
 - 任意能启动本地 stdio server 的 MCP-compatible client
-- 可选的 `uv` / `uvx`，用于最快的一条命令 GitHub smoke test
+- 可选的 `uv` / `uvx`，用于 pinned 单命令 GitHub smoke test
 
-基线 editable install 只需要 Python：
+使用 Python 从 pinned GitHub archive 安装：
 
 ```bash
-python -m venv .venv
-# 先按你的 shell 激活 virtual environment，然后：
-python -m pip install -e .
-agent-memory-bridge doctor
-agent-memory-bridge verify
+python -m venv .amb-venv
+python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())"
 ```
 
-可选的最快 GitHub smoke test 使用 `uvx`：
+把打印结果视为 `<venv-python>`。不要把解析后的本地 path 写入 commit 或
+issue report。在 POSIX shell 中按需对该 path 做 shell quoting；在 Windows
+PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
+
+```text
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.2.zip"
+<venv-python> -m agent_mem_bridge doctor
+<venv-python> -m agent_mem_bridge verify
+```
+
+可选的 pinned GitHub smoke test 使用 `uvx`：
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.22.2 agent-memory-bridge verify
 ```
 
 ### 快速开始：Unified First-Run
@@ -98,20 +105,20 @@ uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-brid
 memory records。
 
 ```bash
-agent-memory-bridge first-run --client generic --example
-agent-memory-bridge first-run --client codex --example
-agent-memory-bridge first-run --client opencode --example
-agent-memory-bridge first-run --client hermes --example
+<venv-python> -m agent_mem_bridge first-run --client generic --example
+<venv-python> -m agent_mem_bridge first-run --client codex --example
+<venv-python> -m agent_mem_bridge first-run --client opencode --example
+<venv-python> -m agent_mem_bridge first-run --client hermes --example
 ```
 
 如果你只需要 config snippet，再直接用 `config`：
 
 ```bash
-agent-memory-bridge config --client generic --example
-agent-memory-bridge config --client codex --example
-agent-memory-bridge config --client opencode --example
-agent-memory-bridge config --client hermes --example
-agent-memory-bridge config --client cursor --example
+<venv-python> -m agent_mem_bridge config --client generic --example
+<venv-python> -m agent_mem_bridge config --client codex --example
+<venv-python> -m agent_mem_bridge config --client opencode --example
+<venv-python> -m agent_mem_bridge config --client hermes --example
+<venv-python> -m agent_mem_bridge config --client cursor --example
 ```
 
 如果你想要隔离运行时，也可以用 Dockerized stdio：
@@ -182,7 +189,7 @@ ack_signal(id="<reader_signal_id>")
 然后生成本地 receipt：
 
 ```bash
-agent-memory-bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
+<venv-python> -m agent_mem_bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
 ```
 
 Receipt 只输出 hashes 和 pass/review status。它不会打印 raw memory
@@ -236,10 +243,10 @@ bridge 暴露 `10` public MCP tools：
 operator review work 是 CLI report，不是 MCP tool：
 
 ```bash
-agent-memory-bridge review-queue --namespace project:demo --format markdown
-agent-memory-bridge review-workflow --namespace project:demo --format markdown
-agent-memory-bridge task-brief --namespace project:demo --query "release handoff" --format markdown
-agent-memory-bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
+<venv-python> -m agent_mem_bridge review-queue --namespace project:demo --format markdown
+<venv-python> -m agent_mem_bridge review-workflow --namespace project:demo --format markdown
+<venv-python> -m agent_mem_bridge task-brief --namespace project:demo --query "release handoff" --format markdown
+<venv-python> -m agent_mem_bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
 ```
 
 `review-queue` 会显示 staged candidates、review receipts、tombstones、stale records 和 quarantined claims。`review-workflow` 会把这些 queue items 转成明确的 human decision prompts 和 manual steps。`task-brief` 会把已有 task-memory assembly、review queue items 和 active signals 编译成 `Used`、`Ignored` 和 `Needs Review` 区块。`activation-receipt` 只读取同一 namespace 和 correlation id 下已有 rows，并输出 sanitized declared-provenance receipt。这些 CLI reports 不会自动 durable writeback。
@@ -250,7 +257,7 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 
 ## Proof Snapshot
 
-`0.22.1` 保持 v0.22 activation receipt behavior 不变，并增加 release-facing visual polish。它仍然是边界明确的本地 memory system；本版本不声称通用 machine unlearning、graph-memory traversal、隐私合规、certification、identity proof、distribution proof、use proof 或 automatic policy enforcement。Tombstone 只审计被删除的 record ID；它不会阻止调用方以后把相同内容显式写成一个新的 ID。
+`0.22.2` 关闭公开 setup guides 与已安装 `first-run` 输出之间的 release gap，同时保持 MCP runtime 和 10-tool public surface 不变。它继续要求人工写入 client config，也不把 `doctor` 或 `verify` 当作 client 已加载配置的证明。它仍然是边界明确的本地 memory system；本版本不声称更快 onboarding、更高完成率、通用 machine unlearning、graph-memory traversal、隐私合规、certification、identity proof、distribution proof、use proof 或 automatic policy enforcement。Tombstone 只审计被删除的 record ID；它不会阻止调用方以后把相同内容显式写成一个新的 ID。
 
 | Track | Current signal |
 |---|---|
@@ -412,7 +419,7 @@ AMB 不是 graph database、通用 unlearning system、hosted memory platform、
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.22.1 announcement](docs/v0.22.1-announcement.md)
+- [v0.22.2 announcement](docs/v0.22.2-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

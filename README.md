@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.22.1` is visual polish for the v0.22 Cross-Client Activation Receipt. Runtime behavior is unchanged. The local receipt checks one reviewed writer memory, one acked reader signal, and two distinct declared `source_client` labels; it is declared provenance only, not identity, certification, distribution, or use proof.
+`0.22.2` aligns the installed `first-run` and client-config output with the public onboarding guides. It uses one pinned `.amb-venv` setup path across Windows, macOS, and Linux, separates local `doctor` / `verify` checks from the client-registration gate, and keeps config changes manual. The MCP surface remains at 10 public tools. Independent-user onboarding time and completion rates have not yet been measured.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -23,7 +23,7 @@ Agent Memory Bridge is shared engineering memory for developers and teams that u
 
 <p align="center"><em>Conceptual visual only: a shared-memory workspace metaphor for AMB. It is not product evidence, identity evidence, certification, distribution, or use proof.</em></p>
 
-Try it locally after install: `agent-memory-bridge first-run --client generic --example`
+Try it locally after install: `<venv-python> -m agent_mem_bridge first-run --client generic --example`
 
 ## Why It Exists
 
@@ -72,22 +72,29 @@ Requirements:
 - Python 3.11+
 - SQLite with FTS5 support; optional local embeddings are derived indexes, not durable authority
 - any MCP-compatible client that can launch a local stdio server
-- optional `uv` / `uvx` for the fastest one-command GitHub smoke test
+- optional `uv` / `uvx` for a pinned one-command GitHub smoke test
 
-Baseline editable install with Python:
+Pinned GitHub install with Python:
 
 ```bash
-python -m venv .venv
-# Activate the virtual environment for your shell, then:
-python -m pip install -e .
-agent-memory-bridge doctor
-agent-memory-bridge verify
+python -m venv .amb-venv
+python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())"
 ```
 
-Optional fastest GitHub smoke test with `uvx`:
+Treat the printed value as `<venv-python>`. Keep that resolved local path out of
+commits and issue reports. In a POSIX shell, shell-quote that path when needed.
+In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
+
+```text
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.2.zip"
+<venv-python> -m agent_mem_bridge doctor
+<venv-python> -m agent_mem_bridge verify
+```
+
+Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.22.2 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -98,20 +105,20 @@ commands, and a first Task Brief preview. It does not write client config files
 or durable memory records.
 
 ```bash
-agent-memory-bridge first-run --client generic --example
-agent-memory-bridge first-run --client codex --example
-agent-memory-bridge first-run --client opencode --example
-agent-memory-bridge first-run --client hermes --example
+<venv-python> -m agent_mem_bridge first-run --client generic --example
+<venv-python> -m agent_mem_bridge first-run --client codex --example
+<venv-python> -m agent_mem_bridge first-run --client opencode --example
+<venv-python> -m agent_mem_bridge first-run --client hermes --example
 ```
 
 If you only need the config snippet, use `config` directly:
 
 ```bash
-agent-memory-bridge config --client generic --example
-agent-memory-bridge config --client codex --example
-agent-memory-bridge config --client opencode --example
-agent-memory-bridge config --client hermes --example
-agent-memory-bridge config --client cursor --example
+<venv-python> -m agent_mem_bridge config --client generic --example
+<venv-python> -m agent_mem_bridge config --client codex --example
+<venv-python> -m agent_mem_bridge config --client opencode --example
+<venv-python> -m agent_mem_bridge config --client hermes --example
+<venv-python> -m agent_mem_bridge config --client cursor --example
 ```
 
 Dockerized stdio works too when you want an isolated runtime:
@@ -183,7 +190,7 @@ ack_signal(id="<reader_signal_id>")
 Then render the local receipt:
 
 ```bash
-agent-memory-bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
+<venv-python> -m agent_mem_bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
 ```
 
 The receipt reports hashes and pass/review status. It does not print raw memory
@@ -237,10 +244,10 @@ For normal service use, log capture helpers, promotion helpers, and strong conso
 Operator review work is available as CLI reports, not MCP tools:
 
 ```bash
-agent-memory-bridge review-queue --namespace project:demo --format markdown
-agent-memory-bridge review-workflow --namespace project:demo --format markdown
-agent-memory-bridge task-brief --namespace project:demo --query "release handoff" --format markdown
-agent-memory-bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
+<venv-python> -m agent_mem_bridge review-queue --namespace project:demo --format markdown
+<venv-python> -m agent_mem_bridge review-workflow --namespace project:demo --format markdown
+<venv-python> -m agent_mem_bridge task-brief --namespace project:demo --query "release handoff" --format markdown
+<venv-python> -m agent_mem_bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
 ```
 
 `review-queue` shows staged candidates, review receipts, tombstones, stale records, and quarantined claims. `review-workflow` turns those queue items into explicit human decision prompts and manual steps. `task-brief` composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections. `activation-receipt` reads existing rows for one namespace and correlation id and emits a sanitized declared-provenance receipt. These reports perform no automatic durable writeback.
@@ -251,7 +258,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.22.1` keeps the v0.22 activation receipt behavior unchanged and adds release-facing visual polish. It remains a bounded local memory system: the release does not claim general machine unlearning, graph-memory traversal, privacy compliance, certification, identity proof, distribution proof, use proof, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
+`0.22.2` closes the release gap between the public setup guides and the installed `first-run` output while leaving the MCP runtime and 10-tool public surface unchanged. It keeps client config writes manual and does not treat `doctor` or `verify` as proof that a client loaded the config. It remains a bounded local memory system: the release does not claim faster onboarding, higher completion rates, general machine unlearning, graph-memory traversal, privacy compliance, certification, identity proof, distribution proof, use proof, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
 
 | Track | Current signal |
 |---|---|
@@ -413,7 +420,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.22.1 announcement](docs/v0.22.1-announcement.md)
+- [v0.22.2 announcement](docs/v0.22.2-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

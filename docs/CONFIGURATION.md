@@ -170,11 +170,14 @@ local corpus benefits from `hybrid`:
 python ./scripts/run_benchmark.py --include-hybrid
 ```
 
+The commands below use `<venv-python>` for the derived interpreter from the
+[GitHub install guide](../llms-install.md).
+
 Index health can be inspected without mutating durable records:
 
 ```bash
-agent-memory-bridge index-health
-agent-memory-bridge index-health --strict-embeddings
+<venv-python> -m agent_mem_bridge index-health
+<venv-python> -m agent_mem_bridge index-health --strict-embeddings
 ```
 
 `index-health` requires the FTS5 cache to be healthy by default. Embedding
@@ -184,8 +187,8 @@ optional until you choose semantic or hybrid retrieval.
 Derived indexes can be rebuilt safely:
 
 ```bash
-agent-memory-bridge index-rebuild --fts
-agent-memory-bridge index-rebuild --embeddings
+<venv-python> -m agent_mem_bridge index-rebuild --fts
+<venv-python> -m agent_mem_bridge index-rebuild --embeddings
 ```
 
 These commands rebuild cache tables only. They do not change `memories` rows.
@@ -333,9 +336,9 @@ Use the CLI when you want to validate a fresh install instead of inspecting file
 by hand:
 
 ```bash
-agent-memory-bridge doctor
-agent-memory-bridge verify
-agent-memory-bridge index-health
+<venv-python> -m agent_mem_bridge doctor
+<venv-python> -m agent_mem_bridge verify
+<venv-python> -m agent_mem_bridge index-health
 ```
 
 - `doctor` checks Python, SQLite FTS5, config parsing, and writable runtime paths
