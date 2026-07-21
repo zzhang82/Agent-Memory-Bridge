@@ -65,7 +65,7 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert report["install"]["baseline"][0] == "python -m venv .amb-venv"
     assert ".absolute()" in report["install"]["baseline"][1]
     assert ".resolve()" not in report["install"]["baseline"][1]
-    assert "archive/refs/tags/v0.22.2.zip" in report["install"]["baseline"][2]
+    assert "archive/refs/tags/v0.22.3.zip" in report["install"]["baseline"][2]
     assert "<venv-python> -m pip install" in report["install"]["baseline"][2]
     assert report["install"]["github_install"] == report["install"]["baseline"]
     assert report["install"]["editable_install"][-1] == "<venv-python> -m pip install -e ."
@@ -75,12 +75,12 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     ]
     assert report["install"]["smoke_test"] == report["verify"][1]
     assert report["install"]["optional_uv_smoke_test"].startswith("uvx --from git+")
-    assert "Agent-Memory-Bridge@v0.22.2" in report["install"]["optional_uv_smoke_test"]
+    assert "Agent-Memory-Bridge@v0.22.3" in report["install"]["optional_uv_smoke_test"]
 
     markdown = render_first_run_markdown(report)
     assert "## Install" in markdown
     assert "Linux systems use `python3`" in markdown
-    assert "archive/refs/tags/v0.22.2.zip" in markdown
+    assert "archive/refs/tags/v0.22.3.zip" in markdown
     assert markdown.index("python -m venv .amb-venv") < markdown.index(".absolute()")
     assert markdown.index(".absolute()") < markdown.index("<venv-python> -m pip install")
     assert "Editable install:" not in markdown
@@ -134,7 +134,7 @@ def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch
     assert "Linux systems use `python3`" in payload["python_launcher_note"]
     assert payload["install"]["baseline"][0] == "python -m venv .amb-venv"
     assert ".absolute()" in payload["install"]["baseline"][1]
-    assert "archive/refs/tags/v0.22.2.zip" in payload["install"]["baseline"][2]
+    assert "archive/refs/tags/v0.22.3.zip" in payload["install"]["baseline"][2]
 
 
 def test_first_run_stays_cli_only_not_mcp_tool() -> None:

@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from .structured_record import RELATION_FIELDS, parse_structured_content
 
-RELATION_KEYS = ("supports", "contradicts", "supersedes", "depends_on")
+
+RELATION_KEYS = RELATION_FIELDS
 VALIDITY_STATUSES = ("unbounded", "current", "future", "expired", "invalid")
 
 
@@ -40,17 +42,7 @@ def extract_relation_tags(content: str) -> list[str]:
 
 
 def parse_content_fields(content: str) -> dict[str, str]:
-    fields: dict[str, str] = {}
-    for raw_line in content.splitlines():
-        label, separator, remainder = raw_line.partition(":")
-        if not separator:
-            continue
-        key = label.strip().lower().replace("-", "_")
-        value = " ".join(remainder.split()).strip()
-        if not key or not value:
-            continue
-        fields.setdefault(key, value)
-    return fields
+    return parse_structured_content(content).as_compat_dict()
 
 
 def resolve_validity_status(

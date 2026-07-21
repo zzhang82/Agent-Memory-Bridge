@@ -5,9 +5,23 @@ import json
 from typing import Any
 
 from .repository import LEARNING_CANDIDATE_TAG, MemoryRow, fetch_row_by_id, merge_tags, normalize_content
+from .structured_record import (
+    LINEAGE_LIST_FIELDS,
+    LINEAGE_SINGLETON_FIELDS,
+    RELATION_FIELDS,
+    build_structured_content,
+    parse_structured_content,
+)
 
 
 PROMOTABLE_RECORD_TYPES = {"learn", "gotcha", "domain-note"}
+PRESERVED_PROMOTION_FIELDS = (
+    *RELATION_FIELDS,
+    "valid_from",
+    "valid_until",
+    *tuple(field for field in LINEAGE_SINGLETON_FIELDS if field not in RELATION_FIELDS),
+    *tuple(field for field in LINEAGE_LIST_FIELDS if field not in RELATION_FIELDS),
+)
 
 
 def promote_entry(store: Any, memory_id: str, to_kind: str) -> dict[str, Any]:
@@ -113,28 +127,11 @@ def promote_entry(store: Any, memory_id: str, to_kind: str) -> dict[str, Any]:
 
 
 def parse_structured_record(content: str) -> dict[str, str]:
-    fields: dict[str, str] = {}
-    for line in str(content).splitlines():
-        compact = " ".join(line.split()).strip()
-        if not compact or ":" not in compact:
-            continue
-        key, _, value = compact.partition(":")
-        key = key.strip()
-        value = value.strip()
-        if not key or not value:
-            continue
-        fields[key] = value
-    return fields
+    return parse_structured_content(content).as_compat_dict()
 
 
 def build_structured_record(fields: dict[str, str]) -> str:
-    lines: list[str] = []
-    for key, value in fields.items():
-        normalized = " ".join(str(value).split()).strip()
-        if not normalized:
-            continue
-        lines.append(f"{key}: {normalized}")
-    return "\n".join(lines)
+    return build_structured_content(fields)
 
 
 def truncate_title(text: str, limit: int = 72) -> str:
@@ -202,6 +199,11 @@ def build_promoted_item(row: MemoryRow, *, target_kind: str, current_record_type
             "signals": base_fields.get("signals", ""),
         }
         title = f"[[Domain Note]] {truncate_title(claim)}"
+
+    for key in PRESERVED_PROMOTION_FIELDS:
+        value = fields.get(key)
+        if value:
+            promoted_fields[key] = value
 
     explicit_tags = [
         tag

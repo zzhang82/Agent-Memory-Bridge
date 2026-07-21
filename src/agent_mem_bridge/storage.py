@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -165,6 +166,12 @@ class MemoryStore:
             raise ValueError("namespace must not be empty")
 
         query_text = query.strip()
+        cleaned_since = _optional_text(since)
+        if cleaned_since is not None:
+            if query_text:
+                raise ValueError("since requires an empty query")
+            if kind != "signal":
+                raise ValueError("since requires kind='signal'")
         search_limit = max(1, min(limit, 100))
         normalized_signal_status = normalize_signal_status_filter(signal_status)
         with self.telemetry.span(
@@ -180,7 +187,7 @@ class MemoryStore:
                 "has_session_id": bool(session_id),
                 "has_actor": bool(actor),
                 "has_correlation_id": bool(correlation_id),
-                "has_since": bool(since),
+                "has_since": bool(cleaned_since),
             },
         ) as span:
             items = recall_candidates(
@@ -194,14 +201,15 @@ class MemoryStore:
                 session_id=session_id,
                 actor=actor,
                 correlation_id=correlation_id,
-                since=since,
+                since=cleaned_since,
             )
-            next_since = items[-1]["id"] if items else since
+            is_polling_recall = not query_text and kind == "signal"
+            next_since = self._poll_cursor(items, current=cleaned_since) if is_polling_recall else None
             payload = {"count": len(items), "items": items, "next_since": next_since}
             span.set_attributes(
                 {
                     "result_count": payload["count"],
-                    "advanced_since": bool(items) and next_since != since,
+                    "advanced_since": bool(items) and next_since != cleaned_since,
                 }
             )
             self._log(
@@ -212,7 +220,7 @@ class MemoryStore:
                     "count": payload["count"],
                     "kind": kind,
                     "signal_status": normalized_signal_status,
-                    "since": since,
+                    "since": cleaned_since,
                 },
             )
             return payload
@@ -553,8 +561,26 @@ class MemoryStore:
     def _log(self, event_type: str, payload: dict[str, Any]) -> None:
         log_path = self.log_dir / f"{event_type}.log"
         entry = {"ts": self._utc_now(), **payload}
-        with log_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry, ensure_ascii=True) + "\n")
+        try:
+            with log_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(entry, ensure_ascii=True) + "\n")
+        except OSError:
+            try:
+                print("agent-memory-bridge: operational log write failed", file=sys.stderr)
+            except OSError:
+                pass
+
+    def _poll_cursor(self, items: list[dict[str, Any]], *, current: str | None) -> str | None:
+        if not items:
+            return current
+        item_ids = [str(item["id"]) for item in items]
+        placeholders = ", ".join("?" for _ in item_ids)
+        with self._connect() as conn:
+            row = conn.execute(
+                f"SELECT id FROM memories WHERE id IN ({placeholders}) ORDER BY rowid DESC LIMIT 1",
+                item_ids,
+            ).fetchone()
+        return str(row["id"]) if row is not None else current
 
     @staticmethod
     def _utc_now() -> str:

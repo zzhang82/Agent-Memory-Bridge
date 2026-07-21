@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-07-18 (America/New_York)
+Last updated: 2026-07-21 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.22.2`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.22.1 visual launch polish, and the v0.22.2 onboarding-coherence patch. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.22.3`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.22.1 visual launch polish, the v0.22.2 onboarding-coherence patch, and the v0.22.3 correctness hardening. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,10 +636,60 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.22.3 = Correctness Hardening
+
+Status: current public version story for `v0.22.3`; the public MCP surface
+remains exactly 10 tools.
+
+### Thesis
+
+The existing local coordination and governed-record contracts should be
+deterministic before the project adds more reliability features.
+
+One sentence:
+
+`0.22.3 = insertion-ordered Signal polling, owner-matched active-claim ack, metadata-preserving promotion, and best-effort operational output; validation snapshot: 405 passed.`
+
+### Scope
+
+1. Reserve `since` for empty-query Signal polling and reject missing, deleted,
+   or cross-namespace anchors.
+2. Return polling rows by ascending insertion order while keeping ordinary
+   recall ordering and ranking unchanged.
+3. Require the current owner when acking an active claim while preserving
+   ownerless ack for pending unclaimed Signals.
+4. Use one normalized structured scanner for relation, lineage, promotion, and
+   stored-candidate interpretation.
+5. Preserve relation, validity, content lineage, database lineage status, and
+   lineage issues during promotion.
+6. Keep committed business operations successful when operational or telemetry
+   JSONL append fails.
+7. Add executable multiprocessing claim evidence without widening AMB into a
+   queue, scheduler, or distributed lock.
+
+### Acceptance Gate
+
+`0.22.3` is acceptable only when:
+
+- 10,000 Signals drain with `limit=100` in exact insertion order with zero
+  missing or duplicate ids
+- missing, deleted, and cross-namespace cursors fail without replay
+- active claimed Signals reject ownerless, blank, and wrong-owner ack attempts
+- pending unclaimed Signals retain the activation-receipt ack path
+- promotion preserves relation, validity, and lineage semantics
+- operational and telemetry JSONL failures do not reverse committed work
+- eight independent processes claiming one exact Signal produce one winner
+- the full suite is `405 passed`
+- all nine GitHub OS/Python jobs pass
+- the public MCP surface remains exactly 10 tools
+- public docs state that polling tracks insertions rather than lifecycle changes
+- no exactly-once, distributed queue, authenticated identity, or namespace ACL
+  claim is added
+
 ## 0.22.2 = Onboarding Coherence
 
-Status: current public version story for `v0.22.2`; the MCP runtime and 10-tool
-public surface are unchanged.
+Status: historical public version story for `v0.22.2`; the MCP runtime and
+10-tool public surface were unchanged.
 
 ### Thesis
 

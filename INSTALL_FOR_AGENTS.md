@@ -49,7 +49,7 @@ user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
    ```
 
 3. Derive the venv interpreter as described in `llms-install.md`, then install
-   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.2.zip"`.
+   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.3.zip"`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:

@@ -8,6 +8,7 @@ from .learning_policy import REVIEW_REQUIRED_AUTHORITY_CLASSES, evaluate_learnin
 from .promotion import parse_structured_record
 from .query import normalize_text
 from .repository import LEARNING_CANDIDATE_TAG
+from .structured_record import parse_structured_content
 
 GOVERNANCE_SCHEMA = "memory.promotion_governance.v1"
 MIN_PROMOTION_CONFIDENCE = 0.7
@@ -166,9 +167,10 @@ def review_learning_candidates(
 
 
 def candidate_from_learning_candidate_item(item: Mapping[str, Any]) -> dict[str, Any]:
-    fields = parse_structured_record(str(item.get("content") or ""))
+    record = parse_structured_content(str(item.get("content") or ""))
+    fields = record.as_compat_dict()
     tags = [str(tag) for tag in (item.get("tags") or [])]
-    evidence_refs = _json_list(fields.get("evidence_refs_json"))
+    evidence_refs = list(record.values("evidence_refs"))
     domain_tags = _json_list(fields.get("domain_tags_json")) or [tag for tag in tags if tag.startswith("domain:")]
     return {
         "schema": fields.get("schema", "memory.candidate.v1"),
@@ -183,8 +185,8 @@ def candidate_from_learning_candidate_item(item: Mapping[str, Any]) -> dict[str,
         "domain_tags": domain_tags,
         "topic_tags": [tag for tag in tags if tag.startswith("topic:")],
         "cluster_tags": [tag for tag in tags if tag.startswith("cluster:")],
-        "supersedes_record_ids": _json_list(fields.get("supersedes_record_ids_json")),
-        "contradicts_record_ids": _json_list(fields.get("contradicts_record_ids_json")),
+        "supersedes_record_ids": list(record.values("supersedes")),
+        "contradicts_record_ids": list(record.values("contradicts")),
         "supersession_plan": fields.get("supersession_plan", ""),
     }
 

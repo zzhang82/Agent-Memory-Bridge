@@ -1,15 +1,20 @@
 # Production Status
 
-Last updated: 2026-07-18 (America/New_York)
+Last updated: 2026-07-21 (America/New_York)
 
-This maintainer note describes the current `0.22.2` release shape, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.22.3` correctness-hardening release, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.22.2 Release Status
+## 0.22.3 Release Status
 
-- Package version: `0.22.2`
-- Release thesis: one released onboarding contract across public docs and the installed CLI
-- MCP runtime behavior: unchanged from `0.22.1`; first-run guidance and version references are aligned
-- Baseline install: immutable `v0.22.2` archive in `.amb-venv`, using the derived venv interpreter
+- Package version: `0.22.3`
+- Release thesis: correct Signal polling and ownership while preserving governed record metadata
+- MCP runtime behavior: polling, claimed-Signal ack, structured parsing, promotion preservation, and operational-output failure semantics are tightened; the tool count is unchanged
+- Baseline install: immutable `v0.22.3` archive in `.amb-venv`, using the derived venv interpreter
+- Polling contract: `since` is valid only for empty-query `kind="signal"` recall; rows are returned by ascending insertion order and invalid same-namespace anchors fail explicitly
+- Cursor boundary: `since` tracks later insertions, not later lifecycle transitions on older Signals; text and memory recall return `next_since: null`
+- Ack contract: pending unclaimed Signals remain ownerless-ack compatible; active claims require the current owner and use a conditional update
+- Promotion contract: relation, validity, content-carried lineage, database lineage state, and lineage issues survive promotion
+- Operational-output contract: business results remain authoritative when operational or telemetry JSONL append fails
 - Registration boundary: `doctor` and `verify` are local checks; client MCP status/tool visibility proves config loading
 - Config boundary: placeholder-safe examples remain separate from real config rendered with approved local paths; all config writes remain manual
 - Receipt command: `agent-memory-bridge activation-receipt --namespace ... --correlation-id ... --format markdown`
@@ -40,7 +45,7 @@ This maintainer note describes the current `0.22.2` release shape, the inherited
 8. local metadata-only telemetry
 9. task-time assembly over procedures, concepts, beliefs, and linked supporting records
 10. onboarding and integration hardening through platform-neutral docs, rendered client configs, and local `doctor` / `verify` checks
-11. contention-tested signal ownership, reclaim, and stale-ack boundaries
+11. serialized lifecycle contention checks plus an eight-process exact-ID claim test with one winner
 12. policy-gated learning candidates that can stage runtime learning without entering ordinary recall, browse, export, or stats until explicitly reviewed
 13. internal governance triggers that scan hidden learning candidates and open review signals without promoting or rewriting memory
 14. optional embedding sidecar scheduling for derived-cache maintenance without changing durable memory rows
@@ -53,9 +58,11 @@ This maintainer note describes the current `0.22.2` release shape, the inherited
 21. governed change handling for transactional redacted tombstones, conservative exact-lineage cascades, degraded audit retention, bounded transitive supersession, current-premise evidence, and declared task-domain applicability
 22. a Cross-Client Activation Receipt CLI/report that reads existing writer memory and reader signal rows for one namespace and correlation id, hashes sensitive identifiers, and performs no durable or config writes
 
-## Verified On 2026-07-18
+## Verified On 2026-07-21
 
-- `pytest` passes: `395 passed`
+- `pytest` passes: `405 passed`
+- 10,000-Signal polling acceptance with `limit=100`: exact insertion order, 10,000 unique ids, zero missing, zero unexpected, 100 pages
+- eight independent `spawn` processes claiming one exact Signal: one stored winner and no lock error in the local Linux run; the same test is part of the normal cross-platform CI matrix
 - cross-client activation receipt tests cover pass/review-required outcomes, distinct declared `source_client` labels, acked reader signals, observed writer-id matching, deterministic redaction, CLI exit codes, no memory mutation, and public MCP surface stability
 - targeted learning-candidate tests cover policy decisions, hidden review records, forged-decision rejection, and public-surface stability
 - deterministic proof reports `4/4` checks passed
@@ -74,7 +81,7 @@ This maintainer note describes the current `0.22.2` release shape, the inherited
   - `classifier_better_count = 13`
   - `fallback_better_count = 2`
   - `classifier_filtered_low_confidence_count = 2`
-- signal contention snapshot reports:
+- serialized signal lifecycle snapshot reports:
   - `signal_contention_case_count = 5`
   - `signal_contention_case_pass_rate = 1.0`
   - `unique_active_claim_rate = 1.0`
@@ -210,7 +217,7 @@ This maintainer note describes the current `0.22.2` release shape, the inherited
 - the visual inventory is release hygiene, not semantic proof
 - native-size and README-width raster renders are a release gate for clipping,
   overlap, and crossed labels
-- the validation snapshot is `395 passed`
+- the validation snapshot is `405 passed`
 
 ## What 0.22.0 Actually Means
 
@@ -270,7 +277,7 @@ The release still does **not** mean:
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.22.2
+## Pressure Points After 0.22.3
 
 The most important remaining gaps are:
 
@@ -280,13 +287,15 @@ The most important remaining gaps are:
 4. cross-domain concept synthesis beyond the current domain-local concept-note step
 5. more deliberate procedure curation or promotion instead of only manual procedure records
 6. pre-compaction capture before model-side loss
-7. deeper real multi-client contention and activation dogfood beyond serialized benchmark cases
+7. broader multi-process contention and crash-recovery dogfood beyond the exact-ID claim test and serialized lifecycle benchmark
 8. a human-facing review UI or external harness that consumes review-workflow output without moving execution into AMB core
 9. optional receipt ergonomics for operators without moving receipt generation into the MCP tool surface
 
 ## Maintainer Read
 
-`0.22.2` aligns the immutable install archive, installed `first-run` report, client-config guidance, and verification sequence while keeping client registration explicit and manual. The MCP runtime and 10-tool public surface are unchanged. Independent-user completion time, failure rate, and support burden remain Phase 1 pilot questions rather than release claims.
+`0.22.3` makes the existing local coordination contract deterministic where it previously was not. Signal polling is insertion-ordered and rejects invalid anchors; active claims require owner-matched ack; promotion retains relation, validity, and lineage information; and JSONL output failures do not overturn committed operations. The release still does not claim exactly-once delivery, a distributed queue, authenticated actors, or namespace isolation.
+
+`0.22.2` aligned the immutable install archive, installed `first-run` report, client-config guidance, and verification sequence while keeping client registration explicit and manual. Independent-user completion time, failure rate, and support burden remain Phase 1 pilot questions rather than release claims.
 
 `0.22.1` keeps the v0.22 receipt runtime unchanged and gives the public docs a clearer visual entry point. The README hero is conceptual only; the detailed overview sits under "How It Works"; the v0.22.1 announcement carries the two receipt-specific SVGs; and the visual inventory plus native-size/README-width render gate record asset hygiene without proving visual semantics.
 

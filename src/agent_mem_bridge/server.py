@@ -302,7 +302,8 @@ def recall(
         Field(
             description=(
                 "Optional cursor for polling only entries newer than a previously seen "
-                "entry id. Most useful with `kind=\"signal\"`."
+                "same-namespace entry id used as a Signal polling anchor. Requires an "
+                "empty query and `kind=\"signal\"`."
             )
         ),
     ] = None,
@@ -311,10 +312,11 @@ def recall(
 
     Use this tool to search durable memory, filter by metadata, or poll for fresh
     coordination signals. For issue-like work, prefer project and domain recall before
-    external search. For workflow polling, pass `since` and usually `kind="signal"`.
+    external search. For workflow polling, pass `since`, an empty query, and `kind="signal"`.
 
-    Returns matching items plus a `next_since` cursor that can be reused for the next
-    polling cycle.
+    Empty-query Signal recall returns a `next_since` cursor for the next polling cycle;
+    other recall modes return `next_since=null`. The cursor tracks later insertions,
+    not status changes to older Signals.
     """
     # MCP clients expose one static schema for memory and signal recall. Some
     # wrappers pass placeholder values (empty strings, empty arrays, or a signal
@@ -523,7 +525,10 @@ def ack_signal(
     consumer: Annotated[
         str | None,
         Field(
-            description="Optional consumer identity. When provided, the bridge checks that another active claimant does not own the lease.",
+            description=(
+                "Consumer identity that must match the owner of an active claim. "
+                "It may be omitted only when acknowledging a pending, unclaimed signal."
+            ),
         ),
     ] = None,
 ) -> dict[str, Any]:

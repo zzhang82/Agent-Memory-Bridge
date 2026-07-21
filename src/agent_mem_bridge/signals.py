@@ -280,7 +280,7 @@ def ack_signal_entry(
     row_to_item: Callable[[sqlite3.Row], dict[str, Any]],
 ) -> dict[str, Any]:
     cleaned_id = memory_id.strip()
-    cleaned_consumer = consumer.strip() if consumer else None
+    cleaned_consumer = consumer.strip() if consumer and consumer.strip() else None
     if not cleaned_id:
         raise ValueError("id must not be empty")
 
@@ -306,20 +306,54 @@ def ack_signal_entry(
         if _is_expired(snapshot.lease_expires_at, now):
             conn.rollback()
             return {"id": cleaned_id, "acked": False, "reason": "lease-expired", "item": row_to_item(row)}
-        if cleaned_consumer and snapshot.claimed_by and snapshot.claimed_by != cleaned_consumer and status == "claimed":
+        if status == "claimed":
+            if snapshot.claimed_by is None:
+                conn.rollback()
+                return {"id": cleaned_id, "acked": False, "reason": "claim-owner-missing", "item": row_to_item(row)}
+            if cleaned_consumer is None:
+                conn.rollback()
+                return {"id": cleaned_id, "acked": False, "reason": "consumer-required", "item": row_to_item(row)}
+            if snapshot.claimed_by != cleaned_consumer:
+                conn.rollback()
+                return {"id": cleaned_id, "acked": False, "reason": "claimed-by-other", "item": row_to_item(row)}
+            update = conn.execute(
+                """
+                UPDATE memories
+                SET signal_status = 'acked',
+                    acknowledged_at = ?,
+                    lease_expires_at = NULL
+                WHERE id = ?
+                  AND kind = 'signal'
+                  AND signal_status = 'claimed'
+                  AND claimed_by = ?
+                  AND acknowledged_at IS NULL
+                  AND (lease_expires_at IS NULL OR datetime(lease_expires_at) > datetime(?))
+                """,
+                (now.isoformat(), cleaned_id, cleaned_consumer, now.isoformat()),
+            )
+        else:
+            update = conn.execute(
+                """
+                UPDATE memories
+                SET signal_status = 'acked',
+                    acknowledged_at = ?,
+                    lease_expires_at = NULL
+                WHERE id = ?
+                  AND kind = 'signal'
+                  AND (signal_status IS NULL OR signal_status = 'pending')
+                  AND acknowledged_at IS NULL
+                """,
+                (now.isoformat(), cleaned_id),
+            )
+        if update.rowcount != 1:
             conn.rollback()
-            return {"id": cleaned_id, "acked": False, "reason": "claimed-by-other", "item": row_to_item(row)}
-
-        conn.execute(
-            """
-            UPDATE memories
-            SET signal_status = 'acked',
-                acknowledged_at = ?,
-                lease_expires_at = NULL
-            WHERE id = ?
-            """,
-            (now.isoformat(), cleaned_id),
-        )
+            refreshed = fetch_row_by_id(conn, cleaned_id)
+            return {
+                "id": cleaned_id,
+                "acked": False,
+                "reason": "state-changed",
+                "item": row_to_item(refreshed) if refreshed is not None else None,
+            }
         conn.commit()
         refreshed = fetch_row_by_id(conn, cleaned_id)
 

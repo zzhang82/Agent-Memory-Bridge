@@ -53,6 +53,7 @@ def test_v022_release_announcements_are_on_public_surface() -> None:
     assert {
         Path("docs/v0.22.1-announcement.md"),
         Path("docs/v0.22.2-announcement.md"),
+        Path("docs/v0.22.3-announcement.md"),
     }.issubset(set(PUBLIC_DOC_PATHS))
 
 

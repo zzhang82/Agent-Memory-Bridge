@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -193,5 +194,11 @@ class Telemetry:
             "attributes": dict(attributes),
         }
         log_path = self.log_dir / "spans.jsonl"
-        with log_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry, ensure_ascii=True) + "\n")
+        try:
+            with log_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(entry, ensure_ascii=True) + "\n")
+        except OSError:
+            try:
+                print("agent-memory-bridge: telemetry log write failed", file=sys.stderr)
+            except OSError:
+                pass

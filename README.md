@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.22.2` aligns the installed `first-run` and client-config output with the public onboarding guides. It uses one pinned `.amb-venv` setup path across Windows, macOS, and Linux, separates local `doctor` / `verify` checks from the client-registration gate, and keeps config changes manual. The MCP surface remains at 10 public tools. Independent-user onboarding time and completion rates have not yet been measured.
+`0.22.3` tightens the existing correctness contracts without adding MCP tools. Signal polling now drains later insertions in ascending order, active claims require an owner-matched ack, promotion preserves relation, validity, and lineage metadata, and operational JSONL failures no longer reverse committed work. The public MCP surface remains at 10 tools.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -44,7 +44,7 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
 - Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `395 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `405 passed`.
 
 ## How It Works
 
@@ -86,7 +86,7 @@ commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.2.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.3.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -94,7 +94,7 @@ In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.22.2 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.22.3 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -156,8 +156,14 @@ For coordination, use signals:
 store(namespace="project:demo", kind="signal", content="release note review ready")
 claim_signal(namespace="project:demo", consumer="reviewer-a", lease_seconds=300)
 extend_signal_lease(id="<signal_id>", consumer="reviewer-a", lease_seconds=300)
-ack_signal(id="<signal_id>")
+ack_signal(id="<signal_id>", consumer="reviewer-a")
 ```
+
+For polling, use an empty query with `kind="signal"` and pass the previous
+`next_since` value back as `since`. Polling returns later insertions in ascending
+order. Missing, deleted, or cross-namespace anchors fail explicitly. The cursor
+does not report later claim or ack transitions on older Signals. Text and memory
+recall return `next_since: null`.
 
 For a cross-client activation receipt, keep one correlation id across both
 clients:
@@ -258,7 +264,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.22.2` closes the release gap between the public setup guides and the installed `first-run` output while leaving the MCP runtime and 10-tool public surface unchanged. It keeps client config writes manual and does not treat `doctor` or `verify` as proof that a client loaded the config. It remains a bounded local memory system: the release does not claim faster onboarding, higher completion rates, general machine unlearning, graph-memory traversal, privacy compliance, certification, identity proof, distribution proof, use proof, or automatic policy enforcement. Tombstones audit deleted record IDs; they do not prevent a caller from explicitly storing the same content later under a new ID.
+`0.22.3` fixes verified correctness gaps in Signal polling, claimed-work acknowledgment, structured record parsing, promotion preservation, and post-commit operational output. A local acceptance run drained 10,000 Signals with `limit=100` in exact insertion order with zero missing or duplicate IDs. The suite also includes an eight-process exact-ID claim test with one winner. These are local SQLite/WAL guarantees, not exactly-once delivery, distributed queue semantics, authenticated ownership, or a namespace access-control boundary.
 
 | Track | Current signal |
 |---|---|
@@ -266,7 +272,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
 | Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats unless explicitly queried with review tags; candidates are not durable authority until reviewed/promoted |
-| Signal contention | `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0` |
+| Signal contention | serialized lifecycle benchmark: `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0`; multiprocessing exact-ID claim test: 8 processes, 1 winner |
+| v0.22.3 correctness | 10,000-Signal polling acceptance: exact insertion order, `missing = 0`, `unexpected = 0`, `unique = 10000`; owner-matched active-claim ack and promotion-preservation regressions included in the suite |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory operations | `review_queue_item_count = 6`, `review_queue_actionable_count = 6`, `review_queue_no_auto_mutation = true`, `review_queue_public_mcp_surface_change = false` |
@@ -277,7 +284,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| Test suite | `395 passed` |
+| Test suite | `405 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -420,7 +427,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.22.2 announcement](docs/v0.22.2-announcement.md)
+- [v0.22.3 announcement](docs/v0.22.3-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from agent_mem_bridge.lineage import parse_lineage
 from agent_mem_bridge.signals import fair_claim_offset
 from agent_mem_bridge.storage import MemoryStore
 
@@ -863,12 +864,30 @@ def test_promote_rederives_relation_tags_after_content_rewrite(tmp_path: Path) -
             "record_type: learn\n"
             "claim: Keep startup relation metadata explicit.\n"
             "supports: mem-a | mem-b\n"
+            'supports_record_ids_json: ["mem-b", "mem-json"]\n'
+            "contradicts: mem-c\n"
+            "supersedes: mem-old\n"
+            "depends_on: policy-core\n"
+            "derived_from_candidate_id: candidate-a\n"
+            "evidence_refs: evidence-a\n"
+            'evidence_refs_json: ["evidence-a", "evidence-b"]\n'
+            "valid_from: 2020-01-01T00:00:00+00:00\n"
             "valid_until: 2099-01-01T00:00:00+00:00\n"
         ),
         kind="memory",
         tags=["kind:learn", "domain:retrieval"],
         title="[[Learn]] Keep startup relation metadata explicit.",
     )
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE memories SET lineage_status = ?, lineage_issues_json = ? WHERE id = ?",
+            (
+                "degraded",
+                '[{"missing_record_id":"source-record","type":"missing_dependency"}]',
+                created["id"],
+            ),
+        )
+        conn.commit()
 
     before = store.recall(namespace="project:bridge", tags_any=["relation:supports"], limit=10)
     promoted = store.promote(created["id"], "gotcha")
@@ -877,11 +896,27 @@ def test_promote_rederives_relation_tags_after_content_rewrite(tmp_path: Path) -
     assert before["count"] == 1
     assert promoted["changed"] is True
     assert promoted["record_type"] == "gotcha"
-    assert "relation:supports" not in promoted["item"]["tags"]
-    assert "validity:bounded" not in promoted["item"]["tags"]
-    assert promoted["item"]["relations"]["supports"] == []
-    assert promoted["item"]["validity_status"] == "unbounded"
-    assert after["count"] == 0
+    assert "relation:supports" in promoted["item"]["tags"]
+    assert "relation:contradicts" in promoted["item"]["tags"]
+    assert "relation:supersedes" in promoted["item"]["tags"]
+    assert "relation:depends_on" in promoted["item"]["tags"]
+    assert "validity:bounded" in promoted["item"]["tags"]
+    assert promoted["item"]["relations"] == {
+        "supports": ["mem-a", "mem-b", "mem-json"],
+        "contradicts": ["mem-c"],
+        "supersedes": ["mem-old"],
+        "depends_on": ["policy-core"],
+    }
+    assert promoted["item"]["valid_from"] == "2020-01-01T00:00:00+00:00"
+    assert promoted["item"]["valid_until"] == "2099-01-01T00:00:00+00:00"
+    promoted_lineage = parse_lineage(promoted["item"]["content"])
+    assert promoted_lineage.derived_from_candidate_id == "candidate-a"
+    assert promoted_lineage.evidence_refs == ("evidence-a", "evidence-b")
+    assert promoted["item"]["lineage_status"] == "degraded"
+    assert promoted["item"]["lineage_issues"] == [
+        {"missing_record_id": "source-record", "type": "missing_dependency"}
+    ]
+    assert after["count"] == 1
 
 
 def test_promote_returns_changed_false_when_already_target_kind(tmp_path: Path) -> None:
@@ -970,4 +1005,3 @@ def test_store_rejects_signal_expiry_for_memory_kind(tmp_path: Path) -> None:
             kind="memory",
             ttl_seconds=30,
         )
-

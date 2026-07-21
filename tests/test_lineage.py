@@ -55,7 +55,7 @@ def test_parse_lineage_does_not_infer_ids_from_prose_or_malformed_typed_fields()
         [
             "claim: candidate_id: candidate-from-prose depends on missing-1",
             "notes: derived_from_candidate_id: embedded-id",
-            "derived-from-belief-id: wrong-key-style",
+            "derived.from-belief-id: wrong-key-style",
             'evidence_refs_json: {"id": "not-a-list"}',
             'supports_record_ids_json: ["exact-support"] trailing text',
             "unrelated_record_ids_json: [\"unrelated-1\"]",

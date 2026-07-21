@@ -79,3 +79,34 @@ def test_memory_store_emits_metadata_only_spans(tmp_path: Path) -> None:
     claim_span = next(entry for entry in spans if entry["name"] == "amb.signal.claim")
     assert claim_span["attributes"]["consumer_hash"]
     assert claim_span["attributes"]["claimed"] is True
+
+
+def test_jsonl_telemetry_write_failure_does_not_reverse_store_or_write_stdout(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    telemetry_dir = tmp_path / "telemetry"
+    telemetry = Telemetry(TelemetryConfig(mode="jsonl", log_dir=telemetry_dir))
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs", telemetry=telemetry)
+    original_open = Path.open
+
+    def fail_telemetry_open(path: Path, *args, **kwargs):
+        if path.name == "spans.jsonl":
+            raise OSError("sensitive telemetry path")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fail_telemetry_open)
+    stored = store.store(namespace="project:telemetry", content="committed memory", kind="memory")
+    with store._connect() as conn:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM memories WHERE namespace = ?",
+            ("project:telemetry",),
+        ).fetchone()[0]
+
+    captured = capsys.readouterr()
+    assert stored["stored"] is True
+    assert count == 1
+    assert captured.out == ""
+    assert "telemetry log write failed" in captured.err
+    assert "sensitive telemetry path" not in captured.err

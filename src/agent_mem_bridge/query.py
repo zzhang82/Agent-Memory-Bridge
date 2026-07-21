@@ -410,13 +410,14 @@ def recall_via_filters(
         since=since,
     )
     with store._connect() as conn:
+        order_sql = "rowid ASC" if since is not None else "created_at DESC, rowid DESC"
         return conn.execute(
             f"""
             SELECT
                 {MEMORY_ROW_SELECT}
             FROM memories
             WHERE {where_sql}
-            ORDER BY created_at DESC, rowid DESC
+            ORDER BY {order_sql}
             LIMIT ?
             """,
             (*params, limit),
@@ -468,7 +469,12 @@ def build_filters(
         params.extend(tag_params)
 
     if since is not None:
-        since_filter_sql, since_params = build_since_filter(store, since, prefix=prefix)
+        since_filter_sql, since_params = build_since_filter(
+            store,
+            since,
+            namespace=namespace,
+            prefix=prefix,
+        )
         if since_filter_sql:
             clauses.append(since_filter_sql)
             params.extend(since_params)
@@ -538,11 +544,22 @@ def build_tag_filter(tags_any: list[str] | None, prefix: str = "") -> tuple[str,
     return f"({' OR '.join(clauses)})", params
 
 
-def build_since_filter(store: Any, since_id: str, prefix: str = "") -> tuple[str, list[str]]:
+def build_since_filter(
+    store: Any,
+    since_id: str,
+    *,
+    namespace: str,
+    prefix: str = "",
+) -> tuple[str, list[Any]]:
     with store._connect() as conn:
-        row = conn.execute("SELECT rowid FROM memories WHERE id = ? LIMIT 1", (since_id,)).fetchone()
+        row = conn.execute(
+            "SELECT rowid, namespace FROM memories WHERE id = ? LIMIT 1",
+            (since_id,),
+        ).fetchone()
     if row is None:
-        return "", []
+        raise ValueError(f"invalid since cursor: {since_id}")
+    if row["namespace"] != namespace:
+        raise ValueError("invalid since cursor: namespace mismatch")
     return f"{prefix}rowid > ?", [row["rowid"]]
 
 
