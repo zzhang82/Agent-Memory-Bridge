@@ -49,9 +49,7 @@ def main() -> None:
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Import or compare markdown profile memory in Agent Memory Bridge."
-    )
+    parser = argparse.ArgumentParser(description="Import or compare markdown profile memory in Agent Memory Bridge.")
     parser.add_argument(
         "source_root",
         nargs="?",

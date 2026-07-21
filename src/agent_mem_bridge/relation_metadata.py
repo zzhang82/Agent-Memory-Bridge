@@ -5,17 +5,13 @@ from typing import Any
 
 from .structured_record import RELATION_FIELDS, parse_structured_content
 
-
 RELATION_KEYS = RELATION_FIELDS
 VALIDITY_STATUSES = ("unbounded", "current", "future", "expired", "invalid")
 
 
 def parse_relation_metadata(content: str, *, now: datetime | None = None) -> dict[str, Any]:
     fields = parse_content_fields(content)
-    relations = {
-        relation: _split_relation_values(fields.get(relation, ""))
-        for relation in RELATION_KEYS
-    }
+    relations = {relation: _split_relation_values(fields.get(relation, "")) for relation in RELATION_KEYS}
     valid_from = fields.get("valid_from")
     valid_until = fields.get("valid_until")
     validity_status = resolve_validity_status(valid_from=valid_from, valid_until=valid_until, now=now)
@@ -31,11 +27,7 @@ def parse_relation_metadata(content: str, *, now: datetime | None = None) -> dic
 
 def extract_relation_tags(content: str) -> list[str]:
     metadata = parse_relation_metadata(content)
-    tags = [
-        f"relation:{relation}"
-        for relation, targets in metadata["relations"].items()
-        if targets
-    ]
+    tags = [f"relation:{relation}" for relation, targets in metadata["relations"].items() if targets]
     if metadata["has_validity_window"]:
         tags.append("validity:bounded")
     return tags

@@ -13,7 +13,6 @@ from agent_mem_bridge.memory_evolution_benchmark import (
     run_memory_evolution_benchmark,
 )
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "run_memory_evolution_benchmark.py"
 
@@ -134,9 +133,7 @@ def test_memory_evolution_governance_requires_principal_for_scoped_records() -> 
 
     assert task["governed"]["visible_ids"] == ["unscoped"]
     assert task["governed"]["score"]["case_passed"] is True
-    assert task["governed"]["blocked"] == [
-        {"id": "maintainer-only", "reason": "principal-scope-required"}
-    ]
+    assert task["governed"]["blocked"] == [{"id": "maintainer-only", "reason": "principal-scope-required"}]
 
 
 def test_review_lane_is_hidden_unless_explicitly_requested() -> None:

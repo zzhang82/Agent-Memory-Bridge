@@ -5,8 +5,7 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
-from typing import Any
+from typing import Any, Literal
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -18,11 +17,10 @@ from .archive_snapshot import (
     load_manifest_relative_paths,
 )
 from .index_health import inspect_indexes
-from .profile_migration import build_profile_documents, compare_profile_migration_with_mode
 from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_bridge_log_dir, resolve_sessions_root
+from .profile_migration import build_profile_documents, compare_profile_migration_with_mode
 from .storage import MemoryStore
 from .watcher_health import run_watcher_health_check
-
 
 RECALL_CHECK_LIMIT = 4
 
@@ -92,11 +90,7 @@ def _run_recall_checks(
         expected_source_path = document.relative_path.as_posix()
         result = store.recall(namespace=document.namespace, query=document.title, limit=3)
         matching_item = next(
-            (
-                item
-                for item in result["items"]
-                if _extract_source_path(item["tags"]) == expected_source_path
-            ),
+            (item for item in result["items"] if _extract_source_path(item["tags"]) == expected_source_path),
             None,
         )
         first_item = matching_item or (result["items"][0] if result["items"] else None)

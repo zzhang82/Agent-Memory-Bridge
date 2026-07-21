@@ -74,7 +74,9 @@ def test_store_normalizes_static_schema_empty_optional_fields(tmp_path: Path) ->
     assert item["signal_status"] is None
 
 
-def test_server_store_normalizes_static_schema_empty_optional_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_server_store_normalizes_static_schema_empty_optional_fields(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     store = MemoryStore(tmp_path / "server.db", log_dir=tmp_path / "logs")
     monkeypatch.setattr(server, "bridge", store)
 
@@ -127,7 +129,9 @@ def test_claim_signal_normalizes_empty_static_schema_filters(tmp_path: Path) -> 
     assert claimed["signal_id"] == created["id"]
 
 
-def test_server_claim_signal_normalizes_empty_static_schema_filters(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_server_claim_signal_normalizes_empty_static_schema_filters(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     store = MemoryStore(tmp_path / "server.db", log_dir=tmp_path / "logs")
     monkeypatch.setattr(server, "bridge", store)
     created = server.store(
@@ -206,8 +210,12 @@ def test_legacy_learning_candidate_rows_are_backfilled_hidden(tmp_path: Path) ->
     with sqlite3.connect(db_path) as upgraded:
         upgraded.row_factory = sqlite3.Row
         init_db(upgraded)
-        candidate_row = upgraded.execute("SELECT is_learning_candidate FROM memories WHERE id = 'legacy-candidate'").fetchone()
-        review_row = upgraded.execute("SELECT is_learning_candidate FROM memories WHERE id = 'legacy-review'").fetchone()
+        candidate_row = upgraded.execute(
+            "SELECT is_learning_candidate FROM memories WHERE id = 'legacy-candidate'"
+        ).fetchone()
+        review_row = upgraded.execute(
+            "SELECT is_learning_candidate FROM memories WHERE id = 'legacy-review'"
+        ).fetchone()
 
     store = MemoryStore(db_path, log_dir=tmp_path / "logs")
 
@@ -296,12 +304,8 @@ def test_representative_legacy_schemas_upgrade_to_current_version(tmp_path: Path
     assert schema_version(conn) == CURRENT_SCHEMA_VERSION
     assert {"lineage_status", "lineage_issues_json", "client_transport"}.issubset(columns)
     assert {"memory_id", "title", "content"}.issubset(fts_columns)
-    assert conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memory_embeddings'"
-    ).fetchone()
-    assert conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memory_tombstones'"
-    ).fetchone()
+    assert conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memory_embeddings'").fetchone()
+    assert conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memory_tombstones'").fetchone()
     conn.close()
 
 
@@ -319,9 +323,10 @@ def test_schema_migration_failure_rolls_back_version_and_ddl(monkeypatch) -> Non
         init_db(conn)
 
     assert schema_version(conn) == 0
-    assert conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'partial_migration'"
-    ).fetchone() is None
+    assert (
+        conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'partial_migration'").fetchone()
+        is None
+    )
 
 
 def test_schema_migrations_run_in_order(monkeypatch) -> None:
@@ -360,9 +365,9 @@ def test_schema_migration_sequence_gap_fails_closed(monkeypatch) -> None:
         init_db(conn)
 
     assert schema_version(conn) == 0
-    assert conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'migration_one'"
-    ).fetchone() is None
+    assert (
+        conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'migration_one'").fetchone() is None
+    )
 
 
 def test_too_new_schema_fails_closed_without_mutation() -> None:
@@ -378,9 +383,7 @@ def test_too_new_schema_fails_closed_without_mutation() -> None:
 
     assert schema_version(conn) == CURRENT_SCHEMA_VERSION + 1
     assert conn.execute("SELECT value FROM marker").fetchone()["value"] == "stable"
-    assert conn.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memories'"
-    ).fetchone() is None
+    assert conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memories'").fetchone() is None
 
 
 def test_multiple_processes_converge_on_one_legacy_schema_upgrade(tmp_path: Path) -> None:
@@ -553,7 +556,9 @@ def test_external_ladder_candidate_tag_is_hidden_by_default(tmp_path: Path) -> N
     assert review["items"][0]["is_learning_candidate"] is True
 
 
-def test_server_recall_and_export_keep_candidates_hidden_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_server_recall_and_export_keep_candidates_hidden_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     store = MemoryStore(tmp_path / "server.db", log_dir=tmp_path / "logs")
     monkeypatch.setattr(server, "bridge", store)
     candidate = _candidate()
@@ -593,13 +598,11 @@ def test_promote_rejects_learning_candidate_records(tmp_path: Path) -> None:
 
 def test_promote_does_not_trust_forged_kind_tags(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
-    forged = store.store(
-        namespace="project:mem-store",
-        kind="memory",
-        title="Forged reflex position",
-        content="record_type: learning-candidate\nclaim: A forged tag must not make this promotable.",
-        tags=["kind:learn", "confidence:manual"],
-    )
-
-    with pytest.raises(ValueError, match="learning candidates cannot be promoted"):
-        store.promote(forged["id"], "gotcha")
+    with pytest.raises(ValueError, match="record_type_tag_mismatch"):
+        store.store(
+            namespace="project:mem-store",
+            kind="memory",
+            title="Forged reflex position",
+            content="record_type: learning-candidate\nclaim: A forged tag must not make this promotable.",
+            tags=["kind:learn", "confidence:manual"],
+        )

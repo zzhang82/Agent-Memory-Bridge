@@ -4,7 +4,6 @@ from typing import Any
 
 from .relation_metadata import parse_content_fields
 
-
 PROCEDURE_STATUS_FIELD_NAMES = (
     "procedure_status",
     "governance_status",
@@ -66,9 +65,7 @@ def parse_procedure_artifact(
     applies_to_domains = explicit_domains or inferred_domains
     scope_source = "explicit" if explicit_domains else "domain-tags" if inferred_domains else "unscoped"
     domain_mismatch = bool(
-        normalized_task_domain
-        and applies_to_domains
-        and normalized_task_domain not in applies_to_domains
+        normalized_task_domain and applies_to_domains and normalized_task_domain not in applies_to_domains
     )
     steps = _split_pipe_list(fields.get("steps", "") or fields.get("checklist", ""))
     prerequisites = _split_pipe_list(fields.get("prerequisites", "") or fields.get("requires", ""))
@@ -83,14 +80,10 @@ def parse_procedure_artifact(
         "rollback_path": fields.get("rollback_path", "") or fields.get("rollback", ""),
     }
     missing_recommended = [
-        field_name
-        for field_name in RECOMMENDED_PROCEDURE_FIELDS
-        if not _procedure_field_present(procedure, field_name)
+        field_name for field_name in RECOMMENDED_PROCEDURE_FIELDS if not _procedure_field_present(procedure, field_name)
     ]
     missing_minimum = [
-        field_name
-        for field_name in MINIMUM_PROCEDURE_FIELDS
-        if not _procedure_field_present(procedure, field_name)
+        field_name for field_name in MINIMUM_PROCEDURE_FIELDS if not _procedure_field_present(procedure, field_name)
     ]
     warnings = _procedure_warnings(
         content=content,

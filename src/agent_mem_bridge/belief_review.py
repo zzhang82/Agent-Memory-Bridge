@@ -12,7 +12,6 @@ from .belief_observation import BeliefObservationConfig, observe_belief_ladder
 from .consolidation import ConsolidationConfig, ConsolidationEngine
 from .storage import MemoryStore
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REVIEWED_SAMPLES_PATH = ROOT / "benchmark" / "belief-reviewed-samples.json"
 
@@ -24,14 +23,12 @@ def run_belief_review(
 ) -> dict[str, Any]:
     samples_path = reviewed_samples_path or DEFAULT_REVIEWED_SAMPLES_PATH
     samples = json.loads(samples_path.read_text(encoding="utf-8"))
-    normalized_slices = tuple(dict.fromkeys(str(slice_name).strip() for slice_name in slices if str(slice_name).strip()))
+    normalized_slices = tuple(
+        dict.fromkeys(str(slice_name).strip() for slice_name in slices if str(slice_name).strip())
+    )
     if normalized_slices:
         allowed = {slice_name.lower() for slice_name in normalized_slices}
-        samples = [
-            sample
-            for sample in samples
-            if str(sample.get("slice") or "unspecified").strip().lower() in allowed
-        ]
+        samples = [sample for sample in samples if str(sample.get("slice") or "unspecified").strip().lower() in allowed]
 
     results: list[dict[str, Any]] = []
     by_slice: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -45,15 +42,11 @@ def run_belief_review(
 
     sample_count = len(results)
     blocking_reason_counts = Counter(
-        result["actual"]["first_blocking_reason"]
-        for result in results
-        if result["actual"]["first_blocking_reason"]
+        result["actual"]["first_blocking_reason"] for result in results if result["actual"]["first_blocking_reason"]
     )
     belief_count = sum(1 for result in results if result["actual"]["belief"])
     candidate_only_count = sum(
-        1
-        for result in results
-        if result["actual"]["belief_candidate"] and not result["actual"]["belief"]
+        1 for result in results if result["actual"]["belief_candidate"] and not result["actual"]["belief"]
     )
     return {
         "filters": {
@@ -202,7 +195,9 @@ def _extract_actual_outcome(
         "domain_note": _domain_note_exists(store, target_domain=target_domain),
         "belief_candidate": candidate_row is not None,
         "belief": belief_row is not None,
-        "first_blocking_reason": None if belief_row is not None else (candidate_row["status"] if candidate_row else None),
+        "first_blocking_reason": None
+        if belief_row is not None
+        else (candidate_row["status"] if candidate_row else None),
     }
 
 
@@ -266,9 +261,7 @@ def _summarize_slice(items: list[dict[str, Any]]) -> dict[str, Any]:
         1 for item in items if item["actual"]["belief_candidate"] and not item["actual"]["belief"]
     )
     blocking_reason_counts = Counter(
-        item["actual"]["first_blocking_reason"]
-        for item in items
-        if item["actual"]["first_blocking_reason"]
+        item["actual"]["first_blocking_reason"] for item in items if item["actual"]["first_blocking_reason"]
     )
     return {
         "sample_count": sample_count,

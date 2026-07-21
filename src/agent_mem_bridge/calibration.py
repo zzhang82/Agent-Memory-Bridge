@@ -7,7 +7,6 @@ from typing import Any
 from .classifier import ClassifierConfig, EnrichmentCandidate, EnrichmentClassifier
 from .enrichment_rules import infer_keyword_tags
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REVIEWED_SAMPLES_PATH = ROOT / "benchmark" / "classifier-reviewed-samples.json"
 
@@ -57,9 +56,10 @@ def run_classifier_calibration(
         expected = normalize_tags(sample.get("expected_tags", []))
         fallback = normalize_tags(infer_keyword_tags(str(sample["text"])))
         prediction = predictions.predictions.get(str(sample["id"]))
-        predicted_raw = normalize_tags(list(prediction.tags) if prediction else [])
+        predicted_raw = normalize_tags(list(prediction.classifier_suggested_tags) if prediction else [])
+        predicted_policy = normalize_tags(list(prediction.tags) if prediction else [])
         predicted = normalize_tags(classifier.accepted_tags(prediction))
-        filtered_low_confidence = bool(prediction and predicted_raw and not predicted)
+        filtered_low_confidence = bool(prediction and predicted_policy and not predicted)
 
         fallback_score = tag_match_score(expected, fallback)
         classifier_score = tag_match_score(expected, predicted)
@@ -91,6 +91,8 @@ def run_classifier_calibration(
                 "expected_tags": expected,
                 "fallback_tags": fallback,
                 "classifier_raw_tags": predicted_raw,
+                "classifier_policy_tags": predicted_policy,
+                "classifier_rejected_tags": [tag for tag in predicted_raw if tag not in predicted_policy],
                 "classifier_tags": predicted,
                 "classifier_confidence": prediction.confidence if prediction else None,
                 "classifier_filtered_low_confidence": filtered_low_confidence,

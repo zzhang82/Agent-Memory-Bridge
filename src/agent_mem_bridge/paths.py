@@ -155,6 +155,28 @@ def _resolve_str(env_names: str | tuple[str, ...], config_keys: tuple[str, ...],
     return default
 
 
+def _resolve_command(env_name: str, config_keys: tuple[str, ...]) -> str | tuple[str, ...]:
+    raw = _first_env(env_name)
+    if raw:
+        return raw.strip()
+    configured = _config_value(*config_keys)
+    if isinstance(configured, list) and all(isinstance(part, str) and part for part in configured):
+        return tuple(configured)
+    if isinstance(configured, str) and configured.strip():
+        return configured.strip()
+    return ""
+
+
+def _resolve_str_list(env_name: str, config_keys: tuple[str, ...]) -> tuple[str, ...]:
+    raw = _first_env(env_name)
+    if raw:
+        return tuple(part.strip() for part in raw.split(",") if part.strip())
+    configured = _config_value(*config_keys)
+    if isinstance(configured, list):
+        return tuple(str(part).strip() for part in configured if str(part).strip())
+    return ()
+
+
 def _parse_bool(value: str, *, default: bool) -> bool:
     normalized = value.strip().lower()
     if normalized in {"1", "true", "yes", "on", "enabled"}:
@@ -265,6 +287,38 @@ def resolve_bridge_log_dir() -> Path:
     )
 
 
+def resolve_log_max_bytes() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_LOG_MAX_BYTES",
+        ("maintenance", "log_max_bytes"),
+        10_000_000,
+    )
+
+
+def resolve_log_backup_count() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_LOG_BACKUP_COUNT",
+        ("maintenance", "log_backup_count"),
+        3,
+    )
+
+
+def resolve_db_warn_bytes() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_DB_WARN_BYTES",
+        ("maintenance", "db_warn_bytes"),
+        1_000_000_000,
+    )
+
+
+def resolve_wal_warn_bytes() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_WAL_WARN_BYTES",
+        ("maintenance", "wal_warn_bytes"),
+        256_000_000,
+    )
+
+
 def resolve_telemetry_mode() -> str:
     return _resolve_str("AGENT_MEMORY_BRIDGE_TELEMETRY_MODE", ("telemetry", "mode"), "off").lower()
 
@@ -306,6 +360,30 @@ def resolve_hybrid_semantic_weight() -> float:
     )
 
 
+def resolve_operating_profile() -> str:
+    value = _resolve_str(
+        "AGENT_MEMORY_BRIDGE_OPERATING_PROFILE",
+        ("security", "operating_profile"),
+        "local-single-user",
+    ).lower()
+    if value not in {"local-single-user", "hardened-local"}:
+        raise ValueError("operating_profile must be 'local-single-user' or 'hardened-local'")
+    return value
+
+
+def hardened_local_profile_enabled() -> bool:
+    return resolve_operating_profile() == "hardened-local"
+
+
+def resolve_require_claim_before_ack() -> bool:
+    configured = _resolve_bool(
+        "AGENT_MEMORY_BRIDGE_REQUIRE_CLAIM_BEFORE_ACK",
+        ("signals", "require_claim_before_ack"),
+        False,
+    )
+    return configured or hardened_local_profile_enabled()
+
+
 def resolve_embedding_provider() -> str:
     return _resolve_str(
         "AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER",
@@ -314,11 +392,49 @@ def resolve_embedding_provider() -> str:
     ).lower()
 
 
-def resolve_embedding_command() -> str:
-    return _resolve_str(
-        "AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND",
-        ("retrieval", "embedding_command"),
-        "",
+def resolve_embedding_command() -> str | tuple[str, ...]:
+    return _resolve_command("AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND", ("retrieval", "embedding_command"))
+
+
+def resolve_embedding_trusted_shell() -> bool:
+    enabled = _resolve_bool(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_TRUSTED_SHELL",
+        ("retrieval", "embedding_trusted_shell"),
+        False,
+    )
+    if enabled and hardened_local_profile_enabled():
+        raise ValueError("hardened-local profile does not allow embedding_trusted_shell")
+    return enabled
+
+
+def resolve_embedding_max_input_bytes() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_MAX_INPUT_BYTES",
+        ("retrieval", "embedding_max_input_bytes"),
+        1_000_000,
+    )
+
+
+def resolve_embedding_max_output_bytes() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_MAX_OUTPUT_BYTES",
+        ("retrieval", "embedding_max_output_bytes"),
+        4_000_000,
+    )
+
+
+def resolve_embedding_max_stderr_bytes() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_MAX_STDERR_BYTES",
+        ("retrieval", "embedding_max_stderr_bytes"),
+        65_536,
+    )
+
+
+def resolve_embedding_env_allowlist() -> tuple[str, ...]:
+    return _resolve_str_list(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_ENV_ALLOWLIST",
+        ("retrieval", "embedding_env_allowlist"),
     )
 
 
@@ -376,6 +492,22 @@ def resolve_embedding_scheduler_batch_size() -> int:
         "AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_BATCH_SIZE",
         ("embedding_scheduler", "batch_size"),
         100,
+    )
+
+
+def resolve_embedding_scheduler_max_batches_per_cycle() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_MAX_BATCHES_PER_CYCLE",
+        ("embedding_scheduler", "max_batches_per_cycle"),
+        5,
+    )
+
+
+def resolve_embedding_scheduler_backlog_delay_seconds() -> float:
+    return _resolve_float(
+        "AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_BACKLOG_DELAY_SECONDS",
+        ("embedding_scheduler", "backlog_delay_seconds"),
+        5.0,
     )
 
 
@@ -490,8 +622,50 @@ def resolve_classifier_provider() -> str:
     return _resolve_str("AGENT_MEMORY_BRIDGE_CLASSIFIER_PROVIDER", ("classifier", "provider"), "command")
 
 
-def resolve_classifier_command() -> str:
-    return _resolve_str("AGENT_MEMORY_BRIDGE_CLASSIFIER_COMMAND", ("classifier", "command"), "")
+def resolve_classifier_command() -> str | tuple[str, ...]:
+    return _resolve_command("AGENT_MEMORY_BRIDGE_CLASSIFIER_COMMAND", ("classifier", "command"))
+
+
+def resolve_classifier_trusted_shell() -> bool:
+    enabled = _resolve_bool(
+        "AGENT_MEMORY_BRIDGE_CLASSIFIER_TRUSTED_SHELL",
+        ("classifier", "trusted_shell"),
+        False,
+    )
+    if enabled and hardened_local_profile_enabled():
+        raise ValueError("hardened-local profile does not allow classifier trusted_shell")
+    return enabled
+
+
+def resolve_classifier_max_input_bytes() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_CLASSIFIER_MAX_INPUT_BYTES",
+        ("classifier", "max_input_bytes"),
+        1_000_000,
+    )
+
+
+def resolve_classifier_max_output_bytes() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_CLASSIFIER_MAX_OUTPUT_BYTES",
+        ("classifier", "max_output_bytes"),
+        2_000_000,
+    )
+
+
+def resolve_classifier_max_stderr_bytes() -> int:
+    return _resolve_int(
+        "AGENT_MEMORY_BRIDGE_CLASSIFIER_MAX_STDERR_BYTES",
+        ("classifier", "max_stderr_bytes"),
+        65_536,
+    )
+
+
+def resolve_classifier_env_allowlist() -> tuple[str, ...]:
+    return _resolve_str_list(
+        "AGENT_MEMORY_BRIDGE_CLASSIFIER_ENV_ALLOWLIST",
+        ("classifier", "env_allowlist"),
+    )
 
 
 def resolve_classifier_timeout_seconds() -> float:
@@ -548,3 +722,19 @@ def resolve_governance_trigger_scan_limit() -> int:
 
 def resolve_poll_seconds() -> float:
     return _resolve_float("AGENT_MEMORY_BRIDGE_POLL_SECONDS", ("service", "poll_seconds"), 30.0)
+
+
+def resolve_service_slow_lane_seconds() -> float:
+    return _resolve_float(
+        "AGENT_MEMORY_BRIDGE_SERVICE_SLOW_LANE_SECONDS",
+        ("service", "slow_lane_seconds"),
+        30.0,
+    )
+
+
+def resolve_service_heartbeat_stale_seconds() -> float:
+    return _resolve_float(
+        "AGENT_MEMORY_BRIDGE_SERVICE_HEARTBEAT_STALE_SECONDS",
+        ("service", "heartbeat_stale_seconds"),
+        120.0,
+    )

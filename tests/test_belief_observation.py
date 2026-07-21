@@ -88,7 +88,7 @@ def test_observe_belief_ladder_summarizes_current_states(tmp_path: Path) -> None
         boundary_hash="boundary-a",
         tags=["kind:belief-candidate", "source:consolidation", "control:belief", "domain:retrieval"],
     )
-    promoted_new = _store_ladder_record(
+    _store_ladder_record(
         store,
         title="[[Belief Candidate]] retrieval new",
         record_type="belief-candidate",
@@ -153,7 +153,7 @@ def test_observe_belief_ladder_summarizes_current_states(tmp_path: Path) -> None
         tags=["kind:belief-candidate", "source:consolidation", "control:belief", "domain:agent-memory"],
     )
 
-    stable_block = _store_ladder_record(
+    _store_ladder_record(
         store,
         title="[[Belief Candidate]] stability blocked",
         record_type="belief-candidate",
@@ -249,7 +249,9 @@ def test_observe_belief_ladder_summarizes_current_states(tmp_path: Path) -> None
     assert belief_row["claim"] == "Prefer bundle-first retrieval before legacy docs."
     assert belief_row["status"] == "belief"
     contradiction_row = next(
-        row for row in report["leaderboards"]["candidates"] if row["claim"] == "Keep one runtime path while preserving however-branches."
+        row
+        for row in report["leaderboards"]["candidates"]
+        if row["claim"] == "Keep one runtime path while preserving however-branches."
     )
     assert contradiction_row["contradiction_reason_counts"] == {"marker-contrast": 1, "strong-cue": 1}
 

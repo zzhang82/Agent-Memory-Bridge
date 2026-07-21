@@ -5,9 +5,10 @@ import sqlite3
 from collections.abc import Callable
 
 from .embedding_index import ensure_embedding_schema
+from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 3
 
 
 def quote_identifier(identifier: str) -> str:
@@ -24,8 +25,7 @@ def init_db(conn: sqlite3.Connection) -> None:
         current_version = schema_version(conn)
         if current_version > CURRENT_SCHEMA_VERSION:
             raise RuntimeError(
-                f"database schema version {current_version} is newer than supported version "
-                f"{CURRENT_SCHEMA_VERSION}"
+                f"database schema version {current_version} is newer than supported version {CURRENT_SCHEMA_VERSION}"
             )
         migrated = False
         expected_version = current_version + 1
@@ -44,8 +44,7 @@ def init_db(conn: sqlite3.Connection) -> None:
             migrated = True
         if current_version != CURRENT_SCHEMA_VERSION:
             raise RuntimeError(
-                f"schema migration sequence stops at version {current_version}; "
-                f"expected {CURRENT_SCHEMA_VERSION}"
+                f"schema migration sequence stops at version {current_version}; expected {CURRENT_SCHEMA_VERSION}"
             )
         if not migrated:
             _ensure_current_schema(conn)
@@ -64,8 +63,19 @@ def _migrate_to_v1(conn: sqlite3.Connection) -> None:
     _ensure_current_schema(conn)
 
 
+def _migrate_to_v2(conn: sqlite3.Connection) -> None:
+    _ensure_projection_schema(conn)
+    backfill_record_projections(conn)
+
+
+def _migrate_to_v3(conn: sqlite3.Connection) -> None:
+    _ensure_bridge_metadata_schema(conn)
+
+
 MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (1, _migrate_to_v1),
+    (2, _migrate_to_v2),
+    (3, _migrate_to_v3),
 )
 
 
@@ -130,9 +140,24 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
     ensure_column(conn, "memories", "lease_expires_at", "ALTER TABLE memories ADD COLUMN lease_expires_at TEXT")
     ensure_column(conn, "memories", "expires_at", "ALTER TABLE memories ADD COLUMN expires_at TEXT")
     ensure_column(conn, "memories", "acknowledged_at", "ALTER TABLE memories ADD COLUMN acknowledged_at TEXT")
-    ensure_column(conn, "memories", "is_learning_candidate", "ALTER TABLE memories ADD COLUMN is_learning_candidate INTEGER NOT NULL DEFAULT 0")
-    ensure_column(conn, "memories", "lineage_status", "ALTER TABLE memories ADD COLUMN lineage_status TEXT NOT NULL DEFAULT 'intact'")
-    ensure_column(conn, "memories", "lineage_issues_json", "ALTER TABLE memories ADD COLUMN lineage_issues_json TEXT NOT NULL DEFAULT '[]'")
+    ensure_column(
+        conn,
+        "memories",
+        "is_learning_candidate",
+        "ALTER TABLE memories ADD COLUMN is_learning_candidate INTEGER NOT NULL DEFAULT 0",
+    )
+    ensure_column(
+        conn,
+        "memories",
+        "lineage_status",
+        "ALTER TABLE memories ADD COLUMN lineage_status TEXT NOT NULL DEFAULT 'intact'",
+    )
+    ensure_column(
+        conn,
+        "memories",
+        "lineage_issues_json",
+        "ALTER TABLE memories ADD COLUMN lineage_issues_json TEXT NOT NULL DEFAULT '[]'",
+    )
     conn.execute(
         """
         UPDATE memories
@@ -219,6 +244,308 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
         ON memories (namespace, is_learning_candidate, created_at DESC)
         """
     )
+    _ensure_projection_schema(conn)
+    _ensure_bridge_metadata_schema(conn)
+    backfill_record_projections(conn, only_missing=True)
+
+
+def _ensure_projection_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_insertions (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id TEXT NOT NULL UNIQUE
+                REFERENCES memories(id) ON DELETE CASCADE
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO memory_insertions (memory_id)
+        SELECT id
+        FROM memories
+        ORDER BY rowid ASC
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_metadata (
+            memory_id TEXT PRIMARY KEY
+                REFERENCES memories(id) ON DELETE CASCADE,
+            record_type TEXT,
+            status TEXT,
+            confidence REAL
+                CHECK (confidence IS NULL OR (confidence >= 0.0 AND confidence <= 1.0)),
+            confidence_label TEXT,
+            valid_from TEXT,
+            valid_until TEXT,
+            metadata_schema_version INTEGER NOT NULL DEFAULT 1
+                CHECK (metadata_schema_version > 0),
+            validation_issues_json TEXT NOT NULL DEFAULT '[]'
+                CHECK (json_valid(validation_issues_json))
+        ) WITHOUT ROWID
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_tags (
+            memory_id TEXT NOT NULL
+                REFERENCES memories(id) ON DELETE CASCADE,
+            tag TEXT NOT NULL CHECK (length(tag) > 0),
+            prefix TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (memory_id, tag)
+        ) WITHOUT ROWID
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_edges (
+            source_id TEXT NOT NULL
+                REFERENCES memories(id) ON DELETE CASCADE,
+            target_id TEXT NOT NULL CHECK (length(target_id) > 0),
+            relation TEXT NOT NULL CHECK (length(relation) > 0),
+            position INTEGER NOT NULL DEFAULT 0 CHECK (position >= 0),
+            machine_owned INTEGER NOT NULL DEFAULT 0
+                CHECK (machine_owned IN (0, 1)),
+            target_namespace TEXT,
+            target_exists INTEGER NOT NULL DEFAULT 0
+                CHECK (target_exists IN (0, 1)),
+            PRIMARY KEY (source_id, target_id, relation)
+        ) WITHOUT ROWID
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_annotations (
+            annotation_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id TEXT NOT NULL
+                REFERENCES memories(id) ON DELETE CASCADE,
+            title_before TEXT,
+            title_after TEXT,
+            added_tags_json TEXT NOT NULL DEFAULT '[]'
+                CHECK (json_valid(added_tags_json)),
+            provenance_json TEXT NOT NULL DEFAULT '{}'
+                CHECK (json_valid(provenance_json)),
+            actor TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_revisions (
+            revision_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            predecessor_id TEXT NOT NULL,
+            successor_id TEXT NOT NULL,
+            actor TEXT,
+            reason TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE (predecessor_id, successor_id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS signal_repairs (
+            repair_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            signal_id TEXT NOT NULL,
+            previous_state_json TEXT NOT NULL CHECK (json_valid(previous_state_json)),
+            repaired_state_json TEXT NOT NULL CHECK (json_valid(repaired_state_json)),
+            reason TEXT NOT NULL CHECK (length(reason) > 0),
+            actor TEXT,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute("DROP TRIGGER IF EXISTS validate_claimed_signal_insert")
+    conn.execute("DROP TRIGGER IF EXISTS validate_claimed_signal_update")
+    conn.execute("DROP TRIGGER IF EXISTS validate_signal_state_insert")
+    conn.execute("DROP TRIGGER IF EXISTS validate_signal_state_update")
+    conn.execute(
+        """
+        CREATE TRIGGER validate_signal_state_insert
+        BEFORE INSERT ON memories
+        WHEN NEW.kind = 'signal' AND (
+            NEW.signal_status NOT IN ('pending', 'claimed', 'acked')
+            OR NEW.signal_status IS NULL
+            OR (NEW.expires_at IS NOT NULL AND julianday(NEW.expires_at) IS NULL)
+            OR (NEW.claimed_at IS NOT NULL AND julianday(NEW.claimed_at) IS NULL)
+            OR (NEW.lease_expires_at IS NOT NULL AND julianday(NEW.lease_expires_at) IS NULL)
+            OR (NEW.acknowledged_at IS NOT NULL AND julianday(NEW.acknowledged_at) IS NULL)
+            OR (NEW.signal_status = 'claimed' AND (
+                COALESCE(trim(NEW.claimed_by), '') = ''
+                OR NEW.claimed_at IS NULL
+                OR NEW.lease_expires_at IS NULL
+                OR NEW.acknowledged_at IS NOT NULL
+                OR julianday(NEW.lease_expires_at) < julianday(NEW.claimed_at)
+                OR (NEW.expires_at IS NOT NULL
+                    AND julianday(NEW.lease_expires_at) > julianday(NEW.expires_at))
+            ))
+            OR (NEW.signal_status = 'pending' AND (
+                NEW.claimed_by IS NOT NULL
+                OR NEW.claimed_at IS NOT NULL
+                OR NEW.lease_expires_at IS NOT NULL
+                OR NEW.acknowledged_at IS NOT NULL
+            ))
+            OR (NEW.signal_status = 'acked' AND (
+                NEW.acknowledged_at IS NULL
+                OR NEW.lease_expires_at IS NOT NULL
+                OR (NEW.claimed_by IS NULL AND NEW.claimed_at IS NOT NULL)
+                OR (NEW.claimed_by IS NOT NULL AND COALESCE(trim(NEW.claimed_by), '') = '')
+                OR (NEW.claimed_by IS NOT NULL AND NEW.claimed_at IS NULL)
+                OR (NEW.claimed_at IS NOT NULL
+                    AND julianday(NEW.acknowledged_at) < julianday(NEW.claimed_at))
+            ))
+            OR (NEW.signal_status != 'acked' AND NEW.acknowledged_at IS NOT NULL)
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'invalid signal state or timestamp');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER validate_signal_state_update
+        BEFORE UPDATE OF signal_status, claimed_by, claimed_at, lease_expires_at, expires_at, acknowledged_at
+        ON memories
+        WHEN NEW.kind = 'signal' AND (
+            NEW.signal_status NOT IN ('pending', 'claimed', 'acked')
+            OR NEW.signal_status IS NULL
+            OR (NEW.expires_at IS NOT NULL AND julianday(NEW.expires_at) IS NULL)
+            OR (NEW.claimed_at IS NOT NULL AND julianday(NEW.claimed_at) IS NULL)
+            OR (NEW.lease_expires_at IS NOT NULL AND julianday(NEW.lease_expires_at) IS NULL)
+            OR (NEW.acknowledged_at IS NOT NULL AND julianday(NEW.acknowledged_at) IS NULL)
+            OR (NEW.signal_status = 'claimed' AND (
+                COALESCE(trim(NEW.claimed_by), '') = ''
+                OR NEW.claimed_at IS NULL
+                OR NEW.lease_expires_at IS NULL
+                OR NEW.acknowledged_at IS NOT NULL
+                OR julianday(NEW.lease_expires_at) < julianday(NEW.claimed_at)
+                OR (NEW.expires_at IS NOT NULL
+                    AND julianday(NEW.lease_expires_at) > julianday(NEW.expires_at))
+            ))
+            OR (NEW.signal_status = 'pending' AND (
+                NEW.claimed_by IS NOT NULL
+                OR NEW.claimed_at IS NOT NULL
+                OR NEW.lease_expires_at IS NOT NULL
+                OR NEW.acknowledged_at IS NOT NULL
+            ))
+            OR (NEW.signal_status = 'acked' AND (
+                NEW.acknowledged_at IS NULL
+                OR NEW.lease_expires_at IS NOT NULL
+                OR (NEW.claimed_by IS NULL AND NEW.claimed_at IS NOT NULL)
+                OR (NEW.claimed_by IS NOT NULL AND COALESCE(trim(NEW.claimed_by), '') = '')
+                OR (NEW.claimed_by IS NOT NULL AND NEW.claimed_at IS NULL)
+                OR (NEW.claimed_at IS NOT NULL
+                    AND julianday(NEW.acknowledged_at) < julianday(NEW.claimed_at))
+            ))
+            OR (NEW.signal_status != 'acked' AND NEW.acknowledged_at IS NOT NULL)
+        )
+        BEGIN
+            SELECT RAISE(ABORT, 'invalid signal state or timestamp');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_metadata_record_type
+        ON memory_metadata (record_type, memory_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_metadata_status
+        ON memory_metadata (status, memory_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_tags_tag
+        ON memory_tags (tag, memory_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_tags_prefix
+        ON memory_tags (prefix, tag, memory_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_edges_target_machine
+        ON memory_edges (target_id, machine_owned, source_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_edges_source_relation
+        ON memory_edges (source_id, relation, position, target_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_edges_target_relation
+        ON memory_edges (target_id, relation, source_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_annotations_memory_created
+        ON memory_annotations (memory_id, created_at, annotation_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_revisions_predecessor
+        ON memory_revisions (predecessor_id, created_at, revision_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_memory_revisions_successor
+        ON memory_revisions (successor_id, created_at, revision_id)
+        """
+    )
+
+
+def _ensure_bridge_metadata_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS bridge_metadata (
+            key TEXT PRIMARY KEY CHECK (length(key) > 0),
+            value TEXT NOT NULL CHECK (length(value) > 0)
+        ) WITHOUT ROWID
+        """
+    )
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO bridge_metadata (key, value)
+        VALUES ('database_epoch', lower(hex(randomblob(16))))
+        """
+    )
+
+
+def database_epoch(conn: sqlite3.Connection) -> str:
+    row = conn.execute("SELECT value FROM bridge_metadata WHERE key = 'database_epoch'").fetchone()
+    if row is None or not str(row[0]).strip():
+        raise RuntimeError("database epoch is missing")
+    return str(row[0]).strip()
+
+
+def rotate_database_epoch(conn: sqlite3.Connection) -> str:
+    value_row = conn.execute("SELECT lower(hex(randomblob(16)))").fetchone()
+    value = str(value_row[0]) if value_row is not None else ""
+    if not value:
+        raise RuntimeError("failed to generate database epoch")
+    conn.execute(
+        """
+        INSERT INTO bridge_metadata (key, value)
+        VALUES ('database_epoch', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """,
+        (value,),
+    )
+    return value
 
 
 def ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:

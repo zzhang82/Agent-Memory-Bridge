@@ -27,7 +27,7 @@ agent-memory-harness
             v
 
 agent-memory-bridge
-  10 MCP tools
+  12 MCP tools
   SQLite/WAL durable authority
   FTS5 lexical recall
   optional local embedding sidecar
@@ -46,7 +46,7 @@ AMB Core owns durable, inspectable memory behavior:
 - local SQLite/WAL durable storage
 - FTS5 lexical recall and optional local embedding sidecar indexes
 - `store`, `recall`, `browse`, `stats`
-- `forget`, `promote`, `export`
+- `forget`, `promote`, `annotate`, `revise`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 - namespace, provenance, and relation metadata
 - governed learning records such as gotchas, domain notes, beliefs, concepts,

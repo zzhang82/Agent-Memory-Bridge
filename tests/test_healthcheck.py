@@ -1,8 +1,8 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from agent_mem_bridge.archive_snapshot import write_live_source_manifest
-from agent_mem_bridge.profile_migration import import_profile_memory
 from agent_mem_bridge.healthcheck import run_health_check
+from agent_mem_bridge.profile_migration import import_profile_memory
 from agent_mem_bridge.storage import MemoryStore
 
 
@@ -94,4 +94,3 @@ def test_run_health_check_auto_uses_live_compare_when_manifest_exists(tmp_path: 
     assert all(item["ok"] for item in report["recall_checks"])
     assert report["relation_metadata_smoke"]["ok"] is True
     assert report["watcher_health"]["ok"] is True
-

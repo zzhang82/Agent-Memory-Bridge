@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.23.0` hardens local retrieval maintenance and the background service without adding MCP tools. Semantic recall, scheduled embedding maintenance, and embedding rebuilds now call providers outside SQLite write transactions; hybrid recall falls back to lexical results on typed provider failures; exceptions raised during service cycles are isolated by lane with bounded backoff; lane state is written atomically; and schema upgrades have an ordered transactional version spine. Chinese/Han text also participates in hash-semantic retrieval. The public MCP surface remains at 10 tools.
+`0.23.1` closes the reliability gaps found in the prior release audit. Classifier suggestions cannot mint policy tags, background cursors survive equal timestamps and database restores, and the local service has singleton ownership, heartbeat state, slow-lane timing, and meaningful one-shot exit codes. The storage layer now has typed metadata, indexed lineage, projection repair, consistent backup/restore, WAL maintenance, strict local profiles, bounded command providers, and explicit `annotate` / `revise` operations. The public MCP surface is now 12 tools.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -44,15 +44,15 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
 - Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `445 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `546 passed`.
 
 ## How It Works
 
 <p align="center">
-  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge architecture: generic MCP-compatible coding agents use 10 grouped tools backed by SQLite/WAL authority, derived indexes, governed change, and no-auto-writeback context and reports; proof gates remain outside runtime." width="760">
+  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge architecture: generic MCP-compatible coding agents use 12 grouped tools backed by SQLite/WAL authority, derived indexes, governed change, and no-auto-writeback context and reports; proof gates remain outside runtime." width="760">
 </p>
 
-AMB keeps the runtime path small: MCP-compatible coding agents call `10` public
+AMB keeps the runtime path small: MCP-compatible coding agents call `12` public
 tools; SQLite/WAL remains the durable authority; FTS5 and optional local
 embeddings are derived indexes; governed context and CLI reports are rendered
 without automatic durable writeback. Release checks, benchmarks, and the visual
@@ -86,7 +86,7 @@ commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.23.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.23.1.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -94,7 +94,7 @@ In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.23.0 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.23.1 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -237,15 +237,26 @@ Status labels are intentionally narrow.
 
 ## MCP Tools
 
-The bridge exposes `10` public MCP tools:
+The bridge exposes `12` public MCP tools:
 
 - `store`, `recall`, `browse`, `stats`
-- `forget`, `promote`, `export`
+- `forget`, `promote`, `annotate`, `revise`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
+
+`annotate` adds non-policy tags and provenance without rewriting the original
+content. `revise` creates a successor record and an auditable supersession
+receipt in one transaction. Both operations preserve the review boundary:
+callers cannot mint reserved governance tags or revise hidden learning
+candidates into authority.
 
 The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, human review workflows, and activation receipts. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, `review_workflow`, or `activation_receipt` MCP tools.
 
-For normal service use, log capture helpers, promotion helpers, and strong consolidation are disabled by default. During each cycle, every enabled lane has its own exception boundary: one lane failure is reported with a failure count and bounded retry delay without stopping its siblings. The lanes still execute sequentially, so a slow call can delay later lanes. Watcher, reflex, consolidation, governance, and embedding scheduler state all use the same tolerant atomic JSON contract.
+For normal service use, log capture helpers, promotion helpers, and strong consolidation are disabled by default. During each cycle, every enabled lane has its own exception boundary: one lane failure is reported with a failure count and bounded retry delay without stopping its siblings. The lanes still execute sequentially, so a slow call can delay later lanes; lane duration and slow-lane warnings make that delay visible. Watcher, reflex, consolidation, governance, and embedding scheduler state use tolerant atomic JSON and reset when a restored database has a different epoch. The service writes `service-health.json`, holds a local bridge-home singleton lock, exits `1` from `service --once` when any enabled lane fails, and exits `3` when another service owns the lock. Use `--allow-multiple-services` only when duplicate processing is deliberate.
+
+Restore is an offline maintenance operation. Stop the service and every MCP/client
+process that can write the database before restoring, and reopen clients only
+after verification completes. The service lock excludes the background daemon;
+arbitrary MCP writers do not participate in that lock.
 
 Operator review work is available as CLI reports, not MCP tools:
 
@@ -264,7 +275,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.23.0` hardens verified local reliability paths. Semantic recall, scheduled maintenance, and embedding rebuilds batch provider work outside SQLite write transactions and revalidate content hashes before writing vectors. Hybrid mode returns lexical results with explicit degraded metadata when the configured embedding provider fails; explicit semantic mode still fails clearly. Background lanes isolate exceptions with bounded backoff, state files use tolerant atomic replacement, and schema initialization now records ordered transactional migrations. Chinese/Han text is covered in hash-semantic retrieval; lexical Chinese retrieval still uses the existing LIKE fallback when FTS has no direct match.
+`0.23.1` adds regression-backed authority, storage, retrieval, and local-daemon hardening. Classifier output cannot mint governance tags, confidence must be present, finite, and within `[0, 1]`, and command providers use bounded I/O with `shell=False` by default. Reflex, consolidation, embedding scheduling, and Signal polling use database-generation-aware cursors or state. Typed projections and indexed lineage support short governed deletes, repairable derived state, explicit annotation/revision, and consistent backup/restore. A cross-platform OS file lock prevents ordinary duplicate service execution; heartbeat, slow-lane timing, one-shot failures, database health, and Signal repair are visible to operators.
 
 | Track | Current signal |
 |---|---|
@@ -273,7 +284,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
 | Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats unless explicitly queried with review tags; candidates are not durable authority until reviewed/promoted |
 | Signal contention | serialized lifecycle benchmark: `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0`; multiprocessing exact-ID claim test: 8 processes, 1 winner |
-| v0.23.0 reliability | batched provider work outside write transactions across semantic recall, scheduler, and rebuild; typed hybrid degradation; isolated service lanes; atomic state replacement; ordered schema version `1` with rollback and multi-process convergence regressions |
+| Current reliability patch | policy-tag isolation; epoch-aware cursors; singleton lock and heartbeat; typed metadata/lineage; backup/restore/checkpoint; bounded command providers; exact full-store semantic scoring; strict local profile |
 | Inherited Signal correctness | 10,000-Signal polling acceptance: exact insertion order, `missing = 0`, `unexpected = 0`, `unique = 10000`; owner-matched active-claim ack and promotion-preservation regressions included in the suite |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
@@ -285,7 +296,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| Test suite | `445 passed` |
+| Test suite | `546 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -428,7 +439,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.23.0 announcement](docs/v0.23.0-announcement.md)
+- [v0.23.1 announcement](docs/v0.23.1-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

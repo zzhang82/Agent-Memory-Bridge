@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 from agent_mem_bridge.public_surface import run_public_surface_check

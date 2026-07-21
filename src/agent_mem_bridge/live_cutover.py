@@ -8,7 +8,6 @@ from typing import Any
 
 from .archive_snapshot import build_default_live_manifest_path, load_manifest_relative_paths
 
-
 RETIRED_ROOT_FILES = (
     "architecture.md",
     "memory/status.md",

@@ -81,10 +81,7 @@ def test_forget_cascades_only_exact_machine_owned_lineage_and_tombstones_every_d
             namespace="project:lineage",
             kind="memory",
             title="Hidden candidate",
-            content=(
-                "record_type: learning-candidate\n"
-                f'evidence_refs_json: {json.dumps([concept_id])}'
-            ),
+            content=(f"record_type: learning-candidate\nevidence_refs_json: {json.dumps([concept_id])}"),
             tags=["kind:learning-candidate"],
             source_app="amb-learning-layer",
         )["id"]
@@ -94,10 +91,7 @@ def test_forget_cascades_only_exact_machine_owned_lineage_and_tombstones_every_d
             namespace="project:lineage",
             kind="memory",
             title="Hidden review",
-            content=(
-                "record_type: learning-review\n"
-                f"source_candidate_id: {learning_candidate_id}"
-            ),
+            content=(f"record_type: learning-review\nsource_candidate_id: {learning_candidate_id}"),
             tags=["kind:learning-review"],
             source_app="amb-learning-layer",
         )["id"]
@@ -107,10 +101,7 @@ def test_forget_cascades_only_exact_machine_owned_lineage_and_tombstones_every_d
             namespace="project:lineage",
             kind="signal",
             title="Governance trigger",
-            content=(
-                "record_type: governance-trigger\n"
-                f"candidate_id: {learning_candidate_id}"
-            ),
+            content=(f"record_type: governance-trigger\ncandidate_id: {learning_candidate_id}"),
             tags=["kind:governance-trigger"],
         )["id"]
     )
@@ -172,9 +163,7 @@ def test_forget_cascades_only_exact_machine_owned_lineage_and_tombstones_every_d
             deletion_ids,
         ).fetchall()
         tombstone_columns = [row["name"] for row in conn.execute("PRAGMA table_info(memory_tombstones)").fetchall()]
-        tombstones = conn.execute(
-            "SELECT * FROM memory_tombstones ORDER BY deleted_at, forgotten_id"
-        ).fetchall()
+        tombstones = conn.execute("SELECT * FROM memory_tombstones ORDER BY deleted_at, forgotten_id").fetchall()
         semantic = fetch_row_by_id(conn, semantic_id)
         audit = fetch_row_by_id(conn, audit_id)
         prose_only = fetch_row_by_id(conn, prose_only_id)

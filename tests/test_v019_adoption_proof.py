@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.release_contract import load_server_tool_names
 from agent_mem_bridge.v019_adoption_proof import (
     DEFAULT_V019_MANIFEST_PATH,
@@ -13,21 +14,9 @@ from agent_mem_bridge.v019_adoption_proof import (
     run_v019_adoption_proof,
 )
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "run_v019_adoption_proof.py"
-EXPECTED_PUBLIC_TOOLS = {
-    "ack_signal",
-    "browse",
-    "claim_signal",
-    "extend_signal_lease",
-    "export",
-    "forget",
-    "promote",
-    "recall",
-    "stats",
-    "store",
-}
+EXPECTED_PUBLIC_TOOLS = TOOL_NAMES
 
 
 def test_v019_manifest_denominator_is_fixed_before_implementation() -> None:
@@ -72,6 +61,7 @@ def test_v019_adoption_proof_runs_fixed_12_case_pack_without_surface_expansion()
     assert summary["v019_durable_writeback_count"] == 0
     assert summary["v019_amh_required"] is False
     assert summary["v019_native_memory_comparison_required"] is True
+    assert summary["v019_current_public_surface_contract_pass"] is True
 
     assert {case["id"] for case in report["cases"]} == {
         case["id"] for case in json.loads(DEFAULT_V019_MANIFEST_PATH.read_text(encoding="utf-8"))["cases"]

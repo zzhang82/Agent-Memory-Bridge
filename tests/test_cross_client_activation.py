@@ -20,23 +20,12 @@ from agent_mem_bridge.cross_client_activation import (
     build_activation_receipt,
     render_activation_receipt_markdown,
 )
+from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.release_contract import load_server_tool_names
 from agent_mem_bridge.storage import MemoryStore
 
-
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_TOOLS = {
-    "ack_signal",
-    "browse",
-    "claim_signal",
-    "extend_signal_lease",
-    "export",
-    "forget",
-    "promote",
-    "recall",
-    "stats",
-    "store",
-}
+EXPECTED_TOOLS = TOOL_NAMES
 
 
 def test_activation_receipt_passes_for_acked_cross_client_observation(tmp_path: Path) -> None:

@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-
 ControlLevel = Literal["signal", "reflection", "belief", "policy"]
 ProfileRecordType = Literal["persona", "soul", "core-policy", "belief", "reflection", "reference-doc"]
 

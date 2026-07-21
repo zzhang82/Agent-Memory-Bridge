@@ -13,7 +13,7 @@ This is a story over the existing MCP surface. It does not add `task_packet`,
 The public MCP contract stays:
 
 - `store`, `recall`, `browse`, `stats`
-- `forget`, `promote`, `export`
+- `forget`, `promote`, `annotate`, `revise`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
 Assembly happens behind that surface by selecting, filtering, and rendering

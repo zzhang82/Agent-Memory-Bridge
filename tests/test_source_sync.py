@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from agent_mem_bridge.source_sync import build_default_sync_snapshot_root, plan_source_sync, sync_source_root
 
@@ -41,4 +41,3 @@ def test_sync_source_root_copies_and_backs_up_target_files(tmp_path: Path) -> No
     assert target_file.read_text(encoding="utf-8") == "# Core\nnew\n"
     assert (snapshot_root / "previous" / "memory" / "core" / "core.md").read_text(encoding="utf-8") == "# Core\nold\n"
     assert (snapshot_root / "sync-manifest.json").is_file()
-

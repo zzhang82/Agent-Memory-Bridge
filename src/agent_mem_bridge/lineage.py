@@ -94,17 +94,13 @@ class Lineage:
     @property
     def degrading_references(self) -> tuple[LineageReference, ...]:
         return tuple(
-            reference
-            for reference in self.iter_references()
-            if reference.relation in DEGRADING_LINEAGE_RELATIONS
+            reference for reference in self.iter_references() if reference.relation in DEGRADING_LINEAGE_RELATIONS
         )
 
     @property
     def historical_references(self) -> tuple[LineageReference, ...]:
         return tuple(
-            reference
-            for reference in self.iter_references()
-            if reference.relation in HISTORICAL_LINEAGE_RELATIONS
+            reference for reference in self.iter_references() if reference.relation in HISTORICAL_LINEAGE_RELATIONS
         )
 
     @property

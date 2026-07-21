@@ -4,6 +4,22 @@ home = "~/.local/share/agent-memory-bridge"
 db_path = "bridge.db"
 log_dir = "logs"
 
+# `local-single-user` keeps compatibility defaults for trusted local clients.
+# `hardened-local` requires Signal claims before ack and rejects trusted-shell
+# command providers. It is still a single-machine profile, not ACL isolation.
+[security]
+operating_profile = "local-single-user"
+
+[signals]
+require_claim_before_ack = false
+
+# Capacity warnings and bounded JSONL log rotation.
+[maintenance]
+log_max_bytes = 10000000
+log_backup_count = 3
+db_warn_bytes = 1000000000
+wal_warn_bytes = 256000000
+
 # Optional profile-source helpers for curated startup overlays or migration work.
 # Basic bridge usage does not require a populated source_root.
 [profile]
@@ -26,13 +42,20 @@ service_name = "agent-memory-bridge"
 # validated against your own corpus before becoming the default.
 [retrieval]
 mode = "lexical"
+# Full-store semantic scoring is exact O(N). This value controls provider batch
+# size while missing/stale embeddings are generated; it is not a recent window.
 semantic_scan_limit = 1000
 hybrid_semantic_weight = 18.0
 embedding_provider = "hash"
-embedding_command = ""
+embedding_command = []
+embedding_trusted_shell = false
 embedding_model = ""
 embedding_dim = 64
 embedding_timeout_seconds = 10
+embedding_max_input_bytes = 1000000
+embedding_max_output_bytes = 4000000
+embedding_max_stderr_bytes = 65536
+embedding_env_allowlist = []
 
 # Optional scheduled sidecar warmer.
 # This maintains the derived `memory_embeddings` cache in the background service
@@ -42,6 +65,8 @@ enabled = false
 state_path = "embedding-sidecar-state.json"
 interval_seconds = 3600
 batch_size = 100
+max_batches_per_cycle = 5
+backlog_delay_seconds = 5
 
 # Optional rollout/session capture helpers.
 # Current watcher workflows are most mature around Codex-style rollout files,
@@ -78,11 +103,18 @@ allow_reflex_sources = false
 [classifier]
 mode = "off"
 provider = "command"
-command = ""
+command = []
+trusted_shell = false
 timeout_seconds = 10
 batch_size = 16
 minimum_confidence = 0.6
+max_input_bytes = 1000000
+max_output_bytes = 2000000
+max_stderr_bytes = 65536
+env_allowlist = []
 
 # Optional background polling loop.
 [service]
 poll_seconds = 30
+slow_lane_seconds = 30
+heartbeat_stale_seconds = 120

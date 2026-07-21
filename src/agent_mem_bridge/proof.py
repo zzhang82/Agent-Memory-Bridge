@@ -10,7 +10,6 @@ from typing import Any
 
 from .storage import MemoryStore
 
-
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS_DIR = ROOT / "benchmark" / "corpus"
 QUESTIONS_PATH = ROOT / "benchmark" / "questions.json"
@@ -111,7 +110,9 @@ def run_signal_correctness_check(db_path: Path) -> dict[str, Any]:
     force_expire_lease(store, lease["id"])
     expired_extend = store.extend_signal_lease(lease["id"], consumer="worker-a", lease_seconds=120)
     reclaim_started = time.perf_counter_ns()
-    reclaimed = store.claim_signal(namespace="proof:signal", consumer="worker-b", lease_seconds=120, signal_id=lease["id"])
+    reclaimed = store.claim_signal(
+        namespace="proof:signal", consumer="worker-b", lease_seconds=120, signal_id=lease["id"]
+    )
     reclaim_latency_ms = round((time.perf_counter_ns() - reclaim_started) / 1_000_000, 3)
 
     fairness_stale = store.store(
@@ -156,16 +157,21 @@ def run_signal_correctness_check(db_path: Path) -> dict[str, Any]:
     checks = {
         "claim_sets_claimed_state": claimed["claimed"] and claimed["item"]["signal_status"] == "claimed",
         "owner_can_extend_lease": extended["extended"] is True and extended["item"]["claimed_by"] == "reviewer-a",
-        "extend_rejects_wrong_consumer": wrong_extend["extended"] is False and wrong_extend["reason"] == "claimed-by-other",
+        "extend_rejects_wrong_consumer": wrong_extend["extended"] is False
+        and wrong_extend["reason"] == "claimed-by-other",
         "ack_rejects_wrong_consumer": wrong_ack["acked"] is False and wrong_ack["reason"] == "claimed-by-other",
         "ack_marks_completion": acked["acked"] is True and acked["item"]["signal_status"] == "acked",
-        "acked_signal_cannot_extend": extend_after_ack["extended"] is False and extend_after_ack["reason"] == "already-acked",
+        "acked_signal_cannot_extend": extend_after_ack["extended"] is False
+        and extend_after_ack["reason"] == "already-acked",
         "expired_signal_filters_as_expired": any(item["id"] == expired["id"] for item in expired_hits["items"]),
         "expired_signal_cannot_be_acked": expired_ack["acked"] is False and expired_ack["reason"] == "expired",
-        "expired_lease_cannot_be_extended": expired_extend["extended"] is False and expired_extend["reason"] == "lease-expired",
+        "expired_lease_cannot_be_extended": expired_extend["extended"] is False
+        and expired_extend["reason"] == "lease-expired",
         "stale_lease_can_be_reclaimed": reclaimed["claimed"] is True and reclaimed["item"]["claimed_by"] == "worker-b",
-        "fair_claim_avoids_same_consumer_reclaim_bias": fair_claim["claimed"] is True and fair_claim["signal_id"] == fairness_fresh["id"],
-        "hard_expiry_caps_extended_lease": capped_extend["extended"] is True and capped_extend["lease_expires_at"] == capped["expires_at"],
+        "fair_claim_avoids_same_consumer_reclaim_bias": fair_claim["claimed"] is True
+        and fair_claim["signal_id"] == fairness_fresh["id"],
+        "hard_expiry_caps_extended_lease": capped_extend["extended"] is True
+        and capped_extend["lease_expires_at"] == capped["expires_at"],
     }
 
     return {
@@ -292,8 +298,12 @@ def run_relation_metadata_check(db_path: Path) -> dict[str, Any]:
 def force_expire_lease(store: MemoryStore, signal_id: str) -> None:
     with store._connect() as conn:
         conn.execute(
-            "UPDATE memories SET lease_expires_at = ? WHERE id = ?",
-            ("2000-01-01T00:00:00+00:00", signal_id),
+            "UPDATE memories SET claimed_at = ?, lease_expires_at = ? WHERE id = ?",
+            (
+                "1999-01-01T00:00:00+00:00",
+                "2000-01-01T00:00:00+00:00",
+                signal_id,
+            ),
         )
         conn.commit()
 

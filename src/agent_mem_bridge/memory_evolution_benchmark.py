@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CASES_PATH = ROOT / "benchmark" / "memory-evolution-cases.json"
 DEFAULT_REPORT_PATH = ROOT / "benchmark" / "latest-memory-evolution-report.json"
@@ -63,8 +62,7 @@ def load_memory_evolution_cases(path: Path) -> dict[str, Any]:
 def evaluate_memory_evolution_case(case: dict[str, Any], *, as_of: datetime) -> dict[str, Any]:
     records = list(case.get("records") or [])
     task_results = [
-        _evaluate_task(case=case, task=task, records=records, default_as_of=as_of)
-        for task in case.get("tasks") or []
+        _evaluate_task(case=case, task=task, records=records, default_as_of=as_of) for task in case.get("tasks") or []
     ]
     return {
         "id": case["id"],
@@ -77,16 +75,8 @@ def evaluate_memory_evolution_case(case: dict[str, Any], *, as_of: datetime) -> 
 
 
 def build_memory_evolution_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
-    governed_scores = [
-        task_result["governed"]["score"]
-        for result in results
-        for task_result in result["task_results"]
-    ]
-    raw_scores = [
-        task_result["raw"]["score"]
-        for result in results
-        for task_result in result["task_results"]
-    ]
+    governed_scores = [task_result["governed"]["score"] for result in results for task_result in result["task_results"]]
+    raw_scores = [task_result["raw"]["score"] for result in results for task_result in result["task_results"]]
     blocked_reasons = _blocked_reason_counts(results)
     warning_counts = _warning_counts(results)
     return {
@@ -165,10 +155,7 @@ def _govern_records(
 
     return {
         "visible_ids": visible_ids,
-        "blocked": [
-            {"id": record_id, "reason": reason}
-            for record_id, reason in blocked.items()
-        ],
+        "blocked": [{"id": record_id, "reason": reason} for record_id, reason in blocked.items()],
     }
 
 
@@ -221,11 +208,16 @@ def _case_warnings(
 
     if any(reason == "principal-scope-mismatch" for reason in blocked_reasons.values()):
         warnings.append("principal-scope-filtered")
-    if any(reason.startswith("quarantine:") or reason.startswith("source_trust:") for reason in blocked_reasons.values()):
+    if any(
+        reason.startswith("quarantine:") or reason.startswith("source_trust:") for reason in blocked_reasons.values()
+    ):
         warnings.append("quarantine-filtered")
     if any(reason.startswith("governance:deleted") for reason in blocked_reasons.values()):
         warnings.append("forgetting-delete-filtered")
-    if any(reason.startswith("superseded-by:") or reason.startswith("governance:superseded") for reason in blocked_reasons.values()):
+    if any(
+        reason.startswith("superseded-by:") or reason.startswith("governance:superseded")
+        for reason in blocked_reasons.values()
+    ):
         warnings.append("revision-lineage-applied")
     records_by_id = {_record_id(record): record for record in records}
     for source_id in visible_ids:
@@ -243,7 +235,9 @@ def _case_warnings(
     if has_tombstone:
         warnings.append("forgetting-audit-present")
 
-    if bool(task.get("review_mode")) and any(_record_id(record) in visible_ids and _is_review_lane(record) for record in records):
+    if bool(task.get("review_mode")) and any(
+        _record_id(record) in visible_ids and _is_review_lane(record) for record in records
+    ):
         warnings.append("review-lane-visible-by-explicit-query")
 
     return _dedupe(warnings + _normalize_list(case.get("warnings")))
@@ -343,7 +337,9 @@ def _governance_status(record: dict[str, Any]) -> str:
 def _is_review_lane(record: dict[str, Any]) -> bool:
     record_type = _normalize_text(record.get("record_type"))
     tags = set(_normalize_list(record.get("tags")))
-    return record_type in REVIEW_RECORD_TYPES or bool(tags.intersection({"kind:learning-candidate", "kind:learning-review"}))
+    return record_type in REVIEW_RECORD_TYPES or bool(
+        tags.intersection({"kind:learning-candidate", "kind:learning-review"})
+    )
 
 
 def _relation_targets(record: dict[str, Any], relation: str) -> list[str]:

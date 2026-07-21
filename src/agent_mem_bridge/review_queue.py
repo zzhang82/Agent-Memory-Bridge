@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import gc
-import json
 import tempfile
 from collections import Counter
 from datetime import UTC, datetime
@@ -17,7 +16,6 @@ from .promotion_governance import (
 )
 from .repository import MEMORY_ROW_SELECT, MemoryRow
 from .storage import MemoryStore
-
 
 REVIEW_QUEUE_SCHEMA = "memory.review_queue.v1"
 REVIEW_QUEUE_BENCHMARK_SCHEMA = "memory.review_queue_benchmark.v1"
@@ -261,7 +259,9 @@ def _learning_candidate_item(store: MemoryStore, item: dict[str, Any], fields: d
 def _learning_review_item(item: dict[str, Any], fields: dict[str, str]) -> dict[str, Any]:
     decision = fields.get("review_decision", "")
     has_target = bool(fields.get("target_record_id"))
-    receipt_hash = fields.get("review_receipt_hash") or build_review_receipt_hash(fields, candidate_status=fields.get("candidate_status", ""))
+    receipt_hash = fields.get("review_receipt_hash") or build_review_receipt_hash(
+        fields, candidate_status=fields.get("candidate_status", "")
+    )
     if decision in {"approved", "merged"} and not has_target:
         status = "open"
         action = "complete_review_writeback_or_keep_staged"

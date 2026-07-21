@@ -2,19 +2,28 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
+import tomllib
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Sequence
 
-import tomllib
-
 from .client_config import build_client_config_options, render_client_config, supported_client_names
 from .cross_client_activation import build_activation_receipt_from_db, render_activation_receipt_markdown
+from .database_maintenance import (
+    backup_database,
+    checkpoint_database,
+    cleanup_signals,
+    inspect_database,
+    rebuild_database_projections,
+    restore_database,
+    verify_backup,
+)
 from .first_run import build_first_run_report, render_first_run_markdown
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
-from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_config_path
+from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_bridge_log_dir, resolve_config_path
 from .review_queue import build_review_queue_report, render_review_queue_markdown
 from .review_workflow import build_review_workflow_report, render_review_workflow_markdown
 from .storage import MemoryStore
@@ -62,6 +71,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_task_brief(namespace)
     if namespace.command == "activation-receipt":
         return _run_activation_receipt(namespace)
+    if namespace.command == "signal-repair":
+        return _run_signal_repair(namespace)
+    if namespace.command == "db-health":
+        return _run_db_health(namespace)
+    if namespace.command == "backup":
+        return _run_backup(namespace)
+    if namespace.command == "verify-backup":
+        return _run_verify_backup(namespace)
+    if namespace.command == "restore":
+        return _run_restore(namespace)
+    if namespace.command == "wal-checkpoint":
+        return _run_wal_checkpoint(namespace)
+    if namespace.command == "signal-cleanup":
+        return _run_signal_cleanup(namespace)
 
     parser.print_help()
     return 2
@@ -75,6 +98,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     service_parser = subparsers.add_parser("service", help="Run watcher, reflex, and consolidation service loop.")
     service_parser.add_argument("--once", action="store_true", help="Run one service cycle and exit.")
+    service_parser.add_argument(
+        "--allow-multiple-services",
+        action="store_true",
+        help="Explicitly bypass the bridge-home singleton service lock.",
+    )
 
     config_parser = subparsers.add_parser("config", help="Render a client config fragment.")
     config_parser.add_argument("--client", required=True, choices=supported_client_names())
@@ -120,7 +148,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Render a copy/paste first-run guide with config, verification, and a Task Brief.",
     )
     first_run_parser.add_argument("--client", default="generic", choices=supported_client_names())
-    first_run_parser.add_argument("--namespace", default="project:demo", help="Project namespace for the first Task Brief.")
+    first_run_parser.add_argument(
+        "--namespace", default="project:demo", help="Project namespace for the first Task Brief."
+    )
     first_run_parser.add_argument("--query", default="first task", help="Task query for the first Task Brief.")
     first_run_parser.add_argument(
         "--python",
@@ -195,10 +225,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Also require the optional semantic sidecar to be fully populated.",
     )
 
-    index_rebuild_parser = subparsers.add_parser("index-rebuild", help="Rebuild derived indexes without changing memory rows.")
+    index_rebuild_parser = subparsers.add_parser(
+        "index-rebuild", help="Rebuild derived indexes without changing memory rows."
+    )
     index_rebuild_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
     index_rebuild_parser.add_argument("--fts", action="store_true", help="Rebuild the FTS5 derived index.")
-    index_rebuild_parser.add_argument("--embeddings", action="store_true", help="Rebuild the local semantic sidecar index.")
+    index_rebuild_parser.add_argument(
+        "--embeddings", action="store_true", help="Rebuild the local semantic sidecar index."
+    )
 
     review_queue_parser = subparsers.add_parser(
         "review-queue",
@@ -275,6 +309,71 @@ def _build_parser() -> argparse.ArgumentParser:
         default="markdown",
         help="Output format.",
     )
+    signal_repair_parser = subparsers.add_parser(
+        "signal-repair",
+        help="Explicitly reset one malformed claimed Signal to pending with an audit receipt.",
+    )
+    signal_repair_parser.add_argument("--id", required=True, help="Exact malformed Signal id to repair.")
+    signal_repair_parser.add_argument("--reason", required=True, help="Required operator repair reason.")
+    signal_repair_parser.add_argument("--actor", default=None, help="Optional operator identity for the receipt.")
+    signal_repair_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+
+    db_health_parser = subparsers.add_parser(
+        "db-health",
+        help="Inspect SQLite integrity, foreign keys, persisted JSON/vector state, and capacity metrics.",
+    )
+    db_health_parser.add_argument(
+        "--full", action="store_true", help="Run full integrity_check instead of quick_check."
+    )
+    db_health_parser.add_argument(
+        "--repair-projections",
+        action="store_true",
+        help="Rebuild content hashes, typed projections, edges, tags, and FTS before inspection.",
+    )
+    db_health_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+
+    backup_parser = subparsers.add_parser("backup", help="Create a consistent SQLite backup using the backup API.")
+    backup_parser.add_argument("--output", type=Path, required=True, help="Backup database output path.")
+    backup_parser.add_argument("--force", action="store_true", help="Allow replacing an existing backup file.")
+    backup_parser.add_argument("--full-verify", action="store_true", help="Run full integrity_check on the backup.")
+    backup_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+
+    verify_backup_parser = subparsers.add_parser("verify-backup", help="Verify a backup without restoring it.")
+    verify_backup_parser.add_argument("--input", type=Path, required=True, help="Backup database path.")
+    verify_backup_parser.add_argument(
+        "--quick", action="store_true", help="Use quick_check instead of full integrity_check."
+    )
+    verify_backup_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+
+    restore_parser = subparsers.add_parser("restore", help="Restore a verified backup to the configured database path.")
+    restore_parser.add_argument("--input", type=Path, required=True, help="Backup database path.")
+    restore_parser.add_argument(
+        "--target",
+        type=Path,
+        default=resolve_bridge_db_path(),
+        help="Target database path. Defaults to the configured bridge database.",
+    )
+    restore_parser.add_argument("--force", action="store_true", help="Replace an existing target after preserving it.")
+    restore_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+
+    checkpoint_parser = subparsers.add_parser("wal-checkpoint", help="Run an explicit SQLite WAL checkpoint.")
+    checkpoint_parser.add_argument(
+        "--mode",
+        choices=("passive", "full", "restart", "truncate"),
+        default="passive",
+        help="SQLite checkpoint mode.",
+    )
+    checkpoint_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+
+    cleanup_parser = subparsers.add_parser(
+        "signal-cleanup",
+        help="Preview or apply retention cleanup for old acknowledged and expired Signals.",
+    )
+    cleanup_parser.add_argument("--acked-older-than-days", type=float, default=30.0)
+    cleanup_parser.add_argument("--expired-older-than-days", type=float, default=7.0)
+    cleanup_parser.add_argument("--limit", type=int, default=1_000)
+    cleanup_parser.add_argument("--apply", action="store_true", help="Delete matching Signals; default is dry-run.")
+    cleanup_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
     return parser
 
 
@@ -344,8 +443,21 @@ def _run_verify(namespace: argparse.Namespace) -> int:
 
 def _run_service(namespace: argparse.Namespace) -> int:
     from .service import run_service
+    from .service_lock import ServiceLockConflict
 
-    run_service(once=namespace.once)
+    try:
+        result = run_service(
+            once=namespace.once,
+            allow_multiple_services=namespace.allow_multiple_services,
+        )
+    except ServiceLockConflict as exc:
+        print(f"agent-memory-bridge: {exc}", file=sys.stderr)
+        return 3
+    except ValueError as exc:
+        print(f"agent-memory-bridge: service configuration error: {exc}", file=sys.stderr)
+        return 2
+    if namespace.once and result is not None and any(item.get("status") == "failed" for item in result.values()):
+        return 1
     return 0
 
 
@@ -446,6 +558,117 @@ def _run_activation_receipt(namespace: argparse.Namespace) -> int:
     else:
         print(render_activation_receipt_markdown(receipt))
     return 0 if receipt["status"] == "pass" else 1
+
+
+def _run_signal_repair(namespace: argparse.Namespace) -> int:
+    store = MemoryStore.from_env()
+    report = store.repair_signal(namespace.id, reason=namespace.reason, actor=namespace.actor)
+    if namespace.json:
+        print(json.dumps(report, indent=2))
+    else:
+        print(f"signal_id={report['id']} repaired={str(report['repaired']).lower()} reason={report['reason']}")
+    return 0 if report["repaired"] or report["reason"] == "no-repair-needed" else 1
+
+
+def _run_db_health(namespace: argparse.Namespace) -> int:
+    repair_report = None
+    if namespace.repair_projections:
+        try:
+            repair_report = rebuild_database_projections(
+                resolve_bridge_db_path(),
+                service_lock_path=resolve_bridge_home() / "service.lock",
+            )
+        except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+            print(f"agent-memory-bridge: projection repair failed: {exc}", file=sys.stderr)
+            return 1
+    report = inspect_database(
+        resolve_bridge_db_path(),
+        full=namespace.full,
+        log_dir=resolve_bridge_log_dir(),
+    )
+    if repair_report is not None:
+        report["projection_repair"] = {
+            "rebuilt_count": repair_report["rebuilt_count"],
+            "service_lock_path": repair_report["service_lock_path"],
+        }
+    _print_maintenance_report(report, as_json=namespace.json)
+    return 0 if report["ok"] else 1
+
+
+def _run_backup(namespace: argparse.Namespace) -> int:
+    try:
+        report = backup_database(
+            resolve_bridge_db_path(),
+            namespace.output,
+            force=namespace.force,
+            full_verify=namespace.full_verify,
+        )
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        print(f"agent-memory-bridge: backup failed: {exc}", file=sys.stderr)
+        return 1
+    _print_maintenance_report(report, as_json=namespace.json)
+    return 0
+
+
+def _run_verify_backup(namespace: argparse.Namespace) -> int:
+    report = verify_backup(namespace.input, full=not namespace.quick)
+    _print_maintenance_report(report, as_json=namespace.json)
+    return 0 if report["ok"] else 1
+
+
+def _run_restore(namespace: argparse.Namespace) -> int:
+    try:
+        report = restore_database(
+            namespace.input,
+            namespace.target,
+            force=namespace.force,
+            service_lock_path=resolve_bridge_home() / "service.lock",
+        )
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        print(f"agent-memory-bridge: restore failed: {exc}", file=sys.stderr)
+        return 1
+    _print_maintenance_report(report, as_json=namespace.json)
+    return 0
+
+
+def _run_wal_checkpoint(namespace: argparse.Namespace) -> int:
+    try:
+        report = checkpoint_database(resolve_bridge_db_path(), mode=namespace.mode)
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        print(f"agent-memory-bridge: WAL checkpoint failed: {exc}", file=sys.stderr)
+        return 1
+    _print_maintenance_report(report, as_json=namespace.json)
+    return 0 if report["ok"] else 1
+
+
+def _run_signal_cleanup(namespace: argparse.Namespace) -> int:
+    try:
+        report = cleanup_signals(
+            resolve_bridge_db_path(),
+            acked_older_than_days=namespace.acked_older_than_days,
+            expired_older_than_days=namespace.expired_older_than_days,
+            limit=namespace.limit,
+            apply=namespace.apply,
+        )
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        print(f"agent-memory-bridge: signal cleanup failed: {exc}", file=sys.stderr)
+        return 1
+    _print_maintenance_report(report, as_json=namespace.json)
+    if not namespace.json:
+        print(f"candidate_count={report['candidate_count']}")
+        print(f"deleted_count={report['deleted_count']}")
+        print(f"applied={str(bool(report['applied'])).lower()}")
+    return 0
+
+
+def _print_maintenance_report(report: dict[str, object], *, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(report, indent=2))
+        return
+    print(f"ok={str(bool(report.get('ok'))).lower()}")
+    for key in ("db_path", "source_db", "output", "source_backup", "target_db", "recovery_backup", "mode"):
+        if report.get(key) is not None:
+            print(f"{key}={report[key]}")
 
 
 def _index_health_ok(report: dict[str, object], *, strict_embeddings: bool = False) -> bool:

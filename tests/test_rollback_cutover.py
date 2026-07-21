@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 
 from agent_mem_bridge.archive_snapshot import write_live_source_manifest
@@ -101,4 +101,3 @@ def test_rollback_preflight_detects_newer_live_conflicts(tmp_path: Path) -> None
     assert preflight["overwrite_candidates"] == ["architecture.md"]
     assert preflight["newer_live_conflict_count"] == 1
     assert preflight["newer_live_conflicts"][0]["path"] == "architecture.md"
-

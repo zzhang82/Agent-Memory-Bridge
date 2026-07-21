@@ -17,7 +17,7 @@ memory and lightweight coordination.
 The public MCP surface is intentionally small:
 
 - `store`, `recall`, `browse`, `stats`
-- `forget`, `promote`, `export`
+- `forget`, `promote`, `annotate`, `revise`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
 Startup and task-time context assembly are derived views over those records.
@@ -49,7 +49,7 @@ user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
    ```
 
 3. Derive the venv interpreter as described in `llms-install.md`, then install
-   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.23.0.zip"`.
+   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.23.1.zip"`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:

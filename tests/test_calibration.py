@@ -1,7 +1,12 @@
 import sys
 from pathlib import Path
 
-from agent_mem_bridge.calibration import rate, run_classifier_calibration, tag_match_score, write_classifier_calibration_report
+from agent_mem_bridge.calibration import (
+    rate,
+    run_classifier_calibration,
+    tag_match_score,
+    write_classifier_calibration_report,
+)
 
 
 def _gateway_command() -> str:

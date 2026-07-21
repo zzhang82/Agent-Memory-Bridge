@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import json
 import sqlite3
-from hashlib import blake2b
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from hashlib import blake2b
 from typing import Any, Callable
-
 
 SIGNAL_STATUSES = {"pending", "claimed", "acked", "expired"}
 FAIR_CLAIM_WINDOW = 8
@@ -34,7 +34,9 @@ class SignalSnapshot:
         )
 
 
-def resolve_signal_expiry(*, expires_at: str | None, ttl_seconds: int | None, now: datetime | None = None) -> str | None:
+def resolve_signal_expiry(
+    *, expires_at: str | None, ttl_seconds: int | None, now: datetime | None = None
+) -> str | None:
     if expires_at and expires_at.strip():
         normalized = _parse_iso_utc(expires_at.strip())
         if normalized is None:
@@ -63,6 +65,62 @@ def effective_signal_status(snapshot: SignalSnapshot, now: datetime | None = Non
     if snapshot.signal_status == "expired":
         return "expired"
     return "pending"
+
+
+def signal_validation_issues(snapshot: SignalSnapshot) -> list[str]:
+    if snapshot.kind != "signal":
+        return []
+    issues: list[str] = []
+    status = snapshot.signal_status
+    if status not in {"pending", "claimed", "acked"}:
+        issues.append("invalid-status")
+
+    parsed: dict[str, datetime | None] = {}
+    for field in ("claimed_at", "lease_expires_at", "expires_at", "acknowledged_at"):
+        raw_value = getattr(snapshot, field)
+        parsed[field] = _parse_iso_utc(raw_value)
+        if raw_value is not None and parsed[field] is None:
+            issues.append(f"invalid-{field.replace('_', '-')}")
+
+    if status == "claimed":
+        if snapshot.claimed_by is None:
+            issues.append("claim-owner-missing")
+        if snapshot.claimed_at is None:
+            issues.append("claimed-at-missing")
+        if snapshot.lease_expires_at is None:
+            issues.append("lease-expiry-missing")
+        if snapshot.acknowledged_at is not None:
+            issues.append("claimed-has-acknowledgement")
+    elif status == "pending":
+        if snapshot.claimed_by is not None:
+            issues.append("pending-has-claim-owner")
+        if snapshot.claimed_at is not None:
+            issues.append("pending-has-claimed-at")
+        if snapshot.lease_expires_at is not None:
+            issues.append("pending-has-lease-expiry")
+        if snapshot.acknowledged_at is not None:
+            issues.append("non-acked-has-acknowledgement")
+    elif status == "acked":
+        if snapshot.acknowledged_at is None:
+            issues.append("acknowledged-at-missing")
+        if snapshot.lease_expires_at is not None:
+            issues.append("acked-has-lease-expiry")
+        if (snapshot.claimed_by is None) != (snapshot.claimed_at is None):
+            issues.append("acked-claim-provenance-incomplete")
+    elif snapshot.acknowledged_at is not None:
+        issues.append("non-acked-has-acknowledgement")
+
+    claimed_at = parsed["claimed_at"]
+    lease_expires_at = parsed["lease_expires_at"]
+    expires_at = parsed["expires_at"]
+    acknowledged_at = parsed["acknowledged_at"]
+    if claimed_at is not None and lease_expires_at is not None and lease_expires_at < claimed_at:
+        issues.append("lease-before-claim")
+    if lease_expires_at is not None and expires_at is not None and lease_expires_at > expires_at:
+        issues.append("lease-after-hard-expiry")
+    if claimed_at is not None and acknowledged_at is not None and acknowledged_at < claimed_at:
+        issues.append("ack-before-claim")
+    return sorted(set(issues))
 
 
 def is_signal_claimable(snapshot: SignalSnapshot, *, consumer: str | None = None, now: datetime | None = None) -> bool:
@@ -135,7 +193,7 @@ def select_claimable_signal(
         SELECT
             {row_select_sql}
         FROM memories
-        WHERE {' AND '.join(clauses)}
+        WHERE {" AND ".join(clauses)}
         ORDER BY
             CASE
                 WHEN signal_status IS NULL OR signal_status = 'pending' THEN 0
@@ -153,9 +211,7 @@ def select_claimable_signal(
         (*params, now_iso, consumer, now_iso, consumer),
     ).fetchall()
     claimable_rows = [
-        row
-        for row in rows
-        if is_signal_claimable(SignalSnapshot.from_row(row), consumer=consumer, now=now)
+        row for row in rows if is_signal_claimable(SignalSnapshot.from_row(row), consumer=consumer, now=now)
     ]
     if not claimable_rows:
         return None
@@ -278,6 +334,7 @@ def ack_signal_entry(
     consumer: str | None,
     fetch_row_by_id: Callable[[sqlite3.Connection, str], sqlite3.Row | None],
     row_to_item: Callable[[sqlite3.Row], dict[str, Any]],
+    require_claim_before_ack: bool = False,
 ) -> dict[str, Any]:
     cleaned_id = memory_id.strip()
     cleaned_consumer = consumer.strip() if consumer and consumer.strip() else None
@@ -332,6 +389,14 @@ def ack_signal_entry(
                 (now.isoformat(), cleaned_id, cleaned_consumer, now.isoformat()),
             )
         else:
+            if require_claim_before_ack:
+                conn.rollback()
+                return {
+                    "id": cleaned_id,
+                    "acked": False,
+                    "reason": "claim-required",
+                    "item": row_to_item(row),
+                }
             update = conn.execute(
                 """
                 UPDATE memories
@@ -443,6 +508,108 @@ def extend_signal_lease_entry(
     }
 
 
+def repair_signal_entry(
+    *,
+    store: Any,
+    memory_id: str,
+    reason: str,
+    actor: str | None,
+    fetch_row_by_id: Callable[[sqlite3.Connection, str], sqlite3.Row | None],
+    row_to_item: Callable[[sqlite3.Row], dict[str, Any]],
+) -> dict[str, Any]:
+    cleaned_id = memory_id.strip()
+    cleaned_reason = reason.strip()
+    cleaned_actor = actor.strip() if actor and actor.strip() else None
+    if not cleaned_id:
+        raise ValueError("id must not be empty")
+    if not cleaned_reason:
+        raise ValueError("repair reason must not be empty")
+
+    with store._connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = fetch_row_by_id(conn, cleaned_id)
+        if row is None:
+            conn.rollback()
+            return {"id": cleaned_id, "repaired": False, "reason": "missing", "item": None}
+        if row["kind"] != "signal":
+            conn.rollback()
+            raise ValueError("only kind=signal entries can be repaired")
+        previous = _signal_state(row)
+        issues = signal_validation_issues(SignalSnapshot.from_row(row))
+        if not issues:
+            conn.rollback()
+            return {
+                "id": cleaned_id,
+                "repaired": False,
+                "reason": "no-repair-needed",
+                "item": row_to_item(row),
+            }
+        repaired_expires_at = row["expires_at"] if _parse_iso_utc(row["expires_at"]) is not None else None
+        conn.execute(
+            """
+            UPDATE memories
+            SET signal_status = 'pending',
+                claimed_by = NULL,
+                claimed_at = NULL,
+                lease_expires_at = NULL,
+                acknowledged_at = NULL,
+                expires_at = ?
+            WHERE id = ?
+            """,
+            (repaired_expires_at, cleaned_id),
+        )
+        refreshed = fetch_row_by_id(conn, cleaned_id)
+        assert refreshed is not None
+        repaired = _signal_state(refreshed)
+        conn.execute(
+            """
+            INSERT INTO signal_repairs (
+                signal_id,
+                previous_state_json,
+                repaired_state_json,
+                reason,
+                actor,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                cleaned_id,
+                json.dumps(previous, ensure_ascii=True, sort_keys=True),
+                json.dumps(repaired, ensure_ascii=True, sort_keys=True),
+                cleaned_reason,
+                cleaned_actor,
+                store._utc_now(),
+            ),
+        )
+        conn.commit()
+
+    item = row_to_item(refreshed)
+    store._log(
+        "signal_repair",
+        {"id": cleaned_id, "repaired": True, "reason": cleaned_reason, "actor": cleaned_actor},
+    )
+    return {
+        "id": cleaned_id,
+        "repaired": True,
+        "reason": cleaned_reason,
+        "previous_state": previous,
+        "repaired_state": repaired,
+        "validation_issues": issues,
+        "item": item,
+    }
+
+
+def _signal_state(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "signal_status": row["signal_status"],
+        "claimed_by": row["claimed_by"],
+        "claimed_at": row["claimed_at"],
+        "lease_expires_at": row["lease_expires_at"],
+        "acknowledged_at": row["acknowledged_at"],
+        "expires_at": row["expires_at"],
+    }
+
+
 def choose_fair_claim_candidate(rows: list[sqlite3.Row], *, consumer: str) -> sqlite3.Row:
     if not rows:
         raise ValueError("rows must not be empty")
@@ -520,7 +687,10 @@ def _parse_iso_utc(raw_value: str | None) -> datetime | None:
     if cleaned is None:
         return None
     candidate = cleaned.replace("Z", "+00:00")
-    parsed = datetime.fromisoformat(candidate)
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError:
+        return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed.astimezone(UTC)

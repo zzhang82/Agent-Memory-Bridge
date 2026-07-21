@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Profile source migration helpers.
 
 These helpers import and compare markdown-based profile source trees. They are
@@ -7,12 +5,13 @@ neutral by default, while still tolerating older personal source layouts where
 possible.
 """
 
+from __future__ import annotations
+
 import json
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
-from typing import Any
+from typing import Any, Literal
 
 from .archive_snapshot import (
     build_default_live_manifest_path,
@@ -20,8 +19,8 @@ from .archive_snapshot import (
     load_manifest,
     load_manifest_relative_paths,
 )
+from .repository import delete_entry_in_transaction
 from .storage import MemoryStore
-
 
 ROOT_MARKDOWN_FILES = {
     "architecture.md",
@@ -130,9 +129,7 @@ def compare_profile_migration_with_mode(
         live_manifest_path=live_manifest_path,
         snapshot_manifest_path=snapshot_manifest_path,
     )
-    expected_documents_by_path = {
-        document.relative_path.as_posix(): document for document in expected_documents
-    }
+    expected_documents_by_path = {document.relative_path.as_posix(): document for document in expected_documents}
     expected_paths = set(expected_documents_by_path)
     expected_by_namespace = Counter(document.namespace for document in expected_documents)
 
@@ -162,12 +159,9 @@ def compare_profile_migration_with_mode(
         if not imported_versions:
             continue
 
-        has_namespace_match = any(
-            row["namespace"] == document.namespace for row in imported_versions
-        )
+        has_namespace_match = any(row["namespace"] == document.namespace for row in imported_versions)
         has_exact_match = any(
-            row["namespace"] == document.namespace
-            and row["content"] == document.content.strip()
+            row["namespace"] == document.namespace and row["content"] == document.content.strip()
             for row in imported_versions
         )
 
@@ -348,41 +342,43 @@ def _delete_imported_rows_by_source_path(store: MemoryStore, relative_paths: lis
         return 0
 
     deleted_total = 0
-    placeholders = ", ".join("?" for _ in IMPORT_SOURCE_APPS)
+    source_app_placeholders = ", ".join("?" for _ in IMPORT_SOURCE_APPS)
     with store._connect() as conn:
-        for relative_path in relative_paths:
-            tag_json = json.dumps(f"source-path:{relative_path}")
-            row_ids = [
-                row["id"]
-                for row in conn.execute(
-                    f"""
-                    SELECT id
-                    FROM memories
-                    WHERE actor = ? AND source_app IN ({placeholders}) AND tags_json LIKE ? ESCAPE '\\'
-                    """,
-                    (IMPORT_ACTOR, *IMPORT_SOURCE_APPS, f"%{tag_json}%"),
-                ).fetchall()
-            ]
-            if not row_ids:
-                continue
-            placeholders = ", ".join("?" for _ in row_ids)
-            conn.execute(
-                f"DELETE FROM memories_fts WHERE memory_id IN ({placeholders})",
-                row_ids,
-            )
-            conn.execute(
-                f"DELETE FROM memories WHERE id IN ({placeholders})",
-                row_ids,
-            )
-            deleted_total += len(row_ids)
-        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            for relative_path in relative_paths:
+                tag_json = json.dumps(f"source-path:{relative_path}")
+                row_ids = [
+                    row["id"]
+                    for row in conn.execute(
+                        f"""
+                        SELECT id
+                        FROM memories
+                        WHERE actor = ? AND source_app IN ({source_app_placeholders}) AND tags_json LIKE ? ESCAPE '\\'
+                        """,
+                        (IMPORT_ACTOR, *IMPORT_SOURCE_APPS, f"%{tag_json}%"),
+                    ).fetchall()
+                ]
+                for row_id in row_ids:
+                    deletion = delete_entry_in_transaction(
+                        conn,
+                        root_id=str(row_id),
+                        deleted_at=store._utc_now(),
+                        root_cause="profile-source-prune",
+                    )
+                    if deletion is not None:
+                        deleted_total += len(deletion["deletion_order"])
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
     return deleted_total
 
 
 def _extract_tag_value(tags: list[str], prefix: str) -> str | None:
     for tag in tags:
         if tag.startswith(prefix):
-            return tag[len(prefix):]
+            return tag[len(prefix) :]
     return None
 
 

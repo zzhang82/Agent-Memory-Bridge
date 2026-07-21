@@ -11,7 +11,6 @@ from .belief_replay import BeliefReplayConfig, run_belief_replay
 from .belief_review import DEFAULT_REVIEWED_SAMPLES_PATH, run_belief_review_case
 from .storage import MemoryStore
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ACTIVATION_STRESS_PACK_PATH = ROOT / "benchmark" / "belief-activation-stress-pack.json"
 
@@ -23,9 +22,7 @@ def run_activation_stress_pack(
 ) -> dict[str, Any]:
     manifest_path = pack_path or DEFAULT_ACTIVATION_STRESS_PACK_PATH
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    normalized_buckets = tuple(
-        dict.fromkeys(str(bucket).strip() for bucket in buckets if str(bucket).strip())
-    )
+    normalized_buckets = tuple(dict.fromkeys(str(bucket).strip() for bucket in buckets if str(bucket).strip()))
     allowed_buckets = {bucket.lower() for bucket in normalized_buckets}
     reviewed_samples_path = _resolve_relative_path(
         manifest_path,
@@ -33,8 +30,7 @@ def run_activation_stress_pack(
         fallback=DEFAULT_REVIEWED_SAMPLES_PATH,
     )
     reviewed_samples = {
-        str(sample["id"]): sample
-        for sample in json.loads(reviewed_samples_path.read_text(encoding="utf-8"))
+        str(sample["id"]): sample for sample in json.loads(reviewed_samples_path.read_text(encoding="utf-8"))
     }
 
     results: list[dict[str, Any]] = []
@@ -89,8 +85,7 @@ def run_activation_stress_pack(
             "replay_scenario_count": sum(1 for result in results if result["kind"] == "replay"),
         },
         "bucket_summaries": {
-            bucket: _summarize_group(items)
-            for bucket, items in sorted(by_bucket.items(), key=lambda item: item[0])
+            bucket: _summarize_group(items) for bucket, items in sorted(by_bucket.items(), key=lambda item: item[0])
         },
         "durability_summaries": {
             durability: _summarize_group(items)
@@ -100,9 +95,7 @@ def run_activation_stress_pack(
             "touches_live_data": False,
             "runtime_cleanup": "automatic-temp-store-removal",
             "durable_regression_ids": [
-                result["id"]
-                for result in results
-                if result["durability"] == "durable-regression"
+                result["id"] for result in results if result["durability"] == "durable-regression"
             ],
             "cleanup_guidance": list(manifest.get("cleanup_guidance") or []),
         },
@@ -191,24 +184,13 @@ def _run_replay_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
             "final_candidate_count": final_window["summary"]["belief_candidate_count"] if final_window else 0,
             "final_red_flags": list(final_window.get("red_flags", [])) if final_window else [],
             "final_candidate_statuses": sorted(
-                {
-                    str(row["status"])
-                    for row in (final_window["leaderboards"]["candidates"] if final_window else [])
-                }
+                {str(row["status"]) for row in (final_window["leaderboards"]["candidates"] if final_window else [])}
             ),
             "all_actions_applied": sorted(
-                {
-                    action
-                    for window in replay_report["windows"]
-                    for action in window.get("actions_applied", [])
-                }
+                {action for window in replay_report["windows"] for action in window.get("actions_applied", [])}
             ),
             "out_of_filter_domains": sorted(
-                {
-                    domain
-                    for window in replay_report["windows"]
-                    for domain in window.get("out_of_filter_domains", [])
-                }
+                {domain for window in replay_report["windows"] for domain in window.get("out_of_filter_domains", [])}
             ),
         }
         match, failure_reasons = _evaluate_replay_expectations(
@@ -244,12 +226,8 @@ def _build_replay_config(*, source_row_count: int, config_data: dict[str, Any]) 
         null_session_uplift_mode=str(config_data.get("null_session_uplift_mode") or "none"),
         correlation_ids=tuple(config_data.get("correlation_ids") or ()),
         actor=str(config_data.get("actor") or "bridge-consolidation"),
-        belief_to_domain_note_ratio_red_flag=float(
-            config_data.get("belief_to_domain_note_ratio_red_flag") or 0.5
-        ),
-        candidate_to_belief_rate_red_flag=float(
-            config_data.get("candidate_to_belief_rate_red_flag") or 0.8
-        ),
+        belief_to_domain_note_ratio_red_flag=float(config_data.get("belief_to_domain_note_ratio_red_flag") or 0.5),
+        candidate_to_belief_rate_red_flag=float(config_data.get("candidate_to_belief_rate_red_flag") or 0.8),
         max_candidate_count_red_flag=int(config_data.get("max_candidate_count_red_flag") or 25),
         stop_on_red_flag=bool(config_data.get("stop_on_red_flag", True)),
         top_n=int(config_data.get("top_n") or 5),

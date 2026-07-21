@@ -301,7 +301,9 @@ def _build_profile_source(tmp_path: Path) -> Path:
     (root / "memory" / "REDLINE.md").write_text("# Redline\n", encoding="utf-8")
     (root / "memory" / "core" / "core.md").write_text("# Core\n\nverify behavior before done\n", encoding="utf-8")
     (root / "memory" / "core" / "persona.md").write_text("# Persona\n\nCalm and direct.\n", encoding="utf-8")
-    (root / "memory" / "core" / "decision-making.md").write_text("# Decisions\n\nPrefer explicit trade-offs.\n", encoding="utf-8")
+    (root / "memory" / "core" / "decision-making.md").write_text(
+        "# Decisions\n\nPrefer explicit trade-offs.\n", encoding="utf-8"
+    )
     return root
 
 

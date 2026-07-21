@@ -3,24 +3,13 @@ from pathlib import Path
 
 import pytest
 
+from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.procedure_governance import parse_procedure_artifact
 from agent_mem_bridge.recall_first import recall_first
 from agent_mem_bridge.storage import MemoryStore
 from agent_mem_bridge.task_memory import assemble_task_memory
 
-
-EXPECTED_PUBLIC_TOOLS = {
-    "store",
-    "recall",
-    "browse",
-    "stats",
-    "forget",
-    "claim_signal",
-    "ack_signal",
-    "extend_signal_lease",
-    "promote",
-    "export",
-}
+EXPECTED_PUBLIC_TOOLS = TOOL_NAMES
 
 
 def test_parse_procedure_artifact_surfaces_governance_and_boundaries() -> None:
@@ -87,9 +76,7 @@ def test_assemble_task_memory_prefers_validated_procedure_over_draft(tmp_path: P
         procedure_limit=1,
     )
 
-    assert [item["title"] for item in report["procedure_hits"]] == [
-        "[[Procedure]] release checklist validated"
-    ]
+    assert [item["title"] for item in report["procedure_hits"]] == ["[[Procedure]] release checklist validated"]
     procedure = report["procedure_hits"][0]["procedure"]
     assert procedure["governance"]["status"] == "validated"
     assert "when_not_to_use: For local spike branches." in report["summary"]
@@ -144,9 +131,7 @@ def test_assemble_task_memory_suppresses_stale_and_replaced_procedures(tmp_path:
         global_namespace="global",
     )
 
-    assert [item["title"] for item in report["procedure_hits"]] == [
-        "[[Procedure]] sync skills current"
-    ]
+    assert [item["title"] for item in report["procedure_hits"]] == ["[[Procedure]] sync skills current"]
     suppressed = {item["title"]: item["reason"] for item in report["suppressed_items"]}
     assert suppressed["[[Procedure]] sync skills old"] == "procedure_status:replaced"
     assert suppressed["[[Procedure]] sync skills stale"] == "procedure_status:stale"
@@ -216,13 +201,10 @@ def test_assemble_task_memory_suppresses_unsafe_procedure(tmp_path: Path) -> Non
         global_namespace="global",
     )
 
-    assert [item["title"] for item in report["procedure_hits"]] == [
-        "[[Procedure]] release governed path"
-    ]
+    assert [item["title"] for item in report["procedure_hits"]] == ["[[Procedure]] release governed path"]
     assert "skip benchmark" not in report["summary"]
     assert any(
-        item["title"] == "[[Procedure]] release unsafe shortcut"
-        and item["reason"] == "procedure_status:unsafe"
+        item["title"] == "[[Procedure]] release unsafe shortcut" and item["reason"] == "procedure_status:unsafe"
         for item in report["suppressed_items"]
     )
 

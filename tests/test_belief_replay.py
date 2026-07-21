@@ -242,13 +242,15 @@ def test_run_belief_replay_aging_blocks_promotion_from_stale_candidate_history(t
             session_id=f"aging-session-{index}",
             correlation_id=f"aging-thread-{index}",
             confidence="validated" if index in (3, 4) else "observed",
-            trigger="Startup retrieval reaches for legacy docs before checking record-tagged bundle rows." if index == 3 else (
-                "The system treats old operating docs as the first stop." if index == 4 else ""
-            ),
-            symptom="The agent leans on old structure even when the new bundle already covers the decision." if index == 3 else (
-                "Bundle-first startup never gets a clean chance to carry the decision." if index == 4 else ""
-            ),
-            fix="Prefer record-tagged profile hits first, then use reference docs only as fallback." if index in (3, 4) else "",
+            trigger="Startup retrieval reaches for legacy docs before checking record-tagged bundle rows."
+            if index == 3
+            else ("The system treats old operating docs as the first stop." if index == 4 else ""),
+            symptom="The agent leans on old structure even when the new bundle already covers the decision."
+            if index == 3
+            else ("Bundle-first startup never gets a clean chance to carry the decision." if index == 4 else ""),
+            fix="Prefer record-tagged profile hits first, then use reference docs only as fallback."
+            if index in (3, 4)
+            else "",
         )
 
     report = run_belief_replay(
@@ -482,13 +484,15 @@ def test_diff_belief_replay_reports_surfaces_variant_delay(tmp_path: Path) -> No
             session_id=f"diff-session-{index}",
             correlation_id=f"diff-thread-{index}",
             confidence="validated" if index in (3, 4) else "observed",
-            trigger="Startup retrieval reaches for legacy docs before checking record-tagged bundle rows." if index == 3 else (
-                "The system treats old operating docs as the first stop." if index == 4 else ""
-            ),
-            symptom="The agent leans on old structure even when the new bundle already covers the decision." if index == 3 else (
-                "Bundle-first startup never gets a clean chance to carry the decision." if index == 4 else ""
-            ),
-            fix="Prefer record-tagged profile hits first, then use reference docs only as fallback." if index in (3, 4) else "",
+            trigger="Startup retrieval reaches for legacy docs before checking record-tagged bundle rows."
+            if index == 3
+            else ("The system treats old operating docs as the first stop." if index == 4 else ""),
+            symptom="The agent leans on old structure even when the new bundle already covers the decision."
+            if index == 3
+            else ("Bundle-first startup never gets a clean chance to carry the decision." if index == 4 else ""),
+            fix="Prefer record-tagged profile hits first, then use reference docs only as fallback."
+            if index in (3, 4)
+            else "",
         )
 
     baseline = run_belief_replay(
@@ -527,11 +531,51 @@ def test_diff_belief_replay_reports_surfaces_variant_delay(tmp_path: Path) -> No
 def test_run_belief_replay_null_session_uplift_by_day_can_unlock_belief(tmp_path: Path) -> None:
     source_store = MemoryStore(tmp_path / "source.db", log_dir=tmp_path / "logs")
     rows = [
-        ("2026-04-01T12:00:00+00:00", "[[Learn]] uplift 1", "Load compact startup records before older operating manuals.", "observed", "", "", ""),
-        ("2026-04-02T12:00:00+00:00", "[[Learn]] uplift 2", "Keep startup focused on core-policy, persona, soul, and project memory.", "observed", "", "", ""),
-        ("2026-04-03T12:00:00+00:00", "[[Gotcha]] uplift 3", "Old reference docs should not outrank the compact profile bundle.", "validated", "Startup retrieval reaches for legacy docs before checking record-tagged bundle rows.", "The agent leans on old structure even when the new bundle already covers the decision.", "Prefer record-tagged profile hits first, then use reference docs only as fallback."),
-        ("2026-04-04T12:00:00+00:00", "[[Gotcha]] uplift 4", "Legacy startup blobs should not displace compact record-tagged guidance.", "validated", "The system treats old operating docs as the first stop.", "Bundle-first startup never gets a clean chance to carry the decision.", "Prefer record-tagged profile hits first, then use reference docs only as fallback."),
-        ("2026-04-05T12:00:00+00:00", "[[Learn]] uplift 5", "Keep old startup references as fallback instead of the default operating payload.", "observed", "", "", ""),
+        (
+            "2026-04-01T12:00:00+00:00",
+            "[[Learn]] uplift 1",
+            "Load compact startup records before older operating manuals.",
+            "observed",
+            "",
+            "",
+            "",
+        ),
+        (
+            "2026-04-02T12:00:00+00:00",
+            "[[Learn]] uplift 2",
+            "Keep startup focused on core-policy, persona, soul, and project memory.",
+            "observed",
+            "",
+            "",
+            "",
+        ),
+        (
+            "2026-04-03T12:00:00+00:00",
+            "[[Gotcha]] uplift 3",
+            "Old reference docs should not outrank the compact profile bundle.",
+            "validated",
+            "Startup retrieval reaches for legacy docs before checking record-tagged bundle rows.",
+            "The agent leans on old structure even when the new bundle already covers the decision.",
+            "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+        ),
+        (
+            "2026-04-04T12:00:00+00:00",
+            "[[Gotcha]] uplift 4",
+            "Legacy startup blobs should not displace compact record-tagged guidance.",
+            "validated",
+            "The system treats old operating docs as the first stop.",
+            "Bundle-first startup never gets a clean chance to carry the decision.",
+            "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+        ),
+        (
+            "2026-04-05T12:00:00+00:00",
+            "[[Learn]] uplift 5",
+            "Keep old startup references as fallback instead of the default operating payload.",
+            "observed",
+            "",
+            "",
+            "",
+        ),
     ]
     for created_at, title, claim, confidence, trigger, symptom, fix in rows:
         _store_source_row(
@@ -612,12 +656,20 @@ def test_diff_belief_replay_reports_surfaces_uplifted_belief_emergence(tmp_path:
             session_id=None,
             correlation_id=None,
             confidence="validated" if index in (3, 4) else "observed",
-            trigger="Startup retrieval reaches for legacy docs before checking record-tagged bundle rows." if index == 3 else ("The system treats old operating docs as the first stop." if index == 4 else ""),
-            symptom="The agent leans on old structure even when the new bundle already covers the decision." if index == 3 else ("Bundle-first startup never gets a clean chance to carry the decision." if index == 4 else ""),
-            fix="Prefer record-tagged profile hits first, then use reference docs only as fallback." if index in (3, 4) else "",
+            trigger="Startup retrieval reaches for legacy docs before checking record-tagged bundle rows."
+            if index == 3
+            else ("The system treats old operating docs as the first stop." if index == 4 else ""),
+            symptom="The agent leans on old structure even when the new bundle already covers the decision."
+            if index == 3
+            else ("Bundle-first startup never gets a clean chance to carry the decision." if index == 4 else ""),
+            fix="Prefer record-tagged profile hits first, then use reference docs only as fallback."
+            if index in (3, 4)
+            else "",
         )
         with source_store._connect() as conn:
-            conn.execute("UPDATE memories SET created_at = ? WHERE title = ?", (created_at, f"[[Learn]] uplift diff {index}"))
+            conn.execute(
+                "UPDATE memories SET created_at = ? WHERE title = ?", (created_at, f"[[Learn]] uplift diff {index}")
+            )
             conn.commit()
 
     baseline = run_belief_replay(

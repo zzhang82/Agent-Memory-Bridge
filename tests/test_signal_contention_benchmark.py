@@ -7,7 +7,6 @@ from pathlib import Path
 
 from agent_mem_bridge.signal_contention_benchmark import run_signal_contention_benchmark
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "run_signal_contention_benchmark.py"
 

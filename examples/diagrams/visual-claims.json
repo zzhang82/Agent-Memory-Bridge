@@ -7,7 +7,7 @@
       "id": "amb-overview-runtime-surface",
       "asset_path": "examples/diagrams/amb-overview.svg",
       "asset_type": "svg",
-      "claim": "The overview diagram presents AMB's runtime path as MCP-compatible coding agents, a 10-tool public MCP surface, SQLite/WAL durable authority, governed change, and derived context/reports.",
+      "claim": "The overview diagram presents AMB's runtime path as MCP-compatible coding agents, a 12-tool public MCP surface, SQLite/WAL durable authority, governed change, and derived context/reports.",
       "evidence_paths": [
         "README.md",
         "README.zh-CN.md",
@@ -16,7 +16,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.23.0"
+        "release": "0.23.1"
       }
     },
     {
@@ -32,7 +32,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.23.0"
+        "release": "0.23.1"
       }
     },
     {
@@ -48,7 +48,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.23.0"
+        "release": "0.23.1"
       }
     },
     {
@@ -64,7 +64,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.23.0"
+        "release": "0.23.1"
       }
     },
     {
@@ -84,7 +84,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.23.0"
+        "release": "0.23.1"
       }
     }
   ]

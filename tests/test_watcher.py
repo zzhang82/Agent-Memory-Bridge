@@ -1,4 +1,4 @@
-﻿import json
+import json
 import time
 from pathlib import Path
 
@@ -40,6 +40,7 @@ def test_watcher_processes_idle_rollout_once(tmp_path: Path) -> None:
     os_times = (old_time, old_time)
     rollout.touch()
     import os
+
     os.utime(rollout, os_times)
 
     watcher = CodexSessionWatcher(
@@ -130,7 +131,12 @@ def test_watcher_creates_checkpoint_for_active_changed_rollout(tmp_path: Path) -
             "payload": {
                 "type": "message",
                 "role": "assistant",
-                "content": [{"type": "output_text", "text": "Fix: use one canonical bridge database so recall stays trustworthy."}],
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": "Fix: use one canonical bridge database so recall stays trustworthy.",
+                    }
+                ],
             },
         },
     ]

@@ -152,7 +152,10 @@ def test_recall_first_uses_reference_hits_only_as_fallback(tmp_path: Path) -> No
     assert result["domain_hits"] == []
     assert len(result["reference_hits"]) == 1
     assert result["reference_hits"][0]["title"] == "[[Reference]] startup routing manual"
-    assert result["recommended_action"] == "Profile bundle missed; fallback reference memory may help before external search."
+    assert (
+        result["recommended_action"]
+        == "Profile bundle missed; fallback reference memory may help before external search."
+    )
 
 
 def test_recall_first_surfaces_procedures_and_supporting_task_memory(tmp_path: Path) -> None:
@@ -213,17 +216,16 @@ def test_recall_first_surfaces_procedures_and_supporting_task_memory(tmp_path: P
         "review queue exists",
         "owner is known",
     ]
-    assert result["procedure_hits"][0]["procedure"]["failure_mode"] == (
-        "Ambiguous ownership leaves reviews stale."
-    )
-    assert result["procedure_hits"][0]["procedure"]["rollback_path"] == (
-        "return item to queue | notify requester"
-    )
+    assert result["procedure_hits"][0]["procedure"]["failure_mode"] == ("Ambiguous ownership leaves reviews stale.")
+    assert result["procedure_hits"][0]["procedure"]["rollback_path"] == ("return item to queue | notify requester")
     assert result["procedure_hits"][0]["procedure"]["governance"]["status"] == "validated"
     assert len(result["concept_hits"]) == 1
     assert len(result["belief_hits"]) == 1
     assert result["supporting_hits"] == []
-    assert result["recommended_action"] == "Search local memory first, starting with applicable procedures and supporting concepts."
+    assert (
+        result["recommended_action"]
+        == "Search local memory first, starting with applicable procedures and supporting concepts."
+    )
     assert "review handoff" in result["task_memory_summary"].lower()
 
 
@@ -332,7 +334,10 @@ def test_recall_first_returns_relation_filtered_task_packet(tmp_path: Path) -> N
     assert "optional release handoff owner" not in result["task_memory_summary"]
     assert "expired release handoff checklist" not in result["task_memory_summary"]
     assert "future release handoff checklist" not in result["task_memory_summary"]
-    assert result["recommended_action"] == "Search local memory first, starting with applicable procedures and supporting concepts."
+    assert (
+        result["recommended_action"]
+        == "Search local memory first, starting with applicable procedures and supporting concepts."
+    )
 
 
 def test_recall_first_suppresses_stale_procedure_status(tmp_path: Path) -> None:
@@ -369,9 +374,7 @@ def test_recall_first_suppresses_stale_procedure_status(tmp_path: Path) -> None:
         limit=5,
     )
 
-    assert [item["title"] for item in result["procedure_hits"]] == [
-        "[[Procedure]] release handoff validated path"
-    ]
+    assert [item["title"] for item in result["procedure_hits"]] == ["[[Procedure]] release handoff validated path"]
     assert "stale shortcut" not in result["task_memory_summary"]
 
 

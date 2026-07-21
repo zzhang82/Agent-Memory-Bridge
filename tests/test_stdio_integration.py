@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -37,6 +37,8 @@ async def _exercise_server(tmp_path: Path) -> None:
                 "extend_signal_lease",
                 "ack_signal",
                 "promote",
+                "annotate",
+                "revise",
                 "export",
             }
 
@@ -238,7 +240,13 @@ async def _exercise_server(tmp_path: Path) -> None:
 
             exported = await session.call_tool(
                 "export",
-                arguments={"namespace": "bridge", "format": "markdown", "kind": "signal", "signal_status": "acked", "limit": 10},
+                arguments={
+                    "namespace": "bridge",
+                    "format": "markdown",
+                    "kind": "signal",
+                    "signal_status": "acked",
+                    "limit": 10,
+                },
             )
             assert exported.structuredContent["count"] == 1
             assert "# Memory Export: bridge" in exported.structuredContent["content"]
@@ -259,4 +267,3 @@ async def _exercise_server(tmp_path: Path) -> None:
 
 def test_stdio_server_round_trip(tmp_path: Path) -> None:
     asyncio.run(_exercise_server(tmp_path))
-

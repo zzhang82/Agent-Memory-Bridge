@@ -24,9 +24,7 @@ def test_run_belief_review_slice_summaries_show_expected_shape() -> None:
 
     assert report["slice_summaries"]["contradiction-quality"]["sample_count"] == 6
     assert report["slice_summaries"]["contradiction-quality"]["belief_count"] == 3
-    assert report["slice_summaries"]["contradiction-quality"]["blocking_reason_counts"] == {
-        "blocked-contradiction": 3
-    }
+    assert report["slice_summaries"]["contradiction-quality"]["blocking_reason_counts"] == {"blocked-contradiction": 3}
     assert report["slice_summaries"]["contradiction-watchlist"]["sample_count"] == 1
     assert report["slice_summaries"]["contradiction-watchlist"]["blocking_reason_counts"] == {
         "blocked-contradiction": 1

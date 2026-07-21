@@ -4,7 +4,16 @@ import hashlib
 import json
 from typing import Any
 
-from .repository import LEARNING_CANDIDATE_TAG, MemoryRow, fetch_row_by_id, merge_tags, normalize_content
+from .record_projection import sync_record_projection
+from .repository import (
+    HIDDEN_REVIEW_LANE_TAGS,
+    LEARNING_CANDIDATE_TAG,
+    LEARNING_REVIEW_TAG,
+    MemoryRow,
+    fetch_row_by_id,
+    merge_tags,
+    normalize_content,
+)
 from .structured_record import (
     LINEAGE_LIST_FIELDS,
     LINEAGE_SINGLETON_FIELDS,
@@ -12,7 +21,6 @@ from .structured_record import (
     build_structured_content,
     parse_structured_content,
 )
-
 
 PROMOTABLE_RECORD_TYPES = {"learn", "gotcha", "domain-note"}
 PRESERVED_PROMOTION_FIELDS = (
@@ -41,7 +49,9 @@ def promote_entry(store: Any, memory_id: str, to_kind: str) -> dict[str, Any]:
 
         source = MemoryRow.from_sqlite(row)
         if is_learning_candidate_record(source):
-            raise ValueError("learning candidates cannot be promoted directly; review and store durable memory explicitly")
+            raise ValueError(
+                "learning candidates cannot be promoted directly; review and store durable memory explicitly"
+            )
         current_record_type = record_type_for_row(source)
         if current_record_type == target_kind:
             store._log("promote", {"id": cleaned_id, "changed": False, "reason": "already-target-kind"})
@@ -98,6 +108,18 @@ def promote_entry(store: Any, memory_id: str, to_kind: str) -> dict[str, Any]:
                 cleaned_id,
             ),
         )
+        sync_record_projection(
+            conn,
+            memory_id=cleaned_id,
+            namespace=source.namespace,
+            content=updated_item["content"],
+            tags=updated_item["tags"],
+            kind=source.kind,
+            actor=source.actor,
+            source_app=source.source_app,
+            is_learning_candidate=False,
+            reject_invalid=True,
+        )
         conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (cleaned_id,))
         conn.execute(
             "INSERT INTO memories_fts(memory_id, title, content) VALUES (?, ?, ?)",
@@ -150,7 +172,13 @@ def record_type_for_row(row: MemoryRow) -> str:
 
 def is_learning_candidate_record(row: MemoryRow) -> bool:
     fields = parse_structured_record(row.content)
-    return LEARNING_CANDIDATE_TAG in row.tags or fields.get("record_type") == "learning-candidate"
+    return bool(
+        row.is_learning_candidate
+        or HIDDEN_REVIEW_LANE_TAGS.intersection(row.tags)
+        or fields.get("record_type") in {"learning-candidate", "learning-review"}
+        or LEARNING_CANDIDATE_TAG in row.tags
+        or LEARNING_REVIEW_TAG in row.tags
+    )
 
 
 def build_promoted_item(row: MemoryRow, *, target_kind: str, current_record_type: str) -> dict[str, Any]:

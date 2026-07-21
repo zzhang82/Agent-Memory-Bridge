@@ -1,23 +1,30 @@
 from __future__ import annotations
 
 import json
-import subprocess
+import math
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from .command_provider import CommandLimits, CommandProviderError, run_json_command
 
 ClassifierMode = Literal["off", "shadow", "assist"]
 ClassifierProvider = Literal["command"]
+ALLOWED_CLASSIFIER_TAG_PREFIXES = ("domain:", "topic:")
 
 
 @dataclass(frozen=True, slots=True)
 class ClassifierConfig:
     mode: ClassifierMode = "off"
     provider: ClassifierProvider = "command"
-    command: str = ""
+    command: str | tuple[str, ...] = ""
     timeout_seconds: float = 10.0
     batch_size: int = 16
     minimum_confidence: float = 0.6
+    trusted_shell: bool = False
+    max_input_bytes: int = 1_000_000
+    max_output_bytes: int = 2_000_000
+    max_stderr_bytes: int = 65_536
+    env_allowlist: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +42,7 @@ class Classification:
     tags: tuple[str, ...]
     domains: tuple[str, ...]
     topics: tuple[str, ...]
+    classifier_suggested_tags: tuple[str, ...] = ()
     confidence: float | None = None
 
 
@@ -47,11 +55,16 @@ class ClassificationBatchOutcome:
 
 class EnrichmentClassifier:
     def __init__(self, config: ClassifierConfig) -> None:
+        if not math.isfinite(config.minimum_confidence) or not 0.0 <= config.minimum_confidence <= 1.0:
+            raise ValueError("minimum_confidence must be a finite value between 0 and 1")
         self.config = config
 
     @property
     def active(self) -> bool:
-        return self.config.mode != "off" and bool(self.config.command.strip())
+        command_configured = (
+            bool(self.config.command.strip()) if isinstance(self.config.command, str) else bool(self.config.command)
+        )
+        return self.config.mode != "off" and command_configured
 
     def classify(self, candidates: list[EnrichmentCandidate]) -> ClassificationBatchOutcome:
         if not candidates:
@@ -74,9 +87,12 @@ class EnrichmentClassifier:
     def accepted_tags(self, classification: Classification | None) -> list[str]:
         if classification is None:
             return []
-        if classification.confidence is not None and classification.confidence < self.config.minimum_confidence:
+        confidence = classification.confidence
+        if confidence is None or not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
             return []
-        return list(classification.tags)
+        if confidence < self.config.minimum_confidence:
+            return []
+        return self._policy_tags(list(classification.tags))
 
     def _classify_batch(self, batch: list[EnrichmentCandidate]) -> ClassificationBatchOutcome:
         payload = {
@@ -92,16 +108,19 @@ class EnrichmentClassifier:
             ]
         }
         try:
-            completed = subprocess.run(
+            completed = run_json_command(
                 self.config.command,
-                shell=True,
-                check=False,
-                capture_output=True,
-                text=True,
-                input=json.dumps(payload),
-                timeout=self.config.timeout_seconds,
+                payload,
+                timeout_seconds=self.config.timeout_seconds,
+                trusted_shell=self.config.trusted_shell,
+                limits=CommandLimits(
+                    max_input_bytes=self.config.max_input_bytes,
+                    max_stdout_bytes=self.config.max_output_bytes,
+                    max_stderr_bytes=self.config.max_stderr_bytes,
+                ),
+                env_allowlist=self.config.env_allowlist,
             )
-        except (OSError, subprocess.TimeoutExpired) as exc:
+        except CommandProviderError as exc:
             return ClassificationBatchOutcome(
                 predictions={},
                 requested_count=len(batch),
@@ -109,11 +128,13 @@ class EnrichmentClassifier:
             )
 
         if completed.returncode != 0:
-            message = completed.stderr.strip() or completed.stdout.strip() or f"exit {completed.returncode}"
             return ClassificationBatchOutcome(
                 predictions={},
                 requested_count=len(batch),
-                error=f"classifier command failed: {message}",
+                error=(
+                    f"classifier command failed with exit code {completed.returncode} "
+                    f"(fingerprint={completed.fingerprint})"
+                ),
             )
 
         try:
@@ -122,7 +143,7 @@ class EnrichmentClassifier:
             return ClassificationBatchOutcome(
                 predictions={},
                 requested_count=len(batch),
-                error=f"classifier returned invalid JSON: {exc}",
+                error=f"classifier returned invalid JSON ({exc.__class__.__name__})",
             )
 
         items = raw.get("items", raw) if isinstance(raw, dict) else raw
@@ -140,12 +161,14 @@ class EnrichmentClassifier:
             key = str(item.get("key", "")).strip()
             if not key:
                 continue
-            tags = self._normalize_tags(item)
+            classifier_suggested_tags = self._normalize_tags(item)
+            tags = self._policy_tags(classifier_suggested_tags)
             predictions[key] = Classification(
                 key=key,
                 tags=tuple(tags),
                 domains=tuple(tag for tag in tags if tag.startswith("domain:")),
                 topics=tuple(tag for tag in tags if tag.startswith("topic:")),
+                classifier_suggested_tags=tuple(classifier_suggested_tags),
                 confidence=self._normalize_confidence(item.get("confidence")),
             )
 
@@ -153,13 +176,17 @@ class EnrichmentClassifier:
 
     def _normalize_tags(self, item: dict[str, Any]) -> list[str]:
         tags: list[str] = []
-        for value in item.get("tags", []):
+        raw_tags = item.get("tags", [])
+        tag_values = raw_tags if isinstance(raw_tags, (list, tuple)) else ()
+        for value in tag_values:
             if isinstance(value, str):
                 normalized = value.strip()
                 if normalized:
                     tags.append(normalized)
         for field, prefix in (("domains", "domain:"), ("topics", "topic:")):
-            for value in item.get(field, []):
+            raw_values = item.get(field, [])
+            values = raw_values if isinstance(raw_values, (list, tuple)) else ()
+            for value in values:
                 if not isinstance(value, str):
                     continue
                 normalized = value.strip()
@@ -176,13 +203,24 @@ class EnrichmentClassifier:
         return result
 
     @staticmethod
+    def _policy_tags(tags: list[str]) -> list[str]:
+        return [
+            tag
+            for tag in tags
+            if any(tag.startswith(prefix) and len(tag) > len(prefix) for prefix in ALLOWED_CLASSIFIER_TAG_PREFIXES)
+        ]
+
+    @staticmethod
     def _normalize_confidence(value: Any) -> float | None:
         if value is None:
             return None
         try:
-            return float(value)
+            normalized = float(value)
         except (TypeError, ValueError):
             return None
+        if not math.isfinite(normalized) or not 0.0 <= normalized <= 1.0:
+            return None
+        return normalized
 
     def _batched(self, candidates: list[EnrichmentCandidate]) -> list[list[EnrichmentCandidate]]:
         batch_size = max(1, int(self.config.batch_size))

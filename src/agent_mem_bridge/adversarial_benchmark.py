@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CASES_PATH = ROOT / "benchmark" / "adversarial-memory-cases.json"
 DEFAULT_REPORT_PATH = ROOT / "benchmark" / "latest-adversarial-memory-report.json"
@@ -72,8 +71,7 @@ def load_adversarial_cases(path: Path) -> dict[str, Any]:
 def evaluate_adversarial_case(case: dict[str, Any], *, as_of: datetime) -> dict[str, Any]:
     records = list(case.get("records") or [])
     task_results = [
-        _evaluate_task(case=case, task=task, records=records, as_of=as_of)
-        for task in case.get("tasks") or []
+        _evaluate_task(case=case, task=task, records=records, as_of=as_of) for task in case.get("tasks") or []
     ]
     return {
         "id": case["id"],
@@ -86,16 +84,8 @@ def evaluate_adversarial_case(case: dict[str, Any], *, as_of: datetime) -> dict[
 
 
 def build_adversarial_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
-    task_scores = [
-        task_result["governed"]["score"]
-        for result in results
-        for task_result in result["task_results"]
-    ]
-    raw_scores = [
-        task_result["raw"]["score"]
-        for result in results
-        for task_result in result["task_results"]
-    ]
+    task_scores = [task_result["governed"]["score"] for result in results for task_result in result["task_results"]]
+    raw_scores = [task_result["raw"]["score"] for result in results for task_result in result["task_results"]]
     return {
         "case_count": len(results),
         "task_count": _task_count(results),
@@ -178,10 +168,7 @@ def _govern_records(
 
     return {
         "visible_ids": visible_ids,
-        "blocked": [
-            {"id": record_id, "reason": reason}
-            for record_id, reason in blocked.items()
-        ],
+        "blocked": [{"id": record_id, "reason": reason} for record_id, reason in blocked.items()],
     }
 
 

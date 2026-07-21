@@ -12,24 +12,13 @@ from agent_mem_bridge.first_run import (
     build_first_run_report,
     render_first_run_markdown,
 )
+from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.release_contract import load_server_tool_names
 from agent_mem_bridge.storage import MemoryStore
 
-
 ROOT = Path(__file__).resolve().parents[1]
 NAMESPACE = "project:first-run-test"
-EXPECTED_PUBLIC_TOOLS = {
-    "ack_signal",
-    "browse",
-    "claim_signal",
-    "extend_signal_lease",
-    "export",
-    "forget",
-    "promote",
-    "recall",
-    "stats",
-    "store",
-}
+EXPECTED_PUBLIC_TOOLS = TOOL_NAMES
 
 
 def test_first_run_report_renders_install_verify_and_task_brief_without_mutation(tmp_path: Path) -> None:
@@ -65,7 +54,7 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert report["install"]["baseline"][0] == "python -m venv .amb-venv"
     assert ".absolute()" in report["install"]["baseline"][1]
     assert ".resolve()" not in report["install"]["baseline"][1]
-    assert "archive/refs/tags/v0.23.0.zip" in report["install"]["baseline"][2]
+    assert "archive/refs/tags/v0.23.1.zip" in report["install"]["baseline"][2]
     assert "<venv-python> -m pip install" in report["install"]["baseline"][2]
     assert report["install"]["github_install"] == report["install"]["baseline"]
     assert report["install"]["editable_install"][-1] == "<venv-python> -m pip install -e ."
@@ -75,12 +64,12 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     ]
     assert report["install"]["smoke_test"] == report["verify"][1]
     assert report["install"]["optional_uv_smoke_test"].startswith("uvx --from git+")
-    assert "Agent-Memory-Bridge@v0.23.0" in report["install"]["optional_uv_smoke_test"]
+    assert "Agent-Memory-Bridge@v0.23.1" in report["install"]["optional_uv_smoke_test"]
 
     markdown = render_first_run_markdown(report)
     assert "## Install" in markdown
     assert "Linux systems use `python3`" in markdown
-    assert "archive/refs/tags/v0.23.0.zip" in markdown
+    assert "archive/refs/tags/v0.23.1.zip" in markdown
     assert markdown.index("python -m venv .amb-venv") < markdown.index(".absolute()")
     assert markdown.index(".absolute()") < markdown.index("<venv-python> -m pip install")
     assert "Editable install:" not in markdown
@@ -95,11 +84,14 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert shlex.split(posix_command) == [posix_python, "-m", "agent_mem_bridge", "verify"]
 
     windows_python = str(PureWindowsPath("fixture path") / "python.exe")
-    assert _render_python_module_command(
-        windows_python,
-        "verify",
-        platform="nt",
-    ) == f"& '{windows_python}' -m agent_mem_bridge verify"
+    assert (
+        _render_python_module_command(
+            windows_python,
+            "verify",
+            platform="nt",
+        )
+        == f"& '{windows_python}' -m agent_mem_bridge verify"
+    )
 
 
 def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -134,7 +126,7 @@ def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch
     assert "Linux systems use `python3`" in payload["python_launcher_note"]
     assert payload["install"]["baseline"][0] == "python -m venv .amb-venv"
     assert ".absolute()" in payload["install"]["baseline"][1]
-    assert "archive/refs/tags/v0.23.0.zip" in payload["install"]["baseline"][2]
+    assert "archive/refs/tags/v0.23.1.zip" in payload["install"]["baseline"][2]
 
 
 def test_first_run_stays_cli_only_not_mcp_tool() -> None:
@@ -175,7 +167,4 @@ def _table_counts(*, db_path: Path) -> dict[str, int]:
                 """
             )
         ]
-        return {
-            name: int(conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0])
-            for name in table_names
-        }
+        return {name: int(conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]) for name in table_names}

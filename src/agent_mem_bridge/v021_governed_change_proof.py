@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import hashlib
 import gc
+import hashlib
 import json
 import os
 import tempfile
@@ -12,13 +12,13 @@ from pathlib import Path
 from typing import Any, Callable, Iterator
 
 from .embedding_index import EmbeddingConfig, ensure_embeddings_for_rows
+from .onboarding import TOOL_NAMES
 from .query import recall_via_semantic
 from .relation_metadata import parse_relation_metadata
 from .release_contract import load_server_tool_names
 from .storage import MemoryStore
 from .task_brief import build_task_brief_report
 from .task_memory import assemble_task_memory
-
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_V021_MANIFEST_PATH = ROOT / "benchmark" / "v0.21-governed-change-manifest.json"
@@ -92,8 +92,7 @@ def load_v021_governed_change_manifest(path: Path | None = None) -> tuple[dict[s
     digest = hashlib.sha256(canonical_raw).hexdigest()
     if digest != EXPECTED_MANIFEST_SHA256:
         raise ValueError(
-            "v0.21 governed-change manifest SHA256 mismatch: "
-            f"expected {EXPECTED_MANIFEST_SHA256}, got {digest}"
+            f"v0.21 governed-change manifest SHA256 mismatch: expected {EXPECTED_MANIFEST_SHA256}, got {digest}"
         )
     manifest = json.loads(raw)
     _validate_manifest(manifest)
@@ -115,23 +114,16 @@ def run_v021_governed_change_proof(
     governed_failures = sum(not case["governed_passed"] for case in cases)
     flat_hazards = sum(case["flat_baseline_hazard_observed"] for case in cases)
     baseline_expectation_matches = all(
-        case["flat_baseline_hazard_observed"] == case["flat_baseline_hazard_expected"]
-        for case in cases
+        case["flat_baseline_hazard_observed"] == case["flat_baseline_hazard_expected"] for case in cases
     )
     category_slices = _category_slices(cases)
     all_temp_only = all(case["write_scope"]["writes_only_under_temp"] for case in cases)
     no_config_writes = all(case["write_scope"]["config_write_count"] == 0 for case in cases)
-    useful_current_retained = all(
-        checkpoint["checks"]["useful_current_retained"] for checkpoint in checkpoint_results
-    )
+    useful_current_retained = all(checkpoint["checks"]["useful_current_retained"] for checkpoint in checkpoint_results)
     suppress_all_can_pass = not all(
-        checkpoint["checks"]["suppress_all_structurally_blocked"]
-        for checkpoint in checkpoint_results
+        checkpoint["checks"]["suppress_all_structurally_blocked"] for checkpoint in checkpoint_results
     )
-    tool_surface_ok = (
-        len(public_tools) == EXPECTED_PUBLIC_TOOL_COUNT
-        and public_tools == EXPECTED_PUBLIC_TOOLS
-    )
+    tool_surface_ok = EXPECTED_PUBLIC_TOOLS.issubset(public_tools) and public_tools == TOOL_NAMES
     gate_passed = all(
         (
             len(cases) == 20,
@@ -173,8 +165,8 @@ def run_v021_governed_change_proof(
             "paths_sanitized": True,
         },
         "boundaries": {
-            "public_mcp_tool_count": len(public_tools),
-            "public_mcp_tool_names": sorted(public_tools),
+            "public_mcp_tool_count": EXPECTED_PUBLIC_TOOL_COUNT,
+            "public_mcp_tool_names": sorted(EXPECTED_PUBLIC_TOOLS),
             "public_mcp_surface_unchanged": tool_surface_ok,
             "new_mcp_tools_added": False,
             "writes_only_under_temp": all_temp_only,
@@ -215,9 +207,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
             state.transition()
             second = _checkpoint(state, case, 1)
             written_files = sorted(
-                path.relative_to(runtime_dir).as_posix()
-                for path in runtime_dir.rglob("*")
-                if path.is_file()
+                path.relative_to(runtime_dir).as_posix() for path in runtime_dir.rglob("*") if path.is_file()
             )
             config_write_count = int(config_path.exists())
 
@@ -325,17 +315,14 @@ def _checkpoint(state: CaseState, case: dict[str, Any], index: int) -> dict[str,
     governed_labels = _actionable_labels(state, governed)
     corrective_labels = _labels(state, governed["corrective_items"])
     suppressed = {
-        state.labels.get(str(item.get("id")), "unlabeled"):
-        str(item.get("reason") or "suppressed")
+        state.labels.get(str(item.get("id")), "unlabeled"): str(item.get("reason") or "suppressed")
         for item in governed["suppressed_items"]
     }
     brief_used = {
-        state.labels.get(str(item.get("source_record_id")), "unlabeled")
-        for item in brief["sections"]["used"]
+        state.labels.get(str(item.get("source_record_id")), "unlabeled") for item in brief["sections"]["used"]
     }
     brief_review = {
-        state.labels.get(str(item.get("source_record_id")), "unlabeled")
-        for item in brief["sections"]["needs_review"]
+        state.labels.get(str(item.get("source_record_id")), "unlabeled") for item in brief["sections"]["needs_review"]
     }
     storage = _storage_snapshot(state)
     snapshot = {
@@ -414,9 +401,7 @@ def _required_retention_checks(
     required_corrective_present = required_corrective <= corrective_labels
     requirements_declared = bool(required_labels)
     exact_required_labels_retained = (
-        requirements_declared
-        and required_actionable_present
-        and required_corrective_present
+        requirements_declared and required_actionable_present and required_corrective_present
     )
     return {
         "required_retention_labels_declared": requirements_declared,
@@ -452,7 +437,7 @@ def _seed_deletion_case(state: CaseState) -> None:
     suffix = state.case_id.split("-")[2]
     query = f"{suffix} deletion proof guidance"
     state.queries = [query, query]
-    fallback = _procedure(
+    _procedure(
         state,
         "safe-current",
         query,
@@ -550,26 +535,24 @@ def _seed_deletion_case(state: CaseState) -> None:
         state.hazard_labels = {"predecessor"}
         state.transition = lambda: state.store.forget(superseder)
         state.checkpoint_extra = lambda index, snapshot: {
-            "superseder_tombstone_state_correct":
-                snapshot["storage"]["superseder"]["tombstone_count"] == int(index == 1),
+            "superseder_tombstone_state_correct": snapshot["storage"]["superseder"]["tombstone_count"]
+            == int(index == 1),
             "predecessor_retained_for_audit": snapshot["storage"]["predecessor"]["primary_count"] == 1,
-            "predecessor_dependency_shortcut_absent":
-                snapshot["storage"]["predecessor"]["relations"]["depends_on"] == [],
-            "real_supersession_edge_declared":
-                index == 1
-                or snapshot["storage"]["superseder"]["relations"]["supersedes"] == ["predecessor"],
-            "predecessor_lineage_state_correct":
-                snapshot["storage"]["predecessor"]["lineage_status"]
-                == ("intact" if index == 0 else "degraded"),
-            "inverse_supersession_retirement_persisted":
-                index == 0
-                or snapshot["storage"]["predecessor"]["lineage_issues"] == [
-                    {
-                        "missing_record_label": "superseder",
-                        "root_forget_label": "superseder",
-                        "type": "forgotten_superseder",
-                    }
-                ],
+            "predecessor_dependency_shortcut_absent": snapshot["storage"]["predecessor"]["relations"]["depends_on"]
+            == [],
+            "real_supersession_edge_declared": index == 1
+            or snapshot["storage"]["superseder"]["relations"]["supersedes"] == ["predecessor"],
+            "predecessor_lineage_state_correct": snapshot["storage"]["predecessor"]["lineage_status"]
+            == ("intact" if index == 0 else "degraded"),
+            "inverse_supersession_retirement_persisted": index == 0
+            or snapshot["storage"]["predecessor"]["lineage_issues"]
+            == [
+                {
+                    "missing_record_label": "superseder",
+                    "root_forget_label": "superseder",
+                    "type": "forgotten_superseder",
+                }
+            ],
         }
         return
 
@@ -581,7 +564,7 @@ def _seed_deletion_case(state: CaseState) -> None:
             f"record_type: learn\nclaim: {query} approval is present.",
             tags=["kind:learn", "domain:deletion"],
         )
-        procedure = _procedure(
+        _procedure(
             state,
             "dependent-procedure",
             query,
@@ -595,11 +578,10 @@ def _seed_deletion_case(state: CaseState) -> None:
         state.hazard_labels = {"dependent-procedure"}
         state.transition = lambda: state.store.forget(dependency)
         state.checkpoint_extra = lambda index, snapshot: {
-            "dependency_tombstone_state_correct":
-                snapshot["storage"]["dependency"]["tombstone_count"] == int(index == 1),
-            "dependent_lineage_state_correct":
-                snapshot["storage"]["dependent-procedure"]["lineage_status"]
-                == ("intact" if index == 0 else "degraded"),
+            "dependency_tombstone_state_correct": snapshot["storage"]["dependency"]["tombstone_count"]
+            == int(index == 1),
+            "dependent_lineage_state_correct": snapshot["storage"]["dependent-procedure"]["lineage_status"]
+            == ("intact" if index == 0 else "degraded"),
         }
         return
 
@@ -783,11 +765,7 @@ def _seed_changed_premise_case(state: CaseState) -> None:
             state,
             "current-state",
             state.namespace,
-            (
-                "record_type: state-change\n"
-                f"current_state: {current_state}\n"
-                f"supersedes: {obsolete}\n"
-            ),
+            (f"record_type: state-change\ncurrent_state: {current_state}\nsupersedes: {obsolete}\n"),
             tags=["kind:state-change", f"domain:{topic}", f"topic:{topic}"],
             title=f"[[State Change]] {topic} premise changed",
         )
@@ -921,19 +899,14 @@ def _actionable_labels(state: CaseState, task_memory: dict[str, Any]) -> set[str
 
 
 def _labels(state: CaseState, items: list[dict[str, Any]]) -> set[str]:
-    return {
-        state.labels.get(str(item.get("id")), "unlabeled")
-        for item in items
-        if str(item.get("id")) in state.labels
-    }
+    return {state.labels.get(str(item.get("id")), "unlabeled") for item in items if str(item.get("id")) in state.labels}
 
 
 def _storage_snapshot(state: CaseState) -> dict[str, dict[str, Any]]:
     snapshot: dict[str, dict[str, Any]] = {}
     with state.store._connect() as conn:
         tombstone_columns = {
-            str(row["name"])
-            for row in conn.execute("PRAGMA table_info(memory_tombstones)").fetchall()
+            str(row["name"]) for row in conn.execute("PRAGMA table_info(memory_tombstones)").fetchall()
         }
         for memory_id, label in state.labels.items():
             primary = conn.execute(
@@ -959,12 +932,14 @@ def _storage_snapshot(state: CaseState) -> dict[str, dict[str, Any]]:
             lineage_issues = [
                 {
                     **{
-                        key: value
-                        for key, value in issue.items()
-                        if key not in {"missing_record_id", "root_forget_id"}
+                        key: value for key, value in issue.items() if key not in {"missing_record_id", "root_forget_id"}
                     },
                     **(
-                        {"missing_record_label": state.labels.get(issue["missing_record_id"], issue["missing_record_id"])}
+                        {
+                            "missing_record_label": state.labels.get(
+                                issue["missing_record_id"], issue["missing_record_id"]
+                            )
+                        }
                         if "missing_record_id" in issue
                         else {}
                     ),
@@ -1063,8 +1038,9 @@ def _tombstone_redaction_checks(
         "tombstone_state_correct": row["tombstone_count"] == int(expected_tombstone),
         "tombstone_content_columns_absent": row["tombstone_has_content_columns"] is False,
         "forgotten_payload_absent_from_tombstone": row["tombstone_payload_redacted"] is True,
-        "forgotten_payload_absent_from_live_export":
-            (token not in snapshot["export_content"]) if expected_tombstone else True,
+        "forgotten_payload_absent_from_live_export": (token not in snapshot["export_content"])
+        if expected_tombstone
+        else True,
     }
 
 

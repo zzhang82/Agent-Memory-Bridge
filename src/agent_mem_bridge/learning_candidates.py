@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -160,7 +160,9 @@ def build_learning_candidate_record(
         "evidence_refs_json": json.dumps(candidate.get("evidence_refs", []), ensure_ascii=True, sort_keys=True),
         "decision_reasons_json": json.dumps(decision.get("reasons", []), ensure_ascii=True, sort_keys=True),
         "domain_tags_json": json.dumps(_candidate_domain_tags(candidate), ensure_ascii=True, sort_keys=True),
-        "confidence": str(candidate.get("confidence", candidate.get("confidence_score", candidate.get("confidence_band", "")))),
+        "confidence": str(
+            candidate.get("confidence", candidate.get("confidence_score", candidate.get("confidence_band", "")))
+        ),
         "supersedes_record_ids_json": json.dumps(
             _list_value(candidate.get("supersedes_record_ids")),
             ensure_ascii=True,

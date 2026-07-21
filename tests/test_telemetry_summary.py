@@ -16,7 +16,9 @@ def test_load_telemetry_spans_reads_jsonl(tmp_path: Path) -> None:
             [
                 json.dumps({"ts": "2026-04-12T22:00:00+00:00", "name": "amb.test", "attributes": {"duration_ms": 5.0}}),
                 "",
-                json.dumps({"ts": "2026-04-12T22:01:00+00:00", "name": "amb.test2", "attributes": {"duration_ms": 7.0}}),
+                json.dumps(
+                    {"ts": "2026-04-12T22:01:00+00:00", "name": "amb.test2", "attributes": {"duration_ms": 7.0}}
+                ),
             ]
         ),
         encoding="utf-8",
@@ -44,7 +46,12 @@ def test_summarize_telemetry_aggregates_core_metrics() -> None:
         {
             "ts": "2026-04-12T22:15:00+00:00",
             "name": "amb.signal.claim",
-            "attributes": {"namespace": "project:alpha", "duration_ms": 5.0, "claimed": False, "reason": "none-eligible"},
+            "attributes": {
+                "namespace": "project:alpha",
+                "duration_ms": 5.0,
+                "claimed": False,
+                "reason": "none-eligible",
+            },
         },
         {
             "ts": "2026-04-12T22:20:00+00:00",

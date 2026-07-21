@@ -24,14 +24,8 @@ def plan_source_sync(
     source = Path(source_root).resolve()
     target = Path(target_root).resolve()
 
-    source_files = {
-        path.relative_to(source).as_posix(): path
-        for path in iter_profile_markdown_files(source)
-    }
-    target_files = {
-        path.relative_to(target).as_posix(): path
-        for path in iter_profile_markdown_files(target)
-    }
+    source_files = {path.relative_to(source).as_posix(): path for path in iter_profile_markdown_files(source)}
+    target_files = {path.relative_to(target).as_posix(): path for path in iter_profile_markdown_files(target)}
 
     sync_candidates: list[str] = []
     skipped_skill_paths: list[str] = []

@@ -12,9 +12,7 @@ def test_boundary_only_fallback_default_wording_is_not_contradiction() -> None:
 
 def test_boundary_only_manual_policy_wording_is_not_contradiction() -> None:
     assert (
-        claim_counts_as_contradiction(
-            "However, keep core policy manual while belief evidence is still accumulating."
-        )
+        claim_counts_as_contradiction("However, keep core policy manual while belief evidence is still accumulating.")
         is False
     )
 
@@ -35,9 +33,7 @@ def test_strong_auto_policy_warning_still_counts_as_contradiction() -> None:
 
 
 def test_runtime_split_warning_still_counts_as_contradiction() -> None:
-    assert claim_counts_as_contradiction(
-        "However, keep a temporary fallback path during cutover windows."
-    )
+    assert claim_counts_as_contradiction("However, keep a temporary fallback path during cutover windows.")
 
 
 def test_assessment_reports_reason_codes_for_boundary_and_strong_cases() -> None:

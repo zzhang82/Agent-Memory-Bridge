@@ -18,9 +18,7 @@ def render_text_export(items: list[dict[str, Any]], namespace: str) -> str:
         lines.append("")
     for item in items:
         relation_parts = [
-            f"{name}={', '.join(values)}"
-            for name, values in (item.get("relations") or {}).items()
-            if values
+            f"{name}={', '.join(values)}" for name, values in (item.get("relations") or {}).items() if values
         ]
         lines.extend(
             [

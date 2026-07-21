@@ -66,7 +66,9 @@ def load_startup_cases(path: Path) -> tuple[StartupCase, ...]:
         min_new_non_reference_hits = _coerce_non_negative_int(entry.get("min_new_non_reference_hits", 1))
         min_reference_hits = _coerce_non_negative_int(entry.get("min_reference_hits", 0))
         max_reference_hits_raw = entry.get("max_reference_hits")
-        max_reference_hits = None if max_reference_hits_raw is None else _coerce_non_negative_int(max_reference_hits_raw)
+        max_reference_hits = (
+            None if max_reference_hits_raw is None else _coerce_non_negative_int(max_reference_hits_raw)
+        )
         cases.append(
             StartupCase(
                 case_id=case_id,
@@ -163,7 +165,9 @@ def render_cutover_dashboard_text(report: dict[str, Any]) -> str:
     ]
     if structure.get("bundle_file") is not None:
         bundle_file = structure["bundle_file"]
-        lines.append(f"bundle_file_matched_startup_records: {bundle_file['matched_startup_record_count']}/{bundle_file['startup_record_count']}")
+        lines.append(
+            f"bundle_file_matched_startup_records: {bundle_file['matched_startup_record_count']}/{bundle_file['startup_record_count']}"
+        )
         if bundle_file["missing_startup_records"]:
             lines.append(f"bundle_file_missing: {json.dumps(bundle_file['missing_startup_records'])}")
 
@@ -255,7 +259,9 @@ def _build_structure_section(store: MemoryStore, config: CutoverDashboardConfig)
     bundle_file_ok = True
     if config.bundle_path is not None:
         bundle_file_report = _compare_bundle_file(store, config.bundle_path)
-        bundle_file_ok = bundle_file_report["matched_startup_record_count"] == bundle_file_report["startup_record_count"]
+        bundle_file_ok = (
+            bundle_file_report["matched_startup_record_count"] == bundle_file_report["startup_record_count"]
+        )
 
     checks = {
         "compare_clean": (
@@ -508,14 +514,10 @@ def _evaluate_startup_case(
     )
 
     query_bundle_hit_labels = [
-        layer["label"]
-        for layer in startup_result["profile_bundle_hits"]
-        if layer.get("query_items")
+        layer["label"] for layer in startup_result["profile_bundle_hits"] if layer.get("query_items")
     ]
     startup_loaded_bundle_labels = [
-        layer["label"]
-        for layer in startup_result["profile_bundle_hits"]
-        if layer.get("startup_items")
+        layer["label"] for layer in startup_result["profile_bundle_hits"] if layer.get("startup_items")
     ]
     profile_bundle_hit_count = sum(len(layer.get("query_items", [])) for layer in startup_result["profile_bundle_hits"])
     startup_loaded_bundle_hit_count = sum(
@@ -523,7 +525,9 @@ def _evaluate_startup_case(
     )
     new_non_reference_hit_count = profile_bundle_hit_count + len(startup_result["project_hits"])
     reference_hit_count = len(startup_result["reference_hits"])
-    missing_bundle_labels = [label for label in case.required_bundle_labels if label not in startup_loaded_bundle_labels]
+    missing_bundle_labels = [
+        label for label in case.required_bundle_labels if label not in startup_loaded_bundle_labels
+    ]
 
     checks = {
         "required_bundle_labels": len(missing_bundle_labels) == 0,

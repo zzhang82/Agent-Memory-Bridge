@@ -11,7 +11,6 @@ from .proof import parse_markdown_entry, run_deterministic_proof
 from .query import recall_candidates
 from .storage import MemoryStore
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CORPUS_DIR = ROOT / "benchmark" / "corpus"
 DEFAULT_QUESTIONS_PATH = ROOT / "benchmark" / "questions.json"
@@ -199,15 +198,9 @@ def build_retrieval_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "memory_precision_at_1": average(memory_p1),
         "memory_precision_at_3": average(memory_p3),
-        "memory_recall_at_1": average(
-            [recall_at_k(result["memory"]["first_relevant_rank"], 1) for result in results]
-        ),
-        "memory_recall_at_3": average(
-            [recall_at_k(result["memory"]["first_relevant_rank"], 3) for result in results]
-        ),
-        "memory_mrr": average(
-            [reciprocal_rank(result["memory"]["first_relevant_rank"]) for result in results]
-        ),
+        "memory_recall_at_1": average([recall_at_k(result["memory"]["first_relevant_rank"], 1) for result in results]),
+        "memory_recall_at_3": average([recall_at_k(result["memory"]["first_relevant_rank"], 3) for result in results]),
+        "memory_mrr": average([reciprocal_rank(result["memory"]["first_relevant_rank"]) for result in results]),
         "memory_avg_latency_ms": average(memory_latency),
         "file_scan_hit_count": sum(1 for result in results if result["file_scan"]["hit"]),
         "file_scan_expected_top1_count": sum(1 for result in results if result["file_scan"]["expected_top1"]),
@@ -222,9 +215,7 @@ def build_retrieval_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
         "file_scan_recall_at_3": average(
             [recall_at_k(result["file_scan"]["first_relevant_rank"], 3) for result in results]
         ),
-        "file_scan_mrr": average(
-            [reciprocal_rank(result["file_scan"]["first_relevant_rank"]) for result in results]
-        ),
+        "file_scan_mrr": average([reciprocal_rank(result["file_scan"]["first_relevant_rank"]) for result in results]),
         "file_scan_avg_latency_ms": average(file_latency),
     }
 
@@ -247,9 +238,7 @@ def build_mode_summary(results: list[dict[str, Any]], mode: str) -> dict[str, An
         "recall_at_3": average(
             [recall_at_k(result[mode]["first_relevant_rank"], 3) for result in results if mode in result]
         ),
-        "mrr": average(
-            [reciprocal_rank(result[mode]["first_relevant_rank"]) for result in results if mode in result]
-        ),
+        "mrr": average([reciprocal_rank(result[mode]["first_relevant_rank"]) for result in results if mode in result]),
         "avg_latency_ms": average(mode_latency),
     }
 

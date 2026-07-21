@@ -12,18 +12,23 @@ from .enrichment_rules import infer_keyword_tags, normalize_text
 from .paths import (
     resolve_classifier_batch_size,
     resolve_classifier_command,
+    resolve_classifier_env_allowlist,
+    resolve_classifier_max_input_bytes,
+    resolve_classifier_max_output_bytes,
+    resolve_classifier_max_stderr_bytes,
     resolve_classifier_minimum_confidence,
     resolve_classifier_mode,
     resolve_classifier_provider,
     resolve_classifier_timeout_seconds,
+    resolve_classifier_trusted_shell,
     resolve_domain_title_prefix,
     resolve_learn_title_prefix,
     resolve_profile_namespace,
     resolve_reflex_actor,
 )
+from .schema import database_epoch as read_database_epoch
 from .state_io import load_json_state, write_json_state_atomic
 from .storage import MemoryStore
-
 
 NOISE_PREFIXES = (
     "user asked:",
@@ -209,10 +214,15 @@ class ReflexConfig:
     scan_limit: int = 200
     classifier_mode: str = "off"
     classifier_provider: str = "command"
-    classifier_command: str = ""
+    classifier_command: str | tuple[str, ...] = ""
     classifier_timeout_seconds: float = 10.0
     classifier_batch_size: int = 16
     classifier_minimum_confidence: float = 0.6
+    classifier_trusted_shell: bool = False
+    classifier_max_input_bytes: int = 1_000_000
+    classifier_max_output_bytes: int = 2_000_000
+    classifier_max_stderr_bytes: int = 65_536
+    classifier_env_allowlist: tuple[str, ...] = ()
 
 
 GOTCHA_RULES: tuple[GotchaRule, ...] = (
@@ -403,6 +413,11 @@ class ReflexEngine:
                 timeout_seconds=config.classifier_timeout_seconds,
                 batch_size=config.classifier_batch_size,
                 minimum_confidence=config.classifier_minimum_confidence,
+                trusted_shell=config.classifier_trusted_shell,
+                max_input_bytes=config.classifier_max_input_bytes,
+                max_output_bytes=config.classifier_max_output_bytes,
+                max_stderr_bytes=config.classifier_max_stderr_bytes,
+                env_allowlist=config.classifier_env_allowlist,
             )
         )
         self._classifier_stats = self._empty_classifier_stats()
@@ -410,10 +425,7 @@ class ReflexEngine:
     def run_once(self) -> dict[str, Any]:
         self._classifier_stats = self._empty_classifier_stats()
         state = self._load_state()
-        rows = self._load_recent_summary_rows(
-            since_id=state.get("since_id"),
-            limit=self.config.scan_limit,
-        )
+        rows, snapshot_epoch = self._load_recent_summary_rows(state=state, limit=self.config.scan_limit)
         if not rows:
             return {"processed_count": 0, "stored": [], "classifier": dict(self._classifier_stats)}
 
@@ -428,6 +440,9 @@ class ReflexEngine:
         stored.extend(self._promote_domain_notes(rows, cycle_id, row_predictions))
 
         state["since_id"] = cycle_id
+        state["last_insertion_sequence"] = int(rows[-1]["_cursor_sequence"])
+        state.pop("last_rowid", None)
+        state["database_epoch"] = snapshot_epoch
         self._save_state(state)
         return {
             "processed_count": len(stored),
@@ -614,6 +629,8 @@ class ReflexEngine:
                 for row in rows
             ]
         )
+        if self.config.classifier_mode != "assist":
+            return {}
         return {key: tuple(self.classifier.accepted_tags(prediction)) for key, prediction in predictions.items()}
 
     def _classify_candidates(
@@ -627,13 +644,17 @@ class ReflexEngine:
         self._classifier_stats["prediction_count"] += len(outcome.predictions)
         accepted_prediction_count = 0
         filtered_low_confidence_count = 0
+        rejected_tag_count = 0
         for prediction in outcome.predictions.values():
-            if self.classifier.accepted_tags(prediction):
+            rejected_tag_count += len(set(prediction.classifier_suggested_tags).difference(prediction.tags))
+            accepted_tags = self.classifier.accepted_tags(prediction)
+            if accepted_tags:
                 accepted_prediction_count += 1
-            else:
+            elif prediction.tags:
                 filtered_low_confidence_count += 1
         self._classifier_stats["accepted_prediction_count"] += accepted_prediction_count
         self._classifier_stats["filtered_low_confidence_count"] += filtered_low_confidence_count
+        self._classifier_stats["rejected_tag_count"] += rejected_tag_count
         if outcome.error:
             self._classifier_stats["error_count"] += 1
             self._classifier_stats["last_error"] = outcome.error
@@ -642,7 +663,9 @@ class ReflexEngine:
     def _merge_inferred_tags(self, fallback_tags: list[str], classifier_tags: list[str]) -> list[str]:
         fallback_unique = self._unique_tags(list(fallback_tags))
         classifier_unique = self._unique_tags(list(classifier_tags))
-        if classifier_unique and any(tag.startswith("domain:") and tag != "domain:general" for tag in classifier_unique):
+        if classifier_unique and any(
+            tag.startswith("domain:") and tag != "domain:general" for tag in classifier_unique
+        ):
             fallback_unique = [tag for tag in fallback_unique if tag != "domain:general"]
         if classifier_unique and set(classifier_unique) != set(fallback_unique):
             self._classifier_stats["divergence_count"] += 1
@@ -655,39 +678,52 @@ class ReflexEngine:
         domain_tag = next((tag for tag in rule.tags if tag.startswith("domain:")), "")
         return bool(domain_tag and domain_tag in predicted_tags)
 
-    def _load_recent_summary_rows(self, since_id: str | None, limit: int) -> list[sqlite3.Row]:
+    def _load_recent_summary_rows(
+        self,
+        *,
+        state: dict[str, Any],
+        limit: int,
+    ) -> tuple[list[sqlite3.Row], str]:
         params: list[Any] = [self.config.target_namespace, '%"kind:summary"%']
         sql = """
             SELECT
-                id,
-                namespace,
-                kind,
-                title,
-                content,
-                tags_json,
-                session_id,
-                actor,
-                correlation_id,
-                source_app,
-                source_client,
-                source_model,
-                client_session_id,
-                client_workspace,
-                client_transport,
-                created_at
-            FROM memories
-            WHERE namespace != ?
-              AND tags_json LIKE ?
+                i.sequence AS _cursor_sequence,
+                m.id,
+                m.namespace,
+                m.kind,
+                m.title,
+                m.content,
+                m.tags_json,
+                m.session_id,
+                m.actor,
+                m.correlation_id,
+                m.source_app,
+                m.source_client,
+                m.source_model,
+                m.client_session_id,
+                m.client_workspace,
+                m.client_transport,
+                m.created_at
+            FROM memories m
+            JOIN memory_insertions i ON i.memory_id = m.id
+            WHERE m.namespace != ?
+              AND m.tags_json LIKE ?
         """
-        if since_id:
-            since_created_at = self._lookup_created_at(since_id)
-            if since_created_at:
-                sql += " AND created_at > ?"
-                params.append(since_created_at)
-        sql += " ORDER BY created_at ASC LIMIT ?"
-        params.append(limit)
         with self.store._connect() as conn:
-            return conn.execute(sql, params).fetchall()
+            conn.execute("BEGIN")
+            snapshot_epoch = read_database_epoch(conn)
+            since_sequence = self._resolve_cursor_sequence(
+                state,
+                connection=conn,
+                current_database_epoch=snapshot_epoch,
+            )
+            if since_sequence is not None:
+                sql += " AND i.sequence > ?"
+                params.append(since_sequence)
+            sql += " ORDER BY i.sequence ASC LIMIT ?"
+            params.append(limit)
+            rows = conn.execute(sql, params).fetchall()
+        return rows, snapshot_epoch
 
     def _extract_evidence_fragments(self, row: sqlite3.Row) -> list[str]:
         collected: list[str] = []
@@ -700,7 +736,7 @@ class ReflexEngine:
             if fragments:
                 collected.extend(fragments)
             else:
-                    collected.append(bullet)
+                collected.append(bullet)
         return collected
 
     def _structured_gotcha_from_row(self, row: sqlite3.Row) -> dict[str, Any] | None:
@@ -825,12 +861,38 @@ class ReflexEngine:
             return ""
         return self._finalize_claim(clean)
 
-    def _lookup_created_at(self, memory_id: str) -> str | None:
-        with self.store._connect() as conn:
-            row = conn.execute("SELECT created_at FROM memories WHERE id = ?", (memory_id,)).fetchone()
+    @staticmethod
+    def _lookup_insertion_sequence(connection: sqlite3.Connection, memory_id: str) -> int | None:
+        row = connection.execute(
+            "SELECT sequence FROM memory_insertions WHERE memory_id = ?",
+            (memory_id,),
+        ).fetchone()
         if row is None:
             return None
-        return str(row["created_at"])
+        return int(row["sequence"])
+
+    def _resolve_cursor_sequence(
+        self,
+        state: dict[str, Any],
+        *,
+        connection: sqlite3.Connection,
+        current_database_epoch: str,
+    ) -> int | None:
+        stored_epoch = str(state.get("database_epoch") or "").strip()
+        if stored_epoch and stored_epoch != current_database_epoch:
+            return None
+        stored_sequence = state.get("last_insertion_sequence")
+        if stored_sequence is not None:
+            try:
+                normalized_sequence = int(stored_sequence)
+            except (TypeError, ValueError):
+                normalized_sequence = -1
+            if normalized_sequence >= 0:
+                return normalized_sequence
+        since_id = str(state.get("since_id") or "").strip()
+        if not since_id:
+            return None
+        return self._lookup_insertion_sequence(connection, since_id)
 
     @staticmethod
     def _uniform_origin_value(rows: list[sqlite3.Row], key: str) -> str | None:
@@ -868,7 +930,7 @@ class ReflexEngine:
         lowered = normalized.lower()
         for prefix in NOISE_PREFIXES:
             if lowered.startswith(prefix):
-                return normalized[len(prefix):].strip()
+                return normalized[len(prefix) :].strip()
         return normalized
 
     @classmethod
@@ -880,7 +942,7 @@ class ReflexEngine:
         lowered = normalized.lower()
         for prefix in LEADING_FILLER_PREFIXES:
             if lowered.startswith(prefix):
-                normalized = normalized[len(prefix):].strip(" -:;,.")
+                normalized = normalized[len(prefix) :].strip(" -:;,.")
                 lowered = normalized.lower()
         return normalized
 
@@ -989,10 +1051,10 @@ class ReflexEngine:
             result.append(normalized)
         return result
 
-    def _load_state(self) -> dict[str, str]:
+    def _load_state(self) -> dict[str, Any]:
         return load_json_state(self.config.state_path)
 
-    def _save_state(self, state: dict[str, str]) -> None:
+    def _save_state(self, state: dict[str, Any]) -> None:
         write_json_state_atomic(self.config.state_path, state)
 
     def _domain_title_for_rule(self, rule: DomainRule) -> str:
@@ -1007,6 +1069,7 @@ class ReflexEngine:
             "prediction_count": 0,
             "accepted_prediction_count": 0,
             "filtered_low_confidence_count": 0,
+            "rejected_tag_count": 0,
             "divergence_count": 0,
             "error_count": 0,
             "last_error": None,
@@ -1027,4 +1090,9 @@ def build_default_reflex_config(state_path: Path, scan_limit: int) -> ReflexConf
         classifier_timeout_seconds=resolve_classifier_timeout_seconds(),
         classifier_batch_size=resolve_classifier_batch_size(),
         classifier_minimum_confidence=resolve_classifier_minimum_confidence(),
+        classifier_trusted_shell=resolve_classifier_trusted_shell(),
+        classifier_max_input_bytes=resolve_classifier_max_input_bytes(),
+        classifier_max_output_bytes=resolve_classifier_max_output_bytes(),
+        classifier_max_stderr_bytes=resolve_classifier_max_stderr_bytes(),
+        classifier_env_allowlist=resolve_classifier_env_allowlist(),
     )

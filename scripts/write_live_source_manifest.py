@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
@@ -11,7 +11,9 @@ from agent_mem_bridge.paths import resolve_profile_source_root
 def main() -> None:
     args = _parse_args()
     source_root = args.source_root.resolve() if args.source_root else _default_profile_root()
-    manifest_path = args.manifest_path.resolve() if args.manifest_path else build_default_live_manifest_path(source_root)
+    manifest_path = (
+        args.manifest_path.resolve() if args.manifest_path else build_default_live_manifest_path(source_root)
+    )
     result = write_live_source_manifest(source_root, manifest_path)
     print(json.dumps(result, indent=2))
 
@@ -38,4 +40,3 @@ def _default_profile_root() -> Path:
 
 if __name__ == "__main__":
     main()
-

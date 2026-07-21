@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from agent_mem_bridge.learning_policy import evaluate_learning_candidate
 from agent_mem_bridge.learning_candidates import build_review_receipt_hash
+from agent_mem_bridge.learning_policy import evaluate_learning_candidate
 from agent_mem_bridge.promotion_governance import (
     review_learning_candidate,
     review_learning_candidates,

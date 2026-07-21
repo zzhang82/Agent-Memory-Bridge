@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 DOMAIN_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("domain:orchestration", ("orchestration", "subagent", "worker", "validation", "contract drift", "handoff")),
     ("domain:memory-bridge", ("memory bridge", "shared memory", "recall", "store", "context")),

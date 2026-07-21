@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,15 +37,15 @@ class GovernanceTriggerEngine:
 
     def run_once(self) -> dict[str, Any]:
         state = self._load_state()
-        signaled_ids = set(state.get("signaled_candidate_ids") or [])
         rows = self._load_reviewable_candidate_rows(limit=self.config.scan_limit)
+        signaled_ids = self._existing_trigger_candidate_ids(rows)
         created: list[dict[str, Any]] = []
         reviewed_count = 0
 
         for row in rows:
             item = MemoryRow.from_sqlite(row).as_dict()
             candidate_id = str(item["id"])
-            if candidate_id in signaled_ids or self._existing_trigger_signal(candidate_id, namespace=str(item["namespace"])):
+            if candidate_id in signaled_ids:
                 continue
             candidate = candidate_from_learning_candidate_item(item)
             review = review_learning_candidate(self.store, candidate)
@@ -53,7 +54,15 @@ class GovernanceTriggerEngine:
             created.append(signal)
             signaled_ids.add(candidate_id)
 
-        state["signaled_candidate_ids"] = sorted(signaled_ids)
+        state.pop("signaled_candidate_ids", None)
+        state.update(
+            {
+                "state_schema_version": 2,
+                "last_run_at": datetime.now(UTC).isoformat(),
+                "last_scanned_candidate_count": len(rows),
+                "last_created_count": len(created),
+            }
+        )
         self._save_state(state)
         return {
             "processed_count": len(created),
@@ -63,7 +72,9 @@ class GovernanceTriggerEngine:
 
     def _load_reviewable_candidate_rows(self, *, limit: int) -> list[sqlite3.Row]:
         candidate_limit = max(1, min(limit, 500))
-        status_filters = [f'%"{tag}"%' for tag in sorted(f"candidate_status:{status}" for status in REVIEWABLE_CANDIDATE_STATUSES)]
+        status_filters = [
+            f'%"{tag}"%' for tag in sorted(f"candidate_status:{status}" for status in REVIEWABLE_CANDIDATE_STATUSES)
+        ]
         with self.store._connect() as conn:
             return conn.execute(
                 f"""
@@ -73,7 +84,13 @@ class GovernanceTriggerEngine:
                 WHERE is_learning_candidate = 1
                   AND tags_json LIKE ?
                   AND tags_json NOT LIKE ?
-                  AND ({' OR '.join('tags_json LIKE ?' for _ in status_filters)})
+                  AND ({" OR ".join("tags_json LIKE ?" for _ in status_filters)})
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM memories trigger_signal
+                    WHERE trigger_signal.kind = 'signal'
+                      AND trigger_signal.correlation_id = 'governance-trigger:' || memories.id
+                  )
                 ORDER BY created_at ASC
                 LIMIT ?
                 """,
@@ -85,17 +102,32 @@ class GovernanceTriggerEngine:
                 ),
             ).fetchall()
 
-    def _existing_trigger_signal(self, candidate_id: str, *, namespace: str) -> bool:
-        correlation_id = self._trigger_correlation_id(candidate_id)
-        existing = self.store.recall(
-            namespace=namespace,
-            kind="signal",
-            correlation_id=correlation_id,
-            limit=1,
-        )
-        return bool(existing.get("items"))
+    def _existing_trigger_candidate_ids(self, rows: list[sqlite3.Row]) -> set[str]:
+        candidate_ids = [str(row["id"]) for row in rows]
+        if not candidate_ids:
+            return set()
+        correlation_ids = [self._trigger_correlation_id(candidate_id) for candidate_id in candidate_ids]
+        placeholders = ",".join("?" for _ in correlation_ids)
+        with self.store._connect() as conn:
+            existing = conn.execute(
+                f"""
+                SELECT correlation_id
+                FROM memories
+                WHERE kind = 'signal'
+                  AND correlation_id IN ({placeholders})
+                """,
+                correlation_ids,
+            ).fetchall()
+        prefix = "governance-trigger:"
+        return {
+            str(row["correlation_id"])[len(prefix) :]
+            for row in existing
+            if str(row["correlation_id"] or "").startswith(prefix)
+        }
 
-    def _store_review_signal(self, *, candidate_id: str, item: dict[str, Any], review: dict[str, Any]) -> dict[str, Any]:
+    def _store_review_signal(
+        self, *, candidate_id: str, item: dict[str, Any], review: dict[str, Any]
+    ) -> dict[str, Any]:
         action = str(review.get("recommended_action") or "keep_staged")
         reason_codes = [str(reason) for reason in (review.get("reason_codes") or [])]
         checks = review.get("checks") or {}

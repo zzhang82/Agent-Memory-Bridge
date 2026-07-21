@@ -118,7 +118,9 @@ def test_learning_candidate_status_is_validated(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
 
     with pytest.raises(ValueError, match="candidate_status"):
-        store.store_learning_candidate(_candidate(), evaluate_learning_candidate(_candidate()), candidate_status="trusted")
+        store.store_learning_candidate(
+            _candidate(), evaluate_learning_candidate(_candidate()), candidate_status="trusted"
+        )
 
 
 def test_learning_candidate_suppressed_from_browse_and_export_by_default(tmp_path: Path) -> None:
@@ -176,7 +178,9 @@ def test_store_learning_candidate_rejects_incoherent_status_decision_pairs(tmp_p
     review_decision = evaluate_learning_candidate(_candidate(authority_class="decision"))
 
     with pytest.raises(ValueError, match="approved requires allow"):
-        store.store_learning_candidate(_candidate(authority_class="decision"), review_decision, candidate_status="approved")
+        store.store_learning_candidate(
+            _candidate(authority_class="decision"), review_decision, candidate_status="approved"
+        )
     with pytest.raises(ValueError, match="needs_review status requires"):
         store.store_learning_candidate(_candidate(), allow_decision, candidate_status="needs_review")
 

@@ -15,7 +15,6 @@ from .relation_metadata import parse_content_fields, parse_relation_metadata
 from .repository import MemoryRow, fetch_row_by_id, fetch_tombstone_metadata
 from .storage import MemoryStore
 
-
 SECTION_LIMIT_KEYS = {
     "procedure": "procedure_limit",
     "concept": "concept_limit",
@@ -510,9 +509,7 @@ def _filter_flat_procedures(
     for item in items:
         reason: str | None = None
         if config.as_of is not None:
-            validity = str(
-                parse_relation_metadata(str(item.get("content") or ""), now=config.as_of)["validity_status"]
-            )
+            validity = str(parse_relation_metadata(str(item.get("content") or ""), now=config.as_of)["validity_status"])
             if validity in INELIGIBLE_VALIDITY_STATUSES:
                 reason = f"validity:{validity}"
         if reason is None and config.task_domain:
@@ -594,7 +591,9 @@ def _build_direct_candidates(
                 reasons=(f"direct:{section}", f"namespace:{namespace_role}"),
             )
             existing = candidates.get(item_id)
-            if existing is None or _candidate_sort_tuple(candidate, {item_id: _base_score(candidate)}) < _candidate_sort_tuple(
+            if existing is None or _candidate_sort_tuple(
+                candidate, {item_id: _base_score(candidate)}
+            ) < _candidate_sort_tuple(
                 existing,
                 {item_id: _base_score(existing)},
             ):
@@ -674,9 +673,7 @@ def _resolve_relation_graph(
                                 raw_rank=999,
                                 direct=False,
                                 namespace_role=(
-                                    "project"
-                                    if str(item.get("namespace") or "").startswith("project:")
-                                    else "global"
+                                    "project" if str(item.get("namespace") or "").startswith("project:") else "global"
                                 ),
                                 reasons=("relation-target",),
                             )
@@ -722,9 +719,7 @@ def _apply_validity_suppression(
     as_of: datetime | None,
 ) -> None:
     for item_id, candidate in candidates.items():
-        validity = str(
-            parse_relation_metadata(str(candidate.item.get("content") or ""), now=as_of)["validity_status"]
-        )
+        validity = str(parse_relation_metadata(str(candidate.item.get("content") or ""), now=as_of)["validity_status"])
         if validity not in INELIGIBLE_VALIDITY_STATUSES:
             continue
         if item_id in active_ids:
@@ -761,9 +756,7 @@ def _apply_dependency_suppression(
     while changed:
         changed = False
         blocking_inactive_ids = {
-            str(item.get("id") or "")
-            for item in suppressed
-            if item.get("reason") in DEPENDENCY_BLOCKING_REASONS
+            str(item.get("id") or "") for item in suppressed if item.get("reason") in DEPENDENCY_BLOCKING_REASONS
         }
         for edge in relation_edges:
             source_id = edge["source_id"]
@@ -778,11 +771,7 @@ def _apply_dependency_suppression(
             suppressed.append(
                 _suppressed_payload(
                     candidates[source_id],
-                    reason=(
-                        "depends_on:unresolved"
-                        if target_is_unresolved
-                        else "depends_on:ineligible"
-                    ),
+                    reason=("depends_on:unresolved" if target_is_unresolved else "depends_on:ineligible"),
                     by_id=target_id,
                 )
             )
@@ -838,8 +827,7 @@ def _score_candidates(
         if item_id not in active_ids:
             continue
         relation_bonus = (
-            inbound.get(item_id, {}).get("depends_on", 0) * 18.0
-            + inbound.get(item_id, {}).get("supports", 0) * 10.0
+            inbound.get(item_id, {}).get("depends_on", 0) * 18.0 + inbound.get(item_id, {}).get("supports", 0) * 10.0
         )
         scores[item_id] = round(_base_score(candidate, task_domain=task_domain) + relation_bonus, 3)
     return scores
@@ -908,10 +896,10 @@ def _apply_supersession(
         if target_id not in active_ids:
             continue
         source_record_type = _record_type(candidates[source_id])
-        is_corrective_procedure_change = (
-            candidates[target_id].section == "procedure"
-            and source_record_type in {"belief", "state-change"}
-        )
+        is_corrective_procedure_change = candidates[target_id].section == "procedure" and source_record_type in {
+            "belief",
+            "state-change",
+        }
         active_ids.remove(target_id)
         suppressed.append(
             _suppressed_payload(
@@ -923,9 +911,7 @@ def _apply_supersession(
                 score=scores.get(target_id),
             )
         )
-        if is_corrective_procedure_change and not any(
-            _item_id(item) == source_id for item in corrective_items
-        ):
+        if is_corrective_procedure_change and not any(_item_id(item) == source_id for item in corrective_items):
             corrective_items.append(
                 _annotate_candidate(
                     candidates[source_id],

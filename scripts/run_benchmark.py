@@ -6,7 +6,6 @@ from pathlib import Path
 
 from agent_mem_bridge.benchmarking import run_benchmark
 
-
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_PATH = ROOT / "benchmark" / "latest-report.json"
 HYBRID_REPORT_PATH = ROOT / "benchmark" / "latest-hybrid-retrieval-report.json"

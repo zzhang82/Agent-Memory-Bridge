@@ -1,22 +1,26 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
 import sys
 from pathlib import Path
 
+from agent_mem_bridge.paths import resolve_profile_source_root
 from agent_mem_bridge.rollback_cutover import (
     build_rollback_preflight,
     find_latest_live_cutover_manifest,
     rollback_live_source_cutover,
 )
-from agent_mem_bridge.paths import resolve_profile_source_root
 
 
 def main() -> None:
     args = _parse_args()
     source_root = args.source_root.resolve() if args.source_root else _default_profile_root()
-    manifest_path = args.cutover_manifest_path.resolve() if args.cutover_manifest_path else find_latest_live_cutover_manifest(source_root)
+    manifest_path = (
+        args.cutover_manifest_path.resolve()
+        if args.cutover_manifest_path
+        else find_latest_live_cutover_manifest(source_root)
+    )
     if manifest_path is None:
         raise SystemExit("No live cutover manifest found.")
 
@@ -63,4 +67,3 @@ def _default_profile_root() -> Path:
 
 if __name__ == "__main__":
     main()
-

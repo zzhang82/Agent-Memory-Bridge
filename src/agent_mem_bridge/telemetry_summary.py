@@ -65,14 +65,10 @@ def summarize_telemetry(
     service_poll_spans = [span for span in filtered if span.get("name") == "amb.service.poll_cycle"]
     service_run_once_spans = [span for span in filtered if span.get("name") == "amb.service.run_once"]
     memory_write_spans = [
-        span
-        for span in filtered
-        if span.get("name") == "amb.store.write" and _attributes(span).get("kind") == "memory"
+        span for span in filtered if span.get("name") == "amb.store.write" and _attributes(span).get("kind") == "memory"
     ]
     signal_write_spans = [
-        span
-        for span in filtered
-        if span.get("name") == "amb.store.write" and _attributes(span).get("kind") == "signal"
+        span for span in filtered if span.get("name") == "amb.store.write" and _attributes(span).get("kind") == "signal"
     ]
 
     summary = {

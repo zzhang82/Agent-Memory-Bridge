@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from pathlib import Path
 from typing import Any
 
-import tomllib
-
 from .client_config import render_example_client_configs
-
 
 PUBLIC_ONBOARDING_FILES = (
     Path("INSTALL_FOR_AGENTS.md"),
@@ -26,9 +24,7 @@ PUBLIC_ONBOARDING_FILES = (
     Path("examples/README.md"),
 )
 
-README_LINKS = (
-    "docs/INTEGRATIONS.md",
-)
+README_LINKS = ("docs/INTEGRATIONS.md",)
 
 BLOCKED_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b[A-Za-z]:[\\/][^\s`\"']*", re.IGNORECASE), "Windows absolute path leaked."),

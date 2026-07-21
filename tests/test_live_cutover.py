@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from agent_mem_bridge.archive_snapshot import write_live_source_manifest
 from agent_mem_bridge.live_cutover import apply_live_source_cutover, build_default_cutover_root
@@ -32,7 +32,11 @@ def test_apply_live_source_cutover_moves_archive_first_markdown_only(tmp_path: P
 
     write_live_source_manifest(cole_root, cole_root / "live-source-manifest.json")
     cutover_root = build_default_cutover_root(cole_root)
-    result = apply_live_source_cutover(cole_root, cutover_root, preflight_report={"missing_count": 0, "content_mismatch_count": 0, "namespace_mismatch_count": 0})
+    result = apply_live_source_cutover(
+        cole_root,
+        cutover_root,
+        preflight_report={"missing_count": 0, "content_mismatch_count": 0, "namespace_mismatch_count": 0},
+    )
 
     assert result["moved_file_count"] == 5
     assert not (cole_root / "architecture.md").exists()
@@ -45,4 +49,3 @@ def test_apply_live_source_cutover_moves_archive_first_markdown_only(tmp_path: P
     assert (cutover_root / "retired" / "memory" / "core" / "reflections.md").is_file()
     assert code_file.is_file()
     assert (cutover_root / "manifest.json").is_file()
-

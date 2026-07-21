@@ -13,7 +13,6 @@ from agent_mem_bridge.paths import (
     resolve_classifier_timeout_seconds,
 )
 
-
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPORT_PATH = ROOT / "benchmark" / "latest-calibration-report.json"
 FIXTURE_GATEWAY_PATH = ROOT / "tests" / "fixtures" / "fake_classifier_gateway.py"
@@ -37,8 +36,10 @@ def main() -> None:
     parser.add_argument("--timeout-seconds", type=float, default=resolve_classifier_timeout_seconds())
     parser.add_argument("--minimum-confidence", type=float, default=resolve_classifier_minimum_confidence())
     args = parser.parse_args()
-    command = args.command if args.command is not None else (
-        _fixture_gateway_command() if args.fixture_gateway else resolve_classifier_command()
+    command = (
+        args.command
+        if args.command is not None
+        else (_fixture_gateway_command() if args.fixture_gateway else resolve_classifier_command())
     )
     if not command:
         print(

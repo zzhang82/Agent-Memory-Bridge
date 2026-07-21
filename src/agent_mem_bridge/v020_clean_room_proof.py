@@ -21,7 +21,6 @@ from mcp.client.stdio import stdio_client
 from .onboarding import TOOL_NAMES
 from .release_contract import load_pyproject_version, load_server_tool_names
 
-
 ROOT = Path(__file__).resolve().parents[2]
 V020_CLEAN_ROOM_PROOF_SCHEMA = "memory.v0_20_clean_room_proof.v1"
 DEFAULT_V020_REPORT_PATH = ROOT / "benchmark" / "latest-v0.20-clean-room-proof-report.json"
@@ -29,7 +28,7 @@ DEFAULT_V020_TRANSCRIPT_PATH = ROOT / "benchmark" / "latest-v0.20-clean-room-pro
 V020_NAMESPACE = "project:v020-clean-room"
 V020_QUERY = "clean room adoption handoff"
 V020_TOKEN = "v020-clean-room-stdio-token"
-EXPECTED_PUBLIC_TOOL_COUNT = 10
+EXPECTED_PUBLIC_TOOL_COUNT = len(TOOL_NAMES)
 PROOF_KIND = "local_clean_room_adoption_not_vendor_certification"
 
 V020_CASE_MANIFEST: tuple[dict[str, str], ...] = (
@@ -44,7 +43,7 @@ V020_CASE_MANIFEST: tuple[dict[str, str], ...] = (
         "id": "v020-stdio-tool-surface",
         "category": "stdio_mcp",
         "purpose": "Prove the real stdio MCP server exposes exactly the documented public surface.",
-        "expected_behavior": "MCP `list_tools` returns the documented 10 tools and no v0.20 tool.",
+        "expected_behavior": "MCP `list_tools` returns the documented 12 tools and no v0.20 tool.",
         "non_goal_guard": "Does not add startup_packet, task_packet, plugin, watcher, or harness tools.",
     },
     {
@@ -402,8 +401,12 @@ async def _run_stdio_round_trip(
     recall_items = recall_payload.get("items") or []
     stored_id = str(store_payload.get("id") or "")
     recalled_item_ids = [str(item.get("id") or "") for item in recall_items]
-    transports = sorted({str(item.get("client_transport") or "") for item in recall_items if item.get("client_transport")})
-    source_clients = sorted({str(item.get("source_client") or "") for item in recall_items if item.get("source_client")})
+    transports = sorted(
+        {str(item.get("client_transport") or "") for item in recall_items if item.get("client_transport")}
+    )
+    source_clients = sorted(
+        {str(item.get("source_client") or "") for item in recall_items if item.get("source_client")}
+    )
     token_found = any(V020_TOKEN in str(item.get("content") or "") for item in recall_items)
     return {
         "entrypoint": {

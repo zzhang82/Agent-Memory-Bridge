@@ -290,7 +290,9 @@ def _candidate_tags(
         tag = str(value).strip()
         if not tag:
             continue
-        if tag.startswith(prefix) or (tag.startswith("domain:") or tag.startswith("topic:") or tag.startswith("cluster:")):
+        if tag.startswith(prefix) or (
+            tag.startswith("domain:") or tag.startswith("topic:") or tag.startswith("cluster:")
+        ):
             if not tag.startswith(prefix):
                 continue
         else:

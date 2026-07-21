@@ -1,4 +1,4 @@
-﻿import json
+import json
 from pathlib import Path
 
 from agent_mem_bridge.session_closeout import closeout_session_from_json
@@ -37,4 +37,3 @@ def test_closeout_session_writes_note_and_syncs(tmp_path: Path) -> None:
     assert "[[Codex]] closeout" in note_text
     assert result["sync_result"]["stored"] is True
     assert recall["count"] == 1
-

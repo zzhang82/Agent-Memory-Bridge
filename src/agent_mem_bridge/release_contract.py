@@ -6,13 +6,11 @@ import json
 import re
 import subprocess
 import sys
+import tomllib
 import xml.etree.ElementTree as ET
 import zlib
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable
-
-import tomllib
-
 
 README_NAMES = ("README.md", "README.zh-CN.md")
 VISUAL_CLAIMS_INVENTORY_PATH = Path("examples") / "diagrams" / "visual-claims.json"
@@ -202,9 +200,7 @@ def run_release_contract_check(
     main_readme_text = main_readme_path.read_text(encoding="utf-8")
     server_tools = load_server_tool_names(project_root / "src" / "agent_mem_bridge" / "server.py")
     test_count = (
-        test_count_provider(project_root)
-        if test_count_provider is not None
-        else collect_test_count(project_root)
+        test_count_provider(project_root) if test_count_provider is not None else collect_test_count(project_root)
     )
 
     checks: list[dict[str, Any]] = []
@@ -300,9 +296,7 @@ def build_v020_proof_version_check(project_root: Path, pyproject_version: str) -
     environment = report.get("environment") or {}
     actual_package_version = environment.get("package_version")
     entrypoint_cases = [
-        case
-        for case in (report.get("cases") or [])
-        if case.get("id") == "v020-local-entrypoint-import"
+        case for case in (report.get("cases") or []) if case.get("id") == "v020-local-entrypoint-import"
     ]
     actual_cli_version = None
     mismatches = []
@@ -454,11 +448,7 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
         + REQUIRED_TASK_BRIEF_KEYS
         + REQUIRED_V019_ADOPTION_PROOF_KEYS
         + REQUIRED_V020_CLEAN_ROOM_PROOF_KEYS
-        + tuple(
-            key
-            for key in REQUIRED_V021_GOVERNED_CHANGE_KEYS
-            if key in expected_facts
-        )
+        + tuple(key for key in REQUIRED_V021_GOVERNED_CHANGE_KEYS if key in expected_facts)
     )
     mismatches: list[dict[str, Any]] = []
     ok = True
@@ -682,9 +672,7 @@ def visual_claim_inventory_report(
         "inventory_path": str(inventory_path),
         "semantic_validation": "not_performed",
         "allowed_asset_types": list(VISUAL_ASSET_TYPES),
-        "allowed_release_applicability_statuses": list(
-            VISUAL_RELEASE_APPLICABILITY_STATUSES
-        ),
+        "allowed_release_applicability_statuses": list(VISUAL_RELEASE_APPLICABILITY_STATUSES),
         "claims": claim_reports,
         "assets": asset_reports,
         "inventory_private_path_matches": inventory_private_path_matches,
@@ -700,9 +688,13 @@ def validate_visual_claim_inventory_item(
 ) -> dict[str, Any]:
     if not isinstance(claim, dict):
         return {
-            "id": None, "asset_path": None, "asset_type": None,
-            "resolved_asset_path": None, "release_applicability_status": None,
-            "release_applicability_release": None, "evidence_paths": None,
+            "id": None,
+            "asset_path": None,
+            "asset_type": None,
+            "resolved_asset_path": None,
+            "release_applicability_status": None,
+            "release_applicability_release": None,
+            "evidence_paths": None,
             "missing_evidence_paths": [],
             "mismatches": [mismatch(f"claims[{index}]", "object", type(claim).__name__)],
         }
@@ -713,16 +705,8 @@ def validate_visual_claim_inventory_item(
     asset_type = claim.get("asset_type")
     evidence_paths = claim.get("evidence_paths")
     release_applicability = claim.get("release_applicability")
-    release_status = (
-        release_applicability.get("status")
-        if isinstance(release_applicability, dict)
-        else None
-    )
-    release_value = (
-        release_applicability.get("release")
-        if isinstance(release_applicability, dict)
-        else None
-    )
+    release_status = release_applicability.get("status") if isinstance(release_applicability, dict) else None
+    release_value = release_applicability.get("release") if isinstance(release_applicability, dict) else None
     resolved_asset_path: Path | None = None
     missing_evidence_paths: list[str] = []
     mismatches: list[dict[str, Any]] = []
@@ -730,9 +714,7 @@ def validate_visual_claim_inventory_item(
     if not isinstance(claim_id, str) or not claim_id.strip():
         mismatches.append(mismatch(f"claims[{claim_label}].id", "nonempty string", claim_id))
     if not isinstance(asset_path, str) or not asset_path.strip():
-        mismatches.append(
-            mismatch(f"claims[{claim_label}].asset_path", "nonempty string", asset_path)
-        )
+        mismatches.append(mismatch(f"claims[{claim_label}].asset_path", "nonempty string", asset_path))
     else:
         resolved_asset_path, path_mismatches = resolve_project_relative_path(
             project_root,
@@ -741,11 +723,11 @@ def validate_visual_claim_inventory_item(
         )
         mismatches.extend(path_mismatches)
     if asset_type not in VISUAL_ASSET_TYPES:
-        mismatches.append(
-            mismatch(f"claims[{claim_label}].asset_type", list(VISUAL_ASSET_TYPES), asset_type)
-        )
-    if not isinstance(evidence_paths, list) or not evidence_paths or not all(
-        isinstance(path, str) and path.strip() for path in evidence_paths
+        mismatches.append(mismatch(f"claims[{claim_label}].asset_type", list(VISUAL_ASSET_TYPES), asset_type))
+    if (
+        not isinstance(evidence_paths, list)
+        or not evidence_paths
+        or not all(isinstance(path, str) and path.strip() for path in evidence_paths)
     ):
         mismatches.append(
             mismatch(
@@ -853,9 +835,7 @@ def validate_inventoried_visual_asset(
         "asset_type": asset_type,
         "exists": (project_root / asset_path).exists(),
         "private_path_matches": [],
-        "mismatches": [
-            mismatch(f"assets[{asset_path}].asset_type", list(VISUAL_ASSET_TYPES), asset_type)
-        ],
+        "mismatches": [mismatch(f"assets[{asset_path}].asset_type", list(VISUAL_ASSET_TYPES), asset_type)],
     }
 
 
@@ -906,17 +886,11 @@ def validate_inventoried_svg(project_root: Path, asset_path: str) -> dict[str, A
     report["has_title"] = has_nonempty_svg_child(svg_root, "title")
     report["has_desc"] = has_nonempty_svg_child(svg_root, "desc")
     if not report["valid_xml_svg"]:
-        report["mismatches"].append(
-            mismatch(f"assets[{asset_path}].root", "svg", xml_local_name(svg_root.tag))
-        )
+        report["mismatches"].append(mismatch(f"assets[{asset_path}].root", "svg", xml_local_name(svg_root.tag)))
     if not report["has_title"]:
-        report["mismatches"].append(
-            mismatch(f"assets[{asset_path}].title", "nonempty title", "missing_or_empty")
-        )
+        report["mismatches"].append(mismatch(f"assets[{asset_path}].title", "nonempty title", "missing_or_empty"))
     if not report["has_desc"]:
-        report["mismatches"].append(
-            mismatch(f"assets[{asset_path}].desc", "nonempty desc", "missing_or_empty")
-        )
+        report["mismatches"].append(mismatch(f"assets[{asset_path}].desc", "nonempty desc", "missing_or_empty"))
     return report
 
 
@@ -975,9 +949,7 @@ def validate_png_bytes(png_bytes: bytes, field_prefix: str) -> dict[str, Any]:
     mismatches: list[dict[str, Any]] = []
 
     if not png_bytes.startswith(PNG_SIGNATURE):
-        mismatches.append(
-            mismatch(f"{field_prefix}.png_signature", "PNG signature", "missing_or_invalid")
-        )
+        mismatches.append(mismatch(f"{field_prefix}.png_signature", "PNG signature", "missing_or_invalid"))
         return {"properties": properties, "mismatches": mismatches}
 
     properties["valid_png_signature"] = True
@@ -1050,9 +1022,7 @@ def validate_png_bytes(png_bytes: bytes, field_prefix: str) -> dict[str, Any]:
 
         if chunk_index == 0 and chunk_type != b"IHDR":
             valid_structure = False
-            mismatches.append(
-                mismatch(f"{field_prefix}.ihdr", "first PNG chunk", chunk_name)
-            )
+            mismatches.append(mismatch(f"{field_prefix}.ihdr", "first PNG chunk", chunk_name))
 
         if chunk_type == b"IHDR":
             if seen_ihdr:
@@ -1061,9 +1031,7 @@ def validate_png_bytes(png_bytes: bytes, field_prefix: str) -> dict[str, Any]:
             seen_ihdr = True
             if length != 13:
                 valid_structure = False
-                mismatches.append(
-                    mismatch(f"{field_prefix}.ihdr", "13-byte IHDR chunk", length)
-                )
+                mismatches.append(mismatch(f"{field_prefix}.ihdr", "13-byte IHDR chunk", length))
             else:
                 width = properties["width"] = int.from_bytes(chunk_data[0:4], "big")
                 height = properties["height"] = int.from_bytes(chunk_data[4:8], "big")
@@ -1102,9 +1070,7 @@ def validate_png_bytes(png_bytes: bytes, field_prefix: str) -> dict[str, Any]:
         mismatches.append(mismatch(f"{field_prefix}.iend", "PNG IEND chunk", "missing"))
     elif offset != len(png_bytes):
         valid_structure = False
-        mismatches.append(
-            mismatch(f"{field_prefix}.trailing_data", "no bytes after IEND", len(png_bytes) - offset)
-        )
+        mismatches.append(mismatch(f"{field_prefix}.trailing_data", "no bytes after IEND", len(png_bytes) - offset))
 
     properties["valid_png_crc"] = valid_crc
     properties["valid_png_iend"] = seen_iend
@@ -1124,24 +1090,16 @@ def validate_png_bytes(png_bytes: bytes, field_prefix: str) -> dict[str, Any]:
                     )
                 )
         except zlib.error as exc:
-            mismatches.append(
-                mismatch(f"{field_prefix}.idat_zlib", "zlib-decodable IDAT stream", str(exc))
-            )
+            mismatches.append(mismatch(f"{field_prefix}.idat_zlib", "zlib-decodable IDAT stream", str(exc)))
 
     properties["valid_png_structure"] = (
-        valid_structure
-        and seen_ihdr
-        and seen_idat
-        and seen_iend
-        and properties["idat_zlib_decompressible"]
+        valid_structure and seen_ihdr and seen_idat and seen_iend and properties["idat_zlib_decompressible"]
     )
     return {"properties": properties, "mismatches": mismatches}
 
 
 def is_png_chunk_type(chunk_type: bytes) -> bool:
-    return len(chunk_type) == 4 and all(
-        65 <= byte <= 90 or 97 <= byte <= 122 for byte in chunk_type
-    )
+    return len(chunk_type) == 4 and all(65 <= byte <= 90 or 97 <= byte <= 122 for byte in chunk_type)
 
 
 def resolve_project_relative_path(
@@ -1283,11 +1241,7 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
         (project_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(encoding="utf-8")
     )
     v021_report_path = project_root / "benchmark" / V021_GOVERNED_CHANGE_REPORT
-    v021_report = (
-        json.loads(v021_report_path.read_text(encoding="utf-8"))
-        if v021_report_path.exists()
-        else None
-    )
+    v021_report = json.loads(v021_report_path.read_text(encoding="utf-8")) if v021_report_path.exists() else None
     benchmark_summary = benchmark_report["summary"]
     calibration_summary = calibration_report["summary"]
     procedure_summary = procedure_report["summary"]
@@ -1314,9 +1268,7 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
     expected["adversarial_case_count"] = adversarial_summary["case_count"]
     expected["adversarial_task_count"] = adversarial_summary["task_count"]
     expected["adversarial_governed_task_pass_rate"] = adversarial_summary["governed_task_pass_rate"]
-    expected["adversarial_governed_blocked_record_leak_rate"] = adversarial_summary[
-        "governed_blocked_record_leak_rate"
-    ]
+    expected["adversarial_governed_blocked_record_leak_rate"] = adversarial_summary["governed_blocked_record_leak_rate"]
     expected["memory_evolution_case_count"] = memory_evolution_summary["case_count"]
     expected["memory_evolution_task_count"] = memory_evolution_summary["task_count"]
     expected["memory_evolution_governed_task_pass_rate"] = memory_evolution_summary["governed_task_pass_rate"]
@@ -1347,22 +1299,14 @@ def load_expected_facts(project_root: Path) -> dict[str, int | float | bool]:
                 "v021_governed_case_pass_count": v021_summary["governed_case_pass_count"],
                 "v021_governed_failures": v021_summary["governed_failures"],
                 "v021_governed_checkpoint_passes": v021_summary["governed_checkpoint_passes"],
-                "v021_governed_checkpoint_result_count": v021_summary[
-                    "governed_checkpoint_result_count"
-                ],
-                "v021_useful_current_retention_pass": v021_summary[
-                    "useful_current_retention_pass"
-                ],
+                "v021_governed_checkpoint_result_count": v021_summary["governed_checkpoint_result_count"],
+                "v021_useful_current_retention_pass": v021_summary["useful_current_retention_pass"],
                 "v021_suppress_all_can_pass": v021_summary["suppress_all_can_pass"],
                 "v021_public_mcp_tool_count": v021_boundaries["public_mcp_tool_count"],
-                "v021_public_mcp_surface_change": not v021_boundaries[
-                    "public_mcp_surface_unchanged"
-                ],
+                "v021_public_mcp_surface_change": not v021_boundaries["public_mcp_surface_unchanged"],
                 "v021_auto_writeback_count": v021_boundaries["auto_writeback_count"],
                 "v021_config_write_count": v021_boundaries["config_write_count"],
-                "v021_durable_live_writeback_count": v021_boundaries[
-                    "durable_live_writeback_count"
-                ],
+                "v021_durable_live_writeback_count": v021_boundaries["durable_live_writeback_count"],
             }
         )
     return expected
@@ -1392,7 +1336,17 @@ def extract_readme_tool_names(text: str) -> set[str]:
         if not line.lstrip().startswith("-"):
             continue
         for token in TOOL_TOKEN_PATTERN.findall(line):
-            if "_" in token or token in {"store", "recall", "browse", "stats", "forget", "promote", "export"}:
+            if "_" in token or token in {
+                "store",
+                "recall",
+                "browse",
+                "stats",
+                "forget",
+                "promote",
+                "annotate",
+                "revise",
+                "export",
+            }:
                 tool_names.add(token)
     return tool_names
 
@@ -1421,7 +1375,12 @@ def load_server_tool_names(path: Path) -> set[str]:
 
 def is_mcp_tool_decorator(node: ast.expr) -> bool:
     target = node.func if isinstance(node, ast.Call) else node
-    return isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == "mcp" and target.attr == "tool"
+    return (
+        isinstance(target, ast.Attribute)
+        and isinstance(target.value, ast.Name)
+        and target.value.id == "mcp"
+        and target.attr == "tool"
+    )
 
 
 def collect_test_count(project_root: Path) -> int:

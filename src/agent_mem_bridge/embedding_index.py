@@ -5,19 +5,24 @@ import json
 import math
 import re
 import sqlite3
-import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from .command_provider import CommandLimits, CommandProviderError, command_fingerprint, run_json_command
 from .paths import (
     resolve_embedding_command,
     resolve_embedding_dim,
+    resolve_embedding_env_allowlist,
+    resolve_embedding_max_input_bytes,
+    resolve_embedding_max_output_bytes,
+    resolve_embedding_max_stderr_bytes,
     resolve_embedding_model,
     resolve_embedding_provider,
     resolve_embedding_timeout_seconds,
+    resolve_embedding_trusted_shell,
 )
-
 
 DEFAULT_EMBEDDING_MODEL = "local-token-hash-v1"
 DEFAULT_EMBEDDING_DIM = 64
@@ -38,8 +43,13 @@ class EmbeddingConfig:
     provider: str = "hash"
     model: str = DEFAULT_EMBEDDING_MODEL
     dim: int = DEFAULT_EMBEDDING_DIM
-    command: str = ""
+    command: str | tuple[str, ...] = ""
     timeout_seconds: float = 10.0
+    trusted_shell: bool = False
+    max_input_bytes: int = 1_000_000
+    max_output_bytes: int = 4_000_000
+    max_stderr_bytes: int = 65_536
+    env_allowlist: tuple[str, ...] = ()
 
 
 class EmbeddingProviderError(RuntimeError):
@@ -59,11 +69,12 @@ def active_embedding_config() -> EmbeddingConfig:
     if dim <= 0:
         raise ValueError("embedding dim must be greater than 0")
     command = resolve_embedding_command()
+    trusted_shell = resolve_embedding_trusted_shell()
     configured_model = resolve_embedding_model()
     if configured_model:
         model = configured_model
     elif provider == "command":
-        model = command_embedding_model_id(command)
+        model = command_embedding_model_id(command, trusted_shell=trusted_shell)
     else:
         model = DEFAULT_EMBEDDING_MODEL
     return EmbeddingConfig(
@@ -72,6 +83,11 @@ def active_embedding_config() -> EmbeddingConfig:
         dim=dim,
         command=command,
         timeout_seconds=resolve_embedding_timeout_seconds(),
+        trusted_shell=trusted_shell,
+        max_input_bytes=resolve_embedding_max_input_bytes(),
+        max_output_bytes=resolve_embedding_max_output_bytes(),
+        max_stderr_bytes=resolve_embedding_max_stderr_bytes(),
+        env_allowlist=resolve_embedding_env_allowlist(),
     )
 
 
@@ -82,11 +98,10 @@ def normalize_embedding_provider(value: str) -> str:
     return "hash"
 
 
-def command_embedding_model_id(command: str) -> str:
-    if not command.strip():
+def command_embedding_model_id(command: str | Sequence[str], *, trusted_shell: bool = False) -> str:
+    if (isinstance(command, str) and not command.strip()) or (not isinstance(command, str) and not command):
         return "local-command-unconfigured"
-    digest = hashlib.sha256(command.strip().encode("utf-8")).hexdigest()[:12]
-    return f"local-command-sha256:{digest}"
+    return f"local-command-{command_fingerprint(command, trusted_shell=trusted_shell).replace(':', '-')}"
 
 
 def ensure_embedding_schema(conn: sqlite3.Connection) -> None:
@@ -174,7 +189,9 @@ def embedding_tokens(text: str) -> list[str]:
 
 
 def command_embed_texts(texts: list[str], *, config: EmbeddingConfig) -> list[list[float]]:
-    if not config.command.strip():
+    if (isinstance(config.command, str) and not config.command.strip()) or (
+        not isinstance(config.command, str) and not config.command
+    ):
         raise EmbeddingProviderError("embedding command provider requires a configured command")
     payload = {
         "texts": texts,
@@ -182,24 +199,25 @@ def command_embed_texts(texts: list[str], *, config: EmbeddingConfig) -> list[li
         "model": config.model,
     }
     try:
-        completed = subprocess.run(
+        completed = run_json_command(
             config.command,
-            shell=True,
-            check=False,
-            capture_output=True,
-            text=True,
-            input=json.dumps(payload),
-            timeout=config.timeout_seconds,
+            payload,
+            timeout_seconds=config.timeout_seconds,
+            trusted_shell=config.trusted_shell,
+            limits=CommandLimits(
+                max_input_bytes=config.max_input_bytes,
+                max_stdout_bytes=config.max_output_bytes,
+                max_stderr_bytes=config.max_stderr_bytes,
+            ),
+            env_allowlist=config.env_allowlist,
         )
-    except subprocess.TimeoutExpired as exc:
-        raise EmbeddingProviderError("embedding command timed out") from exc
-    except UnicodeError as exc:
-        raise EmbeddingProviderError("embedding command output was not valid UTF-8") from exc
-    except OSError as exc:
-        raise EmbeddingProviderError(f"embedding command failed to start: {exc.__class__.__name__}") from exc
+    except CommandProviderError as exc:
+        raise EmbeddingProviderError(str(exc)) from exc
 
     if completed.returncode != 0:
-        raise EmbeddingProviderError(f"embedding command failed with exit code {completed.returncode}")
+        raise EmbeddingProviderError(
+            f"embedding command failed with exit code {completed.returncode} (fingerprint={completed.fingerprint})"
+        )
 
     try:
         raw = json.loads(completed.stdout)

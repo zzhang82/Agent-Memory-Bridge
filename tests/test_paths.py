@@ -1,8 +1,11 @@
-﻿from pathlib import Path
+from pathlib import Path
+
+import pytest
 
 from agent_mem_bridge.paths import (
     resolve_bridge_db_path,
     resolve_bridge_home,
+    resolve_classifier_trusted_shell,
     resolve_consolidation_allow_reflex_sources,
     resolve_consolidation_enabled,
     resolve_embedding_command,
@@ -14,17 +17,40 @@ from agent_mem_bridge.paths import (
     resolve_embedding_scheduler_interval_seconds,
     resolve_embedding_scheduler_state_path,
     resolve_embedding_timeout_seconds,
-    resolve_profile_source_root,
-    resolve_reflex_enabled,
+    resolve_embedding_trusted_shell,
     resolve_idle_seconds,
+    resolve_operating_profile,
     resolve_poll_seconds,
     resolve_profile_namespace,
+    resolve_profile_source_root,
+    resolve_reflex_enabled,
+    resolve_require_claim_before_ack,
     resolve_sessions_root,
     resolve_telemetry_log_dir,
     resolve_telemetry_mode,
     resolve_telemetry_service_name,
     resolve_watcher_enabled,
 )
+
+
+def test_hardened_local_profile_enforces_strict_signal_and_command_boundaries(monkeypatch) -> None:
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_OPERATING_PROFILE", "hardened-local")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_TRUSTED_SHELL", "true")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_CLASSIFIER_TRUSTED_SHELL", "true")
+
+    assert resolve_operating_profile() == "hardened-local"
+    assert resolve_require_claim_before_ack() is True
+    with pytest.raises(ValueError, match="embedding_trusted_shell"):
+        resolve_embedding_trusted_shell()
+    with pytest.raises(ValueError, match="classifier trusted_shell"):
+        resolve_classifier_trusted_shell()
+
+
+def test_invalid_operating_profile_is_rejected(monkeypatch) -> None:
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_OPERATING_PROFILE", "distributed-production")
+
+    with pytest.raises(ValueError, match="operating_profile"):
+        resolve_operating_profile()
 
 
 def test_path_resolvers_read_from_config_file(tmp_path: Path, monkeypatch) -> None:
@@ -182,5 +208,3 @@ def test_profile_source_root_defaults_to_neutral_config_path(tmp_path: Path, mon
     monkeypatch.delenv("COLE_SOURCE_ROOT", raising=False)
 
     assert resolve_profile_source_root() == Path.home() / ".config" / "agent-memory-bridge" / "profile-source"
-
-

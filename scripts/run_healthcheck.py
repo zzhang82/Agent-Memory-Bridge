@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
@@ -58,4 +58,3 @@ def _default_profile_root() -> Path:
 
 if __name__ == "__main__":
     main()
-

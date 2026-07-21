@@ -7,7 +7,6 @@ from .profile_assembly import StartupRecallLayer, build_startup_recall_plan
 from .storage import MemoryStore
 from .task_memory import assemble_task_memory
 
-
 ISSUE_MARKERS = (
     "error",
     "bug",
@@ -272,11 +271,7 @@ def _has_profile_bundle_signal(profile_bundle_hits: list[dict[str, Any]]) -> boo
 
 
 def _collect_ids(items: list[dict[str, Any]]) -> set[str]:
-    return {
-        item_id
-        for item in items
-        if (item_id := str(item.get("id") or "").strip())
-    }
+    return {item_id for item in items if (item_id := str(item.get("id") or "").strip())}
 
 
 def _filter_reference_hits(

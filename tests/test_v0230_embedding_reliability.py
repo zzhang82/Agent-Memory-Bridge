@@ -87,6 +87,24 @@ def test_lazy_semantic_recall_batches_provider_work_outside_write_transaction(
         assert conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()[0] == 2
 
 
+def test_semantic_recall_scans_full_namespace_beyond_embedding_batch_window(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    target = _store_memory(store, "Old target", "quasarneedle durable fact")
+    for index in range(5):
+        _store_memory(store, f"Recent decoy {index}", f"unrelated recent memory {index}")
+    monkeypatch.setattr(query_module, "resolve_semantic_scan_limit", lambda: 2)
+
+    result = _recall_mode(store, "quasarneedle", "semantic")
+
+    assert result[0]["id"] == target["id"]
+    assert (result[0].get("retrieval") or {})["semantic_scope"] == "full-store-exact"
+    with store._connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()[0] == 6
+
+
 def test_scheduler_batches_provider_work_outside_write_transaction(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -10,7 +10,6 @@ from .relation_metadata import parse_content_fields
 from .repository import MEMORY_ROW_SELECT, MemoryRow
 from .storage import MemoryStore
 
-
 ACTIVATION_RECEIPT_SCHEMA = "amb.cross-client.activation-receipt.v1"
 WORKFLOW_TAG = "workflow:cross-client-activation"
 WRITER_TAG = "activation-role:writer"

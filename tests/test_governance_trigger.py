@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from agent_mem_bridge.governance_trigger import GovernanceTriggerConfig, GovernanceTriggerEngine
@@ -74,12 +75,71 @@ def test_governance_trigger_does_not_duplicate_signals(tmp_path: Path) -> None:
 
     assert first["processed_count"] == 1
     assert second["processed_count"] == 0
-    assert store.recall(
-        namespace="project:mem-store",
-        kind="signal",
-        tags_any=["kind:governance-trigger"],
-        limit=10,
-    )["count"] == 1
+    assert (
+        store.recall(
+            namespace="project:mem-store",
+            kind="signal",
+            tags_any=["kind:governance-trigger"],
+            limit=10,
+        )["count"]
+        == 1
+    )
+
+
+def test_governance_trigger_drains_candidates_beyond_scan_limit(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    for index in range(3):
+        candidate = _candidate(
+            claim=f"Drain governance candidate {index} without starvation.",
+            source_task_id=f"task-drain-{index}",
+        )
+        store.store_learning_candidate(candidate, evaluate_learning_candidate(candidate))
+    engine = GovernanceTriggerEngine(
+        store=store,
+        config=GovernanceTriggerConfig(
+            state_path=tmp_path / "governance-state.json",
+            scan_limit=2,
+        ),
+    )
+
+    first = engine.run_once()
+    second = engine.run_once()
+
+    assert first["processed_count"] == 2
+    assert second["processed_count"] == 1
+    assert (
+        store.recall(
+            namespace="project:mem-store",
+            kind="signal",
+            tags_any=["kind:governance-trigger"],
+            limit=10,
+        )["count"]
+        == 3
+    )
+
+
+def test_governance_trigger_state_does_not_accumulate_candidate_ids(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    state_path = tmp_path / "governance-state.json"
+    state_path.write_text(
+        json.dumps({"signaled_candidate_ids": [f"legacy-{index}" for index in range(1_000)]}),
+        encoding="utf-8",
+    )
+    for index in range(3):
+        candidate = _candidate(
+            claim=f"Bound governance trigger state for candidate {index}.",
+            source_task_id=f"task-{index}",
+        )
+        store.store_learning_candidate(candidate, evaluate_learning_candidate(candidate))
+
+    report = _engine(store, tmp_path).run_once()
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+
+    assert report["processed_count"] == 3
+    assert "signaled_candidate_ids" not in state
+    assert state["state_schema_version"] == 2
+    assert state["last_scanned_candidate_count"] == 3
+    assert state["last_created_count"] == 3
 
 
 def test_governance_trigger_skips_approved_candidate(tmp_path: Path) -> None:
@@ -94,9 +154,12 @@ def test_governance_trigger_skips_approved_candidate(tmp_path: Path) -> None:
     report = _engine(store, tmp_path).run_once()
 
     assert report["processed_count"] == 0
-    assert store.recall(
-        namespace="project:mem-store",
-        kind="signal",
-        tags_any=["kind:governance-trigger"],
-        limit=10,
-    )["count"] == 0
+    assert (
+        store.recall(
+            namespace="project:mem-store",
+            kind="signal",
+            tags_any=["kind:governance-trigger"],
+            limit=10,
+        )["count"]
+        == 0
+    )

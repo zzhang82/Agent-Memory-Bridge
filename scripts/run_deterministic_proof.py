@@ -5,7 +5,6 @@ from pathlib import Path
 
 from agent_mem_bridge.proof import run_deterministic_proof
 
-
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_PATH = ROOT / "benchmark" / "latest-proof-report.json"
 

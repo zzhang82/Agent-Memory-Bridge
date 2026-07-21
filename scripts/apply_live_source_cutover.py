@@ -1,12 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 
-from agent_mem_bridge.profile_migration import compare_profile_migration_with_mode
 from agent_mem_bridge.live_cutover import apply_live_source_cutover, build_default_cutover_root
 from agent_mem_bridge.paths import resolve_bridge_db_path, resolve_bridge_log_dir, resolve_profile_source_root
+from agent_mem_bridge.profile_migration import compare_profile_migration_with_mode
 from agent_mem_bridge.storage import MemoryStore
 
 
@@ -63,4 +63,3 @@ def _default_profile_root() -> Path:
 
 if __name__ == "__main__":
     main()
-

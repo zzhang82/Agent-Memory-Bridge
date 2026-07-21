@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections import Counter
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -17,9 +16,9 @@ from .paths import (
     resolve_domain_title_prefix,
     resolve_profile_namespace,
 )
+from .schema import database_epoch as read_database_epoch
 from .state_io import load_json_state, write_json_state_atomic
 from .storage import MemoryStore
-
 
 CONSOLIDATION_NOISE_MARKERS = (
     "you were out of token",
@@ -92,7 +91,7 @@ class ConsolidationEngine:
             return {"enabled": False, "processed_count": 0, "stored": [], "reason": "disabled"}
 
         state = self._load_state()
-        new_rows = self._load_new_source_rows(state.get("since_id"), self.config.scan_limit)
+        new_rows, snapshot_epoch = self._load_new_source_rows(state=state, limit=self.config.scan_limit)
         if not new_rows:
             return {"processed_count": 0, "stored": []}
 
@@ -114,10 +113,18 @@ class ConsolidationEngine:
                         stored.append(concept_note)
 
         state["since_id"] = new_rows[-1]["id"]
+        state["last_insertion_sequence"] = int(new_rows[-1]["_cursor_sequence"])
+        state.pop("last_rowid", None)
+        state["database_epoch"] = snapshot_epoch
         self._save_state(state)
         return {"processed_count": len(stored), "stored": stored, "since_id": state["since_id"]}
 
-    def _load_new_source_rows(self, since_id: str | None, limit: int) -> list[sqlite3.Row]:
+    def _load_new_source_rows(
+        self,
+        *,
+        state: dict[str, Any],
+        limit: int,
+    ) -> tuple[list[sqlite3.Row], str]:
         params: list[Any] = [
             self.config.target_namespace,
             '%"kind:learn"%',
@@ -125,45 +132,50 @@ class ConsolidationEngine:
         ]
         sql = """
             SELECT
-                id,
-                namespace,
-                kind,
-                title,
-                content,
-                tags_json,
-                session_id,
-                actor,
-                correlation_id,
-                source_app,
-                source_client,
-                source_model,
-                client_session_id,
-                client_workspace,
-                client_transport,
-                created_at
-            FROM memories
-            WHERE namespace = ?
-              AND (tags_json LIKE ? OR tags_json LIKE ?)
+                i.sequence AS _cursor_sequence,
+                m.id,
+                m.namespace,
+                m.kind,
+                m.title,
+                m.content,
+                m.tags_json,
+                m.session_id,
+                m.actor,
+                m.correlation_id,
+                m.source_app,
+                m.source_client,
+                m.source_model,
+                m.client_session_id,
+                m.client_workspace,
+                m.client_transport,
+                m.created_at
+            FROM memories m
+            JOIN memory_insertions i ON i.memory_id = m.id
+            WHERE m.namespace = ?
+              AND (m.tags_json LIKE ? OR m.tags_json LIKE ?)
         """
         if not self.config.allow_reflex_sources:
             sql += """
               AND (
-                source_app IS NULL
-                OR source_app != 'agent-memory-bridge-reflex'
-                OR tags_json LIKE '%"source:reviewed"%'
-                OR tags_json LIKE '%"reviewed:true"%'
-                OR tags_json LIKE '%"confidence:human-reviewed"%'
+                m.source_app IS NULL
+                OR m.source_app != 'agent-memory-bridge-reflex'
               )
             """
-        if since_id:
-            since_created_at = self._lookup_created_at(since_id)
-            if since_created_at:
-                sql += " AND created_at > ?"
-                params.append(since_created_at)
-        sql += " ORDER BY created_at ASC LIMIT ?"
-        params.append(limit)
         with self.store._connect() as conn:
-            return conn.execute(sql, params).fetchall()
+            conn.execute("BEGIN")
+            snapshot_epoch = read_database_epoch(conn)
+            since_sequence = self._resolve_cursor_sequence(
+                state,
+                connection=conn,
+                current_database_epoch=snapshot_epoch,
+            )
+            if since_sequence is not None:
+                sql += " AND i.sequence > ?"
+                params.append(since_sequence)
+            sql += " ORDER BY i.sequence ASC LIMIT ?"
+            params.append(limit)
+            rows = conn.execute(sql, params).fetchall()
+        return rows, snapshot_epoch
 
     def _load_recent_source_rows(self, limit: int) -> list[sqlite3.Row]:
         with self.store._connect() as conn:
@@ -193,9 +205,6 @@ class ConsolidationEngine:
                     ? = 1
                     OR source_app IS NULL
                     OR source_app != 'agent-memory-bridge-reflex'
-                    OR tags_json LIKE '%"source:reviewed"%'
-                    OR tags_json LIKE '%"reviewed:true"%'
-                    OR tags_json LIKE '%"confidence:human-reviewed"%'
                   )
                 ORDER BY created_at DESC
                 LIMIT ?
@@ -316,8 +325,7 @@ class ConsolidationEngine:
         contradiction_count = sum(
             count
             for reason, count in contradiction_reason_counts.items()
-            if not reason.startswith("boundary-exempt:")
-            and reason != "no-marker"
+            if not reason.startswith("boundary-exempt:") and reason != "no-marker"
         )
         confidence = self._belief_confidence(
             support_count=support_count,
@@ -380,7 +388,9 @@ class ConsolidationEngine:
             "result": result,
         }
 
-    def _store_belief(self, candidate: SynthesisCandidate, belief_candidate_result: dict[str, Any]) -> dict[str, Any] | None:
+    def _store_belief(
+        self, candidate: SynthesisCandidate, belief_candidate_result: dict[str, Any]
+    ) -> dict[str, Any] | None:
         candidate_id = str(belief_candidate_result["result"]["id"])
         candidate_row = self._fetch_memory_row(candidate_id)
         if candidate_row is None:
@@ -611,7 +621,10 @@ class ConsolidationEngine:
                 return fix
         for claim in claim_points:
             normalized = claim.lower()
-            if any(marker in normalized for marker in ("should", "must", "prefer", "keep", "use", "check", "treat", "assign")):
+            if any(
+                marker in normalized
+                for marker in ("should", "must", "prefer", "keep", "use", "check", "treat", "assign")
+            ):
                 return claim
         return ""
 
@@ -891,12 +904,38 @@ class ConsolidationEngine:
                 ordered.append(tag)
         return ordered
 
-    def _lookup_created_at(self, memory_id: str) -> str | None:
-        with self.store._connect() as conn:
-            row = conn.execute("SELECT created_at FROM memories WHERE id = ?", (memory_id,)).fetchone()
+    @staticmethod
+    def _lookup_insertion_sequence(connection: sqlite3.Connection, memory_id: str) -> int | None:
+        row = connection.execute(
+            "SELECT sequence FROM memory_insertions WHERE memory_id = ?",
+            (memory_id,),
+        ).fetchone()
         if row is None:
             return None
-        return str(row["created_at"])
+        return int(row["sequence"])
+
+    def _resolve_cursor_sequence(
+        self,
+        state: dict[str, Any],
+        *,
+        connection: sqlite3.Connection,
+        current_database_epoch: str,
+    ) -> int | None:
+        stored_epoch = str(state.get("database_epoch") or "").strip()
+        if stored_epoch and stored_epoch != current_database_epoch:
+            return None
+        stored_sequence = state.get("last_insertion_sequence")
+        if stored_sequence is not None:
+            try:
+                normalized_sequence = int(stored_sequence)
+            except (TypeError, ValueError):
+                normalized_sequence = -1
+            if normalized_sequence >= 0:
+                return normalized_sequence
+        since_id = str(state.get("since_id") or "").strip()
+        if not since_id:
+            return None
+        return self._lookup_insertion_sequence(connection, since_id)
 
     @staticmethod
     def _uniform_origin_value(rows: list[sqlite3.Row], key: str) -> str | None:
@@ -926,10 +965,10 @@ class ConsolidationEngine:
             ordered.append(normalized)
         return ordered
 
-    def _load_state(self) -> dict[str, str]:
+    def _load_state(self) -> dict[str, Any]:
         return load_json_state(self.config.state_path)
 
-    def _save_state(self, state: dict[str, str]) -> None:
+    def _save_state(self, state: dict[str, Any]) -> None:
         write_json_state_atomic(self.config.state_path, state)
 
 

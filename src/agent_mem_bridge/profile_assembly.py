@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-
 ControlLevel = Literal["signal", "reflection", "belief", "policy"]
 ProfileRecordType = Literal["persona", "soul", "core-policy"]
 

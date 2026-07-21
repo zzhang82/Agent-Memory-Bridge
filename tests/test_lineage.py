@@ -58,7 +58,7 @@ def test_parse_lineage_does_not_infer_ids_from_prose_or_malformed_typed_fields()
             "derived.from-belief-id: wrong-key-style",
             'evidence_refs_json: {"id": "not-a-list"}',
             'supports_record_ids_json: ["exact-support"] trailing text',
-            "unrelated_record_ids_json: [\"unrelated-1\"]",
+            'unrelated_record_ids_json: ["unrelated-1"]',
         ]
     )
 
@@ -70,8 +70,7 @@ def test_parse_lineage_does_not_infer_ids_from_prose_or_malformed_typed_fields()
 
 def test_parse_lineage_preserves_exact_structured_id_values() -> None:
     lineage = parse_lineage(
-        "candidate_id: Case-Sensitive_ID.01\n"
-        'depends_on_record_ids_json: ["Case-Sensitive_ID.01", "other/id"]\n'
+        'candidate_id: Case-Sensitive_ID.01\ndepends_on_record_ids_json: ["Case-Sensitive_ID.01", "other/id"]\n'
     )
 
     assert lineage.candidate_id == "Case-Sensitive_ID.01"

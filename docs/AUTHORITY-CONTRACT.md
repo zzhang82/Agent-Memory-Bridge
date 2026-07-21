@@ -137,7 +137,7 @@ not a separate public MCP contract.
 
 Agent Memory Bridge should not add `startup_packet` or `task_packet` MCP tools
 just to expose this behavior. Clients can store, recall, browse, promote,
-forget, export, and coordinate through the existing surface while assembly logic
+annotate, revise, forget, export, and coordinate through the existing surface while assembly logic
 improves behind it.
 
 This keeps the public contract small:

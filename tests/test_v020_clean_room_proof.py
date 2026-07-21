@@ -7,31 +7,20 @@ from pathlib import Path
 
 import pytest
 
+from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.release_contract import load_pyproject_version, load_server_tool_names
 from agent_mem_bridge.v020_clean_room_proof import (
     EXPECTED_PUBLIC_TOOL_COUNT,
     PROOF_KIND,
-    V020_CLEAN_ROOM_PROOF_SCHEMA,
     V020_CASE_MANIFEST,
+    V020_CLEAN_ROOM_PROOF_SCHEMA,
     _contains_private_path,
     run_v020_clean_room_proof,
 )
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "run_v020_clean_room_proof.py"
-EXPECTED_PUBLIC_TOOLS = {
-    "ack_signal",
-    "browse",
-    "claim_signal",
-    "extend_signal_lease",
-    "export",
-    "forget",
-    "promote",
-    "recall",
-    "stats",
-    "store",
-}
+EXPECTED_PUBLIC_TOOLS = TOOL_NAMES
 
 
 def test_v020_clean_room_proof_runs_against_fresh_temp_store_and_stdio(tmp_path: Path) -> None:

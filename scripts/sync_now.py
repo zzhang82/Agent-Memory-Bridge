@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import sys
@@ -36,7 +36,9 @@ def main() -> None:
 def _resolve_target(raw: str | None) -> Path:
     sessions_root = resolve_codex_home() / "sessions"
     if not raw:
-        rollout_files = sorted(sessions_root.rglob("rollout-*.jsonl"), key=lambda path: path.stat().st_mtime, reverse=True)
+        rollout_files = sorted(
+            sessions_root.rglob("rollout-*.jsonl"), key=lambda path: path.stat().st_mtime, reverse=True
+        )
         if not rollout_files:
             raise SystemExit(f"No rollout files found under {sessions_root}")
         return rollout_files[0]
@@ -53,4 +55,3 @@ def _resolve_target(raw: str | None) -> Path:
 
 if __name__ == "__main__":
     main()
-

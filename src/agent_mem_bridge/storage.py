@@ -9,13 +9,25 @@ from pathlib import Path
 from typing import Any
 
 from .exporters import render_export
+from .filesystem_safety import ensure_private_directory, ensure_private_file
 from .learning_candidates import (
     store_learning_candidate as store_learning_candidate_entry,
+)
+from .learning_candidates import (
     store_learning_review as store_learning_review_entry,
 )
-from .paths import resolve_bridge_db_path, resolve_bridge_log_dir
+from .log_maintenance import rotate_log_if_needed
+from .paths import (
+    resolve_bridge_db_path,
+    resolve_bridge_home,
+    resolve_bridge_log_dir,
+    resolve_log_backup_count,
+    resolve_log_max_bytes,
+    resolve_require_claim_before_ack,
+)
+from .poll_cursor import encode_poll_cursor
 from .promotion import promote_entry
-from .query import build_tag_filter, recall_candidates
+from .query import build_tag_filter, recall_candidates, recall_signal_poll_page
 from .relation_metadata import parse_relation_metadata
 from .repository import (
     ALLOWED_KINDS,
@@ -26,8 +38,15 @@ from .repository import (
     stats_for_namespace,
     store_entry,
 )
-from .schema import init_db
-from .signals import ack_signal_entry, claim_signal_entry, extend_signal_lease_entry, normalize_signal_status_filter
+from .revisions import annotate_entry, revise_entry
+from .schema import database_epoch, init_db
+from .signals import (
+    ack_signal_entry,
+    claim_signal_entry,
+    extend_signal_lease_entry,
+    normalize_signal_status_filter,
+    repair_signal_entry,
+)
 from .telemetry import Telemetry, hash_label
 
 
@@ -49,10 +68,22 @@ class MemoryStore:
     def __init__(self, db_path: Path, log_dir: Path | None = None, telemetry: Telemetry | None = None) -> None:
         self.db_path = Path(db_path)
         self.log_dir = Path(log_dir) if log_dir is not None else self.db_path.parent / "logs"
+        self.log_max_bytes = resolve_log_max_bytes()
+        self.log_backup_count = resolve_log_backup_count()
+        if self.log_max_bytes <= 0 or self.log_backup_count < 0:
+            raise ValueError("log rotation limits must use max_bytes > 0 and backup_count >= 0")
         self.telemetry = telemetry or Telemetry.from_env()
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+        bridge_home = resolve_bridge_home()
+        ensure_private_directory(
+            self.db_path.parent,
+            tighten_existing=self.db_path.parent == bridge_home,
+        )
+        ensure_private_directory(
+            self.log_dir,
+            tighten_existing=self.log_dir == bridge_home or self.log_dir.is_relative_to(bridge_home),
+        )
         self._init_db()
+        ensure_private_file(self.db_path)
 
     @classmethod
     def from_env(cls) -> "MemoryStore":
@@ -191,22 +222,46 @@ class MemoryStore:
             },
         ) as span:
             retrieval_diagnostics: dict[str, Any] = {}
-            items = recall_candidates(
-                self,
-                namespace=cleaned_namespace,
-                query=query_text,
-                limit=search_limit,
-                kind=kind,
-                signal_status=normalized_signal_status,
-                tags_any=tags_any,
-                session_id=session_id,
-                actor=actor,
-                correlation_id=correlation_id,
-                since=cleaned_since,
-                diagnostics=retrieval_diagnostics,
-            )
             is_polling_recall = not query_text and kind == "signal"
-            next_since = self._poll_cursor(items, current=cleaned_since) if is_polling_recall else None
+            poll_snapshot_epoch: str | None = None
+            if is_polling_recall:
+                items, poll_snapshot_epoch = recall_signal_poll_page(
+                    self,
+                    namespace=cleaned_namespace,
+                    limit=search_limit,
+                    signal_status=normalized_signal_status,
+                    tags_any=tags_any,
+                    session_id=session_id,
+                    actor=actor,
+                    correlation_id=correlation_id,
+                    since=cleaned_since,
+                )
+            else:
+                items = recall_candidates(
+                    self,
+                    namespace=cleaned_namespace,
+                    query=query_text,
+                    limit=search_limit,
+                    kind=kind,
+                    signal_status=normalized_signal_status,
+                    tags_any=tags_any,
+                    session_id=session_id,
+                    actor=actor,
+                    correlation_id=correlation_id,
+                    since=cleaned_since,
+                    diagnostics=retrieval_diagnostics,
+                    include_rowid=False,
+                )
+            next_since = (
+                self._poll_cursor(
+                    items,
+                    current=cleaned_since,
+                    database_epoch=poll_snapshot_epoch,
+                )
+                if is_polling_recall
+                else None
+            )
+            self._strip_internal_fields(items)
             payload = {"count": len(items), "items": items, "next_since": next_since}
             if retrieval_diagnostics:
                 payload["retrieval"] = retrieval_diagnostics
@@ -269,6 +324,7 @@ class MemoryStore:
                 correlation_id=None,
                 since=None,
             )
+            self._strip_internal_fields(items)
             payload = {
                 "count": len(items),
                 "items": items,
@@ -376,6 +432,7 @@ class MemoryStore:
                 consumer=consumer,
                 fetch_row_by_id=fetch_row_by_id,
                 row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
+                require_claim_before_ack=resolve_require_claim_before_ack(),
             )
             span.set_attributes(
                 {
@@ -412,6 +469,22 @@ class MemoryStore:
             )
             return payload
 
+    def repair_signal(self, memory_id: str, *, reason: str, actor: str | None = None) -> dict[str, Any]:
+        with self.telemetry.span(
+            "amb.signal.repair",
+            {"has_memory_id": bool(memory_id), "has_reason": bool(reason), "has_actor": bool(actor)},
+        ) as span:
+            payload = repair_signal_entry(
+                store=self,
+                memory_id=memory_id,
+                reason=reason,
+                actor=actor,
+                fetch_row_by_id=fetch_row_by_id,
+                row_to_item=lambda row: MemoryRow.from_sqlite(row).as_dict(),
+            )
+            span.set_attributes({"repaired": payload.get("repaired"), "reason": payload.get("reason")})
+            return payload
+
     def promote(self, memory_id: str, to_kind: str) -> dict[str, Any]:
         with self.telemetry.span(
             "amb.memory.promote",
@@ -427,6 +500,68 @@ class MemoryStore:
                     "record_type": payload.get("record_type"),
                 }
             )
+            return payload
+
+    def annotate(
+        self,
+        memory_id: str,
+        *,
+        tags: list[str] | None = None,
+        title: str | None = None,
+        provenance: dict[str, str | None] | None = None,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        with self.telemetry.span(
+            "amb.memory.annotate",
+            {
+                "has_memory_id": bool(memory_id),
+                "tags_count": len(tags or []),
+                "has_title": bool(title),
+                "provenance_field_count": len(provenance or {}),
+            },
+        ) as span:
+            payload = annotate_entry(
+                self,
+                memory_id,
+                tags=tags,
+                title=title,
+                provenance=provenance,
+                actor=actor,
+            )
+            span.set_attribute("changed", payload.get("changed"))
+            return payload
+
+    def revise(
+        self,
+        memory_id: str,
+        *,
+        replacement_content: str,
+        title: str | None = None,
+        tags: list[str] | None = None,
+        actor: str | None = None,
+        reason: str | None = None,
+        provenance: dict[str, str | None] | None = None,
+    ) -> dict[str, Any]:
+        with self.telemetry.span(
+            "amb.memory.revise",
+            {
+                "has_memory_id": bool(memory_id),
+                "replacement_length": len(replacement_content),
+                "tags_count": len(tags or []),
+                "has_reason": bool(reason),
+            },
+        ) as span:
+            payload = revise_entry(
+                self,
+                memory_id,
+                replacement_content=replacement_content,
+                title=title,
+                tags=tags,
+                actor=actor,
+                reason=reason,
+                provenance=provenance,
+            )
+            span.set_attribute("revised", payload.get("revised"))
             return payload
 
     def store_learning_candidate(
@@ -529,8 +664,14 @@ class MemoryStore:
                 correlation_id=None,
                 since=None,
             )
+            self._strip_internal_fields(items)
             rendered = render_export(items, namespace=cleaned_namespace, format=export_format)
-            payload = {"namespace": cleaned_namespace, "format": export_format, "count": len(items), "content": rendered}
+            payload = {
+                "namespace": cleaned_namespace,
+                "format": export_format,
+                "count": len(items),
+                "content": rendered,
+            }
             span.set_attribute("result_count", len(items))
             self._log(
                 "export",
@@ -558,6 +699,10 @@ class MemoryStore:
         conn.execute("PRAGMA foreign_keys=ON")
         return conn
 
+    def database_epoch(self) -> str:
+        with self._connect() as conn:
+            return database_epoch(conn)
+
     def _init_db(self) -> None:
         with self._connect() as conn:
             init_db(conn)
@@ -566,25 +711,44 @@ class MemoryStore:
         log_path = self.log_dir / f"{event_type}.log"
         entry = {"ts": self._utc_now(), **payload}
         try:
+            encoded = json.dumps(entry, ensure_ascii=True) + "\n"
+            rotate_log_if_needed(
+                log_path,
+                incoming_bytes=len(encoded.encode("utf-8")),
+                max_bytes=self.log_max_bytes,
+                backup_count=self.log_backup_count,
+            )
             with log_path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(entry, ensure_ascii=True) + "\n")
+                handle.write(encoded)
+            ensure_private_file(log_path)
         except OSError:
             try:
                 print("agent-memory-bridge: operational log write failed", file=sys.stderr)
             except OSError:
                 pass
 
-    def _poll_cursor(self, items: list[dict[str, Any]], *, current: str | None) -> str | None:
+    def _poll_cursor(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        current: str | None,
+        database_epoch: str | None,
+    ) -> str | None:
         if not items:
             return current
-        item_ids = [str(item["id"]) for item in items]
-        placeholders = ", ".join("?" for _ in item_ids)
-        with self._connect() as conn:
-            row = conn.execute(
-                f"SELECT id FROM memories WHERE id IN ({placeholders}) ORDER BY rowid DESC LIMIT 1",
-                item_ids,
-            ).fetchone()
-        return str(row["id"]) if row is not None else current
+        if not database_epoch:
+            raise RuntimeError("poll cursor requires the database epoch from the query snapshot")
+        latest = max(items, key=lambda item: int(item.get("_cursor_sequence") or 0))
+        return encode_poll_cursor(
+            namespace=str(latest["namespace"]),
+            sequence=int(latest["_cursor_sequence"]),
+            database_epoch=database_epoch,
+        )
+
+    @staticmethod
+    def _strip_internal_fields(items: list[dict[str, Any]]) -> None:
+        for item in items:
+            item.pop("_cursor_sequence", None)
 
     @staticmethod
     def _utc_now() -> str:

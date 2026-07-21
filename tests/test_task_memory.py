@@ -66,9 +66,7 @@ def test_assemble_task_memory_composes_project_procedure_with_supporting_layers(
     assert len(report["procedure_hits"]) == 1
     assert report["procedure_hits"][0]["procedure"]["goal"] == "Run release cutover safely."
     assert report["procedure_hits"][0]["procedure"]["when_to_use"] == "Before tagging a release."
-    assert report["procedure_hits"][0]["procedure"]["when_not_to_use"] == (
-        "When benchmark or healthcheck cannot run."
-    )
+    assert report["procedure_hits"][0]["procedure"]["when_not_to_use"] == ("When benchmark or healthcheck cannot run.")
     assert report["procedure_hits"][0]["procedure"]["prerequisites"] == [
         "clean worktree",
         "release owner assigned",
@@ -81,9 +79,7 @@ def test_assemble_task_memory_composes_project_procedure_with_supporting_layers(
     assert report["procedure_hits"][0]["procedure"]["failure_mode"] == (
         "Tagging without proof can ship stale behavior."
     )
-    assert report["procedure_hits"][0]["procedure"]["rollback_path"] == (
-        "delete tag | reopen release checklist"
-    )
+    assert report["procedure_hits"][0]["procedure"]["rollback_path"] == ("delete tag | reopen release checklist")
     assert report["procedure_hits"][0]["procedure"]["governance"]["status"] == "validated"
     assert len(report["concept_hits"]) == 1
     assert len(report["belief_hits"]) == 1
@@ -201,9 +197,7 @@ def test_assemble_task_memory_prefers_validated_procedure_over_draft_project_hit
         procedure_limit=1,
     )
 
-    assert [item["title"] for item in report["procedure_hits"]] == [
-        "[[Procedure]] release cutover validated path"
-    ]
+    assert [item["title"] for item in report["procedure_hits"]] == ["[[Procedure]] release cutover validated path"]
     assert report["procedure_hits"][0]["procedure"]["governance"]["status"] == "validated"
 
 
@@ -243,9 +237,7 @@ def test_assemble_task_memory_suppresses_stale_replaced_and_unsafe_procedures(tm
         global_namespace="global",
     )
 
-    assert [item["title"] for item in report["procedure_hits"]] == [
-        "[[Procedure]] release cutover safe current"
-    ]
+    assert [item["title"] for item in report["procedure_hits"]] == ["[[Procedure]] release cutover safe current"]
     assert {item["reason"] for item in report["suppressed_items"]} >= {
         "procedure_status:stale",
         "procedure_status:replaced",
@@ -311,20 +303,14 @@ def test_assemble_task_memory_filters_expired_and_future_relation_targets(tmp_pa
         namespace="global",
         kind="memory",
         title="Expired rollback contact",
-        content=(
-            "claim: Use the expired rollback contact during release handoff.\n"
-            f"valid_until: {expired_until}\n"
-        ),
+        content=(f"claim: Use the expired rollback contact during release handoff.\nvalid_until: {expired_until}\n"),
         tags=["domain:release", "topic:handoff"],
     )
     future_support = store.store(
         namespace="global",
         kind="memory",
         title="Future rollback contact",
-        content=(
-            "claim: Use the future rollback contact during release handoff.\n"
-            f"valid_from: {future_from}\n"
-        ),
+        content=(f"claim: Use the future rollback contact during release handoff.\nvalid_from: {future_from}\n"),
         tags=["domain:release", "topic:handoff"],
     )
     store.store(

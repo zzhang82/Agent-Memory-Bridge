@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-21 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.23.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.22.1 visual launch polish, the v0.22.2 onboarding-coherence patch, the v0.22.3 correctness hardening, and the v0.23.0 reliability hardening. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.23.1`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.22.1 visual launch polish, the v0.22.2 onboarding-coherence patch, the v0.22.3 correctness hardening, the v0.23.0 reliability hardening, and the v0.23.1 authority/service reliability patch. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,9 +636,75 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.23.1 = Full Local Hardening
+
+Status: current local release-candidate story for `v0.23.1`; the public MCP
+surface is exactly 12 tools.
+
+### Thesis
+
+The v0.23.0 reliability audit should close across authority, state generation,
+service ownership and health, typed governed storage, command-provider limits,
+database maintenance, retrieval scale, and local security profiles.
+
+One sentence:
+
+`0.23.1 = authority-safe enrichment, generation-safe cursors, observable local service ownership, typed governed storage, and operator-grade local maintenance; validation snapshot: 546 passed.`
+
+### Scope
+
+1. Separate classifier suggestions from policy tags and promote only `domain:`
+   and `topic:` tags after strict confidence validation.
+2. Reject missing, non-finite, negative, and greater-than-one classifier
+   confidence; keep shadow-mode suggestions observational.
+3. Move reflex and consolidation polling to monotonic insertion-sequence cursors with legacy
+   `since_id` compatibility and database-epoch reset after restore.
+4. Remove free-form review-tag bypasses from the consolidation reflex-source
+   boundary.
+5. Add a cross-platform OS-owned bridge-home service lock, an explicit
+   `--allow-multiple-services` override, and one-shot exit codes for lane failure
+   and lock conflict.
+6. Validate and explicitly repair malformed Signal state; support optional and
+   profile-driven claim-before-ack.
+7. Add typed metadata, normalized tags/relations, insertion sequences,
+   annotations, revision receipts, and indexed governed deletion.
+8. Make semantic scoring exact across the eligible namespace, use reciprocal-
+   rank hybrid fusion, and drain embedding backlog in bounded batches.
+9. Bound command-provider I/O and environment exposure with argv execution,
+   timeout, fingerprinting, and process-tree cleanup.
+10. Add database integrity/projection checks, repair, backup/verify/restore,
+    WAL checkpoint, retention cleanup, capacity warnings, private file modes,
+    log rotation, and explicit local operating profiles.
+
+### Acceptance Gate
+
+`0.23.1` is acceptable only when:
+
+- reserved classifier tags cannot enter durable enrichment
+- missing, `NaN`, infinite, negative, and greater-than-one confidence is rejected
+- shadow-mode classifier output does not affect durable matching
+- equal-timestamp reflex and consolidation records remain visible across pages
+- legacy `since_id` state is accepted during cursor migration
+- free-form reviewed/confidence tags do not bypass disabled reflex sources
+- a second service process fails with exit `3` while the owner remains active
+- residual unlocked lock metadata does not block restart
+- `service --once` returns `1` when any enabled lane fails
+- malformed Signal state is diagnosed and can be repaired explicitly
+- restore rotates the database epoch and stale poll cursors fail clearly
+- restore is documented and enforced as offline maintenance for all database writers
+- annotations cannot mint policy tags and revision successor/receipt writes are atomic
+- derived projections can be detected as stale and rebuilt from authority
+- command timeout and output overflow terminate descendant processes
+- database backup/verify/restore and WAL checkpoint pass isolated smoke tests
+- the full suite is `546 passed`
+- the release, public-surface, and onboarding contracts pass
+- the public MCP surface is exactly 12 tools
+- no distributed lock, authenticated identity, namespace ACL, sandbox, lane
+  cancellation, or ANN claim is added
+
 ## 0.23.0 = Reliability Hardening
 
-Status: current release-candidate story for `v0.23.0`; the public MCP surface
+Status: historical public version story for `v0.23.0`; the public MCP surface
 remains exactly 10 tools.
 
 ### Thesis

@@ -47,6 +47,37 @@ Core local runtime settings.
 
 The sample config uses neutral defaults under `~/.local/share/agent-memory-bridge`.
 
+## `[security]` and `[signals]`
+
+The default profile is intended for one trusted local operator:
+
+```toml
+[security]
+operating_profile = "local-single-user"
+
+[signals]
+require_claim_before_ack = false
+```
+
+`hardened-local` turns on claim-before-ack and rejects trusted-shell command
+providers. It does not add authenticated identity, namespace ACLs, sandboxing,
+or multi-user isolation. Set `require_claim_before_ack = true` independently if
+you want strict Signal workflow without changing the rest of the profile.
+
+## `[maintenance]`
+
+```toml
+[maintenance]
+log_max_bytes = 10000000
+log_backup_count = 3
+db_warn_bytes = 1000000000
+wal_warn_bytes = 256000000
+```
+
+Managed JSONL logs rotate at `log_max_bytes` and retain at most
+`log_backup_count` backups. The database and WAL thresholds are warnings shown
+by health checks; they do not delete data automatically.
+
 ## `[classifier]`
 
 Optional enrichment layer that adds inferred tags to stored records.
@@ -63,17 +94,28 @@ into the final record.
 Shadow mode is the safe starting point. Assist mode makes sense after you trust
 the classifier on your own corpus.
 
-When `provider = "command"` is configured, the classifier is a trusted local
-command. AMB executes the configured command through the local shell, sends
-classification candidates as JSON on stdin, and expects JSON on stdout. Candidate
-payloads can include memory text, titles, source ids, and fallback tags.
+When `provider = "command"` is configured, use a TOML argv array:
 
-AMB does not sandbox the classifier command, restrict its filesystem or network
-access, or hide the bridge process environment from it. Only configure commands
-you control and are willing to run with the same local privileges as AMB. Keep
-classifier mode `off` unless you need it, prefer `shadow` before `assist`, and do
-not point the command at unreviewed scripts or hosted services that should not
-receive memory content. See [SECURITY.md](../SECURITY.md#classifier-command-trust-boundary).
+```toml
+[classifier]
+command = ["python", "/path/to/classifier.py"]
+trusted_shell = false
+max_input_bytes = 1000000
+max_output_bytes = 2000000
+max_stderr_bytes = 65536
+env_allowlist = []
+```
+
+AMB uses `shell=False` by default, sends classification candidates as JSON on
+stdin, expects JSON on stdout, and enforces timeout and byte limits. The child
+receives a small platform environment plus the named allowlist. Timeout or
+overflow terminates the provider process tree. `trusted_shell = true` is an
+explicit compatibility escape hatch and is rejected by `hardened-local`.
+
+These controls are resource and quoting boundaries, not a sandbox. The command
+can still read files or use the network with the bridge process's privileges.
+Only configure code you control. See
+[SECURITY.md](../SECURITY.md#classifier-command-trust-boundary).
 
 ## `[telemetry]`
 
@@ -107,8 +149,8 @@ embedding_timeout_seconds = 10
 | Mode | Behavior |
 |---|---|
 | `lexical` | stable SQLite FTS5 recall plus existing local reranking |
-| `semantic` | local sidecar-vector recall over a bounded recent scan |
-| `hybrid` | lexical-anchored recall that may include semantic sidecar-only additions when packet budget allows |
+| `semantic` | exact cosine scoring over all eligible rows in the namespace |
+| `hybrid` | reciprocal-rank fusion of lexical and semantic candidate rankings |
 
 The semantic sidecar is a derived cache. It is not source of truth and can be
 rebuilt from the `memories` table. The bundled provider is
@@ -130,9 +172,14 @@ runtime dependency. It is disabled unless you set both:
 ```toml
 [retrieval]
 embedding_provider = "command"
-embedding_command = "python /path/to/local_embedding_gateway.py"
+embedding_command = ["python", "/path/to/local_embedding_gateway.py"]
+embedding_trusted_shell = false
 embedding_model = "local-model-name"
 embedding_dim = 768
+embedding_max_input_bytes = 1000000
+embedding_max_output_bytes = 4000000
+embedding_max_stderr_bytes = 65536
+embedding_env_allowlist = []
 ```
 
 AMB sends:
@@ -159,8 +206,14 @@ a command-hash model id so a changed command does not silently satisfy the old
 sidecar health check. The raw command string is config only and is not stored in
 the `memory_embeddings` table.
 
-Like classifier commands, embedding commands are trusted local code. They receive
-memory text. AMB does not sandbox them or restrict filesystem/network access. See
+Semantic scoring is full-store and exact, so its CPU cost is `O(N)` in the
+eligible namespace. `semantic_scan_limit` is retained for compatibility but now
+controls the provider batch size used to fill missing or stale sidecar rows; it
+does not truncate recall to the newest records.
+
+Like classifier commands, embedding commands are trusted local code. They use
+`shell=False`, sanitized environment variables, bounded I/O, timeout, and
+process-tree termination by default, but they are not sandboxed. See
 [SECURITY.md](../SECURITY.md#embedding-command-trust-boundary).
 
 Start with `lexical`, run a hybrid shadow benchmark, then decide whether your
@@ -203,12 +256,15 @@ enabled = false
 state_path = "embedding-sidecar-state.json"
 interval_seconds = 3600
 batch_size = 100
+max_batches_per_cycle = 5
+backlog_delay_seconds = 5
 ```
 
 When enabled, `agent-memory-bridge service` periodically checks the active
 embedding provider/model/dimension and warms missing or stale rows in
-`memory_embeddings`. It is batch-limited and interval-gated so a local embedding
-command does not run on every service poll.
+`memory_embeddings`. A service cycle drains up to `max_batches_per_cycle`.
+When backlog remains, the next batch is due after `backlog_delay_seconds` rather
+than the normal interval; a fully drained sidecar returns to `interval_seconds`.
 
 This scheduler:
 
@@ -238,6 +294,47 @@ Keep `watcher.enabled = false` for normal multi-runtime service use unless you
 explicitly want Codex rollout-log checkpoints. AMB-native learning candidates,
 signals, governance triggers, and embedding maintenance do not require the
 watcher.
+
+The service holds `bridge-home/service.lock` for the lifetime of the process.
+The file contains operator metadata, while the OS-level lock is the actual
+ownership boundary; a leftover unlocked metadata file does not block restart.
+`agent-memory-bridge service --once` returns `1` when an enabled lane fails and
+`3` when another service owns the lock. `--allow-multiple-services` bypasses the
+lock explicitly and may duplicate classifier calls, signals, or state work.
+
+The service also writes `service-health.json` with its PID, cycle timestamps,
+lane status, last success, duration, and consecutive failure count. Lanes remain
+sequential; `slow_lane_seconds` marks a completed lane as slow without trying to
+cancel Python or SQLite work. `heartbeat_stale_seconds` controls when `doctor`
+reports a held lock with stale or missing heartbeat state.
+
+## Database health and maintenance
+
+The SQLite database remains the authority. Use its maintenance commands instead
+of copying an active WAL database file directly:
+
+```bash
+<venv-python> -m agent_mem_bridge db-health
+<venv-python> -m agent_mem_bridge db-health --full
+<venv-python> -m agent_mem_bridge db-health --repair-projections
+<venv-python> -m agent_mem_bridge backup --output /path/to/bridge-backup.db --full-verify
+<venv-python> -m agent_mem_bridge verify-backup --input /path/to/bridge-backup.db
+<venv-python> -m agent_mem_bridge restore --input /path/to/bridge-backup.db --force
+<venv-python> -m agent_mem_bridge wal-checkpoint --mode passive
+<venv-python> -m agent_mem_bridge signal-cleanup --acked-older-than-days 30
+```
+
+`db-health` runs SQLite and projection checks. Projection repair rebuilds
+content hashes, typed metadata, tags, relations, and FTS from authoritative rows.
+Backup and restore use the SQLite backup API; restore verifies the source,
+coordinates with the service lock, preserves a recovery backup, and rotates the
+database epoch so stale poll and background-state cursors fail or reset clearly.
+Restore is deliberately offline maintenance: stop the service and all MCP/client
+processes that may write the database before running it. The service lock does
+not coordinate arbitrary MCP writers, and a busy target is rejected rather than
+presented as an online restore.
+Signal cleanup is dry-run unless `--apply` is supplied and uses the same governed
+deletion path as `forget`.
 
 ## `[governance]`
 
@@ -293,9 +390,11 @@ quietly from old session logs.
 
 Keep `allow_reflex_sources = false` even when consolidation is enabled. Set it
 to `true` only for tests or deliberate replay experiments where you want
-automatic reflex records to feed consolidation directly. Reviewed reflex records
-can still enter consolidation when tagged with `source:reviewed`,
-`reviewed:true`, or `confidence:human-reviewed`.
+automatic reflex records to feed consolidation directly. Free-form tags such as
+`source:reviewed`, `reviewed:true`, or `confidence:human-reviewed` do not bypass
+this boundary. A reviewed reflex result must be copied or replaced through an
+explicit reviewed workflow before it can feed consolidation while this setting
+remains `false`.
 
 ## `[profile]`
 
@@ -314,10 +413,15 @@ section alone if you only want the basic bridge runtime.
 | `AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT` | optional provenance default for the launching client |
 | `AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT` | optional transport default, usually `stdio` |
 | `AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE` | `lexical`, `semantic`, or `hybrid` |
-| `AGENT_MEMORY_BRIDGE_SEMANTIC_SCAN_LIMIT` | maximum recent rows scanned by semantic sidecar recall |
+| `AGENT_MEMORY_BRIDGE_SEMANTIC_SCAN_LIMIT` | provider batch size while exact semantic recall fills missing/stale embeddings |
 | `AGENT_MEMORY_BRIDGE_HYBRID_SEMANTIC_WEIGHT` | weight used when hybrid reranks semantic sidecar scores |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER` | `hash` or `command` |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND` | trusted local command for semantic vectors |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_TRUSTED_SHELL` | opt in to shell execution; default false and forbidden by `hardened-local` |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_MAX_INPUT_BYTES` | maximum JSON stdin bytes per provider call |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_MAX_OUTPUT_BYTES` | maximum provider stdout bytes |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_MAX_STDERR_BYTES` | maximum provider stderr bytes |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_ENV_ALLOWLIST` | comma-separated extra environment variable names |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL` | logical model id stored with embedding sidecar rows |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_DIM` | expected embedding vector dimension |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_TIMEOUT_SECONDS` | timeout for each embedding command call |
@@ -329,6 +433,21 @@ section alone if you only want the basic bridge runtime.
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_STATE_PATH` | local state file for sidecar scheduler timing |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_INTERVAL_SECONDS` | minimum seconds between scheduled sidecar batches |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_BATCH_SIZE` | maximum memory rows embedded per due scheduler run |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_MAX_BATCHES_PER_CYCLE` | bounded number of backlog batches per service cycle |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_BACKLOG_DELAY_SECONDS` | short delay before resuming an unfinished backlog |
+| `AGENT_MEMORY_BRIDGE_OPERATING_PROFILE` | `local-single-user` or `hardened-local` |
+| `AGENT_MEMORY_BRIDGE_REQUIRE_CLAIM_BEFORE_ACK` | require an active Signal claim before acknowledgement |
+| `AGENT_MEMORY_BRIDGE_CLASSIFIER_TRUSTED_SHELL` | opt in to shell execution; default false and forbidden by `hardened-local` |
+| `AGENT_MEMORY_BRIDGE_CLASSIFIER_MAX_INPUT_BYTES` | maximum classifier stdin bytes |
+| `AGENT_MEMORY_BRIDGE_CLASSIFIER_MAX_OUTPUT_BYTES` | maximum classifier stdout bytes |
+| `AGENT_MEMORY_BRIDGE_CLASSIFIER_MAX_STDERR_BYTES` | maximum classifier stderr bytes |
+| `AGENT_MEMORY_BRIDGE_CLASSIFIER_ENV_ALLOWLIST` | comma-separated extra environment variable names |
+| `AGENT_MEMORY_BRIDGE_SERVICE_SLOW_LANE_SECONDS` | duration that marks a completed service lane as slow |
+| `AGENT_MEMORY_BRIDGE_SERVICE_HEARTBEAT_STALE_SECONDS` | age after which doctor reports stale service health |
+| `AGENT_MEMORY_BRIDGE_LOG_MAX_BYTES` | rotation threshold for managed JSONL logs |
+| `AGENT_MEMORY_BRIDGE_LOG_BACKUP_COUNT` | number of rotated log files retained |
+| `AGENT_MEMORY_BRIDGE_DB_WARN_BYTES` | database size warning threshold |
+| `AGENT_MEMORY_BRIDGE_WAL_WARN_BYTES` | WAL size warning threshold |
 
 ## Onboarding Checks
 
@@ -341,9 +460,11 @@ by hand:
 <venv-python> -m agent_mem_bridge index-health
 ```
 
-- `doctor` checks Python, SQLite FTS5, config parsing, and writable runtime paths
+- `doctor` checks Python, SQLite FTS5, config, permissions, Signal state, size thresholds, and service lock/heartbeat health
 - `verify` runs an isolated stdio smoke test without touching your live bridge state
 - `index-health` checks derived FTS and optional embedding cache health
+- `db-health` adds SQLite quick/full integrity, foreign-key, structured-data,
+  Signal-state, and typed-projection checks
 
 ## Multi-Machine Note
 

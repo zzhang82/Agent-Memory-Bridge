@@ -30,9 +30,7 @@ def test_procedure_governance_benchmark_compares_flat_and_governed_packets(tmp_p
                             "expected_governance_status_by_title": {
                                 "[[Procedure]] release checklist current": "validated"
                             },
-                            "required_fields_by_title": {
-                                "[[Procedure]] release checklist current": ["goal", "steps"]
-                            },
+                            "required_fields_by_title": {"[[Procedure]] release checklist current": ["goal", "steps"]},
                         },
                         "records": [
                             {
@@ -40,10 +38,7 @@ def test_procedure_governance_benchmark_compares_flat_and_governed_packets(tmp_p
                                 "namespace": "project:demo",
                                 "title": "[[Procedure]] release checklist stale",
                                 "content": (
-                                    "record_type: procedure\n"
-                                    "procedure_status: stale\n"
-                                    "goal: stale\n"
-                                    "steps: skip checks\n"
+                                    "record_type: procedure\nprocedure_status: stale\ngoal: stale\nsteps: skip checks\n"
                                 ),
                                 "tags": ["kind:procedure"],
                             },

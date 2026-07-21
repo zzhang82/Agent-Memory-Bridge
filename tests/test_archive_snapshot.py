@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from agent_mem_bridge.archive_snapshot import (
     build_default_live_manifest_path,
@@ -59,4 +59,3 @@ def test_write_live_source_manifest_keeps_minimal_fallback_set(tmp_path: Path) -
     assert manifest["file_count"] == 8
     assert manifest_path.is_file()
     assert "memory/core/persona.md" in manifest["files"]
-

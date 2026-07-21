@@ -12,7 +12,6 @@ import pytest
 
 from agent_mem_bridge.release_contract import run_release_contract_check
 
-
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -28,7 +27,7 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
 
     assert report["ok"] is True
     assert report["pyproject_version"] == "0.9.0"
-    assert report["server_tool_count"] == 10
+    assert report["server_tool_count"] == 12
     assert report["test_count_source"] == "pytest_collect_only"
     assert all(check["ok"] for check in report["checks"])
 
@@ -43,9 +42,7 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert proof_check["actual_release"] == "0.21.0"
     assert proof_check["actual_target_release"] == "0.21.0"
     historical_v020 = json.loads(
-        (v021_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(
-            encoding="utf-8"
-        )
+        (v021_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(encoding="utf-8")
     )
     assert historical_v020["release"] == "0.9.0"
 
@@ -60,9 +57,7 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert v022_proof_check["actual_release"] == "0.21.0"
     assert v022_proof_check["actual_target_release"] == "0.21.0"
     v022_historical_v020 = json.loads(
-        (v022_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(
-            encoding="utf-8"
-        )
+        (v022_root / "benchmark" / "latest-v0.20-clean-room-proof-report.json").read_text(encoding="utf-8")
     )
     assert v022_historical_v020["release"] == "0.9.0"
 
@@ -84,28 +79,26 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
 
     failed_v022_report = run_release_contract_check(v022_root, test_count_provider=lambda _: 146)
     failed_v022_checks = {check["name"]: check for check in failed_v022_report["checks"]}
-    failed_v022_proof_check = failed_v022_checks[
-        "v021_governed_change_proof_matches_release_gate"
-    ]
+    failed_v022_proof_check = failed_v022_checks["v021_governed_change_proof_matches_release_gate"]
     assert failed_v022_report["ok"] is False
     assert failed_v022_proof_check["ok"] is False
-    assert failed_v022_proof_check["mismatches"] == [
-        {"field": "summary.governed_failures", "expected": 0, "actual": 1}
-    ]
+    assert failed_v022_proof_check["mismatches"] == [{"field": "summary.governed_failures", "expected": 0, "actual": 1}]
 
 
 def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) -> None:
     root = create_release_fixture(tmp_path)
 
     pyproject = root / "pyproject.toml"
-    pyproject.write_text(pyproject.read_text(encoding="utf-8").replace('version = "0.9.0"', 'version = "0.9.1"'), encoding="utf-8")
+    pyproject.write_text(
+        pyproject.read_text(encoding="utf-8").replace('version = "0.9.0"', 'version = "0.9.1"'), encoding="utf-8"
+    )
 
     readme = root / "README.md"
     readme.write_text(
         readme.read_text(encoding="utf-8")
         .replace("`146 passed`", "`140 passed`")
         .replace("`classifier_exact_match_rate = 0.875`", "`classifier_exact_match_rate = 0.9`")
-        .replace("`10` public MCP tools", "`9` public MCP tools"),
+        .replace("`12` public MCP tools", "`11` public MCP tools"),
         encoding="utf-8",
     )
     production_status = root / "docs" / "PRODUCTION-STATUS.md"
@@ -129,18 +122,13 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
     assert check_names["current_demo_assets_exist"]["ok"] is False
     assert check_names["current_demo_assets_exist"]["missing_assets"] == [str(svg_path)]
     assert check_names["visual_claim_inventory_is_release_hygienic"]["ok"] is False
-    visual_inventory_mismatches = check_names[
-        "visual_claim_inventory_is_release_hygienic"
-    ]["mismatches"]
+    visual_inventory_mismatches = check_names["visual_claim_inventory_is_release_hygienic"]["mismatches"]
     assert {
         "field": "assets[examples/diagrams/amb-overview.svg].exists",
         "expected": True,
         "actual": False,
     } in visual_inventory_mismatches
-    assert {
-        mismatch["field"]
-        for mismatch in visual_inventory_mismatches
-    } >= {
+    assert {mismatch["field"] for mismatch in visual_inventory_mismatches} >= {
         "claims[amb-overview-runtime-surface].release_applicability.release",
         "claims[amb-overview-proof-boundary].release_applicability.release",
     }
@@ -218,9 +206,7 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
             if item["name"] == "v021_governed_change_proof_matches_release_gate"
         )
         assert proof_check["ok"] is False
-        assert {mismatch["field"] for mismatch in proof_check["mismatches"]} == {
-            mismatch_field
-        }
+        assert {mismatch["field"] for mismatch in proof_check["mismatches"]} == {mismatch_field}
 
     assert_visual_claim_inventory_gaps_are_reported(tmp_path / "visual-inventory-gaps")
     assert_malformed_and_unlabeled_visual_svgs_are_reported(tmp_path / "visual-svg")
@@ -283,9 +269,7 @@ def test_release_contract_rejects_v021_readme_fact_drift(tmp_path: Path) -> None
     fact_check = checks["readme_facts_match_snapshot_reports"]
     assert fact_check["ok"] is False
     assert any(
-        mismatch["key"] == "v021_governed_failures"
-        and mismatch["expected"] == 0
-        and mismatch["actual"] == [1]
+        mismatch["key"] == "v021_governed_failures" and mismatch["expected"] == 0 and mismatch["actual"] == [1]
         for mismatch in fact_check["mismatches"]
     )
 
@@ -327,10 +311,7 @@ def test_visual_claim_historical_and_planned_releases_are_explicit(tmp_path: Pat
 
     assert report["ok"] is True
     assert check["ok"] is True
-    assert [
-        claim["release_applicability_status"]
-        for claim in check["claims"][:2]
-    ] == ["historical", "planned"]
+    assert [claim["release_applicability_status"] for claim in check["claims"][:2]] == ["historical", "planned"]
 
 
 def test_visual_claim_rejects_absolute_and_parent_traversal_paths(tmp_path: Path) -> None:
@@ -449,11 +430,7 @@ def assert_visual_claim_inventory_gaps_are_reported(root: Path) -> None:
     )
 
     report = run_release_contract_check(root, test_count_provider=lambda _: 146)
-    check = next(
-        item
-        for item in report["checks"]
-        if item["name"] == "visual_claim_inventory_is_release_hygienic"
-    )
+    check = next(item for item in report["checks"] if item["name"] == "visual_claim_inventory_is_release_hygienic")
 
     assert report["ok"] is False
     assert check["ok"] is False
@@ -472,9 +449,7 @@ def assert_malformed_and_unlabeled_visual_svgs_are_reported(root: Path) -> None:
 
     malformed_report = run_release_contract_check(malformed_root, test_count_provider=lambda _: 146)
     malformed_check = next(
-        item
-        for item in malformed_report["checks"]
-        if item["name"] == "visual_claim_inventory_is_release_hygienic"
+        item for item in malformed_report["checks"] if item["name"] == "visual_claim_inventory_is_release_hygienic"
     )
 
     assert malformed_report["ok"] is False
@@ -491,9 +466,7 @@ def assert_malformed_and_unlabeled_visual_svgs_are_reported(root: Path) -> None:
 
     unlabeled_report = run_release_contract_check(unlabeled_root, test_count_provider=lambda _: 146)
     unlabeled_check = next(
-        item
-        for item in unlabeled_report["checks"]
-        if item["name"] == "visual_claim_inventory_is_release_hygienic"
+        item for item in unlabeled_report["checks"] if item["name"] == "visual_claim_inventory_is_release_hygienic"
     )
 
     assert unlabeled_report["ok"] is False
@@ -519,9 +492,7 @@ def assert_png_visual_asset_gaps_are_reported(root: Path) -> None:
         test_count_provider=lambda _: 146,
     )
     bad_label_check = next(
-        item
-        for item in bad_label_report["checks"]
-        if item["name"] == "visual_claim_inventory_is_release_hygienic"
+        item for item in bad_label_report["checks"] if item["name"] == "visual_claim_inventory_is_release_hygienic"
     )
 
     assert bad_label_report["ok"] is False
@@ -538,9 +509,7 @@ def assert_png_visual_asset_gaps_are_reported(root: Path) -> None:
 
     bad_png_report = run_release_contract_check(bad_png_root, test_count_provider=lambda _: 146)
     bad_png_check = next(
-        item
-        for item in bad_png_report["checks"]
-        if item["name"] == "visual_claim_inventory_is_release_hygienic"
+        item for item in bad_png_report["checks"] if item["name"] == "visual_claim_inventory_is_release_hygienic"
     )
 
     assert bad_png_report["ok"] is False
@@ -550,9 +519,7 @@ def assert_png_visual_asset_gaps_are_reported(root: Path) -> None:
     }
 
     header_shaped_root = create_release_fixture(root / "header-shaped")
-    header_shaped_png = (
-        header_shaped_root / "examples" / "diagrams" / "v0.22-shared-memory-hero.png"
-    )
+    header_shaped_png = header_shaped_root / "examples" / "diagrams" / "v0.22-shared-memory-hero.png"
     header_shaped_png.write_bytes(
         PNG_SIGNATURE
         + (13).to_bytes(4, "big")
@@ -582,9 +549,7 @@ def assert_png_visual_asset_gaps_are_reported(root: Path) -> None:
         PNG_SIGNATURE
         + png_chunk(
             b"IHDR",
-            (16).to_bytes(4, "big")
-            + (9).to_bytes(4, "big")
-            + b"\x08\x06\x00\x00\x00",
+            (16).to_bytes(4, "big") + (9).to_bytes(4, "big") + b"\x08\x06\x00\x00\x00",
         )
         + png_chunk(b"IDAT", b"not zlib data")
         + png_chunk(b"IEND", b"")
@@ -638,7 +603,7 @@ def create_release_fixture(root: Path) -> Path:
 
         `0.9.0` makes memory more structured and more applicable.
 
-        - `10` public MCP tools, with most sophistication staying behind the bridge
+        - `12` public MCP tools, with most sophistication staying behind the bridge
 
         ## Evidence
 
@@ -736,7 +701,7 @@ def create_release_fixture(root: Path) -> Path:
 
         - `store` and `recall`
         - `browse` and `stats`
-        - `forget` and `promote`
+        - `forget`, `promote`, `annotate`, and `revise`
         - `claim_signal`, `extend_signal_lease`, and `ack_signal`
         - `export`
 
@@ -947,7 +912,7 @@ def create_release_fixture(root: Path) -> Path:
                     "v020_non_demo_durable_writeback_count": 0,
                     "v020_amh_required": False,
                     "v020_external_vendor_adoption_claim": False,
-                }
+                },
             },
             indent=2,
         ),
@@ -993,6 +958,14 @@ def create_release_fixture(root: Path) -> Path:
 
         @mcp.tool()
         def promote():
+            return None
+
+        @mcp.tool()
+        def annotate():
+            return None
+
+        @mcp.tool()
+        def revise():
             return None
 
         @mcp.tool()
@@ -1043,8 +1016,7 @@ def create_release_fixture(root: Path) -> Path:
     write_png_fixture(root / "examples" / "diagrams" / "v0.22-shared-memory-hero.png")
     write_visual_claim_inventory(root)
     sample_tests = "\n".join(
-        f"def test_release_contract_sample_{index:03d}() -> None:\n    assert True\n"
-        for index in range(146)
+        f"def test_release_contract_sample_{index:03d}() -> None:\n    assert True\n" for index in range(146)
     )
     write_file(root / "tests" / "test_sample.py", sample_tests)
     return root
@@ -1080,8 +1052,7 @@ v021_config_write_count = 0
 v021_durable_live_writeback_count = 0
 """
         readme.write_text(
-            readme.read_text(encoding="utf-8").replace("`0.9.0`", f"`{package_version}`")
-            + v021_facts,
+            readme.read_text(encoding="utf-8").replace("`0.9.0`", f"`{package_version}`") + v021_facts,
             encoding="utf-8",
         )
     write_file(root / "docs" / f"v{package_version}-announcement.md", "`pytest`: `146 passed`\n")
@@ -1220,9 +1191,7 @@ def write_png_fixture(path: Path, *, width: int = 16, height: int = 9) -> None:
         PNG_SIGNATURE
         + png_chunk(
             b"IHDR",
-            width.to_bytes(4, "big")
-            + height.to_bytes(4, "big")
-            + b"\x08\x06\x00\x00\x00",
+            width.to_bytes(4, "big") + height.to_bytes(4, "big") + b"\x08\x06\x00\x00\x00",
         )
         + png_chunk(b"IDAT", idat)
         + png_chunk(b"IEND", b"")

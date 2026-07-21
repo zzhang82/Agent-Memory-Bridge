@@ -9,7 +9,6 @@ from typing import Any
 from .review_queue import build_review_queue_fixture_report, build_review_queue_report
 from .storage import MemoryStore
 
-
 REVIEW_WORKFLOW_SCHEMA = "memory.review_workflow.v1"
 REVIEW_WORKFLOW_BENCHMARK_SCHEMA = "memory.review_workflow_benchmark.v1"
 DEFAULT_REVIEW_WORKFLOW_REPORT_PATH = (

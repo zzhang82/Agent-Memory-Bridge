@@ -12,7 +12,6 @@ from typing import Any
 from .storage import MemoryStore
 from .task_memory import assemble_task_memory
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CASES_PATH = ROOT / "benchmark" / "task-memory-cases.json"
 DEFAULT_REPORT_PATH = ROOT / "benchmark" / "latest-task-memory-report.json"
@@ -49,8 +48,7 @@ def run_task_memory_benchmark(
             "baseline": "current assemble_task_memory with relation_aware=false",
             "relation_aware_supported": flat_relation_flag_supported,
             "notes": (
-                "This slice measures task-memory packet quality, not broad retrieval quality "
-                "or graph reasoning."
+                "This slice measures task-memory packet quality, not broad retrieval quality or graph reasoning."
             ),
         },
         "results": results,
@@ -71,23 +69,15 @@ def build_task_memory_benchmark_summary(results: list[dict[str, Any]]) -> dict[s
     return {
         "case_count": len(results),
         "flat_case_pass_rate": _average([1.0 if score["case_passed"] else 0.0 for score in flat_scores]),
-        "relation_aware_case_pass_rate": _average(
-            [1.0 if score["case_passed"] else 0.0 for score in relation_scores]
-        ),
+        "relation_aware_case_pass_rate": _average([1.0 if score["case_passed"] else 0.0 for score in relation_scores]),
         "flat_required_primary_hit_rate": _requirement_hit_rate(flat_scores, "required_primary"),
-        "relation_aware_required_primary_hit_rate": _requirement_hit_rate(
-            relation_scores, "required_primary"
-        ),
+        "relation_aware_required_primary_hit_rate": _requirement_hit_rate(relation_scores, "required_primary"),
         "flat_required_support_hit_rate": _requirement_hit_rate(flat_scores, "required_support"),
-        "relation_aware_required_support_hit_rate": _requirement_hit_rate(
-            relation_scores, "required_support"
-        ),
+        "relation_aware_required_support_hit_rate": _requirement_hit_rate(relation_scores, "required_support"),
         "flat_blocked_item_leak_rate": _blocked_item_leak_rate(flat_scores),
         "relation_aware_blocked_item_leak_rate": _blocked_item_leak_rate(relation_scores),
         "flat_avg_packet_size": _average([float(score["packet_size"]) for score in flat_scores]),
-        "relation_aware_avg_packet_size": _average(
-            [float(score["packet_size"]) for score in relation_scores]
-        ),
+        "relation_aware_avg_packet_size": _average([float(score["packet_size"]) for score in relation_scores]),
     }
 
 

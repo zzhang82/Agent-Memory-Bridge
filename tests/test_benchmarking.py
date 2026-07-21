@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from agent_mem_bridge.benchmarking import (
-    build_retrieval_summary,
     DEFAULT_CORPUS_DIR,
     DEFAULT_QUESTIONS_PATH,
+    build_retrieval_summary,
     first_relevant_rank,
     precision_at_k,
     recall_at_k,

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-bridge"
-version = "0.23.0"
+version = "0.23.1"
 description = "Persistent engineering memory for coding agents over MCP"
 readme = "README.md"
 license = "MIT"
@@ -19,7 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "mcp==1.27.0",
+  "mcp==1.28.1",
 ]
 
 [project.urls]
@@ -30,8 +30,15 @@ Documentation = "https://github.com/zzhang82/Agent-Memory-Bridge#readme"
 
 [project.optional-dependencies]
 dev = [
+  "build>=1.2,<2",
+  "hypothesis>=6.130,<7",
+  "mypy>=1.15,<2",
+  "pip-audit>=2.9,<3",
   "PyYAML>=6.0,<7",
-  "pytest>=8.3,<9",
+  "pytest>=9.0.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.12,<1",
+  "twine>=6,<7",
 ]
 
 [project.scripts]
@@ -39,3 +46,18 @@ agent-memory-bridge = "agent_mem_bridge.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+ignore_missing_imports = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true

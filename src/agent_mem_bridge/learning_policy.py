@@ -193,7 +193,15 @@ def _safe_ref_part(value: Any, fallback: str, *, allow_colon: bool = False) -> s
 
 def _candidate_scan_text(candidate: Mapping[str, Any]) -> str:
     fields: list[str] = []
-    for key in ("claim", "evidence_refs", "supersession_plan", "namespace", "source_session_id", "source_task_id", "source_turn_id"):
+    for key in (
+        "claim",
+        "evidence_refs",
+        "supersession_plan",
+        "namespace",
+        "source_session_id",
+        "source_task_id",
+        "source_turn_id",
+    ):
         value = candidate.get(key)
         if isinstance(value, list):
             fields.extend(str(item) for item in value)

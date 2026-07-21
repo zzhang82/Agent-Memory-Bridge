@@ -2,22 +2,31 @@
 
 Last updated: 2026-07-21 (America/New_York)
 
-This maintainer note describes the current `0.23.0` reliability-hardening release, the inherited v0.22.3 correctness guarantees, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.23.1` full local-hardening patch, the inherited v0.23.0 retrieval work, the inherited v0.22.3 correctness guarantees, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.23.0 Release Status
+## 0.23.1 Release Status
 
-- Package version: `0.23.0`
-- Release thesis: shorten embedding write transactions, contain background-lane failures, and give schema upgrades an explicit version contract
-- MCP runtime behavior: retrieval reliability, service isolation, state persistence, and schema migration behavior are tightened; the tool count is unchanged
-- Baseline install: immutable `v0.23.0` archive in `.amb-venv`, using the derived venv interpreter
+- Package version: `0.23.1`
+- Release thesis: close the v0.23.0 audit across authority, cursor/state generation, service ownership and health, database maintenance, command-provider limits, governed metadata, and large-store behavior
+- MCP runtime behavior: `annotate` and `revise` are explicit auditable write paths; the public surface grows from 10 to 12 tools
+- Baseline install: immutable `v0.23.1` archive in `.amb-venv`, using the derived venv interpreter
+- Classifier authority contract: raw suggestions are exposed as `classifier_suggested_tags`; only `domain:` and `topic:` suggestions may become policy tags, and free-form governance tags remain rejected at the acceptance boundary
+- Classifier confidence contract: assist-mode enrichment requires confidence to be present, finite, and within `[0, 1]`; missing, `NaN`, infinite, negative, and greater-than-one values are rejected
+- Background cursor contract: reflex and consolidation persist monotonic `memory_insertions.sequence` cursors, resolve legacy `since_id` state, and reset when the database epoch changes after restore
+- Consolidation source contract: free-form reviewed/confidence tags do not bypass `allow_reflex_sources = false`
 - Embedding transaction contract: semantic recall, scheduled maintenance, and rebuild read candidates first, call the provider in a batch outside the SQLite write transaction, then revalidate content hashes before writing vectors in a short transaction
 - Hybrid degradation contract: only typed embedding-provider failures fall back to lexical results with explicit degraded metadata; SQLite and programming failures still propagate, and explicit semantic mode fails clearly
 - Vector contract: provider vectors must contain finite numeric values; invalid generated or persisted vectors are rejected rather than stored or scored
 - Chinese/Han boundary: Chinese/Han characters and bigrams participate in the local hash-semantic path; ordinary Chinese lexical recall still uses the existing LIKE fallback when FTS has no direct match
-- Service contract: during cycle execution, watcher, reflex, consolidation, governance, and embedding lanes isolate ordinary exceptions, report total and consecutive failure counts, and use capped exponential backoff without preventing later lanes from running
+- Semantic boundary: semantic recall scores every eligible row exactly; `semantic_scan_limit` is a provider batch size rather than a recent-window cutoff, and hybrid ranking uses reciprocal-rank fusion
+- Command-provider contract: classifier and embedding commands use argv/`shell=False` by default, sanitized environments, bounded stdin/stdout/stderr, fingerprints, timeout enforcement, and process-tree termination; trusted shell remains an explicit local escape hatch and is forbidden by `hardened-local`
+- Service contract: one local bridge-home OS lock owns background execution by default; residual unlocked metadata does not block restart, `--allow-multiple-services` is an explicit unsafe override, and during cycle execution watcher, reflex, consolidation, governance, and embedding lanes isolate ordinary exceptions, report total and consecutive failure counts, use capped exponential backoff, and publish heartbeat and duration state
+- One-shot exit contract: `service --once` returns `0` for successful enabled lanes, `1` when any enabled lane fails, and `3` on singleton-lock conflict
+- Signal health contract: doctor reports malformed Signal timestamps/state; `signal-repair` can make invalid rows recoverable, and `hardened-local` requires claim-before-ack
 - State contract: service-lane JSON state uses tolerant loading and unique temporary files followed by atomic replacement; failed replacement preserves the previous valid state
-- Schema contract: ordered migrations are recorded in SQLite `PRAGMA user_version`, run under `BEGIN IMMEDIATE`, roll back DDL and version changes together, reject future versions, and serialize concurrent legacy upgrades
-- Polling contract: `since` is valid only for empty-query `kind="signal"` recall; rows are returned by ascending insertion order and invalid same-namespace anchors fail explicitly
+- Schema contract: schema version `3` adds typed metadata, normalized tags, indexed relations, insertion sequences, annotations, revisions, and a database epoch while preserving ordered transactional migration
+- Database maintenance contract: `db-health`, projection repair, consistent backup/verify/offline restore, WAL checkpoint, retention cleanup, capacity warnings, private managed-file permissions, and bounded log rotation are operator-visible
+- Polling contract: `since` is valid only for empty-query `kind="signal"` recall; opaque cursors carry namespace, insertion sequence, and database epoch from the same query result snapshot
 - Cursor boundary: `since` tracks later insertions, not later lifecycle transitions on older Signals; text and memory recall return `next_since: null`
 - Ack contract: pending unclaimed Signals remain ownerless-ack compatible; active claims require the current owner and use a conditional update
 - Promotion contract: relation, validity, content-carried lineage, database lineage state, and lineage issues survive promotion
@@ -27,7 +36,7 @@ This maintainer note describes the current `0.23.0` reliability-hardening releas
 - Receipt command: `agent-memory-bridge activation-receipt --namespace ... --correlation-id ... --format markdown`
 - Receipt proof: one reviewed writer memory plus one acked reader signal under one namespace and correlation id, with two distinct declared `source_client` labels
 - Receipt boundary: declared provenance only; not identity proof, certification, distribution proof, or use proof
-- Public MCP surface: unchanged at exactly `10` tools
+- Public MCP surface: exactly `12` tools
 - Automatic writes: no auto durable writeback and no client config writes
 - Fixed governed-change proof report target: `0.21.0`
 - Governed-change manifest releases: `current_release = 0.20.0`, `target_release = 0.21.0`
@@ -42,8 +51,8 @@ This maintainer note describes the current `0.23.0` reliability-hardening releas
 
 `agent-memory-bridge` now has these cooperating layers:
 
-1. stdio MCP server for `store`, `recall`, `browse`, `stats`, `forget`, `promote`, `claim_signal`, `extend_signal_lease`, `ack_signal`, and `export`
-2. shared SQLite/WAL durable storage with FTS5 lexical and optional embedding sidecar indexes
+1. stdio MCP server for `store`, `recall`, `browse`, `stats`, `forget`, `promote`, `annotate`, `revise`, `claim_signal`, `extend_signal_lease`, `ack_signal`, and `export`
+2. shared SQLite/WAL durable storage with typed metadata, normalized tags/relations, FTS5 lexical, and optional embedding sidecar indexes
 3. optional checkpoint/closeout capture helpers around the core bridge, disabled by default in the always-on service
 4. optional reflex promotion into machine-first durable artifacts, disabled by default in the always-on service
 5. optional consolidation with compression-aware `domain-note`, `belief-candidate`, `belief`, and `concept-note` generation, disabled by default in the always-on service
@@ -66,17 +75,29 @@ This maintainer note describes the current `0.23.0` reliability-hardening releas
 22. a Cross-Client Activation Receipt CLI/report that reads existing writer memory and reader signal rows for one namespace and correlation id, hashes sensitive identifiers, and performs no durable or config writes
 23. embedding maintenance that batches provider work outside SQLite write transactions and revalidates content hashes before derived-vector writes
 24. one shared service-lane boundary with exception isolation, failure counters, capped backoff, and tolerant atomic state replacement
-25. an ordered transactional schema migration spine recorded as SQLite schema version `1`
+25. an ordered transactional schema migration spine recorded as SQLite schema version `3`
+26. a classifier suggestion boundary that promotes only validated `domain:` and `topic:` tags and keeps shadow-mode output non-authoritative
+27. monotonic insertion-sequence cursors for reflex and consolidation with legacy `since_id` state compatibility
+28. one cross-platform local service lock with meaningful one-shot exit status, heartbeat state, and slow-lane timing
+29. exact full-store semantic scoring with reciprocal-rank hybrid fusion and bounded backlog draining
+30. auditable annotation and transactional revision receipts with reserved-policy-tag enforcement
+31. indexed governed deletion shared by forget, Signal retention cleanup, and profile-source pruning
+32. database integrity/projection health, repair, consistent backup/restore, WAL checkpoint, size warnings, private managed-file permissions, and log rotation
+33. `local-single-user` and `hardened-local` operating profiles with an explicit cooperative-security boundary
 
 ## Verified On 2026-07-21
 
-- `pytest` passes: `445 passed`
-- the integrated embedding, service, state, schema, and storage regression gate covers 114 targeted tests
+- `pytest` passes: `546 passed`
+- the integrated embedding, service, state, schema, command-provider, maintenance, revision, and storage regressions are part of the full suite
 - semantic recall, scheduled maintenance, and rebuild tests verify batched provider execution outside write transactions plus content-hash revalidation before vector writes
 - hybrid recall tests verify lexical degradation only for typed provider failures; explicit semantic failures and non-provider errors remain visible
 - service tests verify one failing lane does not stop later lanes, failure counts and capped backoff are reported, and `KeyboardInterrupt` / `SystemExit` are not swallowed
+- classifier regressions verify reserved tags, missing/non-finite/out-of-range confidence, and shadow-mode non-mutation
+- reflex and consolidation regressions verify equal-timestamp rows remain visible across insertion-sequence cursor boundaries, deleted `memories.rowid` values cannot be reused to skip work, and legacy state migrates without omission
+- service regressions verify lock metadata, residual-file reacquisition, real spawned-process contention, one-shot lane-failure exit `1`, and lock-conflict exit `3`
+- doctor and repair regressions verify malformed claimed Signal state is detected and can be repaired explicitly
 - shared state-I/O tests cover malformed JSON, atomic replacement, unique temporary files, and preservation of the previous valid state when replacement fails
-- schema tests cover ordered version `1` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
+- schema tests cover ordered version `3` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
 - Chinese/Han hash-semantic tests cover character and bigram tokenization; no Chinese FTS support is claimed
 - 10,000-Signal polling acceptance with `limit=100`: exact insertion order, 10,000 unique ids, zero missing, zero unexpected, 100 pages
 - eight independent `spawn` processes claiming one exact Signal: one stored winner and no lock error in the local Linux run; the same test is part of the normal cross-platform CI matrix
@@ -222,6 +243,25 @@ This maintainer note describes the current `0.23.0` reliability-hardening releas
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
+## What 0.23.1 Actually Means
+
+- classifier output is suggestion data rather than policy authority; only validated `domain:` and `topic:` tags may affect durable enrichment
+- assist-mode classifier enrichment rejects missing, non-finite, negative, and greater-than-one confidence
+- shadow mode remains observational and does not change durable matching
+- reflex and consolidation use monotonic insertion-sequence cursors, with compatibility fallback for existing `since_id` state and database-epoch reset after restore
+- free-form reviewed/confidence tags no longer bypass the consolidation reflex-source boundary
+- one OS-owned local lock prevents ordinary duplicate service execution; lock-file metadata alone is not ownership
+- `service --once` exposes lane failure and lock conflict through exit codes `1` and `3`
+- `service-health.json` records heartbeat, lane success/failure state, duration, and slow-lane status
+- doctor detects malformed Signal lifecycle state and `signal-repair` performs explicit recovery
+- typed metadata, normalized tags/relations, annotations, revision receipts, and insertion sequences are stored under schema version `3`
+- indexed lineage keeps governed deletion transactions short; all deletion paths preserve tombstones and retained degraded evidence
+- semantic recall is exact across the eligible namespace, hybrid ranking uses reciprocal-rank fusion, and the scheduler drains bounded backlog batches with a short retry delay
+- classifier and embedding commands default to argv execution with bounded I/O, sanitized environments, and process-tree cleanup
+- operators have database health/projection repair, backup/verify/offline restore, WAL checkpoint, retention cleanup, size warnings, permission checks, and log rotation; all database-writing clients must be stopped for restore because only the service daemon participates in `service.lock`
+- `local-single-user` preserves compatibility; `hardened-local` requires claim-before-ack and forbids trusted-shell providers
+- the public MCP surface is exactly 12 tools
+
 ## What 0.23.0 Actually Means
 
 - external embedding-provider execution does not run inside the bridge's SQLite write transaction in semantic recall, scheduled maintenance, or rebuild paths
@@ -230,7 +270,7 @@ This maintainer note describes the current `0.23.0` reliability-hardening releas
 - service lanes share one cycle-execution isolation contract with failure counts and capped backoff, while process-level interrupts remain process-level interrupts
 - service lanes remain sequential; exception isolation does not provide lane-wide timeouts or prevent a slow call from delaying later lanes
 - service startup and lane construction remain process-level operations outside the per-cycle lane boundary
-- service state uses tolerant reads and atomic replacement; this is state-file hardening, not a multi-instance service lock
+- service state uses tolerant reads and atomic replacement; that release did not provide a process-level singleton lock
 - schema version `1` establishes an ordered migration spine with rollback and concurrent-upgrade serialization; it does not add every desirable database CHECK constraint
 - Chinese/Han text participates in hash-semantic retrieval; this is not broad CJK lexical or FTS support
 - Signal writes remain append-like, and this release does not add exactly-once creation or an idempotency-key API
@@ -248,7 +288,7 @@ This maintainer note describes the current `0.23.0` reliability-hardening releas
 - the visual inventory is release hygiene, not semantic proof
 - native-size and README-width raster renders are a release gate for clipping,
   overlap, and crossed labels
-- the current validation snapshot is `445 passed`
+- the current validation snapshot is `546 passed`
 
 ## What 0.22.0 Actually Means
 
@@ -306,13 +346,13 @@ The release still does **not** mean:
 - active pubsub or consumer execution on top of stored signals
 - exactly-once distributed coordination
 - broad CJK lexical or FTS support
-- service singleton locking, a service heartbeat, or lane-wide execution timeouts
+- lane-wide execution timeouts or safe in-process cancellation
 - complete database CHECK constraints or a Signal idempotency-key contract
-- an ANN/vector database or full-store semantic index
+- an ANN/vector database or sublinear semantic index
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.23.0
+## Pressure Points After 0.23.1
 
 The most important remaining gaps are:
 
@@ -325,11 +365,13 @@ The most important remaining gaps are:
 7. broader multi-process contention and crash-recovery dogfood beyond the exact-ID claim test, concurrent schema upgrade test, and serialized lifecycle benchmark
 8. a human-facing review UI or external harness that consumes review-workflow output without moving execution into AMB core
 9. optional receipt ergonomics for operators without moving receipt generation into the MCP tool surface
-10. measured need before adding service singleton/heartbeat/timeout machinery, database CHECK constraints, or a Signal idempotency API
+10. measured need before adding lane cancellation, broader database CHECK constraints, or a Signal idempotency API
 
 ## Maintainer Read
 
-`0.23.0` shortens SQLite write transactions around embedding maintenance, degrades hybrid retrieval only for typed provider failures, isolates background service lanes, makes their state replacement atomic, and establishes ordered transactional schema versioning. Chinese/Han text participates in the local hash-semantic path, while Chinese lexical retrieval retains the existing LIKE fallback. The release does not claim broad CJK FTS support, exactly-once Signals, authenticated actors, namespace isolation, service singleton locking, lane-wide timeouts, or distributed coordination.
+`0.23.1` closes the audited local reliability gaps across authority tags, confidence validation, cursor generation, service ownership and health, typed projections, indexed lineage, command-provider resource limits, full-store semantic scoring, database maintenance, and local operating profiles. It adds explicit `annotate` and `revise` tools, bringing the public surface to 12. It does not claim authenticated actors, namespace ACLs, exactly-once Signals, distributed coordination, ANN retrieval, sandboxed providers, or lane cancellation.
+
+`0.23.0` shortened SQLite write transactions around embedding maintenance, degraded hybrid retrieval only for typed provider failures, isolated background service lanes, made their state replacement atomic, and established ordered transactional schema versioning. Chinese/Han text participated in the local hash-semantic path, while Chinese lexical retrieval retained the existing LIKE fallback. That release did not claim broad CJK FTS support, exactly-once Signals, authenticated actors, namespace isolation, service singleton locking, lane-wide timeouts, or distributed coordination.
 
 `0.22.3` makes the existing local coordination contract deterministic where it previously was not. Signal polling is insertion-ordered and rejects invalid anchors; active claims require owner-matched ack; promotion retains relation, validity, and lineage information; and JSONL output failures do not overturn committed operations. The release still does not claim exactly-once delivery, a distributed queue, authenticated actors, or namespace isolation.
 
@@ -353,6 +395,7 @@ It now behaves like:
 - an operator-facing review queue that keeps hidden/stale/quarantined memory work visible without making it authority
 - an operator-facing human workflow plan that makes each review decision explicit without becoming an auto-writer
 - an operator-facing activation receipt that keeps cross-client provenance inspectable without becoming an identity system
-- a local maintenance service whose ordinary lane failures are isolated and whose schema upgrades follow an explicit transactional version path
+- a local maintenance service whose ordinary lane failures are isolated, heartbeat and duration are visible, and schema upgrades follow an explicit transactional version path
+- a local operator maintenance layer for health, projection repair, backup/restore, WAL checkpoint, retention cleanup, and capacity warnings
 
 The next work should protect those gains and improve review ergonomics without turning bounded relation-lite handling into a graph-memory claim, letting proposal-only plans become automatic durable writes, or turning declared client labels into identity claims.

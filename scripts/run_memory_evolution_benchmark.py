@@ -13,9 +13,7 @@ from agent_mem_bridge.memory_evolution_benchmark import (
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description=(
-            "Run deterministic reviewed-memory-evolution cases without querying live bridge state."
-        )
+        description=("Run deterministic reviewed-memory-evolution cases without querying live bridge state.")
     )
     parser.add_argument(
         "--cases-path",

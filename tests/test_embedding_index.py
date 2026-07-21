@@ -385,6 +385,15 @@ def test_command_embedding_provider_uses_command_hash_model_when_unlabeled(monke
     assert command not in config.model
 
 
+def test_command_embedding_model_id_changes_with_execution_mode() -> None:
+    command = "python embed.py"
+
+    argv_model = command_embedding_model_id(command, trusted_shell=False)
+    shell_model = command_embedding_model_id(command, trusted_shell=True)
+
+    assert argv_model != shell_model
+
+
 def test_command_embedding_errors_are_sanitized(monkeypatch) -> None:
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER", "command")
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND", _embedding_command("exit"))

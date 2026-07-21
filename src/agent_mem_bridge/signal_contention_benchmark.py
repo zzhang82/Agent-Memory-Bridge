@@ -8,7 +8,6 @@ from typing import Any
 
 from .storage import MemoryStore
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REPORT_PATH = ROOT / "benchmark" / "latest-signal-contention-report.json"
 
@@ -85,7 +84,9 @@ def run_unique_claims_case(db_path: Path) -> dict[str, Any]:
     }
     return {
         "id": "unique-active-claims",
-        "passed": metrics["unique_active_claims"] and exhausted["claimed"] is False and exhausted.get("reason") == "no-eligible-signal",
+        "passed": metrics["unique_active_claims"]
+        and exhausted["claimed"] is False
+        and exhausted.get("reason") == "no-eligible-signal",
         "metrics": metrics,
     }
 
@@ -238,7 +239,11 @@ def metric_rate(cases: list[dict[str, Any]], metric_name: str) -> float:
 def force_expire_lease(store: MemoryStore, signal_id: str) -> None:
     with store._connect() as conn:
         conn.execute(
-            "UPDATE memories SET lease_expires_at = ? WHERE id = ?",
-            ("2000-01-01T00:00:00+00:00", signal_id),
+            "UPDATE memories SET claimed_at = ?, lease_expires_at = ? WHERE id = ?",
+            (
+                "1999-01-01T00:00:00+00:00",
+                "2000-01-01T00:00:00+00:00",
+                signal_id,
+            ),
         )
         conn.commit()

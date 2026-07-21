@@ -1,10 +1,13 @@
-﻿from pathlib import Path
-
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
+from agent_mem_bridge import query as query_module
+from agent_mem_bridge import storage as storage_module
 from agent_mem_bridge.lineage import parse_lineage
+from agent_mem_bridge.poll_cursor import decode_poll_cursor
+from agent_mem_bridge.schema import rotate_database_epoch
 from agent_mem_bridge.signals import fair_claim_offset
 from agent_mem_bridge.storage import MemoryStore
 
@@ -204,7 +207,107 @@ def test_polling_with_since_returns_only_new_items(tmp_path: Path) -> None:
 
     assert polled["count"] == 1
     assert polled["items"][0]["id"] == second["id"]
-    assert polled["next_since"] == second["id"]
+    decoded = decode_poll_cursor(polled["next_since"])
+    assert decoded is not None
+    assert decoded.namespace == "bridge"
+
+
+def test_poll_cursor_uses_query_snapshot_when_latest_item_is_forgotten(tmp_path: Path, monkeypatch) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    first = store.store(
+        namespace="bridge",
+        content="Transient handoff.",
+        kind="signal",
+        tags=["review"],
+    )
+    original_poll_cursor = store._poll_cursor
+
+    def forget_before_cursor(items, *, current, database_epoch):
+        store.forget(first["id"])
+        return original_poll_cursor(items, current=current, database_epoch=database_epoch)
+
+    monkeypatch.setattr(store, "_poll_cursor", forget_before_cursor)
+    polled = store.recall(namespace="bridge", kind="signal", limit=10)
+    monkeypatch.setattr(store, "_poll_cursor", original_poll_cursor)
+
+    assert polled["items"][0]["id"] == first["id"]
+    cursor = decode_poll_cursor(polled["next_since"])
+    assert cursor is not None
+
+    second = store.store(
+        namespace="bridge",
+        content="Later handoff.",
+        kind="signal",
+        tags=["review"],
+    )
+    resumed = store.recall(
+        namespace="bridge",
+        kind="signal",
+        since=polled["next_since"],
+        limit=10,
+    )
+
+    assert [item["id"] for item in resumed["items"]] == [second["id"]]
+
+
+def test_poll_cursor_keeps_page_epoch_when_generation_changes_before_encoding(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    stored = store.store(namespace="bridge", content="pre-rotation page", kind="signal")
+    original_poll_page = storage_module.recall_signal_poll_page
+
+    def rotate_after_page(*args, **kwargs):
+        items, snapshot_epoch = original_poll_page(*args, **kwargs)
+        with store._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            rotate_database_epoch(conn)
+            conn.commit()
+        return items, snapshot_epoch
+
+    monkeypatch.setattr(storage_module, "recall_signal_poll_page", rotate_after_page)
+    page = store.recall(namespace="bridge", kind="signal", limit=10)
+
+    assert [item["id"] for item in page["items"]] == [stored["id"]]
+    with pytest.raises(ValueError, match="database epoch mismatch"):
+        store.recall(namespace="bridge", kind="signal", since=page["next_since"], limit=10)
+
+
+def test_poll_cursor_validation_and_rows_share_one_database_snapshot(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    anchor = store.store(namespace="bridge", content="cursor anchor", kind="signal")
+    anchor_page = store.recall(namespace="bridge", kind="signal", limit=1)
+    assert anchor_page["items"][0]["id"] == anchor["id"]
+    later = store.store(namespace="bridge", content="same snapshot result", kind="signal")
+    original_read_epoch = query_module.read_database_epoch
+    rotated = False
+
+    def rotate_after_epoch_read(conn):
+        nonlocal rotated
+        snapshot_epoch = original_read_epoch(conn)
+        if not rotated:
+            rotated = True
+            with store._connect() as writer:
+                writer.execute("BEGIN IMMEDIATE")
+                rotate_database_epoch(writer)
+                writer.commit()
+        return snapshot_epoch
+
+    monkeypatch.setattr(query_module, "read_database_epoch", rotate_after_epoch_read)
+    page = store.recall(
+        namespace="bridge",
+        kind="signal",
+        since=anchor_page["next_since"],
+        limit=10,
+    )
+
+    assert [item["id"] for item in page["items"]] == [later["id"]]
+    with pytest.raises(ValueError, match="database epoch mismatch"):
+        store.recall(namespace="bridge", kind="signal", since=page["next_since"], limit=10)
 
 
 def test_claim_signal_sets_lease_and_ack_marks_completion(tmp_path: Path) -> None:
@@ -302,8 +405,8 @@ def test_extend_signal_lease_rejects_expired_lease_and_allows_reclaim(tmp_path: 
 
     with store._connect() as conn:
         conn.execute(
-            "UPDATE memories SET lease_expires_at = ? WHERE id = ?",
-            ("2000-01-01T00:00:00+00:00", created["id"]),
+            "UPDATE memories SET claimed_at = ?, lease_expires_at = ? WHERE id = ?",
+            ("1999-01-01T00:00:00+00:00", "2000-01-01T00:00:00+00:00", created["id"]),
         )
         conn.commit()
 
@@ -383,6 +486,7 @@ def test_claim_signal_reuses_stale_lease(tmp_path: Path) -> None:
     )
 
     import time
+
     time.sleep(1.1)
 
     reclaimed = store.claim_signal(
@@ -449,8 +553,8 @@ def test_claim_signal_prefers_other_pending_work_before_reclaiming_same_consumer
 
     with store._connect() as conn:
         conn.execute(
-            "UPDATE memories SET lease_expires_at = ? WHERE id = ?",
-            ("2000-01-01T00:00:00+00:00", stale["id"]),
+            "UPDATE memories SET claimed_at = ?, lease_expires_at = ? WHERE id = ?",
+            ("1999-01-01T00:00:00+00:00", "2000-01-01T00:00:00+00:00", stale["id"]),
         )
         conn.commit()
 
@@ -570,8 +674,8 @@ def test_stale_owner_cannot_ack_after_lease_expiry(tmp_path: Path) -> None:
     )
     with store._connect() as conn:
         conn.execute(
-            "UPDATE memories SET lease_expires_at = ? WHERE id = ?",
-            ("2000-01-01T00:00:00+00:00", created["id"]),
+            "UPDATE memories SET claimed_at = ?, lease_expires_at = ? WHERE id = ?",
+            ("1999-01-01T00:00:00+00:00", "2000-01-01T00:00:00+00:00", created["id"]),
         )
         conn.commit()
 
@@ -770,21 +874,13 @@ def test_stats_surface_relation_counts_and_validity_statuses(tmp_path: Path) -> 
     )
     store.store(
         namespace="project:bridge",
-        content=(
-            "claim: Future orchestration dependency.\n"
-            "depends_on: signal-policy\n"
-            f"valid_from: {future_from}\n"
-        ),
+        content=(f"claim: Future orchestration dependency.\ndepends_on: signal-policy\nvalid_from: {future_from}\n"),
         kind="memory",
         tags=["domain:orchestration"],
     )
     store.store(
         namespace="project:bridge",
-        content=(
-            "claim: Expired superseded note.\n"
-            "supersedes: mem-old\n"
-            f"valid_until: {expired_until}\n"
-        ),
+        content=(f"claim: Expired superseded note.\nsupersedes: mem-old\nvalid_until: {expired_until}\n"),
         kind="memory",
         tags=["domain:retrieval"],
     )
@@ -830,12 +926,7 @@ def test_promote_reclassifies_memory_in_place(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
     created = store.store(
         namespace="project:bridge",
-        content=(
-            "record_type: learn\n"
-            "claim: Use one shared bridge DB.\n"
-            "scope: global\n"
-            "confidence: observed\n"
-        ),
+        content=("record_type: learn\nclaim: Use one shared bridge DB.\nscope: global\nconfidence: observed\n"),
         kind="memory",
         tags=["kind:learn", "domain:memory-bridge", "topic:runtime-path"],
         title="[[Learn]] Use one shared bridge DB.",
@@ -913,9 +1004,7 @@ def test_promote_rederives_relation_tags_after_content_rewrite(tmp_path: Path) -
     assert promoted_lineage.derived_from_candidate_id == "candidate-a"
     assert promoted_lineage.evidence_refs == ("evidence-a", "evidence-b")
     assert promoted["item"]["lineage_status"] == "degraded"
-    assert promoted["item"]["lineage_issues"] == [
-        {"missing_record_id": "source-record", "type": "missing_dependency"}
-    ]
+    assert promoted["item"]["lineage_issues"] == [{"missing_record_id": "source-record", "type": "missing_dependency"}]
     assert after["count"] == 1
 
 
@@ -959,8 +1048,8 @@ def test_export_returns_markdown_json_and_text(tmp_path: Path) -> None:
     assert "# Memory Export: project:bridge" in markdown_export["content"]
     assert "- Source Client: `antigravity`" in markdown_export["content"]
     assert json_export["format"] == "json"
-    assert "\"namespace\": \"project:bridge\"" in json_export["content"]
-    assert "\"source_model\": \"gemini-2.5-pro\"" in json_export["content"]
+    assert '"namespace": "project:bridge"' in json_export["content"]
+    assert '"source_model": "gemini-2.5-pro"' in json_export["content"]
     assert text_export["format"] == "text"
     assert "namespace: project:bridge" in text_export["content"]
     assert "client_transport: stdio" in text_export["content"]
@@ -990,7 +1079,7 @@ def test_export_includes_relation_metadata_and_validity_status(tmp_path: Path) -
 
     assert "- Relations: `supports` -> `mem-a`, `mem-b`; `contradicts` -> `mem-c`" in markdown_export["content"]
     assert f"- Valid From: `{valid_from}`" in markdown_export["content"]
-    assert "\"validity_status\": \"current\"" in json_export["content"]
+    assert '"validity_status": "current"' in json_export["content"]
     assert "relations: supports=mem-a, mem-b; contradicts=mem-c" in text_export["content"]
     assert "validity_status: current" in text_export["content"]
 

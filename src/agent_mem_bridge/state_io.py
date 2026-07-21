@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .filesystem_safety import ensure_private_directory, ensure_private_file
+
 
 def load_json_state(path: Path | None) -> dict[str, Any]:
     if path is None or not path.is_file():
@@ -20,7 +22,7 @@ def load_json_state(path: Path | None) -> dict[str, Any]:
 def write_json_state_atomic(path: Path | None, state: dict[str, Any]) -> None:
     if path is None:
         return
-    path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_private_directory(path.parent)
     file_descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{path.name}.",
         suffix=".tmp",
@@ -34,6 +36,7 @@ def write_json_state_atomic(path: Path | None, state: dict[str, Any]) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temporary_path, path)
+        ensure_private_file(path)
     except BaseException:
         temporary_path.unlink(missing_ok=True)
         raise

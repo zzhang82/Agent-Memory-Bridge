@@ -69,9 +69,8 @@ def infer_tags(text: str) -> tuple[list[str], list[str]]:
         domains.append("domain:memory-bridge")
         domains.append("domain:retrieval")
         confidence = 0.68
-    if (
-        "release cutover handoff" in normalized
-        or ("claimed by one worker" in normalized and "acknowledged" in normalized)
+    if "release cutover handoff" in normalized or (
+        "claimed by one worker" in normalized and "acknowledged" in normalized
     ):
         domains.append("domain:orchestration")
         confidence = 0.77
@@ -82,15 +81,28 @@ def main() -> None:
     payload = json.load(sys.stdin)
     items = []
     for item in payload.get("items", []):
-        domains, topics, confidence = infer_tags(str(item.get("text", "")))
-        items.append(
-            {
-                "key": item.get("key"),
-                "domains": domains,
-                "topics": topics,
-                "confidence": confidence,
-            }
-        )
+        text = str(item.get("text", ""))
+        domains, topics, confidence = infer_tags(text)
+        prediction = {
+            "key": item.get("key"),
+            "domains": domains,
+            "topics": topics,
+            "confidence": confidence,
+        }
+        if "reserved classifier tag" in text.lower():
+            prediction["tags"] = [
+                "source:reviewed",
+                "confidence:human-reviewed",
+                "kind:learning-review",
+                "domain:security",
+            ]
+            prediction["confidence"] = 0.95
+        if "malformed classifier collections" in text.lower():
+            prediction["tags"] = None
+            prediction["domains"] = None
+            prediction["topics"] = 1
+            prediction["confidence"] = 0.95
+        items.append(prediction)
     json.dump({"items": items}, sys.stdout)
 
 

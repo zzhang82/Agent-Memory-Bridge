@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from agent_mem_bridge.consolidation import ConsolidationConfig, ConsolidationEngine
@@ -72,10 +73,7 @@ def _items_with_tag(
         limit=limit,
     )["items"]
     return [
-        item
-        for item in items
-        if tag in item.get("tags", [])
-        and (domain is None or domain in item.get("tags", []))
+        item for item in items if tag in item.get("tags", []) and (domain is None or domain in item.get("tags", []))
     ]
 
 
@@ -226,7 +224,10 @@ def test_consolidation_creates_domain_note_from_recent_learns_and_gotchas(tmp_pa
     assert "anchor: Punctuation-heavy queries can break naive FTS recall paths." in note["content"]
     assert "rule: Recall project memory and global gotchas before browsing." in note["content"]
     assert "failure_mode: The agent wastes time rediscovering prior fixes." in note["content"]
-    assert "epiphany: In retrieval, Recall project memory and global gotchas before browsing because otherwise the agent wastes time rediscovering prior fixes." in note["content"]
+    assert (
+        "epiphany: In retrieval, Recall project memory and global gotchas before browsing because otherwise the agent wastes time rediscovering prior fixes."
+        in note["content"]
+    )
     assert "support_count: 2" in note["content"]
     assert "topic:fts" in note["content"]
     assert "topic:cross-project-reuse" in note["content"]
@@ -373,7 +374,10 @@ def test_consolidation_does_not_treat_fallback_boundary_wording_as_contradiction
     assert "contradiction_count: 0" in belief_candidates[0]["content"]
     assert "contradiction_reasons: boundary-exempt:fallback-default:1 | no-marker:4" in belief_candidates[0]["content"]
     assert len(beliefs) == 1
-    assert "claim: Prefer record-tagged profile hits first, then use reference docs only as fallback." in beliefs[0]["content"]
+    assert (
+        "claim: Prefer record-tagged profile hits first, then use reference docs only as fallback."
+        in beliefs[0]["content"]
+    )
     assert len(concept_notes) == 1
     assert "record_type: concept-note" in concept_notes[0]["content"]
     assert "depends_on:" in concept_notes[0]["content"]
@@ -459,7 +463,10 @@ def test_consolidation_does_not_treat_manual_policy_boundary_wording_as_contradi
     assert "contradiction_count: 0" in belief_candidates[0]["content"]
     assert "contradiction_reasons: boundary-exempt:manual-policy:1 | no-marker:4" in belief_candidates[0]["content"]
     assert len(beliefs) == 1
-    assert "claim: Use belief_candidate as the bridge between compressed domain patterns and manual core-policy review." in beliefs[0]["content"]
+    assert (
+        "claim: Use belief_candidate as the bridge between compressed domain patterns and manual core-policy review."
+        in beliefs[0]["content"]
+    )
     assert len(concept_notes) == 1
     assert "record_type: concept-note" in concept_notes[0]["content"]
     assert "relation:depends_on" in concept_notes[0]["tags"]
@@ -544,7 +551,10 @@ def test_consolidation_does_not_treat_project_vs_global_scope_wording_as_contrad
     assert "contradiction_count: 0" in belief_candidates[0]["content"]
     assert "contradiction_reasons: boundary-exempt:project-vs-global:1 | no-marker:4" in belief_candidates[0]["content"]
     assert len(beliefs) == 1
-    assert "claim: Write project-specific durable lessons to project memory, and keep global core for durable operating lessons." in beliefs[0]["content"]
+    assert (
+        "claim: Write project-specific durable lessons to project memory, and keep global core for durable operating lessons."
+        in beliefs[0]["content"]
+    )
     assert len(concept_notes) == 1
     assert "record_type: concept-note" in concept_notes[0]["content"]
     assert "relation:depends_on" in concept_notes[0]["tags"]
@@ -778,9 +788,7 @@ def test_belief_candidate_becomes_tentative_with_contradiction_markers(tmp_path:
     )
 
     assert belief_candidates["count"] >= 1
-    candidate = next(
-        item for item in belief_candidates["items"] if "domain: domain:memory-bridge" in item["content"]
-    )
+    candidate = next(item for item in belief_candidates["items"] if "domain: domain:memory-bridge" in item["content"])
     assert "contradiction_count: 1" in candidate["content"]
     assert "contradiction_reasons: marker-contrast:1 | no-marker:2" in candidate["content"]
     assert "confidence: tentative" in candidate["content"]
@@ -1162,3 +1170,144 @@ def test_unstable_candidate_hash_blocks_belief_promotion(tmp_path: Path) -> None
     beliefs = _items_with_tag(store, tag="kind:belief", domain="domain:agent-memory")
 
     assert len(beliefs) == 0
+
+
+def test_consolidation_migrates_legacy_since_id_without_skipping_same_timestamp_row(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    first = store.store(
+        namespace="global",
+        kind="memory",
+        title="first learn",
+        content="record_type: learn\nclaim: first\nscope: global\nconfidence: observed",
+        tags=["kind:learn", "domain:test"],
+        source_app="agent-memory-bridge-reflex",
+    )
+    second = store.store(
+        namespace="global",
+        kind="memory",
+        title="second learn",
+        content="record_type: learn\nclaim: second\nscope: global\nconfidence: observed",
+        tags=["kind:learn", "domain:test"],
+        source_app="agent-memory-bridge-reflex",
+    )
+    timestamp = "2026-07-21T12:00:00.123456+00:00"
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE memories SET created_at = ? WHERE id IN (?, ?)",
+            (timestamp, first["id"], second["id"]),
+        )
+        second_sequence = conn.execute(
+            "SELECT sequence FROM memory_insertions WHERE memory_id = ?",
+            (second["id"],),
+        ).fetchone()["sequence"]
+        conn.commit()
+
+    state_path = tmp_path / "consolidation-state.json"
+    state_path.write_text(json.dumps({"since_id": first["id"]}), encoding="utf-8")
+    result = ConsolidationEngine(
+        store,
+        ConsolidationConfig(state_path=state_path, scan_limit=1, min_support=99),
+    ).run_once()
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert result["since_id"] == second["id"]
+    assert state["last_insertion_sequence"] == second_sequence
+    assert "last_rowid" not in state
+
+
+def test_consolidation_resets_insertion_cursor_when_database_epoch_changes(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    learn = store.store(
+        namespace="global",
+        kind="memory",
+        title="restored learn",
+        content="record_type: learn\nclaim: restored state must be replayed\nscope: global\nconfidence: observed",
+        tags=["kind:learn", "domain:test"],
+        source_app="agent-memory-bridge-reflex",
+    )
+    state_path = tmp_path / "consolidation-state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "since_id": "pre-restore-id",
+                "last_rowid": 999_999,
+                "database_epoch": "pre-restore-epoch",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = ConsolidationEngine(
+        store,
+        ConsolidationConfig(state_path=state_path, scan_limit=10, min_support=99),
+    ).run_once()
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert result["since_id"] == learn["id"]
+    assert state["database_epoch"] == store.database_epoch()
+    assert state["last_insertion_sequence"] < 999_999
+    assert "last_rowid" not in state
+
+
+def test_consolidation_insertion_cursor_survives_memories_rowid_reuse(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    first = store.store(
+        namespace="global",
+        kind="memory",
+        title="first learn",
+        content="record_type: learn\nclaim: first\nscope: global\nconfidence: observed",
+        tags=["kind:learn", "domain:test"],
+        source_app="agent-memory-bridge-reflex",
+    )
+    state_path = tmp_path / "consolidation-state.json"
+    engine = ConsolidationEngine(
+        store,
+        ConsolidationConfig(state_path=state_path, scan_limit=1, min_support=99),
+    )
+    engine.run_once()
+    with store._connect() as conn:
+        first_rowid = conn.execute("SELECT rowid FROM memories WHERE id = ?", (first["id"],)).fetchone()["rowid"]
+
+    assert store.forget(str(first["id"]))["deleted"] is True
+    second = store.store(
+        namespace="global",
+        kind="memory",
+        title="second learn",
+        content="record_type: learn\nclaim: second\nscope: global\nconfidence: observed",
+        tags=["kind:learn", "domain:test"],
+        source_app="agent-memory-bridge-reflex",
+    )
+    with store._connect() as conn:
+        second_rowid = conn.execute("SELECT rowid FROM memories WHERE id = ?", (second["id"],)).fetchone()["rowid"]
+
+    result = engine.run_once()
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+
+    assert second_rowid == first_rowid
+    assert result["since_id"] == second["id"]
+    assert state["since_id"] == second["id"]
+
+
+def test_consolidation_does_not_trust_review_tags_as_reflex_source_override(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    for index in range(2):
+        store.store(
+            namespace="global",
+            kind="memory",
+            title=f"review-tagged reflex learn {index}",
+            content=(
+                f"record_type: learn\nclaim: review tagged reflex claim {index}\nscope: global\nconfidence: observed"
+            ),
+            tags=["kind:learn", "domain:test", "reviewed:true", "source:reviewed"],
+            source_app="agent-memory-bridge-reflex",
+        )
+
+    result = ConsolidationEngine(
+        store,
+        ConsolidationConfig(
+            state_path=tmp_path / "consolidation-state.json",
+            allow_reflex_sources=False,
+        ),
+    ).run_once()
+
+    assert result == {"processed_count": 0, "stored": []}

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import gc
+import tempfile
 from collections import Counter
 from datetime import UTC, datetime, timedelta
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +12,6 @@ from .relation_metadata import parse_content_fields
 from .review_queue import REVIEW_QUEUE_SCHEMA, build_review_queue_report
 from .storage import MemoryStore
 from .task_memory import assemble_task_memory
-
 
 TASK_BRIEF_SCHEMA = "memory.task_brief.v1"
 TASK_BRIEF_BENCHMARK_SCHEMA = "memory.task_brief_benchmark.v1"
@@ -103,7 +102,9 @@ def build_task_brief_report(
             "task_memory": "memory.task_memory.derived",
         },
         "task_memory_assembly_mode": task_memory.get("assembly_mode"),
-        "summary": _summary(sections, review_queue_item_count=len(review_queue["items"]), active_signal_count=len(active_signals)),
+        "summary": _summary(
+            sections, review_queue_item_count=len(review_queue["items"]), active_signal_count=len(active_signals)
+        ),
         "sections": sections,
     }
 
@@ -171,10 +172,7 @@ def build_task_brief_fixture_report() -> dict[str, Any]:
 
 def _used_items(task_memory: dict[str, Any]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
-    corrective_ids = {
-        str(item.get("id") or "")
-        for item in task_memory.get("corrective_items") or []
-    }
+    corrective_ids = {str(item.get("id") or "") for item in task_memory.get("corrective_items") or []}
     for section_name in USED_TASK_SECTIONS:
         for item in task_memory.get(section_name) or []:
             decision = item.get("task_memory") or {}
@@ -197,7 +195,10 @@ def _used_items(task_memory: dict[str, Any]) -> list[dict[str, Any]]:
                     title=item.get("title"),
                     namespace=item.get("namespace"),
                     kind=item.get("kind"),
-                    reason_codes=[*decision.get("reasons", []), f"selected_as:{decision.get('selected_as', 'unknown')}"],
+                    reason_codes=[
+                        *decision.get("reasons", []),
+                        f"selected_as:{decision.get('selected_as', 'unknown')}",
+                    ],
                     extras=extras,
                 )
             )
@@ -234,9 +235,7 @@ def _task_decision_items(task_memory: dict[str, Any]) -> tuple[list[dict[str, An
                     "lineage_issue_count": len(item.get("lineage_issues") or []) or None,
                     "missing_lineage_record_ids": lineage_issue_ids or None,
                     "recommended_action": (
-                        "review_current_evidence_before_replacing_procedure"
-                        if corrective_supersession
-                        else None
+                        "review_current_evidence_before_replacing_procedure" if corrective_supersession else None
                     ),
                 },
             )
@@ -278,9 +277,7 @@ def _task_decision_items(task_memory: dict[str, Any]) -> tuple[list[dict[str, An
             )
         )
     used_ids = {
-        str(item.get("id") or "")
-        for section_name in USED_TASK_SECTIONS
-        for item in task_memory.get(section_name) or []
+        str(item.get("id") or "") for section_name in USED_TASK_SECTIONS for item in task_memory.get(section_name) or []
     }
     for item in task_memory.get("corrective_items") or []:
         if str(item.get("id") or "") in used_ids:
@@ -318,13 +315,7 @@ def _corrective_evidence(item: dict[str, Any]) -> str | None:
 def _lineage_issue_ids(raw_issues: object) -> list[str]:
     if not isinstance(raw_issues, list):
         return []
-    return _dedupe(
-        [
-            str(issue.get("missing_record_id") or "")
-            for issue in raw_issues
-            if isinstance(issue, dict)
-        ]
-    )
+    return _dedupe([str(issue.get("missing_record_id") or "") for issue in raw_issues if isinstance(issue, dict)])
 
 
 def _review_queue_item(item: dict[str, Any]) -> dict[str, Any]:

@@ -24,8 +24,7 @@ def main() -> None:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run reviewed procedure-governance benchmark cases comparing flat "
-            "packets with governed procedure packets."
+            "Run reviewed procedure-governance benchmark cases comparing flat packets with governed procedure packets."
         )
     )
     parser.add_argument(

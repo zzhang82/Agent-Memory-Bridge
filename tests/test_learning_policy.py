@@ -150,9 +150,7 @@ def test_policy_degrades_when_backend_unavailable_and_surfaces_sanitized_unsaved
 
 
 def test_policy_denies_secret_in_evidence_refs() -> None:
-    decision = evaluate_learning_candidate(
-        _candidate(evidence_refs=["tool output contained password=hunter2"])
-    )
+    decision = evaluate_learning_candidate(_candidate(evidence_refs=["tool output contained password=hunter2"]))
 
     assert decision["decision"] == "deny"
     assert decision["would_write"] is False
@@ -160,9 +158,7 @@ def test_policy_denies_secret_in_evidence_refs() -> None:
 
 
 def test_policy_denies_raw_transcript_in_evidence_refs() -> None:
-    decision = evaluate_learning_candidate(
-        _candidate(evidence_refs=["User: copy this\nAssistant: pasted transcript"])
-    )
+    decision = evaluate_learning_candidate(_candidate(evidence_refs=["User: copy this\nAssistant: pasted transcript"]))
 
     assert decision["decision"] == "deny"
     assert decision["would_write"] is False

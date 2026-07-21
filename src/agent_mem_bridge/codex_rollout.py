@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 ROLLOUT_RE = re.compile(r"rollout-(?P<timestamp>.+)-(?P<thread>[0-9a-f-]{36})\.jsonl$", re.IGNORECASE)
 CHECKPOINT_MARKERS = (
     "decision",
@@ -33,7 +32,10 @@ CHECKPOINT_MARKERS = (
 )
 CHECKPOINT_LABEL_PATTERNS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Fix", ("fix:", "fixed", "solution", "resolved", "use one canonical", "keep ", "assign ")),
-    ("Problem", ("problem:", "wrong db", "bug", "error", "issue", "drift", "regression", "missing", "fails", "failure")),
+    (
+        "Problem",
+        ("problem:", "wrong db", "bug", "error", "issue", "drift", "regression", "missing", "fails", "failure"),
+    ),
     ("Decision", ("decision:", "decision", "prefer", "should", "must", "use high reasoning", "do not", "need to")),
     ("Trigger", ("trigger:", "when ", "if ", "trigger", "during ", "after ")),
     ("Claim", ("claim:", "recall", "memory", "checkpoint", "validated", "works", "loaded")),
@@ -218,7 +220,9 @@ def _build_rollout_payload(summary: RolloutSummary, mode: str) -> dict[str, Any]
         tags.extend(["kind:summary", "auto-closeout"])
         summary_text = build_summary_text(summary, workspace_name)
         bullets = _build_closeout_bullets(summary)
-        next_step = "Review this auto-closeout note and promote any durable decisions into cleaner project memories if needed."
+        next_step = (
+            "Review this auto-closeout note and promote any durable decisions into cleaner project memories if needed."
+        )
         slug = f"auto-closeout-{summary.thread_id or session_label}"
         source_app = "codex-session-watcher"
 
@@ -309,7 +313,7 @@ def _strip_checkpoint_label_prefix(message: str) -> str:
     normalized = message.strip()
     for prefix in ("Claim:", "Decision:", "Fix:", "Problem:", "Trigger:", "Symptom:"):
         if normalized.startswith(prefix):
-            return normalized[len(prefix):].strip()
+            return normalized[len(prefix) :].strip()
     return normalized
 
 

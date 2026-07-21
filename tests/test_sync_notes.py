@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from agent_mem_bridge.storage import MemoryStore
 from agent_mem_bridge.sync_notes import sync_markdown_file
@@ -32,4 +32,3 @@ We decided to store #memory/bridge context with [[Codex]] and [[Memory Bridge]] 
     assert result["stored"] is True
     assert recall["count"] == 1
     assert recall["items"][0]["session_id"] == "session-42"
-

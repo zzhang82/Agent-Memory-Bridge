@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from agent_mem_bridge.lineage import parse_lineage
+from agent_mem_bridge.poll_cursor import decode_poll_cursor
 from agent_mem_bridge.promotion import parse_structured_record
 from agent_mem_bridge.relation_metadata import parse_content_fields, parse_relation_metadata
 from agent_mem_bridge.storage import MemoryStore
@@ -40,8 +41,7 @@ def test_signal_polling_pages_in_insertion_order_without_gaps_or_repeats(tmp_pat
     store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
     cursor = store.store(namespace="project:polling", content="cursor", kind="signal")
     expected = [
-        store.store(namespace="project:polling", content=f"signal-{index}", kind="signal")["id"]
-        for index in range(257)
+        store.store(namespace="project:polling", content=f"signal-{index}", kind="signal")["id"] for index in range(257)
     ]
 
     seen: list[str] = []
@@ -61,7 +61,9 @@ def test_signal_polling_pages_in_insertion_order_without_gaps_or_repeats(tmp_pat
 
     assert seen == expected
     assert len(seen) == len(set(seen))
-    assert next_since == expected[-1]
+    decoded = decode_poll_cursor(next_since)
+    assert decoded is not None
+    assert decoded.namespace == "project:polling"
 
 
 def test_signal_polling_rejects_invalid_and_cross_namespace_cursors(tmp_path: Path) -> None:
@@ -107,7 +109,36 @@ def test_next_since_is_only_exposed_for_empty_query_signal_recall(tmp_path: Path
     assert queried["next_since"] is None
     assert filtered["next_since"] is None
     assert [item["id"] for item in signals["items"]] == [second_signal["id"], first_signal["id"]]
-    assert signals["next_since"] == second_signal["id"]
+    decoded = decode_poll_cursor(signals["next_since"])
+    assert decoded is not None
+    assert decoded.namespace == "project:cursors"
+
+
+def test_opaque_poll_cursor_survives_deletion_of_page_boundary_signal(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    initial = store.store(namespace="project:cursors", content="initial", kind="signal")
+    first = store.store(namespace="project:cursors", content="first", kind="signal")
+    boundary = store.store(namespace="project:cursors", content="boundary", kind="signal")
+
+    page = store.recall(
+        namespace="project:cursors",
+        kind="signal",
+        since=initial["id"],
+        limit=2,
+    )
+    cursor = str(page["next_since"])
+    assert [item["id"] for item in page["items"]] == [first["id"], boundary["id"]]
+    store.forget(str(boundary["id"]))
+    newest = store.store(namespace="project:cursors", content="newest", kind="signal")
+
+    resumed = store.recall(
+        namespace="project:cursors",
+        kind="signal",
+        since=cursor,
+        limit=10,
+    )
+
+    assert [item["id"] for item in resumed["items"]] == [newest["id"]]
 
 
 def test_claimed_signal_ack_requires_current_owner_but_pending_ack_remains_ownerless(tmp_path: Path) -> None:
@@ -141,6 +172,7 @@ def test_claimed_signal_without_owner_is_rejected_as_malformed(tmp_path: Path) -
     store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
     created = store.store(namespace="project:ack", content="malformed claim", kind="signal")
     with store._connect() as conn:
+        conn.execute("DROP TRIGGER validate_signal_state_update")
         conn.execute(
             """
             UPDATE memories

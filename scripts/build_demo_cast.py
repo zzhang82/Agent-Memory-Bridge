@@ -6,7 +6,6 @@ import sys
 import time
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 CAST_PATH = ROOT / "examples" / "demo" / "terminal-demo.cast"
 COMMAND = "python ./scripts/demo_terminal.py"

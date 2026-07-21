@@ -1,4 +1,4 @@
-﻿import json
+import json
 from pathlib import Path
 
 from agent_mem_bridge.codex_rollout import build_checkpoint_payload, build_closeout_payload, parse_rollout_file
@@ -132,7 +132,10 @@ def test_build_checkpoint_payload_prefers_typed_durable_bullets(tmp_path: Path) 
         {
             "timestamp": "2026-04-04T19:39:21.000Z",
             "type": "event_msg",
-            "payload": {"type": "user_message", "message": "Decision: use checkpoint sync before closeout so important fixes do not wait."},
+            "payload": {
+                "type": "user_message",
+                "message": "Decision: use checkpoint sync before closeout so important fixes do not wait.",
+            },
         },
         {
             "timestamp": "2026-04-04T19:39:22.000Z",
@@ -189,7 +192,7 @@ def test_build_checkpoint_payload_skips_conversational_confirmations(tmp_path: P
                 "content": [
                     {
                         "type": "output_text",
-                        "text": "Yes, agentMemoryBridge is loaded and responding. If you want, I can also test recall(namespace=\"project:ç®€åŽ†\", ...) right now. Fix: checkpoint important fixes before closeout.",
+                        "text": 'Yes, agentMemoryBridge is loaded and responding. If you want, I can also test recall(namespace="project:ç®€åŽ†", ...) right now. Fix: checkpoint important fixes before closeout.',
                     }
                 ],
             },
@@ -203,4 +206,3 @@ def test_build_checkpoint_payload_skips_conversational_confirmations(tmp_path: P
     assert any(item.startswith("Fix:") for item in payload["bullets"])
     assert not any("If you want" in item for item in payload["bullets"])
     assert not any("loaded and responding" in item for item in payload["bullets"])
-

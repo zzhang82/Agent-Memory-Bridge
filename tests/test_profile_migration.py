@@ -1,11 +1,15 @@
-﻿from pathlib import Path
+from pathlib import Path
 
-from agent_mem_bridge.archive_snapshot import build_default_snapshot_root, create_profile_archive_snapshot, write_live_source_manifest
+from agent_mem_bridge.archive_snapshot import (
+    build_default_snapshot_root,
+    create_profile_archive_snapshot,
+    write_live_source_manifest,
+)
 from agent_mem_bridge.profile_migration import (
     IMPORT_ACTOR,
     LEGACY_IMPORT_SOURCE_APP,
-    build_profile_documents,
     build_document_tags,
+    build_profile_documents,
     compare_profile_migration,
     compare_profile_migration_with_mode,
     import_profile_memory,
@@ -22,7 +26,9 @@ def test_import_profile_memory_imports_only_supported_markdown(tmp_path: Path) -
     (profile_root / "memory" / "executors").mkdir(parents=True)
     (profile_root / "skills" / "obsidian-markdown").mkdir(parents=True)
 
-    (profile_root / "HOW-TO-USE-PROFILE.md").write_text("# How to Use This Profile\n\nBridge first.\n", encoding="utf-8")
+    (profile_root / "HOW-TO-USE-PROFILE.md").write_text(
+        "# How to Use This Profile\n\nBridge first.\n", encoding="utf-8"
+    )
     (profile_root / "memory" / "core" / "persona.md").write_text("# Persona\n\nCalm and direct.\n", encoding="utf-8")
     (profile_root / "memory" / "workflows" / "subagent-patterns.md").write_text(
         "# Subagent Patterns\n\nOwn the contract.\n",
@@ -166,7 +172,9 @@ def test_prune_stale_profile_imports_removes_extra_paths(tmp_path: Path) -> None
 
     (profile_root / "memory" / "core" / "persona.md").write_text("# Persona\n\nCalm and direct.\n", encoding="utf-8")
     skill_path = profile_root / "skills" / "obsidian-markdown" / "SKILL.md"
-    skill_path.write_text("---\nname: obsidian-markdown\ndescription: test\n---\n\n# Obsidian Markdown\n", encoding="utf-8")
+    skill_path.write_text(
+        "---\nname: obsidian-markdown\ndescription: test\n---\n\n# Obsidian Markdown\n", encoding="utf-8"
+    )
 
     store = MemoryStore(db_path=tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     import_profile_memory(store, profile_root)
@@ -206,4 +214,3 @@ def test_compare_profile_migration_accepts_legacy_import_source_app(tmp_path: Pa
 
     assert comparison["missing_count"] == 0
     assert comparison["content_mismatch_count"] == 0
-

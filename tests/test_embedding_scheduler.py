@@ -55,7 +55,7 @@ def test_disabled_default_scheduler_does_not_require_valid_embedding_config(tmp_
 def test_embedding_scheduler_processes_due_batch_and_preserves_memories(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     _store_memory(store, "First", "The first memory should be embedded.")
-    _store_memory(store, "Second", "The second memory should wait for the next batch.")
+    _store_memory(store, "Second", "The second memory should drain in the same service cycle.")
     config = EmbeddingSchedulerConfig(
         enabled=True,
         state_path=tmp_path / "embedding-state.json",
@@ -76,12 +76,51 @@ def test_embedding_scheduler_processes_due_batch_and_preserves_memories(tmp_path
     state = json.loads((tmp_path / "embedding-state.json").read_text(encoding="utf-8"))
 
     assert result["reason"] == "never-completed"
-    assert result["processed_count"] == 1
-    assert result["remaining_count"] == 1
+    assert result["processed_count"] == 2
+    assert result["batch_count"] == 2
+    assert result["remaining_count"] == 0
     assert memory_count == 2
-    assert health["embedding_count"] == 1
+    assert health["embedding_count"] == 2
     assert state["embedding_model"] == "fixture-hash"
     assert state["embedding_dim"] == 8
+    assert state["last_batch_at"] == "2026-06-04T12:00:00+00:00"
+    assert state["last_full_completion_at"] == "2026-06-04T12:00:00+00:00"
+
+
+def test_embedding_scheduler_uses_short_backlog_delay_after_cycle_cap(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    for index in range(3):
+        _store_memory(store, f"Backlog {index}", f"Backlog memory {index}.")
+    now = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
+    config = EmbeddingSchedulerConfig(
+        enabled=True,
+        state_path=tmp_path / "embedding-state.json",
+        interval_seconds=3600,
+        batch_size=1,
+        max_batches_per_cycle=2,
+        backlog_delay_seconds=5,
+        embedding_config=EmbeddingConfig(model="fixture-hash", dim=8),
+    )
+
+    first = run_embedding_sidecar_maintenance(store, config=config, now=now)
+    too_soon = run_embedding_sidecar_maintenance(
+        store,
+        config=config,
+        now=now + timedelta(seconds=4),
+    )
+    resumed = run_embedding_sidecar_maintenance(
+        store,
+        config=config,
+        now=now + timedelta(seconds=5),
+    )
+
+    assert first["processed_count"] == 2
+    assert first["remaining_count"] == 1
+    assert too_soon["due"] is False
+    assert too_soon["reason"] == "backlog-delay-not-elapsed"
+    assert resumed["reason"] == "backlog-delay-elapsed"
+    assert resumed["processed_count"] == 1
+    assert resumed["remaining_count"] == 0
 
 
 def test_embedding_scheduler_respects_interval_when_not_due(tmp_path: Path) -> None:
@@ -103,6 +142,43 @@ def test_embedding_scheduler_respects_interval_when_not_due(tmp_path: Path) -> N
     assert second["due"] is False
     assert second["reason"] == "interval-not-elapsed"
     assert second["processed_count"] == 0
+
+
+def test_embedding_scheduler_ignores_completion_state_from_another_database_epoch(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    _store_memory(store, "Restored", "Restored databases must not inherit scheduler completion state.")
+    state_path = tmp_path / "embedding-state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "database_epoch": "pre-restore-epoch",
+                "last_completed_at": "2026-06-04T12:00:00+00:00",
+                "last_full_completion_at": "2026-06-04T12:00:00+00:00",
+                "embedding_model": "fixture-hash",
+                "embedding_dim": 8,
+                "remaining_count": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = EmbeddingSchedulerConfig(
+        enabled=True,
+        state_path=state_path,
+        interval_seconds=3600,
+        batch_size=10,
+        embedding_config=EmbeddingConfig(model="fixture-hash", dim=8),
+    )
+
+    result = run_embedding_sidecar_maintenance(
+        store,
+        config=config,
+        now=datetime(2026, 6, 4, 12, 0, 30, tzinfo=UTC),
+    )
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert result["reason"] == "never-completed"
+    assert result["processed_count"] == 1
+    assert state["database_epoch"] == store.database_epoch()
 
 
 def test_embedding_scheduler_refreshes_stale_sidecar_rows(tmp_path: Path) -> None:

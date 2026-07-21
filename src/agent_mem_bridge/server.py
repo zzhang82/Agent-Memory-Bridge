@@ -3,9 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any, Literal
 
-from pydantic import Field
-
 from mcp.server.fastmcp import FastMCP
+from pydantic import Field
 
 from .paths import (
     resolve_default_client_session_id,
@@ -38,8 +37,7 @@ def store(
         str,
         Field(
             description=(
-                "Logical memory bucket to write into, such as "
-                "`project:<workspace>`, `domain:<name>`, or `global`."
+                "Logical memory bucket to write into, such as `project:<workspace>`, `domain:<name>`, or `global`."
             )
         ),
     ],
@@ -74,34 +72,25 @@ def store(
         str | None,
         Field(
             description=(
-                "Optional session or thread identifier used to trace entries back to one "
-                "conversation or work unit."
+                "Optional session or thread identifier used to trace entries back to one conversation or work unit."
             )
         ),
     ] = None,
     actor: Annotated[
         str | None,
-        Field(
-            description=(
-                "Optional writer identity such as an agent, reviewer, or user profile."
-            )
-        ),
+        Field(description=("Optional writer identity such as an agent, reviewer, or user profile.")),
     ] = None,
     title: Annotated[
         str | None,
         Field(
-            description=(
-                "Optional short label for UI display or scanning. Keep it concise and "
-                "stable when possible."
-            )
+            description=("Optional short label for UI display or scanning. Keep it concise and stable when possible.")
         ),
     ] = None,
     correlation_id: Annotated[
         str | None,
         Field(
             description=(
-                "Optional shared identifier used to link related writes, handoffs, or "
-                "workflow events across entries."
+                "Optional shared identifier used to link related writes, handoffs, or workflow events across entries."
             )
         ),
     ] = None,
@@ -116,44 +105,23 @@ def store(
     ] = None,
     source_client: Annotated[
         str | None,
-        Field(
-            description=(
-                "Optional external client identifier such as `codex`, `antigravity`, "
-                "or `claude-code`."
-            )
-        ),
+        Field(description=("Optional external client identifier such as `codex`, `antigravity`, or `claude-code`.")),
     ] = None,
     source_model: Annotated[
         str | None,
-        Field(
-            description=(
-                "Optional external model identifier such as `gpt-5.4` or `gemini-2.5-pro`."
-            )
-        ),
+        Field(description=("Optional external model identifier such as `gpt-5.4` or `gemini-2.5-pro`.")),
     ] = None,
     client_session_id: Annotated[
         str | None,
-        Field(
-            description=(
-                "Optional external client session or thread identifier when the caller can provide one."
-            )
-        ),
+        Field(description=("Optional external client session or thread identifier when the caller can provide one.")),
     ] = None,
     client_workspace: Annotated[
         str | None,
-        Field(
-            description=(
-                "Optional external client workspace root or project label when useful for provenance."
-            )
-        ),
+        Field(description=("Optional external client workspace root or project label when useful for provenance.")),
     ] = None,
     client_transport: Annotated[
         str | None,
-        Field(
-            description=(
-                "Optional transport label such as `stdio`, `http`, or `sse`."
-            )
-        ),
+        Field(description=("Optional transport label such as `stdio`, `http`, or `sse`.")),
     ] = None,
     expires_at: Annotated[
         str | None,
@@ -169,8 +137,7 @@ def store(
         Field(
             gt=0,
             description=(
-                "Optional relative expiry in seconds for a signal. Useful for short-lived "
-                "handoff or review events."
+                "Optional relative expiry in seconds for a signal. Useful for short-lived handoff or review events."
             ),
         ),
     ] = None,
@@ -230,18 +197,14 @@ def recall(
     namespace: Annotated[
         str,
         Field(
-            description=(
-                "Namespace to search or poll, such as `project:<workspace>`, "
-                "`domain:<name>`, or `global`."
-            )
+            description=("Namespace to search or poll, such as `project:<workspace>`, `domain:<name>`, or `global`.")
         ),
     ],
     query: Annotated[
         str,
         Field(
             description=(
-                "Optional text query for full-text recall. Leave empty to use filter-only "
-                "retrieval or polling."
+                "Optional text query for full-text recall. Leave empty to use filter-only retrieval or polling."
             )
         ),
     ] = "",
@@ -273,12 +236,7 @@ def recall(
     ] = None,
     tags_any: Annotated[
         list[str] | None,
-        Field(
-            description=(
-                "Optional OR-style tag filter. Any matching tag is enough for an entry "
-                "to qualify."
-            )
-        ),
+        Field(description=("Optional OR-style tag filter. Any matching tag is enough for an entry to qualify.")),
     ] = None,
     session_id: Annotated[
         str | None,
@@ -291,10 +249,7 @@ def recall(
     correlation_id: Annotated[
         str | None,
         Field(
-            description=(
-                "Optional correlation filter to recall entries linked to the same workflow, "
-                "handoff, or task."
-            )
+            description=("Optional correlation filter to recall entries linked to the same workflow, handoff, or task.")
         ),
     ] = None,
     since: Annotated[
@@ -303,7 +258,7 @@ def recall(
             description=(
                 "Optional cursor for polling only entries newer than a previously seen "
                 "same-namespace entry id used as a Signal polling anchor. Requires an "
-                "empty query and `kind=\"signal\"`."
+                'empty query and `kind="signal"`.'
             )
         ),
     ] = None,
@@ -362,8 +317,7 @@ def browse(
         str | None,
         Field(
             description=(
-                "Optional domain tag to narrow the list, using the plain domain name "
-                "without the `domain:` prefix."
+                "Optional domain tag to narrow the list, using the plain domain name without the `domain:` prefix."
             )
         ),
     ] = None,
@@ -371,8 +325,7 @@ def browse(
         Literal["memory", "signal"] | None,
         Field(
             description=(
-                "Optional type filter. Use `memory` for durable knowledge and `signal` "
-                "for coordination events."
+                "Optional type filter. Use `memory` for durable knowledge and `signal` for coordination events."
             )
         ),
     ] = None,
@@ -413,12 +366,7 @@ def browse(
 def stats(
     namespace: Annotated[
         str,
-        Field(
-            description=(
-                "Namespace to summarize, such as `project:<workspace>`, `domain:<name>`, "
-                "or `global`."
-            )
-        ),
+        Field(description=("Namespace to summarize, such as `project:<workspace>`, `domain:<name>`, or `global`.")),
     ],
 ) -> dict[str, Any]:
     """Return a quick health summary for one namespace.
@@ -455,12 +403,7 @@ def forget(
 def claim_signal(
     namespace: Annotated[
         str,
-        Field(
-            description=(
-                "Namespace that holds the coordination events to claim, such as "
-                "`project:<workspace>`."
-            )
-        ),
+        Field(description=("Namespace that holds the coordination events to claim, such as `project:<workspace>`.")),
     ],
     consumer: Annotated[
         str,
@@ -541,17 +484,13 @@ def extend_signal_lease(
     id: Annotated[
         str,
         Field(
-            description=(
-                "Exact signal id whose active lease should be extended."
-            ),
+            description=("Exact signal id whose active lease should be extended."),
         ),
     ],
     consumer: Annotated[
         str,
         Field(
-            description=(
-                "Consumer identity that currently owns the lease. Only the active claimant can extend it."
-            ),
+            description=("Consumer identity that currently owns the lease. Only the active claimant can extend it."),
         ),
     ],
     lease_seconds: Annotated[
@@ -605,14 +544,100 @@ def promote(
 
 
 @mcp.tool(structured_output=True)
+def annotate(
+    id: Annotated[
+        str,
+        Field(description="Exact durable memory id whose metadata should be explicitly enriched."),
+    ],
+    tags: Annotated[
+        list[str] | None,
+        Field(description="Optional tags to add. Existing tags remain and the annotation is audited."),
+    ] = None,
+    title: Annotated[
+        str | None,
+        Field(description="Optional replacement title. Content and memory identity remain unchanged."),
+    ] = None,
+    provenance: Annotated[
+        dict[str, str] | None,
+        Field(
+            description=(
+                "Optional additional provenance fields such as source_client, source_model, "
+                "session_id, or correlation_id. They are retained in the annotation audit trail."
+            )
+        ),
+    ] = None,
+    actor: Annotated[
+        str | None,
+        Field(description="Optional identity of the human or agent performing the explicit annotation."),
+    ] = None,
+) -> dict[str, Any]:
+    """Explicitly enrich one durable memory without pretending the write was a new fact.
+
+    Use this after `store` reports `duplicate_with_new_metadata`. The original content
+    remains unchanged; title/tag changes and additional provenance are written to an
+    auditable annotation record.
+    """
+    return bridge.annotate(
+        memory_id=id,
+        tags=tags,
+        title=_optional_text(title),
+        provenance=provenance,
+        actor=_optional_text(actor),
+    )
+
+
+@mcp.tool(structured_output=True)
+def revise(
+    id: Annotated[
+        str,
+        Field(description="Exact durable memory id that the new revision supersedes."),
+    ],
+    replacement_content: Annotated[
+        str,
+        Field(description="Complete replacement content for the new auditable memory revision."),
+    ],
+    title: Annotated[
+        str | None,
+        Field(description="Optional title for the new revision. Defaults to the predecessor title."),
+    ] = None,
+    tags: Annotated[
+        list[str] | None,
+        Field(description="Optional tags for the new revision. Defaults to compatible predecessor tags."),
+    ] = None,
+    actor: Annotated[
+        str | None,
+        Field(description="Optional identity responsible for the revision."),
+    ] = None,
+    reason: Annotated[
+        str | None,
+        Field(description="Optional compact reason stored with the predecessor/successor audit link."),
+    ] = None,
+    provenance: Annotated[
+        dict[str, str] | None,
+        Field(description="Optional provenance overrides for the new revision."),
+    ] = None,
+) -> dict[str, Any]:
+    """Create a new durable memory that explicitly supersedes an older record.
+
+    The predecessor remains available for audit. The bridge adds an exact `supersedes`
+    edge and records the revision receipt instead of silently mutating content in place.
+    """
+    return bridge.revise(
+        memory_id=id,
+        replacement_content=replacement_content,
+        title=_optional_text(title),
+        tags=tags,
+        actor=_optional_text(actor),
+        reason=_optional_text(reason),
+        provenance=provenance,
+    )
+
+
+@mcp.tool(structured_output=True)
 def export(
     namespace: Annotated[
         str,
-        Field(
-            description=(
-                "Namespace to export, such as `project:<workspace>`, `domain:<name>`, or `global`."
-            )
-        ),
+        Field(description=("Namespace to export, such as `project:<workspace>`, `domain:<name>`, or `global`.")),
     ],
     format: Annotated[
         Literal["markdown", "json", "text"],
@@ -625,12 +650,7 @@ def export(
     ] = "markdown",
     query: Annotated[
         str,
-        Field(
-            description=(
-                "Optional full-text query to narrow the export. Leave empty to export by "
-                "filters alone."
-            )
-        ),
+        Field(description=("Optional full-text query to narrow the export. Leave empty to export by filters alone.")),
     ] = "",
     kind: Annotated[
         Literal["memory", "signal"] | None,
@@ -642,12 +662,7 @@ def export(
     ] = None,
     tags_any: Annotated[
         list[str] | None,
-        Field(
-            description=(
-                "Optional OR-style tag filter. Any matching tag is enough for an entry "
-                "to be included."
-            )
-        ),
+        Field(description=("Optional OR-style tag filter. Any matching tag is enough for an entry to be included.")),
     ] = None,
     limit: Annotated[
         int,

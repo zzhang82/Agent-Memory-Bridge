@@ -16,9 +16,11 @@ from .embedding_index import (
 )
 from .index_health import inspect_indexes
 from .paths import (
+    resolve_embedding_scheduler_backlog_delay_seconds,
     resolve_embedding_scheduler_batch_size,
     resolve_embedding_scheduler_enabled,
     resolve_embedding_scheduler_interval_seconds,
+    resolve_embedding_scheduler_max_batches_per_cycle,
     resolve_embedding_scheduler_state_path,
 )
 from .state_io import load_json_state, write_json_state_atomic
@@ -31,6 +33,8 @@ class EmbeddingSchedulerConfig:
     state_path: Path | None = None
     interval_seconds: float = 3600.0
     batch_size: int = 100
+    max_batches_per_cycle: int = 5
+    backlog_delay_seconds: float = 5.0
     embedding_config: EmbeddingConfig | None = None
 
 
@@ -41,6 +45,8 @@ def build_default_embedding_scheduler_config() -> EmbeddingSchedulerConfig:
         state_path=resolve_embedding_scheduler_state_path(),
         interval_seconds=resolve_embedding_scheduler_interval_seconds(),
         batch_size=resolve_embedding_scheduler_batch_size(),
+        max_batches_per_cycle=resolve_embedding_scheduler_max_batches_per_cycle(),
+        backlog_delay_seconds=resolve_embedding_scheduler_backlog_delay_seconds(),
         embedding_config=active_embedding_config() if enabled else None,
     )
 
@@ -69,10 +75,14 @@ def run_embedding_sidecar_maintenance(
 
     embedding_config = resolved.embedding_config or active_embedding_config()
     state = load_json_state(state_path)
+    current_database_epoch = store.database_epoch()
+    if state.get("database_epoch") not in {None, current_database_epoch}:
+        state = {}
     due, due_reason = _is_due(
         state,
         timestamp=timestamp,
         interval_seconds=resolved.interval_seconds,
+        backlog_delay_seconds=resolved.backlog_delay_seconds,
         embedding_config=embedding_config,
     )
     if not due:
@@ -87,11 +97,19 @@ def run_embedding_sidecar_maintenance(
         }
 
     try:
-        result = _run_due_batch(
-            store,
-            embedding_config=embedding_config,
-            batch_size=max(1, resolved.batch_size),
-        )
+        results: list[dict[str, int]] = []
+        for _ in range(max(1, resolved.max_batches_per_cycle)):
+            batch_result = _run_due_batch(
+                store,
+                embedding_config=embedding_config,
+                batch_size=max(1, resolved.batch_size),
+            )
+            results.append(batch_result)
+            if batch_result["remaining_count"] <= 0 or batch_result["processed_count"] <= 0:
+                break
+        result = results[-1]
+        processed_count = sum(item["processed_count"] for item in results)
+        orphan_removed_count = sum(item["orphan_removed_count"] for item in results)
     except Exception as exc:
         write_json_state_atomic(
             state_path,
@@ -102,29 +120,37 @@ def run_embedding_sidecar_maintenance(
                 "last_error_type": exc.__class__.__name__,
                 "embedding_model": embedding_config.model,
                 "embedding_dim": embedding_config.dim,
+                "database_epoch": current_database_epoch,
             },
         )
         raise
 
+    fully_completed = int(result["remaining_count"]) == 0
+    last_full_completion_at = timestamp.isoformat() if fully_completed else state.get("last_full_completion_at")
     write_json_state_atomic(
         state_path,
         {
             **state,
             "last_checked_at": timestamp.isoformat(),
-            "last_completed_at": timestamp.isoformat(),
+            "last_batch_at": timestamp.isoformat(),
+            "last_full_completion_at": last_full_completion_at,
+            "last_completed_at": last_full_completion_at,
             "last_error_at": None,
             "last_error_type": None,
             "embedding_model": embedding_config.model,
             "embedding_dim": embedding_config.dim,
-            "processed_total": int(state.get("processed_total") or 0) + int(result["processed_count"]),
+            "database_epoch": current_database_epoch,
+            "processed_total": int(state.get("processed_total") or 0) + processed_count,
+            "remaining_count": int(result["remaining_count"]),
         },
     )
     return {
         "enabled": True,
         "due": True,
-        "processed_count": result["processed_count"],
+        "processed_count": processed_count,
+        "batch_count": len(results),
         "remaining_count": result["remaining_count"],
-        "orphan_removed_count": result["orphan_removed_count"],
+        "orphan_removed_count": orphan_removed_count,
         "memory_count": result["memory_count"],
         "embedding_count": result["embedding_count"],
         "embedding_model": embedding_config.model,
@@ -196,13 +222,25 @@ def _is_due(
     *,
     timestamp: datetime,
     interval_seconds: float,
+    backlog_delay_seconds: float,
     embedding_config: EmbeddingConfig,
 ) -> tuple[bool, str]:
     if not state:
         return True, "never-completed"
-    if state.get("embedding_model") != embedding_config.model or int(state.get("embedding_dim") or 0) != embedding_config.dim:
+    if (
+        state.get("embedding_model") != embedding_config.model
+        or int(state.get("embedding_dim") or 0) != embedding_config.dim
+    ):
         return True, "embedding-config-changed"
-    last_completed_at = _parse_datetime(state.get("last_completed_at"))
+    remaining_count = int(state.get("remaining_count") or 0)
+    if remaining_count > 0:
+        last_batch_at = _parse_datetime(state.get("last_batch_at"))
+        if last_batch_at is None:
+            return True, "backlog-pending"
+        if backlog_delay_seconds <= 0 or (timestamp - last_batch_at).total_seconds() >= backlog_delay_seconds:
+            return True, "backlog-delay-elapsed"
+        return False, "backlog-delay-not-elapsed"
+    last_completed_at = _parse_datetime(state.get("last_full_completion_at") or state.get("last_completed_at"))
     if last_completed_at is None:
         return True, "never-completed"
     if interval_seconds <= 0:

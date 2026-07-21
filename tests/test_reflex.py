@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -46,7 +47,9 @@ def test_reflex_promotes_summary_into_learn_and_gotcha(tmp_path: Path) -> None:
     assert result["processed_count"] >= 2
     assert learns["count"] >= 1
     assert any("record_type: learn" in item["content"] for item in learns["items"])
-    assert any("claim: Watcher and MCP server must share the same database." in item["content"] for item in learns["items"])
+    assert any(
+        "claim: Watcher and MCP server must share the same database." in item["content"] for item in learns["items"]
+    )
     assert all(item["source_client"] == "antigravity" for item in learns["items"])
     assert all(item["source_model"] == "gemini-2.5-pro" for item in learns["items"])
     assert all(item["client_transport"] == "stdio" for item in learns["items"])
@@ -207,26 +210,31 @@ def test_reflex_promotes_structured_checkpoint_into_gotcha(tmp_path: Path) -> No
     gotchas = store.recall(namespace="global", tags_any=["kind:gotcha"], limit=10)
 
     assert any("claim: Later work can be missing until closeout." in item["content"] for item in gotchas["items"])
-    assert any("fix: Write checkpoint summaries during active rollouts." in item["content"] for item in gotchas["items"])
+    assert any(
+        "fix: Write checkpoint summaries during active rollouts." in item["content"] for item in gotchas["items"]
+    )
 
 
 def test_reflex_shadow_mode_keeps_fallback_tags_but_reports_divergence(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
-    store.store(
-        namespace="project:alpha",
-        kind="memory",
-        title="[[Codex]] auto closeout 2026-04-05",
-        content=(
-            "Automatic Codex closeout.\n\n"
-            "## Durable Points\n\n"
-            "- Assistant outcome: Review handoff should keep explicit queue ownership.\n"
+    for index, claim in enumerate(
+        (
+            "Review handoff should keep explicit queue ownership.",
+            "API review handoff works better with one approval queue.",
         ),
-        tags=["kind:summary", "project:alpha", "source:codex"],
-        session_id="session-shadow",
-        actor="codex",
-        correlation_id="thread-shadow",
-        source_app="codex-session-watcher",
-    )
+        start=1,
+    ):
+        store.store(
+            namespace="project:alpha",
+            kind="memory",
+            title=f"[[Codex]] auto closeout 2026-04-0{index + 4}",
+            content=(f"Automatic Codex closeout.\n\n## Durable Points\n\n- Assistant outcome: {claim}\n"),
+            tags=["kind:summary", "project:alpha", "source:codex"],
+            session_id=f"session-shadow-{index}",
+            actor="codex",
+            correlation_id=f"thread-shadow-{index}",
+            source_app="codex-session-watcher",
+        )
 
     reflex = ReflexEngine(
         store,
@@ -239,11 +247,13 @@ def test_reflex_shadow_mode_keeps_fallback_tags_but_reports_divergence(tmp_path:
     result = reflex.run_once()
 
     learns = store.recall(namespace="global", tags_any=["kind:learn"], limit=10)
+    domain_notes = store.recall(namespace="global", tags_any=["kind:domain-note"], limit=10)
 
     assert result["classifier"]["prediction_count"] >= 1
     assert result["classifier"]["divergence_count"] >= 1
     assert result["classifier"]["minimum_confidence"] == 0.6
     assert not any("topic:review-flow" in item["tags"] for item in learns["items"])
+    assert not any("domain:orchestration" in item["tags"] for item in domain_notes["items"])
 
 
 def test_reflex_assist_mode_uses_classifier_tags_for_domain_note_matching(tmp_path: Path) -> None:
@@ -320,3 +330,111 @@ def test_reflex_assist_mode_ignores_low_confidence_classifier_tags(tmp_path: Pat
     assert result["classifier"]["filtered_low_confidence_count"] >= 1
     assert any("topic:fts" in item["tags"] for item in learns["items"])
     assert any("domain:agent-memory" in item["tags"] for item in learns["items"])
+
+
+def test_reflex_migrates_legacy_since_id_without_skipping_same_timestamp_row(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    first = store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="first summary",
+        content="Automatic closeout.\n\n## Durable Points\n\n- status only\n",
+        tags=["kind:summary"],
+    )
+    second = store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="second summary",
+        content="Automatic closeout.\n\n## Durable Points\n\n- second status only\n",
+        tags=["kind:summary"],
+    )
+    timestamp = "2026-07-21T12:00:00.123456+00:00"
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE memories SET created_at = ? WHERE id IN (?, ?)",
+            (timestamp, first["id"], second["id"]),
+        )
+        second_sequence = conn.execute(
+            "SELECT sequence FROM memory_insertions WHERE memory_id = ?",
+            (second["id"],),
+        ).fetchone()["sequence"]
+        conn.commit()
+
+    state_path = tmp_path / "reflex-state.json"
+    state_path.write_text(json.dumps({"since_id": first["id"]}), encoding="utf-8")
+    result = ReflexEngine(
+        store,
+        ReflexConfig(state_path=state_path, scan_limit=1),
+    ).run_once()
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert result["since_id"] == second["id"]
+    assert state["last_insertion_sequence"] == second_sequence
+    assert "last_rowid" not in state
+
+
+def test_reflex_resets_insertion_cursor_when_database_epoch_changes(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    summary = store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="restored summary",
+        content="Automatic closeout.\n\n## Durable Points\n\n- restored state must be replayed\n",
+        tags=["kind:summary"],
+    )
+    state_path = tmp_path / "reflex-state.json"
+    state_path.write_text(
+        json.dumps(
+            {
+                "since_id": "pre-restore-id",
+                "last_rowid": 999_999,
+                "database_epoch": "pre-restore-epoch",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = ReflexEngine(
+        store,
+        ReflexConfig(state_path=state_path, scan_limit=10),
+    ).run_once()
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert result["since_id"] == summary["id"]
+    assert state["database_epoch"] == store.database_epoch()
+    assert state["last_insertion_sequence"] < 999_999
+    assert "last_rowid" not in state
+
+
+def test_reflex_insertion_cursor_survives_memories_rowid_reuse(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    first = store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="first summary",
+        content="Automatic closeout.\n\n## Durable Points\n\n- status only\n",
+        tags=["kind:summary"],
+    )
+    state_path = tmp_path / "reflex-state.json"
+    engine = ReflexEngine(store, ReflexConfig(state_path=state_path, scan_limit=1))
+    engine.run_once()
+    with store._connect() as conn:
+        first_rowid = conn.execute("SELECT rowid FROM memories WHERE id = ?", (first["id"],)).fetchone()["rowid"]
+
+    assert store.forget(str(first["id"]))["deleted"] is True
+    second = store.store(
+        namespace="project:alpha",
+        kind="memory",
+        title="second summary",
+        content="Automatic closeout.\n\n## Durable Points\n\n- second status only\n",
+        tags=["kind:summary"],
+    )
+    with store._connect() as conn:
+        second_rowid = conn.execute("SELECT rowid FROM memories WHERE id = ?", (second["id"],)).fetchone()["rowid"]
+
+    result = engine.run_once()
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+
+    assert second_rowid == first_rowid
+    assert result["since_id"] == second["id"]
+    assert state["since_id"] == second["id"]

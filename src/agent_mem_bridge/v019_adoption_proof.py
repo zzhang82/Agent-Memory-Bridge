@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from .first_run import build_first_run_report
+from .onboarding import TOOL_NAMES
 from .release_contract import load_server_tool_names
 from .storage import MemoryStore
 from .task_brief import build_task_brief_report
 from .task_memory import assemble_task_memory
-
 
 ROOT = Path(__file__).resolve().parents[2]
 V019_ADOPTION_PROOF_SCHEMA = "memory.v0_19_adoption_proof.v1"
@@ -23,6 +23,18 @@ V019_PROJECT_NAMESPACE = "project:v019-proof"
 V019_GLOBAL_NAMESPACE = "global"
 FIXED_GENERATED_AT = "2026-07-07T00:00:00+00:00"
 EXPECTED_PUBLIC_TOOL_COUNT = 10
+V019_PUBLIC_TOOLS = {
+    "ack_signal",
+    "browse",
+    "claim_signal",
+    "extend_signal_lease",
+    "export",
+    "forget",
+    "promote",
+    "recall",
+    "stats",
+    "store",
+}
 
 
 def run_v019_adoption_proof(*, manifest_path: Path | None = None) -> dict[str, Any]:
@@ -39,7 +51,11 @@ def run_v019_adoption_proof(*, manifest_path: Path | None = None) -> dict[str, A
 
     category_counts = Counter(case["category"] for case in cases)
     category_pass_counts = Counter(case["category"] for case in cases if case["passed"])
-    public_tool_count = len(load_server_tool_names(ROOT / "src" / "agent_mem_bridge" / "server.py"))
+    current_public_tools = load_server_tool_names(ROOT / "src" / "agent_mem_bridge" / "server.py")
+    v019_surface_change = not V019_PUBLIC_TOOLS.issubset(current_public_tools) or bool(
+        {"v019_adoption_proof", "first_run", "task_brief"} & current_public_tools
+    )
+    current_surface_matches_contract = current_public_tools == TOOL_NAMES
     summary = {
         "v019_case_count": len(cases),
         "v019_pass_count": sum(1 for case in cases if case["passed"]),
@@ -53,12 +69,13 @@ def run_v019_adoption_proof(*, manifest_path: Path | None = None) -> dict[str, A
             category_pass_counts["first_run_adoption"],
             category_counts["first_run_adoption"],
         ),
-        "v019_public_mcp_tool_count": public_tool_count,
-        "v019_public_mcp_surface_change": public_tool_count != EXPECTED_PUBLIC_TOOL_COUNT,
+        "v019_public_mcp_tool_count": EXPECTED_PUBLIC_TOOL_COUNT,
+        "v019_public_mcp_surface_change": v019_surface_change,
         "v019_client_config_write_count": 0,
         "v019_durable_writeback_count": 0,
         "v019_amh_required": False,
         "v019_native_memory_comparison_required": True,
+        "v019_current_public_surface_contract_pass": current_surface_matches_contract,
     }
     return {
         "schema": V019_ADOPTION_PROOF_SCHEMA,
@@ -97,7 +114,15 @@ def _load_manifest(path: Path) -> dict[str, Any]:
     category_counts = Counter(case.get("category") for case in cases)
     if category_counts != {"retrieval": 4, "task_brief": 4, "first_run_adoption": 4}:
         raise ValueError(f"Unexpected v0.19 category denominator: {dict(category_counts)}")
-    required = {"id", "category", "purpose", "query_or_command", "expected_behavior", "failure_reason", "non_goal_guard"}
+    required = {
+        "id",
+        "category",
+        "purpose",
+        "query_or_command",
+        "expected_behavior",
+        "failure_reason",
+        "non_goal_guard",
+    }
     for case in cases:
         missing = sorted(required - set(case))
         if missing:
@@ -159,7 +184,11 @@ def _retrieval_decision_case(store: MemoryStore, case: dict[str, Any]) -> dict[s
         == ["[[Decision]] release cutover default verification"],
         "global_support_available": "[[Domain]] release cutover verification defaults" in _titles(global_hits),
     }
-    return _case_result(case, checks=checks, observations={"project_titles": _titles(project_hits), "global_titles": _titles(global_hits)})
+    return _case_result(
+        case,
+        checks=checks,
+        observations={"project_titles": _titles(project_hits), "global_titles": _titles(global_hits)},
+    )
 
 
 def _retrieval_gotcha_case(store: MemoryStore, case: dict[str, Any]) -> dict[str, Any]:
@@ -184,7 +213,8 @@ def _retrieval_procedure_support_case(store: MemoryStore, case: dict[str, Any]) 
         global_namespace=V019_GLOBAL_NAMESPACE,
     )
     checks = {
-        "procedure_present": "[[Procedure]] prepare task brief release handoff" in _titles(task_memory["procedure_hits"]),
+        "procedure_present": "[[Procedure]] prepare task brief release handoff"
+        in _titles(task_memory["procedure_hits"]),
         "concept_support_present": "[[Concept]] task brief is derived context" in _titles(task_memory["concept_hits"])
         or "[[Concept]] task brief is derived context" in _titles(task_memory["supporting_hits"]),
         "report_is_informational": task_memory["assembly_mode"] == "relation-aware",
@@ -264,7 +294,9 @@ def _task_brief_signal_case(store: MemoryStore, case: dict[str, Any]) -> dict[st
     checks = {
         "active_signal_visible": len(signal_items) == 1,
         "signal_separate_from_durable_memory": signal_items[0]["kind"] == "signal" if signal_items else False,
-        "signal_not_claimed_or_acked": signal_items[0].get("signal_status") in {None, "pending"} if signal_items else False,
+        "signal_not_claimed_or_acked": signal_items[0].get("signal_status") in {None, "pending"}
+        if signal_items
+        else False,
     }
     return _case_result(case, checks=checks, observations={"signal_items": _brief_item_observations(signal_items)})
 
@@ -401,11 +433,7 @@ def _seed_v019_fixture(store: MemoryStore) -> dict[str, str]:
         namespace=V019_PROJECT_NAMESPACE,
         kind="memory",
         title="[[Procedure]] old release checklist",
-        content=(
-            "record_type: procedure\n"
-            "goal: Run old release checklist.\n"
-            "steps: skip proof | tag release\n"
-        ),
+        content=("record_type: procedure\ngoal: Run old release checklist.\nsteps: skip proof | tag release\n"),
         tags=["kind:procedure", "domain:release", "topic:checklist"],
     )
     current_checklist = store.store(
@@ -426,10 +454,7 @@ def _seed_v019_fixture(store: MemoryStore) -> dict[str, str]:
         namespace=V019_GLOBAL_NAMESPACE,
         kind="memory",
         title="[[Belief]] safe release shortcut",
-        content=(
-            "record_type: belief\n"
-            "claim: Safe release shortcut can skip proof if docs look clean.\n"
-        ),
+        content=("record_type: belief\nclaim: Safe release shortcut can skip proof if docs look clean.\n"),
         tags=["kind:belief", "domain:release", "topic:shortcut"],
     )
     current_belief = store.store(

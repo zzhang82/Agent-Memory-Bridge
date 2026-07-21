@@ -350,11 +350,7 @@ def _detect_out_of_filter_domains(report: dict[str, Any], *, config: BeliefRepla
     observed_domains = {
         str(row["domain"])
         for row in report["cohorts"]["by_domain"]
-        if (
-            row.get("domain_note_count", 0) > 0
-            or row.get("candidate_count", 0) > 0
-            or row.get("belief_count", 0) > 0
-        )
+        if (row.get("domain_note_count", 0) > 0 or row.get("candidate_count", 0) > 0 or row.get("belief_count", 0) > 0)
     }
     return sorted(domain for domain in observed_domains if domain not in allowed_domains)
 
@@ -417,15 +413,9 @@ def _diff_count_maps(
     variant_counts: dict[str, Any] | None,
 ) -> dict[str, int]:
     baseline = {
-        str(key): int(value)
-        for key, value in (baseline_counts or {}).items()
-        if isinstance(value, (int, float))
+        str(key): int(value) for key, value in (baseline_counts or {}).items() if isinstance(value, (int, float))
     }
-    variant = {
-        str(key): int(value)
-        for key, value in (variant_counts or {}).items()
-        if isinstance(value, (int, float))
-    }
+    variant = {str(key): int(value) for key, value in (variant_counts or {}).items() if isinstance(value, (int, float))}
     keys = sorted(set(baseline) | set(variant))
     return {
         key: variant.get(key, 0) - baseline.get(key, 0)

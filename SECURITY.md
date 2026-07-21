@@ -14,7 +14,8 @@ features are enabled.
 
 The bridge does not require a hosted service for normal MCP use. Network access is
 not part of the core `store`, `recall`, `browse`, `stats`, `forget`, `promote`,
-`export`, `claim_signal`, `extend_signal_lease`, or `ack_signal` contract.
+`annotate`, `revise`, `export`, `claim_signal`, `extend_signal_lease`, or
+`ack_signal` contract.
 
 ## What AMB Stores Locally
 
@@ -76,14 +77,19 @@ can include memory text, titles, source ids, and fallback tags. AMB then reads t
 classifier's JSON response from stdout.
 
 This command is trusted local code. AMB does not sandbox it, audit it, restrict
-its file access, restrict its network access, or protect secrets from the process
-environment. Only configure classifier commands that you control and are willing
-to run with the same local privileges as the bridge process.
+its file access, or restrict its network access. It runs as an argv array with
+`shell=False` by default, receives a sanitized environment, and is stopped as a
+process tree on timeout or output overflow. Input, stdout, and stderr have
+configurable byte limits; error messages expose a command fingerprint instead
+of raw command output. These controls limit accidental resource exhaustion and
+quoting mistakes. They do not make an untrusted program safe.
 
 Recommended practice:
 
 - keep `[classifier].mode = "off"` unless you need classifier-assisted enrichment
 - use `shadow` mode before `assist` mode on a private corpus
+- configure `command` as a TOML argv array and leave `trusted_shell = false`
+- add only required variable names to `env_allowlist`
 - review the command implementation and dependencies before enabling it
 - avoid commands that upload memory content unless that is an explicit and
   acceptable part of your deployment
@@ -106,10 +112,11 @@ command returns vectors as JSON over stdout. AMB stores only the resulting vecto
 sidecar, content hash, logical model id, vector dimension, and timestamp in
 SQLite; it does not store the raw command string in `memory_embeddings`.
 
-This command is trusted local code. AMB does not sandbox it, audit it, restrict
-its file access, restrict its network access, or protect secrets from the process
-environment. Only configure embedding commands that you control and are willing
-to run with the same local privileges as the bridge process.
+This command has the same trusted-local boundary as the classifier provider. It
+runs with `shell=False` by default, a sanitized environment, bounded stdin/stdout/
+stderr, timeout enforcement, and process-tree termination. AMB still does not
+sandbox it or restrict its filesystem and network access. Only configure code
+you control and are willing to run with the bridge process's local privileges.
 
 Recommended practice:
 
@@ -119,6 +126,9 @@ Recommended practice:
   sidecar
 - set `embedding_model` and `embedding_dim` explicitly so sidecar health checks
   cannot silently mix incompatible vectors
+- configure `embedding_command` as a TOML argv array, leave
+  `embedding_trusted_shell = false`, and allowlist only required environment
+  variable names
 - avoid commands that upload memory content unless that is an explicit and
   acceptable part of your deployment
 - treat embedding vectors as potentially sensitive derived data when sharing
@@ -127,3 +137,18 @@ Recommended practice:
 If the embedding command fails, returns invalid JSON, times out, or emits vectors
 with the wrong dimension, AMB reports a sanitized command error and keeps the
 authoritative `memories` table unchanged.
+
+## Local Operating Profiles
+
+`local-single-user` is the compatibility profile for one trusted local operator.
+`hardened-local` requires a Signal claim before acknowledgement and rejects the
+trusted-shell escape hatch for classifier and embedding providers. Both profiles
+remain local cooperative security models: neither adds authenticated client
+identity, per-namespace ACLs, sandboxing, multi-user isolation, compliance, or a
+distributed lock.
+
+On POSIX systems AMB creates the bridge home as `0700` and managed database,
+state, lock, health, and log files as `0600` where the platform permits. `doctor`
+reports unsafe permissions and stale service health. Keep the active WAL database
+on a local filesystem; network shares and consumer sync folders can violate the
+locking assumptions SQLite WAL relies on.

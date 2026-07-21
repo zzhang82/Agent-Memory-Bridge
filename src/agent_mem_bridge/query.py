@@ -17,8 +17,9 @@ from .embedding_index import (
     upsert_prepared_embeddings,
 )
 from .paths import resolve_hybrid_semantic_weight, resolve_retrieval_mode, resolve_semantic_scan_limit
-from .repository import MEMORY_ROW_SELECT, MemoryRow, normalize_tags
-
+from .poll_cursor import decode_poll_cursor
+from .repository import MEMORY_ROW_SELECT, MemoryRow, memory_row_select, normalize_tags
+from .schema import database_epoch as read_database_epoch
 
 LEXICAL_FTS_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 
@@ -38,6 +39,7 @@ def recall_candidates(
     since: str | None,
     retrieval_mode: str | None = None,
     diagnostics: dict[str, Any] | None = None,
+    include_rowid: bool = False,
 ) -> list[dict[str, Any]]:
     candidate_limit = max(limit, min(max(limit * 5, 20), 100))
     mode = normalize_retrieval_mode(retrieval_mode or resolve_retrieval_mode())
@@ -54,6 +56,7 @@ def recall_candidates(
             actor=actor,
             correlation_id=correlation_id,
             since=since,
+            include_rowid=include_rowid,
         )
         try:
             semantic_items = recall_via_semantic(
@@ -68,6 +71,7 @@ def recall_candidates(
                 actor=actor,
                 correlation_id=correlation_id,
                 since=since,
+                include_rowid=include_rowid,
             )
         except EmbeddingProviderError as exc:
             if mode == "semantic":
@@ -114,7 +118,40 @@ def recall_candidates(
         actor=actor,
         correlation_id=correlation_id,
         since=since,
+        include_rowid=include_rowid,
     )
+
+
+def recall_signal_poll_page(
+    store: Any,
+    *,
+    namespace: str,
+    limit: int,
+    signal_status: str | None,
+    tags_any: list[str] | None,
+    session_id: str | None,
+    actor: str | None,
+    correlation_id: str | None,
+    since: str | None,
+) -> tuple[list[dict[str, Any]], str]:
+    """Read one Signal polling page and its database epoch from one snapshot."""
+
+    rows, snapshot_epoch = _recall_via_filters_snapshot(
+        store,
+        namespace=namespace,
+        limit=limit,
+        kind="signal",
+        signal_status=signal_status,
+        tags_any=tags_any,
+        session_id=session_id,
+        actor=actor,
+        correlation_id=correlation_id,
+        since=since,
+    )
+    items = [_row_to_item(row, include_rowid=True) for row in rows]
+    if signal_status is not None:
+        items = [item for item in items if item.get("signal_status") == signal_status]
+    return items, snapshot_epoch
 
 
 def _recall_lexical_candidates(
@@ -130,6 +167,7 @@ def _recall_lexical_candidates(
     actor: str | None,
     correlation_id: str | None,
     since: str | None,
+    include_rowid: bool,
 ) -> list[dict[str, Any]]:
     candidate_limit = max(limit, min(max(limit * 5, 20), 100))
     match_query = build_match_query(query)
@@ -148,7 +186,7 @@ def _recall_lexical_candidates(
             since=since,
         )
         if rows:
-            items = [MemoryRow.from_sqlite(row).as_dict() for row in rows]
+            items = [_row_to_item(row, include_rowid=include_rowid) for row in rows]
             if signal_status is not None:
                 items = [item for item in items if item.get("signal_status") == signal_status]
             return rerank_items(query, items, limit)
@@ -180,7 +218,7 @@ def _recall_lexical_candidates(
             correlation_id=correlation_id,
             since=since,
         )
-    items = [MemoryRow.from_sqlite(row).as_dict() for row in rows]
+    items = [_row_to_item(row, include_rowid=include_rowid) for row in rows]
     if signal_status is not None:
         items = [item for item in items if item.get("signal_status") == signal_status]
     if query:
@@ -201,6 +239,7 @@ def recall_via_semantic(
     actor: str | None,
     correlation_id: str | None,
     since: str | None,
+    include_rowid: bool = False,
 ) -> list[dict[str, Any]]:
     where_sql, params = build_filters(
         store,
@@ -214,18 +253,19 @@ def recall_via_semantic(
         since=since,
         alias="m",
     )
-    scan_limit = max(limit, min(max(limit * 20, 50), resolve_semantic_scan_limit()))
+    embedding_batch_size = max(1, resolve_semantic_scan_limit())
     try:
         embedding_config = active_embedding_config()
     except ValueError as exc:
         raise EmbeddingProviderError("embedding configuration is invalid") from exc
     with store._connect() as conn:
-        rows = conn.execute(
+        missing_rows = conn.execute(
             f"""
             SELECT
-                {alias_columns('m')},
-                m.content_hash,
-                e.vector_json
+                m.id,
+                m.title,
+                m.content,
+                m.content_hash
             FROM memories m
             LEFT JOIN memory_embeddings e
               ON e.memory_id = m.id
@@ -233,32 +273,37 @@ def recall_via_semantic(
              AND e.embedding_model = ?
              AND e.embedding_dim = ?
             WHERE {where_sql}
-            ORDER BY m.created_at DESC, m.rowid DESC
-            LIMIT ?
+              AND e.memory_id IS NULL
+            ORDER BY (SELECT sequence FROM memory_insertions WHERE memory_id = m.id) ASC
             """,
-            (embedding_config.model, embedding_config.dim, *params, scan_limit),
+            (embedding_config.model, embedding_config.dim, *params),
         ).fetchall()
-    missing_rows = [row for row in rows if row["vector_json"] is None]
-    vectors = embed_texts(
-        [query, *(embedding_text_for_row(row) for row in missing_rows)],
-        config=embedding_config,
-    )
-    query_vector = vectors[0]
-    prepared = prepared_embeddings_from_vectors(
-        missing_rows,
-        vectors=vectors[1:],
-        config=embedding_config,
-    )
-    if prepared:
+    query_vector: list[float] | None = None
+    for index in range(0, len(missing_rows), embedding_batch_size):
+        batch = missing_rows[index : index + embedding_batch_size]
+        texts = [embedding_text_for_row(row) for row in batch]
+        if query_vector is None:
+            generated = embed_texts([query, *texts], config=embedding_config)
+            query_vector = generated[0]
+            vectors = generated[1:]
+        else:
+            vectors = embed_texts(texts, config=embedding_config)
+        prepared = prepared_embeddings_from_vectors(
+            batch,
+            vectors=vectors,
+            config=embedding_config,
+        )
         with store._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             upsert_prepared_embeddings(conn, prepared, config=embedding_config)
             conn.commit()
+    if query_vector is None:
+        query_vector = embed_texts([query], config=embedding_config)[0]
     with store._connect() as conn:
         refreshed = conn.execute(
             f"""
             SELECT
-                {alias_columns('m')},
+                {alias_columns("m")},
                 m.content_hash,
                 e.vector_json
             FROM memories m
@@ -267,10 +312,9 @@ def recall_via_semantic(
             AND e.content_hash = m.content_hash
             AND e.embedding_model = ?
             AND e.embedding_dim = ?
-            ORDER BY m.created_at DESC, m.rowid DESC
-            LIMIT ?
+            ORDER BY (SELECT sequence FROM memory_insertions WHERE memory_id = m.id) ASC
             """,
-            (*params, embedding_config.model, embedding_config.dim, scan_limit),
+            (*params, embedding_config.model, embedding_config.dim),
         ).fetchall()
 
     scored: list[tuple[float, str, dict[str, Any]]] = []
@@ -278,11 +322,12 @@ def recall_via_semantic(
         score = cosine_similarity(query_vector, load_vector(row["vector_json"]))
         if score <= 0:
             continue
-        item = MemoryRow.from_sqlite(row).as_dict()
+        item = _row_to_item(row, include_rowid=include_rowid)
         item["retrieval"] = {
             **(item.get("retrieval") or {}),
             "semantic_score": score,
             "semantic_model": embedding_config.model,
+            "semantic_scope": "full-store-exact",
         }
         scored.append((score, normalize_text(str(item.get("title") or "")), item))
     scored.sort(key=lambda entry: (-entry[0], entry[1]))
@@ -325,14 +370,13 @@ def hybrid_rerank_items(
         lexical_rerank_rrf = 1.0 / (60 + lexical_score_rank[item_id]) if item_id in lexical_score_rank else 0.0
         semantic_rrf = 1.0 / (60 + semantic_rank[item_id]) if item_id in semantic_rank else 0.0
         semantic_score = semantic_scores.get(item_id, 0.0)
-        if item_id in lexical_rank:
-            # Hybrid v1 is lexical-anchored: semantic recall may enrich and
-            # extend the candidate set, but a weak sidecar must not demote the
-            # stable FTS path that users already trust.
-            score = 1_000_000.0 - (lexical_score_rank.get(item_id, lexical_rank[item_id]) * 1_000.0)
-            score += (lexical_rrf * 30.0) + (lexical_rerank_rrf * 45.0) + min(semantic_score * semantic_weight, 5.0)
-        else:
-            score = (semantic_rrf * 30.0) + (semantic_score * semantic_weight)
+        normalized_semantic_weight = max(0.0, min(semantic_weight / 100.0, 1.0))
+        score = (
+            lexical_rrf * 0.45
+            + lexical_rerank_rrf * 0.35
+            + semantic_rrf * (0.20 + normalized_semantic_weight)
+            + max(semantic_score, 0.0) * normalized_semantic_weight * 0.02
+        )
         item["retrieval"] = {
             **(item.get("retrieval") or {}),
             "mode": "hybrid",
@@ -376,7 +420,7 @@ def recall_via_fts(
         return conn.execute(
             f"""
             SELECT
-                {alias_columns('m')}
+                {alias_columns("m")}
             FROM memories m
             JOIN memories_fts f ON f.memory_id = m.id
             WHERE {where_sql} AND memories_fts MATCH ?
@@ -441,9 +485,10 @@ def recall_via_filters(
     correlation_id: str | None,
     since: str | None,
 ) -> list[sqlite3.Row]:
-    where_sql, params = build_filters(
+    rows, _snapshot_epoch = _recall_via_filters_snapshot(
         store,
         namespace=namespace,
+        limit=limit,
         kind=kind,
         signal_status=signal_status,
         tags_any=tags_any,
@@ -452,9 +497,44 @@ def recall_via_filters(
         correlation_id=correlation_id,
         since=since,
     )
+    return rows
+
+
+def _recall_via_filters_snapshot(
+    store: Any,
+    *,
+    namespace: str,
+    limit: int,
+    kind: str | None,
+    signal_status: str | None,
+    tags_any: list[str] | None,
+    session_id: str | None,
+    actor: str | None,
+    correlation_id: str | None,
+    since: str | None,
+) -> tuple[list[sqlite3.Row], str]:
     with store._connect() as conn:
-        order_sql = "rowid ASC" if since is not None else "created_at DESC, rowid DESC"
-        return conn.execute(
+        conn.execute("BEGIN")
+        snapshot_epoch = read_database_epoch(conn)
+        where_sql, params = build_filters(
+            store,
+            namespace=namespace,
+            kind=kind,
+            signal_status=signal_status,
+            tags_any=tags_any,
+            session_id=session_id,
+            actor=actor,
+            correlation_id=correlation_id,
+            since=since,
+            connection=conn,
+            current_database_epoch=snapshot_epoch,
+        )
+        order_sql = (
+            "(SELECT sequence FROM memory_insertions WHERE memory_id = memories.id) ASC"
+            if since is not None
+            else "created_at DESC, rowid DESC"
+        )
+        rows = conn.execute(
             f"""
             SELECT
                 {MEMORY_ROW_SELECT}
@@ -465,6 +545,7 @@ def recall_via_filters(
             """,
             (*params, limit),
         ).fetchall()
+    return rows, snapshot_epoch
 
 
 def build_filters(
@@ -479,6 +560,8 @@ def build_filters(
     correlation_id: str | None,
     since: str | None,
     alias: str | None = None,
+    connection: sqlite3.Connection | None = None,
+    current_database_epoch: str | None = None,
 ) -> tuple[str, list[Any]]:
     prefix = f"{alias}." if alias else ""
     clauses = [f"{prefix}namespace = ?"]
@@ -517,6 +600,8 @@ def build_filters(
             since,
             namespace=namespace,
             prefix=prefix,
+            connection=connection,
+            current_database_epoch=current_database_epoch,
         )
         if since_filter_sql:
             clauses.append(since_filter_sql)
@@ -544,8 +629,7 @@ def build_signal_status_filter(signal_status: str | None, prefix: str = "") -> t
 
     if signal_status == "acked":
         return (
-            f"({prefix}kind = 'signal' AND "
-            f"({prefix}acknowledged_at IS NOT NULL OR {prefix}signal_status = 'acked'))",
+            f"({prefix}kind = 'signal' AND ({prefix}acknowledged_at IS NOT NULL OR {prefix}signal_status = 'acked'))",
             [],
         )
     if signal_status == "expired":
@@ -582,9 +666,11 @@ def build_tag_filter(tags_any: list[str] | None, prefix: str = "") -> tuple[str,
     if not normalized:
         return "", []
 
-    clauses = [f"{prefix}tags_json LIKE ? ESCAPE '\\'" for _ in normalized]
-    params = [f'%"{escape_like(tag)}"%' for tag in normalized]
-    return f"({' OR '.join(clauses)})", params
+    placeholders = ", ".join("?" for _ in normalized)
+    return (
+        f"EXISTS (SELECT 1 FROM memory_tags mt WHERE mt.memory_id = {prefix}id AND mt.tag IN ({placeholders}))",
+        normalized,
+    )
 
 
 def build_since_filter(
@@ -593,17 +679,53 @@ def build_since_filter(
     *,
     namespace: str,
     prefix: str = "",
+    connection: sqlite3.Connection | None = None,
+    current_database_epoch: str | None = None,
 ) -> tuple[str, list[Any]]:
-    with store._connect() as conn:
-        row = conn.execute(
-            "SELECT rowid, namespace FROM memories WHERE id = ? LIMIT 1",
+    opaque = decode_poll_cursor(since_id)
+    if opaque is not None:
+        if opaque.namespace != namespace:
+            raise ValueError("invalid since cursor: namespace mismatch")
+        active_epoch = current_database_epoch
+        if active_epoch is None:
+            active_epoch = read_database_epoch(connection) if connection is not None else store.database_epoch()
+        if opaque.database_epoch is not None and opaque.database_epoch != active_epoch:
+            raise ValueError("invalid since cursor: database epoch mismatch after restore")
+        return (
+            f"(SELECT sequence FROM memory_insertions WHERE memory_id = {prefix}id) > ?",
+            [opaque.sequence],
+        )
+    if connection is not None:
+        row = connection.execute(
+            """
+            SELECT i.sequence, m.namespace
+            FROM memories m
+            JOIN memory_insertions i ON i.memory_id = m.id
+            WHERE m.id = ?
+            LIMIT 1
+            """,
             (since_id,),
         ).fetchone()
+    else:
+        with store._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT i.sequence, m.namespace
+                FROM memories m
+                JOIN memory_insertions i ON i.memory_id = m.id
+                WHERE m.id = ?
+                LIMIT 1
+                """,
+                (since_id,),
+            ).fetchone()
     if row is None:
         raise ValueError(f"invalid since cursor: {since_id}")
     if row["namespace"] != namespace:
         raise ValueError("invalid since cursor: namespace mismatch")
-    return f"{prefix}rowid > ?", [row["rowid"]]
+    return (
+        f"(SELECT sequence FROM memory_insertions WHERE memory_id = {prefix}id) > ?",
+        [row["sequence"]],
+    )
 
 
 def build_match_query(query: str) -> str:
@@ -688,7 +810,11 @@ def title_precision_score(query_tokens: list[str], title_tokens: list[str]) -> f
 def title_edge_match_score(query_tokens: list[str], title_tokens: list[str]) -> float:
     if not query_tokens or not title_tokens:
         return 0.0
-    return float(max(query_prefix_match_length(query_tokens, title_tokens), query_suffix_match_length(query_tokens, title_tokens)))
+    return float(
+        max(
+            query_prefix_match_length(query_tokens, title_tokens), query_suffix_match_length(query_tokens, title_tokens)
+        )
+    )
 
 
 def ordered_span_score(query_tokens: list[str], field_tokens: list[str], *, base: float) -> float:
@@ -760,6 +886,11 @@ def escape_like(value: str) -> str:
 
 
 def alias_columns(alias: str) -> str:
-    prefix = f"{alias}."
-    columns = [line.strip().rstrip(",") for line in MEMORY_ROW_SELECT.strip().splitlines() if line.strip()]
-    return ",\n                ".join(f"{prefix}{column}" for column in columns)
+    return memory_row_select(alias)
+
+
+def _row_to_item(row: sqlite3.Row, *, include_rowid: bool) -> dict[str, Any]:
+    item = MemoryRow.from_sqlite(row).as_dict()
+    if include_rowid:
+        item["_cursor_sequence"] = int(row["_insertion_sequence"])
+    return item

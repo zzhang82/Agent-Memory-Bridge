@@ -9,7 +9,6 @@ from typing import Any
 from .storage import MemoryStore
 from .sync_notes import sync_markdown_file
 
-
 SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 

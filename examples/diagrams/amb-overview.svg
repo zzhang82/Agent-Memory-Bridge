@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100" role="img" aria-labelledby="amb-title amb-desc">
   <title id="amb-title">Agent Memory Bridge architecture</title>
-  <desc id="amb-desc">Generic MCP-compatible coding agents use ten public tools grouped into memory, governed change, and signals. SQLite in WAL mode is the durable authority. FTS5 and optional embeddings are derived indexes. Governed change checks redacted tombstones, lineage, supersession, current premises, and task domains before producing derived context and reports with no automatic durable writeback. Release proof gates are separate from the runtime path.</desc>
+  <desc id="amb-desc">Generic MCP-compatible coding agents use twelve public tools grouped into memory, governed change, and signals. SQLite in WAL mode is the durable authority. FTS5 and optional embeddings are derived indexes. Governed change checks redacted tombstones, lineage, supersession, current premises, and task domains before producing derived context and reports with no automatic durable writeback. Release proof gates are separate from the runtime path.</desc>
 
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -41,7 +41,7 @@
 
   <rect class="panel-soft" x="40" y="204" width="720" height="250" rx="10"/>
   <text class="section" x="64" y="236">Public MCP surface</text>
-  <text class="small" x="248" y="236">exactly 10 tools</text>
+  <text class="small" x="248" y="236">exactly 12 tools</text>
 
   <rect class="group" x="64" y="256" width="210" height="168" rx="8"/>
   <text class="label" x="82" y="285">Memory - 5</text>
@@ -52,9 +52,11 @@
   <text class="tool" x="82" y="380">export</text>
 
   <rect class="group" x="294" y="256" width="190" height="168" rx="8"/>
-  <text class="label" x="312" y="285">Change - 2</text>
-  <text class="tool" x="312" y="324">forget</text>
-  <text class="tool" x="312" y="360">promote</text>
+  <text class="label" x="312" y="285">Change - 4</text>
+  <text class="tool" x="312" y="312">forget</text>
+  <text class="tool" x="312" y="342">promote</text>
+  <text class="tool" x="312" y="372">annotate</text>
+  <text class="tool" x="312" y="402">revise</text>
 
   <rect class="group" x="504" y="256" width="232" height="168" rx="8"/>
   <text class="label" x="522" y="285">Signals - 3</text>

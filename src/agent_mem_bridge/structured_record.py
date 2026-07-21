@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-
 RELATION_FIELDS = ("supports", "contradicts", "supersedes", "depends_on")
 LINEAGE_SINGLETON_FIELDS = (
     "derived_from_candidate_id",

@@ -13,7 +13,6 @@ from .storage import MemoryStore
 from .task_memory import assemble_task_memory
 from .task_memory_benchmark import seed_case_store
 
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CASES_PATH = ROOT / "benchmark" / "procedure-governance-cases.json"
 DEFAULT_REPORT_PATH = ROOT / "benchmark" / "latest-procedure-governance-report.json"
@@ -69,9 +68,7 @@ def build_procedure_governance_summary(results: list[dict[str, Any]]) -> dict[st
         "flat_case_pass_rate": _case_pass_rate(flat_scores),
         "governed_case_pass_rate": _case_pass_rate(governed_scores),
         "flat_validated_procedure_hit_rate": _requirement_hit_rate(flat_scores, "validated_procedures"),
-        "governed_validated_procedure_hit_rate": _requirement_hit_rate(
-            governed_scores, "validated_procedures"
-        ),
+        "governed_validated_procedure_hit_rate": _requirement_hit_rate(governed_scores, "validated_procedures"),
         "flat_top_procedure_match_rate": _boolean_rate(flat_scores, "top_procedure_matches"),
         "governed_top_procedure_match_rate": _boolean_rate(governed_scores, "top_procedure_matches"),
         "flat_required_procedure_hit_rate": _requirement_hit_rate(flat_scores, "required_procedures"),
@@ -83,9 +80,7 @@ def build_procedure_governance_summary(results: list[dict[str, Any]]) -> dict[st
         "flat_governance_status_match_rate": _requirement_hit_rate(flat_scores, "governance_statuses"),
         "governed_governance_status_match_rate": _requirement_hit_rate(governed_scores, "governance_statuses"),
         "flat_governance_field_completeness": _requirement_hit_rate(flat_scores, "required_fields"),
-        "governed_governance_field_completeness": _requirement_hit_rate(
-            governed_scores, "required_fields"
-        ),
+        "governed_governance_field_completeness": _requirement_hit_rate(governed_scores, "required_fields"),
         "flat_required_field_hit_rate": _requirement_hit_rate(flat_scores, "required_fields"),
         "governed_required_field_hit_rate": _requirement_hit_rate(governed_scores, "required_fields"),
         "flat_required_warning_hit_rate": _requirement_hit_rate(flat_scores, "required_warnings"),
@@ -106,9 +101,7 @@ def evaluate_procedure_governance_packet(packet: dict[str, Any], case: dict[str,
     expected_statuses = _normalize_title_mapping(expectations.get("expected_governance_status_by_title"))
     required_fields = _normalize_title_mapping_list(expectations.get("required_fields_by_title"))
     required_warnings = _normalize_title_mapping_list(expectations.get("required_warnings_by_title"))
-    expected_validated_titles = [
-        title for title, status in expected_statuses.items() if status == "validated"
-    ]
+    expected_validated_titles = [title for title, status in expected_statuses.items() if status == "validated"]
 
     procedures = _procedure_items(packet)
     visible_titles = [_normalize_title(item.get("title") or item.get("id")) for item in procedures]

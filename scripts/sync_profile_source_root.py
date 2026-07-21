@@ -20,7 +20,9 @@ def main() -> None:
     if args.plan_only:
         result = plan_source_sync(source_root, target_root, include_skills=args.include_skills)
     else:
-        snapshot_root = args.snapshot_root.resolve() if args.snapshot_root else build_default_sync_snapshot_root(target_root)
+        snapshot_root = (
+            args.snapshot_root.resolve() if args.snapshot_root else build_default_sync_snapshot_root(target_root)
+        )
         result = sync_source_root(
             source_root,
             target_root,

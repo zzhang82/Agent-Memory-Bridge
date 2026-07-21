@@ -72,12 +72,10 @@ def observe_belief_ladder(store: MemoryStore, config: BeliefObservationConfig) -
     domain_note_rows = _load_rows(store, namespace=config.namespace, actor=config.actor, tag="kind:domain-note")
 
     latest_candidates = _latest_by_key(candidate_rows)
-    active_beliefs = {
-        key: record
-        for key, record in _latest_by_key(belief_rows).items()
-        if record.status == "active"
-    }
-    stable_candidate_counts = Counter(record.key for record in _fresh_rows(candidate_rows, config.belief_freshness_days))
+    active_beliefs = {key: record for key, record in _latest_by_key(belief_rows).items() if record.status == "active"}
+    stable_candidate_counts = Counter(
+        record.key for record in _fresh_rows(candidate_rows, config.belief_freshness_days)
+    )
 
     candidate_status_rows: list[dict[str, Any]] = []
     by_domain: dict[str, dict[str, int]] = defaultdict(
@@ -178,8 +176,7 @@ def observe_belief_ladder(store: MemoryStore, config: BeliefObservationConfig) -
         },
         "cohorts": {
             "by_domain": [
-                {"domain": domain, **counts}
-                for domain, counts in sorted(by_domain.items(), key=lambda item: item[0])
+                {"domain": domain, **counts} for domain, counts in sorted(by_domain.items(), key=lambda item: item[0])
             ]
         },
     }

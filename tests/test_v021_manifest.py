@@ -4,7 +4,6 @@ import json
 from collections import Counter
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "benchmark" / "v0.21-governed-change-manifest.json"
 

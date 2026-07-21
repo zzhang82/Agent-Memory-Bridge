@@ -7,7 +7,6 @@ from agent_mem_bridge.storage import MemoryStore
 from agent_mem_bridge.task_brief import build_task_brief_report, render_task_brief_markdown
 from agent_mem_bridge.task_memory import assemble_task_memory
 
-
 NAMESPACE = "project:governed-change"
 AS_OF = "2026-07-15T12:00:00+00:00"
 
@@ -30,9 +29,7 @@ def test_procedure_domains_are_normalized_and_legacy_scope_stays_eligible() -> N
         task_domain="domain:skills",
     )
     legacy = parse_procedure_artifact(
-        "record_type: procedure\n"
-        "goal: Run a legacy cutover.\n"
-        "steps: verify | deploy\n",
+        "record_type: procedure\ngoal: Run a legacy cutover.\nsteps: verify | deploy\n",
         task_domain="release",
     )
 
@@ -45,16 +42,12 @@ def test_procedure_domains_are_normalized_and_legacy_scope_stays_eligible() -> N
 
 def test_procedure_scope_is_inferred_only_from_exact_domain_tags() -> None:
     inferred = parse_procedure_artifact(
-        "record_type: procedure\n"
-        "goal: Run a release cutover.\n"
-        "steps: verify | deploy\n",
+        "record_type: procedure\ngoal: Run a release cutover.\nsteps: verify | deploy\n",
         tags=["kind:procedure", "domain:Release", "topic:domain:skills"],
         task_domain="skills",
     )
     unscoped = parse_procedure_artifact(
-        "record_type: procedure\n"
-        "goal: Run a legacy cutover.\n"
-        "steps: verify | deploy\n",
+        "record_type: procedure\ngoal: Run a legacy cutover.\nsteps: verify | deploy\n",
         tags=["kind:procedure", "topic:domain:release"],
         task_domain="skills",
     )
@@ -76,11 +69,7 @@ def test_tag_inferred_scope_suppresses_task_domain_mismatch(tmp_path: Path) -> N
         namespace=NAMESPACE,
         kind="memory",
         title="[[Procedure]] tag-scoped release cutover",
-        content=(
-            "record_type: procedure\n"
-            "goal: Run the tag-scoped release cutover.\n"
-            "steps: verify | deploy\n"
-        ),
+        content=("record_type: procedure\ngoal: Run the tag-scoped release cutover.\nsteps: verify | deploy\n"),
         tags=["kind:procedure", "domain:release", "topic:tag-scoped-cutover"],
     )
 
@@ -147,8 +136,7 @@ def test_task_memory_uses_fixed_as_of_and_rejects_explicit_domain_mismatch(tmp_p
         for item in mismatched["suppressed_items"]
     )
     assert any(
-        item["id"] == procedure["id"] and item["reason"] == "validity:expired"
-        for item in expired["suppressed_items"]
+        item["id"] == procedure["id"] and item["reason"] == "validity:expired" for item in expired["suppressed_items"]
     )
 
 
@@ -189,11 +177,7 @@ def test_degraded_lineage_and_unresolved_dependencies_require_review(tmp_path: P
     )
 
     used_ids = {item["source_record_id"] for item in report["sections"]["used"]}
-    review_reasons = {
-        reason
-        for item in report["sections"]["needs_review"]
-        for reason in item["reason_codes"]
-    }
+    review_reasons = {reason for item in report["sections"]["needs_review"] for reason in item["reason_codes"]}
     assert degraded["id"] not in used_ids
     assert unresolved["id"] not in used_ids
     assert {"lineage_status:degraded", "depends_on:unresolved"} <= review_reasons
@@ -234,9 +218,7 @@ def test_persisted_degraded_lineage_surfaces_missing_source_in_needs_review(tmp_
     )
 
     review_item = next(
-        item
-        for item in report["sections"]["needs_review"]
-        if item["source_record_id"] == procedure["id"]
+        item for item in report["sections"]["needs_review"] if item["source_record_id"] == procedure["id"]
     )
     assert review_item["reason_codes"] == ["lineage_status:degraded"]
     assert review_item["lineage_issue_count"] == 1
@@ -288,20 +270,12 @@ def test_current_state_change_suppresses_procedure_and_retains_corrective_eviden
     assert task_memory["procedure_hits"] == []
     assert [item["id"] for item in task_memory["corrective_items"]] == [current["id"]]
     assert any(
-        item["id"] == obsolete["id"]
-        and item["reason"] == "superseded"
-        and item["by_record_type"] == "state-change"
+        item["id"] == obsolete["id"] and item["reason"] == "superseded" and item["by_record_type"] == "state-change"
         for item in task_memory["suppressed_items"]
     )
-    corrective = next(
-        item
-        for item in brief["sections"]["needs_review"]
-        if item["source_record_id"] == current["id"]
-    )
+    corrective = next(item for item in brief["sections"]["needs_review"] if item["source_record_id"] == current["id"])
     assert corrective["selected_as"] == "corrective-evidence"
-    assert corrective["corrective_evidence"] == (
-        "The retired queue is closed; use the governed deployment queue."
-    )
+    assert corrective["corrective_evidence"] == ("The retired queue is closed; use the governed deployment queue.")
     assert "use the governed deployment queue" in render_task_brief_markdown(brief)
 
 
@@ -313,11 +287,7 @@ def test_transitive_supersession_retains_only_latest_bounded_generation(tmp_path
         namespace=NAMESPACE,
         kind="memory",
         title="[[Procedure]] release generation A",
-        content=(
-            "record_type: procedure\n"
-            "goal: Run adversarial release generation A.\n"
-            "steps: verify A | deploy A\n"
-        ),
+        content=("record_type: procedure\ngoal: Run adversarial release generation A.\nsteps: verify A | deploy A\n"),
         tags=["kind:procedure", "domain:release", "topic:bounded-generation"],
     )
     second = _store_with_id(
@@ -358,10 +328,7 @@ def test_transitive_supersession_retains_only_latest_bounded_generation(tmp_path
     )
 
     assert [item["id"] for item in report["procedure_hits"]] == [third["id"]]
-    suppressed = {
-        item["id"]: (item["reason"], item["by_id"])
-        for item in report["suppressed_items"]
-    }
+    suppressed = {item["id"]: (item["reason"], item["by_id"]) for item in report["suppressed_items"]}
     assert suppressed[first["id"]] == ("superseded", second["id"])
     assert suppressed[second["id"]] == ("superseded", third["id"])
 
@@ -412,14 +379,10 @@ def test_forgotten_superseder_tombstone_keeps_predecessor_in_needs_review(tmp_pa
 
     used_ids = {item["source_record_id"] for item in report["sections"]["used"]}
     predecessor_review = next(
-        item
-        for item in report["sections"]["needs_review"]
-        if item["source_record_id"] == predecessor["id"]
+        item for item in report["sections"]["needs_review"] if item["source_record_id"] == predecessor["id"]
     )
     tombstone_review = next(
-        item
-        for item in report["sections"]["needs_review"]
-        if item["source_record_id"] == superseder["id"]
+        item for item in report["sections"]["needs_review"] if item["source_record_id"] == superseder["id"]
     )
     assert predecessor["id"] not in used_ids
     assert predecessor_review["reason_codes"] == ["lineage_status:degraded"]
@@ -442,11 +405,7 @@ def test_degraded_dependency_ineligibility_propagates_through_chain(tmp_path: Pa
         namespace=NAMESPACE,
         kind="memory",
         title="Release approval wrapper",
-        content=(
-            "record_type: learn\n"
-            "claim: Wrapper depends on approval evidence.\n"
-            f"depends_on: {root['id']}\n"
-        ),
+        content=(f"record_type: learn\nclaim: Wrapper depends on approval evidence.\ndepends_on: {root['id']}\n"),
         tags=["kind:learn", "domain:release", "topic:dependency-chain"],
     )
     procedure = store.store(
@@ -478,10 +437,7 @@ def test_degraded_dependency_ineligibility_propagates_through_chain(tmp_path: Pa
     )
 
     used_ids = {item["source_record_id"] for item in report["sections"]["used"]}
-    review_by_id = {
-        item["source_record_id"]: item
-        for item in report["sections"]["needs_review"]
-    }
+    review_by_id = {item["source_record_id"]: item for item in report["sections"]["needs_review"]}
     assert procedure["id"] not in used_ids
     assert review_by_id[root["id"]]["reason_codes"] == ["lineage_status:degraded"]
     assert review_by_id[middle["id"]]["reason_codes"] == ["depends_on:ineligible"]

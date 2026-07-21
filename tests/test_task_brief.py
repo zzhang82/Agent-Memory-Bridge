@@ -9,26 +9,15 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from agent_mem_bridge.learning_policy import evaluate_learning_candidate
+from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.release_contract import load_server_tool_names
 from agent_mem_bridge.storage import MemoryStore
 from agent_mem_bridge.task_brief import build_task_brief_report, render_task_brief_markdown, run_task_brief_benchmark
 
-
 ROOT = Path(__file__).resolve().parents[1]
 NAMESPACE = "project:task-brief-test"
 SCRIPT_PATH = ROOT / "scripts" / "run_task_brief_benchmark.py"
-EXPECTED_PUBLIC_TOOLS = {
-    "ack_signal",
-    "browse",
-    "claim_signal",
-    "extend_signal_lease",
-    "export",
-    "forget",
-    "promote",
-    "recall",
-    "stats",
-    "store",
-}
+EXPECTED_PUBLIC_TOOLS = TOOL_NAMES
 
 
 def _candidate(**overrides):
@@ -131,7 +120,9 @@ def test_task_brief_groups_used_ignored_and_needs_review_without_memory_mutation
     assert {"review_queue", "signal", "task_memory"} <= needs_review_sources
     assert any("contradicted" in item["reason_codes"] for item in needs_review)
     assert report["summary"]["review_queue_item_count"] >= 1
-    assert report["summary"]["needs_review_source_counts"]["review_queue"] == report["summary"]["review_queue_item_count"]
+    assert (
+        report["summary"]["needs_review_source_counts"]["review_queue"] == report["summary"]["review_queue_item_count"]
+    )
     assert report["summary"]["active_signal_count"] == 1
 
     markdown = render_task_brief_markdown(report)
@@ -289,7 +280,4 @@ def _table_counts(*, db_path: Path) -> dict[str, int]:
                 """
             )
         ]
-        return {
-            name: int(conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0])
-            for name in table_names
-        }
+        return {name: int(conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]) for name in table_names}

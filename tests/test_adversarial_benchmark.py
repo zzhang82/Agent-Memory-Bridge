@@ -13,7 +13,6 @@ from agent_mem_bridge.adversarial_benchmark import (
     run_adversarial_benchmark,
 )
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = ROOT / "scripts" / "run_adversarial_benchmark.py"
 

@@ -11,7 +11,15 @@ from time import perf_counter
 from typing import Any, Mapping
 from uuid import uuid4
 
-from .paths import resolve_telemetry_log_dir, resolve_telemetry_mode, resolve_telemetry_service_name
+from .filesystem_safety import ensure_private_directory, ensure_private_file
+from .log_maintenance import rotate_log_if_needed
+from .paths import (
+    resolve_log_backup_count,
+    resolve_log_max_bytes,
+    resolve_telemetry_log_dir,
+    resolve_telemetry_mode,
+    resolve_telemetry_service_name,
+)
 
 UNSAFE_ATTRIBUTE_EXACT_KEYS = (
     "body",
@@ -156,8 +164,12 @@ class Telemetry:
         self.mode = self.config.mode.strip().lower() or "off"
         self.log_dir = Path(self.config.log_dir) if self.config.log_dir is not None else None
         self.service_name = self.config.service_name.strip() or "agent-memory-bridge"
+        self.log_max_bytes = resolve_log_max_bytes()
+        self.log_backup_count = resolve_log_backup_count()
+        if self.log_max_bytes <= 0 or self.log_backup_count < 0:
+            raise ValueError("log rotation limits must use max_bytes > 0 and backup_count >= 0")
         if self.mode == "jsonl" and self.log_dir is not None:
-            self.log_dir.mkdir(parents=True, exist_ok=True)
+            ensure_private_directory(self.log_dir)
 
     @classmethod
     def from_env(cls) -> "Telemetry":
@@ -195,8 +207,16 @@ class Telemetry:
         }
         log_path = self.log_dir / "spans.jsonl"
         try:
+            encoded = json.dumps(entry, ensure_ascii=True) + "\n"
+            rotate_log_if_needed(
+                log_path,
+                incoming_bytes=len(encoded.encode("utf-8")),
+                max_bytes=self.log_max_bytes,
+                backup_count=self.log_backup_count,
+            )
             with log_path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(entry, ensure_ascii=True) + "\n")
+                handle.write(encoded)
+            ensure_private_file(log_path)
         except OSError:
             try:
                 print("agent-memory-bridge: telemetry log write failed", file=sys.stderr)
