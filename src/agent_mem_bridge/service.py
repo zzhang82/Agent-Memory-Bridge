@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
+from dataclasses import dataclass
+from typing import Callable
 
 from .consolidation import ConsolidationEngine, build_default_consolidation_config
 from .embedding_scheduler import run_embedding_sidecar_maintenance
@@ -34,8 +37,100 @@ from .telemetry import Telemetry
 from .watcher import CodexSessionWatcher, WatcherConfig
 
 
+MAX_LANE_BACKOFF_SECONDS = 300.0
+
+
 def _disabled_lane(reason: str = "disabled") -> dict[str, object]:
     return {"enabled": False, "processed_count": 0, "processed": [], "stored": [], "reason": reason}
+
+
+@dataclass(slots=True)
+class _ServiceLane:
+    name: str
+    runner: Callable[[], dict[str, object]]
+    enabled: Callable[[], bool]
+    failure_count: int = 0
+    consecutive_failures: int = 0
+    retry_at: float = 0.0
+
+    def run(self, *, now: float, base_backoff_seconds: float) -> dict[str, object]:
+        try:
+            if not self.enabled():
+                return _disabled_lane()
+            if now < self.retry_at:
+                return {
+                    "enabled": True,
+                    "processed_count": 0,
+                    "processed": [],
+                    "stored": [],
+                    "status": "backoff",
+                    "failure_count": self.failure_count,
+                    "consecutive_failures": self.consecutive_failures,
+                    "retry_after_seconds": max(0.0, self.retry_at - now),
+                }
+            result = dict(self.runner())
+        except Exception as exc:
+            self.failure_count += 1
+            self.consecutive_failures += 1
+            exponent = min(self.consecutive_failures - 1, 16)
+            backoff_seconds = min(
+                max(0.1, base_backoff_seconds) * (2**exponent),
+                MAX_LANE_BACKOFF_SECONDS,
+            )
+            self.retry_at = now + backoff_seconds
+            try:
+                print(
+                    f"agent-memory-bridge: service lane {self.name} failed ({type(exc).__name__})",
+                    file=sys.stderr,
+                )
+            except OSError:
+                pass
+            return {
+                "enabled": True,
+                "processed_count": 0,
+                "processed": [],
+                "stored": [],
+                "status": "failed",
+                "error_type": type(exc).__name__,
+                "failure_count": self.failure_count,
+                "consecutive_failures": self.consecutive_failures,
+                "backoff_seconds": backoff_seconds,
+            }
+
+        self.consecutive_failures = 0
+        self.retry_at = 0.0
+        result.setdefault("enabled", True)
+        result.setdefault("processed_count", 0)
+        result["status"] = "ok"
+        result["failure_count"] = self.failure_count
+        result["consecutive_failures"] = 0
+        return result
+
+
+def _run_cycle(
+    lanes: dict[str, _ServiceLane],
+    *,
+    now: float,
+    base_backoff_seconds: float,
+) -> dict[str, dict[str, object]]:
+    return {
+        name: lane.run(now=now, base_backoff_seconds=base_backoff_seconds)
+        for name, lane in lanes.items()
+    }
+
+
+def _set_cycle_span_attributes(span: object, result: dict[str, dict[str, object]]) -> None:
+    span.set_attributes(
+        {
+            "watcher_processed_count": result["watcher"].get("processed_count", 0),
+            "reflex_processed_count": result["reflex"].get("processed_count", 0),
+            "consolidation_processed_count": result["consolidation"].get("processed_count", 0),
+            "governance_processed_count": result["governance"].get("processed_count", 0),
+            "embedding_processed_count": result["embeddings"].get("processed_count", 0),
+            "embedding_due": result["embeddings"].get("due", False),
+            "failed_lane_count": sum(item.get("status") == "failed" for item in result.values()),
+        }
+    )
 
 
 def run_service(*, once: bool | None = None) -> None:
@@ -86,67 +181,34 @@ def run_service(*, once: bool | None = None) -> None:
     if once is None:
         once = os.environ.get("AGENT_MEMORY_BRIDGE_RUN_ONCE", "0") == "1"
     poll_seconds = resolve_poll_seconds()
+    lanes = {
+        "watcher": _ServiceLane("watcher", watcher.run_once, resolve_watcher_enabled),
+        "reflex": _ServiceLane("reflex", reflex.run_once, resolve_reflex_enabled),
+        "consolidation": _ServiceLane("consolidation", consolidation.run_once, lambda: True),
+        "governance": _ServiceLane("governance", governance_trigger.run_once, lambda: True),
+        "embeddings": _ServiceLane(
+            "embeddings",
+            lambda: run_embedding_sidecar_maintenance(store),
+            lambda: True,
+        ),
+    }
 
     if once:
         with telemetry.span("amb.service.run_once", {"mode": "once"}) as span:
-            watcher_result = watcher.run_once() if resolve_watcher_enabled() else _disabled_lane()
-            reflex_result = reflex.run_once() if resolve_reflex_enabled() else _disabled_lane()
-            result = {
-                "watcher": watcher_result,
-                "reflex": reflex_result,
-                "consolidation": consolidation.run_once(),
-                "governance": governance_trigger.run_once(),
-                "embeddings": run_embedding_sidecar_maintenance(store),
-            }
-            span.set_attributes(
-                {
-                    "watcher_processed_count": result["watcher"].get("processed_count", 0),
-                    "reflex_processed_count": result["reflex"].get("processed_count", 0),
-                    "consolidation_processed_count": result["consolidation"].get("processed_count", 0),
-                    "governance_processed_count": result["governance"].get("processed_count", 0),
-                    "embedding_processed_count": result["embeddings"].get("processed_count", 0),
-                    "embedding_due": result["embeddings"].get("due", False),
-                }
-            )
+            result = _run_cycle(lanes, now=time.monotonic(), base_backoff_seconds=poll_seconds)
+            _set_cycle_span_attributes(span, result)
         print(json.dumps(result, indent=2))
         return
 
     while True:
         with telemetry.span("amb.service.poll_cycle", {"poll_seconds": poll_seconds}) as span:
-            watcher_result = watcher.run_once() if resolve_watcher_enabled() else _disabled_lane()
-            reflex_result = reflex.run_once() if resolve_reflex_enabled() else _disabled_lane()
-            consolidation_result = consolidation.run_once()
-            governance_result = governance_trigger.run_once()
-            embedding_result = run_embedding_sidecar_maintenance(store)
-            span.set_attributes(
-                {
-                    "watcher_processed_count": watcher_result.get("processed_count", 0),
-                    "reflex_processed_count": reflex_result.get("processed_count", 0),
-                    "consolidation_processed_count": consolidation_result.get("processed_count", 0),
-                    "governance_processed_count": governance_result.get("processed_count", 0),
-                    "embedding_processed_count": embedding_result.get("processed_count", 0),
-                    "embedding_due": embedding_result.get("due", False),
-                }
-            )
-        if (
-            watcher_result["processed_count"]
-            or reflex_result["processed_count"]
-            or consolidation_result["processed_count"]
-            or governance_result["processed_count"]
-            or embedding_result["processed_count"]
+            result = _run_cycle(lanes, now=time.monotonic(), base_backoff_seconds=poll_seconds)
+            _set_cycle_span_attributes(span, result)
+        if any(
+            item.get("processed_count", 0) or item.get("status") == "failed"
+            for item in result.values()
         ):
-            print(
-                json.dumps(
-                    {
-                        "watcher": watcher_result,
-                        "reflex": reflex_result,
-                        "consolidation": consolidation_result,
-                        "governance": governance_result,
-                        "embeddings": embedding_result,
-                    },
-                    indent=2,
-                )
-            )
+            print(json.dumps(result, indent=2))
         time.sleep(poll_seconds)
 
 

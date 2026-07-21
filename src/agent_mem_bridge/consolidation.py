@@ -17,6 +17,7 @@ from .paths import (
     resolve_domain_title_prefix,
     resolve_profile_namespace,
 )
+from .state_io import load_json_state, write_json_state_atomic
 from .storage import MemoryStore
 
 
@@ -926,12 +927,10 @@ class ConsolidationEngine:
         return ordered
 
     def _load_state(self) -> dict[str, str]:
-        if not self.config.state_path.exists():
-            return {}
-        return json.loads(self.config.state_path.read_text(encoding="utf-8"))
+        return load_json_state(self.config.state_path)
 
     def _save_state(self, state: dict[str, str]) -> None:
-        self.config.state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        write_json_state_atomic(self.config.state_path, state)
 
 
 def build_default_consolidation_config(state_path: Path, scan_limit: int, min_support: int = 2) -> ConsolidationConfig:

@@ -373,9 +373,11 @@ def _run_index_rebuild(namespace: argparse.Namespace) -> int:
             report = rebuild_fts_index(conn)
         else:
             report = inspect_indexes(conn)
-        if rebuild_embeddings:
-            report = rebuild_embedding_index(conn)
         conn.commit()
+    if rebuild_embeddings:
+        with store._connect() as conn:
+            report = rebuild_embedding_index(conn)
+            conn.commit()
     if namespace.json:
         print(json.dumps(report, indent=2))
     else:

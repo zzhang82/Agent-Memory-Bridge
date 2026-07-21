@@ -190,6 +190,7 @@ class MemoryStore:
                 "has_since": bool(cleaned_since),
             },
         ) as span:
+            retrieval_diagnostics: dict[str, Any] = {}
             items = recall_candidates(
                 self,
                 namespace=cleaned_namespace,
@@ -202,10 +203,13 @@ class MemoryStore:
                 actor=actor,
                 correlation_id=correlation_id,
                 since=cleaned_since,
+                diagnostics=retrieval_diagnostics,
             )
             is_polling_recall = not query_text and kind == "signal"
             next_since = self._poll_cursor(items, current=cleaned_since) if is_polling_recall else None
             payload = {"count": len(items), "items": items, "next_since": next_since}
+            if retrieval_diagnostics:
+                payload["retrieval"] = retrieval_diagnostics
             span.set_attributes(
                 {
                     "result_count": payload["count"],

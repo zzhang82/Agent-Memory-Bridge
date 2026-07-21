@@ -2,14 +2,21 @@
 
 Last updated: 2026-07-21 (America/New_York)
 
-This maintainer note describes the current `0.22.3` correctness-hardening release, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.23.0` reliability-hardening release, the inherited v0.22.3 correctness guarantees, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.22.3 Release Status
+## 0.23.0 Release Status
 
-- Package version: `0.22.3`
-- Release thesis: correct Signal polling and ownership while preserving governed record metadata
-- MCP runtime behavior: polling, claimed-Signal ack, structured parsing, promotion preservation, and operational-output failure semantics are tightened; the tool count is unchanged
-- Baseline install: immutable `v0.22.3` archive in `.amb-venv`, using the derived venv interpreter
+- Package version: `0.23.0`
+- Release thesis: shorten embedding write transactions, contain background-lane failures, and give schema upgrades an explicit version contract
+- MCP runtime behavior: retrieval reliability, service isolation, state persistence, and schema migration behavior are tightened; the tool count is unchanged
+- Baseline install: immutable `v0.23.0` archive in `.amb-venv`, using the derived venv interpreter
+- Embedding transaction contract: semantic recall, scheduled maintenance, and rebuild read candidates first, call the provider in a batch outside the SQLite write transaction, then revalidate content hashes before writing vectors in a short transaction
+- Hybrid degradation contract: only typed embedding-provider failures fall back to lexical results with explicit degraded metadata; SQLite and programming failures still propagate, and explicit semantic mode fails clearly
+- Vector contract: provider vectors must contain finite numeric values; invalid generated or persisted vectors are rejected rather than stored or scored
+- Chinese/Han boundary: Chinese/Han characters and bigrams participate in the local hash-semantic path; ordinary Chinese lexical recall still uses the existing LIKE fallback when FTS has no direct match
+- Service contract: during cycle execution, watcher, reflex, consolidation, governance, and embedding lanes isolate ordinary exceptions, report total and consecutive failure counts, and use capped exponential backoff without preventing later lanes from running
+- State contract: service-lane JSON state uses tolerant loading and unique temporary files followed by atomic replacement; failed replacement preserves the previous valid state
+- Schema contract: ordered migrations are recorded in SQLite `PRAGMA user_version`, run under `BEGIN IMMEDIATE`, roll back DDL and version changes together, reject future versions, and serialize concurrent legacy upgrades
 - Polling contract: `since` is valid only for empty-query `kind="signal"` recall; rows are returned by ascending insertion order and invalid same-namespace anchors fail explicitly
 - Cursor boundary: `since` tracks later insertions, not later lifecycle transitions on older Signals; text and memory recall return `next_since: null`
 - Ack contract: pending unclaimed Signals remain ownerless-ack compatible; active claims require the current owner and use a conditional update
@@ -57,10 +64,20 @@ This maintainer note describes the current `0.22.3` correctness-hardening releas
 20. a clean-room proof runner that launches the real stdio MCP entrypoint against an isolated temp store, performs one tokened demo `store -> recall`, renders first-run and Task Brief CLI reports, and proves zero client config writes
 21. governed change handling for transactional redacted tombstones, conservative exact-lineage cascades, degraded audit retention, bounded transitive supersession, current-premise evidence, and declared task-domain applicability
 22. a Cross-Client Activation Receipt CLI/report that reads existing writer memory and reader signal rows for one namespace and correlation id, hashes sensitive identifiers, and performs no durable or config writes
+23. embedding maintenance that batches provider work outside SQLite write transactions and revalidates content hashes before derived-vector writes
+24. one shared service-lane boundary with exception isolation, failure counters, capped backoff, and tolerant atomic state replacement
+25. an ordered transactional schema migration spine recorded as SQLite schema version `1`
 
 ## Verified On 2026-07-21
 
-- `pytest` passes: `405 passed`
+- `pytest` passes: `445 passed`
+- the integrated embedding, service, state, schema, and storage regression gate covers 114 targeted tests
+- semantic recall, scheduled maintenance, and rebuild tests verify batched provider execution outside write transactions plus content-hash revalidation before vector writes
+- hybrid recall tests verify lexical degradation only for typed provider failures; explicit semantic failures and non-provider errors remain visible
+- service tests verify one failing lane does not stop later lanes, failure counts and capped backoff are reported, and `KeyboardInterrupt` / `SystemExit` are not swallowed
+- shared state-I/O tests cover malformed JSON, atomic replacement, unique temporary files, and preservation of the previous valid state when replacement fails
+- schema tests cover ordered version `1` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
+- Chinese/Han hash-semantic tests cover character and bigram tokenization; no Chinese FTS support is claimed
 - 10,000-Signal polling acceptance with `limit=100`: exact insertion order, 10,000 unique ids, zero missing, zero unexpected, 100 pages
 - eight independent `spawn` processes claiming one exact Signal: one stored winner and no lock error in the local Linux run; the same test is part of the normal cross-platform CI matrix
 - cross-client activation receipt tests cover pass/review-required outcomes, distinct declared `source_client` labels, acked reader signals, observed writer-id matching, deterministic redaction, CLI exit codes, no memory mutation, and public MCP surface stability
@@ -205,6 +222,20 @@ This maintainer note describes the current `0.22.3` correctness-hardening releas
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
+## What 0.23.0 Actually Means
+
+- external embedding-provider execution does not run inside the bridge's SQLite write transaction in semantic recall, scheduled maintenance, or rebuild paths
+- content hashes are rechecked before vectors are written, so content changed during provider execution does not receive a stale vector
+- hybrid recall degrades only on the configured provider's typed failure; explicit semantic mode and unrelated database or programming errors do not silently change modes
+- service lanes share one cycle-execution isolation contract with failure counts and capped backoff, while process-level interrupts remain process-level interrupts
+- service lanes remain sequential; exception isolation does not provide lane-wide timeouts or prevent a slow call from delaying later lanes
+- service startup and lane construction remain process-level operations outside the per-cycle lane boundary
+- service state uses tolerant reads and atomic replacement; this is state-file hardening, not a multi-instance service lock
+- schema version `1` establishes an ordered migration spine with rollback and concurrent-upgrade serialization; it does not add every desirable database CHECK constraint
+- Chinese/Han text participates in hash-semantic retrieval; this is not broad CJK lexical or FTS support
+- Signal writes remain append-like, and this release does not add exactly-once creation or an idempotency-key API
+- the public MCP surface remains exactly 10 tools
+
 ## What 0.22.1 Actually Means
 
 - this is release-facing visual polish over the v0.22 activation receipt
@@ -217,7 +248,7 @@ This maintainer note describes the current `0.22.3` correctness-hardening releas
 - the visual inventory is release hygiene, not semantic proof
 - native-size and README-width raster renders are a release gate for clipping,
   overlap, and crossed labels
-- the validation snapshot is `405 passed`
+- the current validation snapshot is `445 passed`
 
 ## What 0.22.0 Actually Means
 
@@ -274,10 +305,14 @@ The release still does **not** mean:
 - pre-compaction capture before model-side context loss
 - active pubsub or consumer execution on top of stored signals
 - exactly-once distributed coordination
+- broad CJK lexical or FTS support
+- service singleton locking, a service heartbeat, or lane-wide execution timeouts
+- complete database CHECK constraints or a Signal idempotency-key contract
+- an ANN/vector database or full-store semantic index
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.22.3
+## Pressure Points After 0.23.0
 
 The most important remaining gaps are:
 
@@ -287,11 +322,14 @@ The most important remaining gaps are:
 4. cross-domain concept synthesis beyond the current domain-local concept-note step
 5. more deliberate procedure curation or promotion instead of only manual procedure records
 6. pre-compaction capture before model-side loss
-7. broader multi-process contention and crash-recovery dogfood beyond the exact-ID claim test and serialized lifecycle benchmark
+7. broader multi-process contention and crash-recovery dogfood beyond the exact-ID claim test, concurrent schema upgrade test, and serialized lifecycle benchmark
 8. a human-facing review UI or external harness that consumes review-workflow output without moving execution into AMB core
 9. optional receipt ergonomics for operators without moving receipt generation into the MCP tool surface
+10. measured need before adding service singleton/heartbeat/timeout machinery, database CHECK constraints, or a Signal idempotency API
 
 ## Maintainer Read
+
+`0.23.0` shortens SQLite write transactions around embedding maintenance, degrades hybrid retrieval only for typed provider failures, isolates background service lanes, makes their state replacement atomic, and establishes ordered transactional schema versioning. Chinese/Han text participates in the local hash-semantic path, while Chinese lexical retrieval retains the existing LIKE fallback. The release does not claim broad CJK FTS support, exactly-once Signals, authenticated actors, namespace isolation, service singleton locking, lane-wide timeouts, or distributed coordination.
 
 `0.22.3` makes the existing local coordination contract deterministic where it previously was not. Signal polling is insertion-ordered and rejects invalid anchors; active claims require owner-matched ack; promotion retains relation, validity, and lineage information; and JSONL output failures do not overturn committed operations. The release still does not claim exactly-once delivery, a distributed queue, authenticated actors, or namespace isolation.
 
@@ -315,5 +353,6 @@ It now behaves like:
 - an operator-facing review queue that keeps hidden/stale/quarantined memory work visible without making it authority
 - an operator-facing human workflow plan that makes each review decision explicit without becoming an auto-writer
 - an operator-facing activation receipt that keeps cross-client provenance inspectable without becoming an identity system
+- a local maintenance service whose ordinary lane failures are isolated and whose schema upgrades follow an explicit transactional version path
 
 The next work should protect those gains and improve review ergonomics without turning bounded relation-lite handling into a graph-memory claim, letting proposal-only plans become automatic durable writes, or turning declared client labels into identity claims.

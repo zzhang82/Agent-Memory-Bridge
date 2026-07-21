@@ -22,6 +22,7 @@ from .paths import (
 DEFAULT_EMBEDDING_MODEL = "local-token-hash-v1"
 DEFAULT_EMBEDDING_DIM = 64
 TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
+HAN_RUN_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+")
 REQUIRED_EMBEDDING_COLUMNS = {
     "memory_id",
     "content_hash",
@@ -39,6 +40,17 @@ class EmbeddingConfig:
     dim: int = DEFAULT_EMBEDDING_DIM
     command: str = ""
     timeout_seconds: float = 10.0
+
+
+class EmbeddingProviderError(RuntimeError):
+    """Raised when configured embedding generation is unavailable or invalid."""
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedEmbedding:
+    memory_id: str
+    content_hash: str
+    vector: list[float]
 
 
 def active_embedding_config() -> EmbeddingConfig:
@@ -141,7 +153,7 @@ def hash_embed_text(text: str, *, dim: int = DEFAULT_EMBEDDING_DIM) -> list[floa
     if dim <= 0:
         raise ValueError("embedding dim must be greater than 0")
     vector = [0.0] * dim
-    for token in TOKEN_RE.findall(text.lower()):
+    for token in embedding_tokens(text):
         digest = hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest()
         bucket = int.from_bytes(digest[:4], "big") % dim
         sign = 1.0 if digest[4] % 2 == 0 else -1.0
@@ -152,9 +164,18 @@ def hash_embed_text(text: str, *, dim: int = DEFAULT_EMBEDDING_DIM) -> list[floa
     return [round(value / norm, 6) for value in vector]
 
 
+def embedding_tokens(text: str) -> list[str]:
+    lowered = text.lower()
+    tokens = TOKEN_RE.findall(lowered)
+    for run in HAN_RUN_RE.findall(lowered):
+        tokens.extend(run)
+        tokens.extend(run[index : index + 2] for index in range(len(run) - 1))
+    return tokens
+
+
 def command_embed_texts(texts: list[str], *, config: EmbeddingConfig) -> list[list[float]]:
     if not config.command.strip():
-        raise RuntimeError("embedding command provider requires a configured command")
+        raise EmbeddingProviderError("embedding command provider requires a configured command")
     payload = {
         "texts": texts,
         "dim": config.dim,
@@ -171,17 +192,19 @@ def command_embed_texts(texts: list[str], *, config: EmbeddingConfig) -> list[li
             timeout=config.timeout_seconds,
         )
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError("embedding command timed out") from exc
+        raise EmbeddingProviderError("embedding command timed out") from exc
+    except UnicodeError as exc:
+        raise EmbeddingProviderError("embedding command output was not valid UTF-8") from exc
     except OSError as exc:
-        raise RuntimeError(f"embedding command failed to start: {exc.__class__.__name__}") from exc
+        raise EmbeddingProviderError(f"embedding command failed to start: {exc.__class__.__name__}") from exc
 
     if completed.returncode != 0:
-        raise RuntimeError(f"embedding command failed with exit code {completed.returncode}")
+        raise EmbeddingProviderError(f"embedding command failed with exit code {completed.returncode}")
 
     try:
         raw = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError("embedding command returned invalid JSON") from exc
+        raise EmbeddingProviderError("embedding command returned invalid JSON") from exc
 
     vectors = normalize_command_vectors(raw, expected_count=len(texts), expected_dim=config.dim)
     return [normalize_vector(vector, dim=config.dim) for vector in vectors]
@@ -195,27 +218,32 @@ def normalize_command_vectors(raw: Any, *, expected_count: int, expected_dim: in
         elif "vector" in raw and expected_count == 1:
             vectors = [raw["vector"]]
         else:
-            raise RuntimeError("embedding command output must include vectors")
+            raise EmbeddingProviderError("embedding command output must include vectors")
     else:
         vectors = raw
 
     if not isinstance(vectors, list) or len(vectors) != expected_count:
-        raise RuntimeError("embedding command vector count did not match requested texts")
+        raise EmbeddingProviderError("embedding command vector count did not match requested texts")
 
     result: list[list[float]] = []
     for vector in vectors:
         if not isinstance(vector, list) or len(vector) != expected_dim:
-            raise RuntimeError("embedding command vector dimension did not match configured dim")
+            raise EmbeddingProviderError("embedding command vector dimension did not match configured dim")
         try:
-            result.append([float(value) for value in vector])
+            normalized = [float(value) for value in vector]
         except (TypeError, ValueError) as exc:
-            raise RuntimeError("embedding command vector values must be numeric") from exc
+            raise EmbeddingProviderError("embedding command vector values must be numeric") from exc
+        if not all(math.isfinite(value) for value in normalized):
+            raise EmbeddingProviderError("embedding command vector values must be finite")
+        result.append(normalized)
     return result
 
 
 def normalize_vector(vector: list[float], *, dim: int) -> list[float]:
     if len(vector) != dim:
         raise ValueError("embedding vector dimension mismatch")
+    if not all(math.isfinite(value) for value in vector):
+        raise ValueError("embedding vector values must be finite")
     norm = math.sqrt(sum(value * value for value in vector))
     if norm == 0:
         return [0.0] * dim
@@ -225,18 +253,110 @@ def normalize_vector(vector: list[float], *, dim: int) -> list[float]:
 def cosine_similarity(left: list[float], right: list[float]) -> float:
     if not left or not right or len(left) != len(right):
         return 0.0
+    if not all(math.isfinite(value) for value in [*left, *right]):
+        return 0.0
     return round(sum(a * b for a, b in zip(left, right)), 6)
 
 
 def load_vector(value: str) -> list[float]:
-    raw = json.loads(value)
+    try:
+        raw = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return []
     if not isinstance(raw, list):
         return []
-    return [float(item) for item in raw]
+    try:
+        vector = [float(item) for item in raw]
+    except (TypeError, ValueError):
+        return []
+    if not all(math.isfinite(item) for item in vector):
+        return []
+    return vector
 
 
 def vector_json(vector: list[float]) -> str:
-    return json.dumps(vector, separators=(",", ":"))
+    if not all(math.isfinite(value) for value in vector):
+        raise ValueError("embedding vector values must be finite")
+    return json.dumps(vector, separators=(",", ":"), allow_nan=False)
+
+
+def embedding_text_for_row(row: Any) -> str:
+    return "\n".join(part for part in (row["title"] or "", row["content"]) if part)
+
+
+def prepare_embeddings_for_rows(
+    rows: list[Any],
+    *,
+    config: EmbeddingConfig,
+) -> list[PreparedEmbedding]:
+    if not rows:
+        return []
+    vectors = embed_texts([embedding_text_for_row(row) for row in rows], config=config)
+    return prepared_embeddings_from_vectors(rows, vectors=vectors, config=config)
+
+
+def prepared_embeddings_from_vectors(
+    rows: list[Any],
+    *,
+    vectors: list[list[float]],
+    config: EmbeddingConfig,
+) -> list[PreparedEmbedding]:
+    prepared: list[PreparedEmbedding] = []
+    for row, vector in zip(rows, vectors, strict=True):
+        prepared.append(
+            PreparedEmbedding(
+                memory_id=str(row["id"]),
+                content_hash=str(row["content_hash"]),
+                vector=normalize_vector(vector, dim=config.dim),
+            )
+        )
+    return prepared
+
+
+def upsert_prepared_embeddings(
+    conn: sqlite3.Connection,
+    prepared: list[PreparedEmbedding],
+    *,
+    config: EmbeddingConfig,
+) -> int:
+    ensure_embedding_schema(conn)
+    created_at = datetime.now(UTC).isoformat()
+    changed = 0
+    for item in prepared:
+        current = conn.execute(
+            "SELECT content_hash FROM memories WHERE id = ? LIMIT 1",
+            (item.memory_id,),
+        ).fetchone()
+        if current is None or current["content_hash"] != item.content_hash:
+            continue
+        conn.execute(
+            """
+            INSERT INTO memory_embeddings (
+                memory_id,
+                content_hash,
+                embedding_model,
+                embedding_dim,
+                vector_json,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(memory_id) DO UPDATE SET
+                content_hash = excluded.content_hash,
+                embedding_model = excluded.embedding_model,
+                embedding_dim = excluded.embedding_dim,
+                vector_json = excluded.vector_json,
+                created_at = excluded.created_at
+            """,
+            (
+                item.memory_id,
+                item.content_hash,
+                config.model,
+                config.dim,
+                vector_json(item.vector),
+                created_at,
+            ),
+        )
+        changed += 1
+    return changed
 
 
 def upsert_embedding(
@@ -251,33 +371,11 @@ def upsert_embedding(
     config: EmbeddingConfig | None = None,
 ) -> None:
     resolved = config or EmbeddingConfig(model=model, dim=dim)
-    vector = embed_text("\n".join(part for part in (title or "", content) if part), config=resolved)
-    conn.execute(
-        """
-        INSERT INTO memory_embeddings (
-            memory_id,
-            content_hash,
-            embedding_model,
-            embedding_dim,
-            vector_json,
-            created_at
-        ) VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(memory_id) DO UPDATE SET
-            content_hash = excluded.content_hash,
-            embedding_model = excluded.embedding_model,
-            embedding_dim = excluded.embedding_dim,
-            vector_json = excluded.vector_json,
-            created_at = excluded.created_at
-        """,
-        (
-            memory_id,
-            content_hash,
-            resolved.model,
-            resolved.dim,
-            vector_json(vector),
-            datetime.now(UTC).isoformat(),
-        ),
+    prepared = prepare_embeddings_for_rows(
+        [{"id": memory_id, "content_hash": content_hash, "title": title, "content": content}],
+        config=resolved,
     )
+    upsert_prepared_embeddings(conn, prepared, config=resolved)
 
 
 def ensure_embeddings_for_rows(
@@ -290,7 +388,7 @@ def ensure_embeddings_for_rows(
 ) -> int:
     ensure_embedding_schema(conn)
     resolved = config or EmbeddingConfig(model=model, dim=dim)
-    changed = 0
+    pending: list[sqlite3.Row] = []
     for row in rows:
         existing = conn.execute(
             """
@@ -308,16 +406,9 @@ def ensure_embeddings_for_rows(
             and int(existing["embedding_dim"]) == resolved.dim
         ):
             continue
-        upsert_embedding(
-            conn,
-            memory_id=row["id"],
-            content_hash=row["content_hash"],
-            title=row["title"],
-            content=row["content"],
-            config=resolved,
-        )
-        changed += 1
-    return changed
+        pending.append(row)
+    prepared = prepare_embeddings_for_rows(pending, config=resolved)
+    return upsert_prepared_embeddings(conn, prepared, config=resolved)
 
 
 def embedding_health(

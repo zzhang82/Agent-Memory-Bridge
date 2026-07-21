@@ -134,3 +134,25 @@ def test_embedding_scheduler_refreshes_stale_sidecar_rows(tmp_path: Path) -> Non
     assert result["processed_count"] == 1
     assert health["stale_embedding_count"] == 0
     assert health["missing_embedding_count"] == 0
+
+
+def test_embedding_scheduler_recovers_from_malformed_state_with_atomic_write(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    _store_memory(store, "Malformed state", "Malformed scheduler state should be treated as empty.")
+    state_path = tmp_path / "embedding-state.json"
+    state_path.write_text("{", encoding="utf-8")
+    config = EmbeddingSchedulerConfig(
+        enabled=True,
+        state_path=state_path,
+        interval_seconds=3600,
+        batch_size=10,
+        embedding_config=EmbeddingConfig(model="fixture-hash", dim=8),
+    )
+
+    result = run_embedding_sidecar_maintenance(store, config=config)
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+
+    assert result["reason"] == "never-completed"
+    assert result["processed_count"] == 1
+    assert state["embedding_model"] == "fixture-hash"
+    assert list(tmp_path.glob(".embedding-state.json.*.tmp")) == []

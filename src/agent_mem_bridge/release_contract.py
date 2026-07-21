@@ -169,7 +169,12 @@ V021_RELEASE = "0.21.0"
 V021_GOVERNED_CHANGE_REPORT = "latest-v0.21-governed-change-report.json"
 V021_PATCH_PATTERN = re.compile(r"0\.21\.\d+")
 V022_PATCH_PATTERN = re.compile(r"0\.22\.\d+")
-V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (V021_PATCH_PATTERN, V022_PATCH_PATTERN)
+V023_PATCH_PATTERN = re.compile(r"0\.23\.\d+")
+V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
+    V021_PATCH_PATTERN,
+    V022_PATCH_PATTERN,
+    V023_PATCH_PATTERN,
+)
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
@@ -420,7 +425,7 @@ def build_v021_governed_change_proof_check(
         mismatches.append(
             {
                 "field": "pyproject.version",
-                "expected": "0.21.x or 0.22.x",
+                "expected": "0.21.x, 0.22.x, or 0.23.x",
                 "actual": pyproject_version,
             }
         )

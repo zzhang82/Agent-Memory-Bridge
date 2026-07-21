@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.22.3` tightens the existing correctness contracts without adding MCP tools. Signal polling now drains later insertions in ascending order, active claims require an owner-matched ack, promotion preserves relation, validity, and lineage metadata, and operational JSONL failures no longer reverse committed work. The public MCP surface remains at 10 tools.
+`0.23.0` hardens local retrieval maintenance and the background service without adding MCP tools. Semantic recall, scheduled embedding maintenance, and embedding rebuilds now call providers outside SQLite write transactions; hybrid recall falls back to lexical results on typed provider failures; exceptions raised during service cycles are isolated by lane with bounded backoff; lane state is written atomically; and schema upgrades have an ordered transactional version spine. Chinese/Han text also participates in hash-semantic retrieval. The public MCP surface remains at 10 tools.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -44,7 +44,7 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
 - Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `405 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `445 passed`.
 
 ## How It Works
 
@@ -86,7 +86,7 @@ commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.3.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.23.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -94,7 +94,7 @@ In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.22.3 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.23.0 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -245,7 +245,7 @@ The bridge exposes `10` public MCP tools:
 
 The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, human review workflows, and activation receipts. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, `review_workflow`, or `activation_receipt` MCP tools.
 
-For normal service use, log capture helpers, promotion helpers, and strong consolidation are disabled by default. That lets installs run review checks and embedding sidecar maintenance without silently promoting raw session/process chatter into durable memory.
+For normal service use, log capture helpers, promotion helpers, and strong consolidation are disabled by default. During each cycle, every enabled lane has its own exception boundary: one lane failure is reported with a failure count and bounded retry delay without stopping its siblings. The lanes still execute sequentially, so a slow call can delay later lanes. Watcher, reflex, consolidation, governance, and embedding scheduler state all use the same tolerant atomic JSON contract.
 
 Operator review work is available as CLI reports, not MCP tools:
 
@@ -264,7 +264,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.22.3` fixes verified correctness gaps in Signal polling, claimed-work acknowledgment, structured record parsing, promotion preservation, and post-commit operational output. A local acceptance run drained 10,000 Signals with `limit=100` in exact insertion order with zero missing or duplicate IDs. The suite also includes an eight-process exact-ID claim test with one winner. These are local SQLite/WAL guarantees, not exactly-once delivery, distributed queue semantics, authenticated ownership, or a namespace access-control boundary.
+`0.23.0` hardens verified local reliability paths. Semantic recall, scheduled maintenance, and embedding rebuilds batch provider work outside SQLite write transactions and revalidate content hashes before writing vectors. Hybrid mode returns lexical results with explicit degraded metadata when the configured embedding provider fails; explicit semantic mode still fails clearly. Background lanes isolate exceptions with bounded backoff, state files use tolerant atomic replacement, and schema initialization now records ordered transactional migrations. Chinese/Han text is covered in hash-semantic retrieval; lexical Chinese retrieval still uses the existing LIKE fallback when FTS has no direct match.
 
 | Track | Current signal |
 |---|---|
@@ -273,7 +273,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
 | Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats unless explicitly queried with review tags; candidates are not durable authority until reviewed/promoted |
 | Signal contention | serialized lifecycle benchmark: `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0`; multiprocessing exact-ID claim test: 8 processes, 1 winner |
-| v0.22.3 correctness | 10,000-Signal polling acceptance: exact insertion order, `missing = 0`, `unexpected = 0`, `unique = 10000`; owner-matched active-claim ack and promotion-preservation regressions included in the suite |
+| v0.23.0 reliability | batched provider work outside write transactions across semantic recall, scheduler, and rebuild; typed hybrid degradation; isolated service lanes; atomic state replacement; ordered schema version `1` with rollback and multi-process convergence regressions |
+| Inherited Signal correctness | 10,000-Signal polling acceptance: exact insertion order, `missing = 0`, `unexpected = 0`, `unique = 10000`; owner-matched active-claim ack and promotion-preservation regressions included in the suite |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory operations | `review_queue_item_count = 6`, `review_queue_actionable_count = 6`, `review_queue_no_auto_mutation = true`, `review_queue_public_mcp_surface_change = false` |
@@ -284,7 +285,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| Test suite | `405 passed` |
+| Test suite | `445 passed` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -427,7 +428,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.22.3 announcement](docs/v0.22.3-announcement.md)
+- [v0.23.0 announcement](docs/v0.23.0-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

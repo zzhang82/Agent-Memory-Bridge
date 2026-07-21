@@ -21,6 +21,7 @@ from .paths import (
     resolve_profile_namespace,
     resolve_reflex_actor,
 )
+from .state_io import load_json_state, write_json_state_atomic
 from .storage import MemoryStore
 
 
@@ -989,12 +990,10 @@ class ReflexEngine:
         return result
 
     def _load_state(self) -> dict[str, str]:
-        if not self.config.state_path.exists():
-            return {}
-        return json.loads(self.config.state_path.read_text(encoding="utf-8"))
+        return load_json_state(self.config.state_path)
 
     def _save_state(self, state: dict[str, str]) -> None:
-        self.config.state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        write_json_state_atomic(self.config.state_path, state)
 
     def _domain_title_for_rule(self, rule: DomainRule) -> str:
         suffix = rule.title.split("]]", 1)[-1].strip() if "]]" in rule.title else rule.title

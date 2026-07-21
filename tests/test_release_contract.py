@@ -66,6 +66,17 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     )
     assert v022_historical_v020["release"] == "0.9.0"
 
+    v023_root = create_v021_release_fixture(tmp_path / "v023", package_version="0.23.0")
+    v023_report = run_release_contract_check(v023_root, test_count_provider=lambda _: 146)
+    v023_checks = {check["name"]: check for check in v023_report["checks"]}
+    assert v023_report["ok"] is True
+    assert "v020_proof_version_matches_pyproject" not in v023_checks
+    v023_proof_check = v023_checks["v021_governed_change_proof_matches_release_gate"]
+    assert v023_proof_check["ok"] is True
+    assert v023_proof_check["package_version"] == "0.23.0"
+    assert v023_proof_check["actual_release"] == "0.21.0"
+    assert v023_proof_check["actual_target_release"] == "0.21.0"
+
     v022_report_path = v022_root / "benchmark" / "latest-v0.21-governed-change-report.json"
     v022_proof = json.loads(v022_report_path.read_text(encoding="utf-8"))
     v022_proof["summary"]["governed_failures"] = 1

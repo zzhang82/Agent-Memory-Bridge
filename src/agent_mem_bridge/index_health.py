@@ -10,7 +10,8 @@ from .embedding_index import (
     active_embedding_config,
     embedding_health,
     ensure_embedding_schema,
-    ensure_embeddings_for_rows,
+    prepare_embeddings_for_rows,
+    upsert_prepared_embeddings,
 )
 
 
@@ -108,6 +109,10 @@ def rebuild_embedding_index(
         if model == DEFAULT_EMBEDDING_MODEL and dim == DEFAULT_EMBEDDING_DIM
         else EmbeddingConfig(model=model, dim=dim)
     )
+    if conn.in_transaction:
+        raise RuntimeError("embedding rebuild requires a connection without an active transaction")
+    ensure_embedding_schema(conn)
+    conn.commit()
     before_memory_count = conn.execute("SELECT COUNT(*) AS count FROM memories").fetchone()["count"]
     rows = conn.execute(
         """
@@ -116,7 +121,7 @@ def rebuild_embedding_index(
         ORDER BY created_at ASC
         """
     ).fetchall()
-    ensure_embedding_schema(conn)
+    prepared = prepare_embeddings_for_rows(rows, config=embedding_config)
     conn.execute("SAVEPOINT rebuild_embedding_index")
     try:
         conn.execute(
@@ -127,9 +132,9 @@ def rebuild_embedding_index(
             """,
             (embedding_config.model, embedding_config.dim),
         )
-        ensure_embeddings_for_rows(conn, rows, config=embedding_config)
+        processed_count = upsert_prepared_embeddings(conn, prepared, config=embedding_config)
         after_memory_count = conn.execute("SELECT COUNT(*) AS count FROM memories").fetchone()["count"]
-        if after_memory_count != before_memory_count:
+        if after_memory_count != before_memory_count or processed_count != len(rows):
             raise RuntimeError("memory table changed during embedding rebuild; rolling back derived index rebuild")
         conn.execute("RELEASE rebuild_embedding_index")
     except Exception:

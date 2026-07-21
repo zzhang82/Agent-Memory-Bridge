@@ -57,6 +57,10 @@ def test_v022_release_announcements_are_on_public_surface() -> None:
     }.issubset(set(PUBLIC_DOC_PATHS))
 
 
+def test_v023_release_announcement_is_on_public_surface() -> None:
+    assert Path("docs/v0.23.0-announcement.md") in PUBLIC_DOC_PATHS
+
+
 def test_visual_release_assets_are_on_public_surface_with_png_binary_only() -> None:
     text_scanned_assets = {
         Path("docs/RELEASE-COMMUNICATIONS.md"),

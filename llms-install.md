@@ -41,7 +41,7 @@ Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.22.3.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.23.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -81,7 +81,7 @@ loaded.
 If `uvx` is already installed, it can run the GitHub source directly:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.22.3 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.23.0 agent-memory-bridge verify
 ```
 
 Do not make this the only install instruction. `uv` is not a project baseline

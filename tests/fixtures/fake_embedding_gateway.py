@@ -9,6 +9,9 @@ def main() -> int:
     if mode == "invalid-json":
         print("{not json")
         return 0
+    if mode == "invalid-utf8":
+        sys.stdout.buffer.write(b"\xff")
+        return 0
     if mode == "exit":
         print("private memory text must not leak", file=sys.stderr)
         return 3

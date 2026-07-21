@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import sqlite3
+from multiprocessing import get_context
 from pathlib import Path
 from threading import Thread
 
 import pytest
 
+from agent_mem_bridge import schema as schema_module
 from agent_mem_bridge import server
 from agent_mem_bridge.learning_policy import evaluate_learning_candidate
-from agent_mem_bridge.schema import ensure_column, init_db
+from agent_mem_bridge.schema import CURRENT_SCHEMA_VERSION, ensure_column, init_db, schema_version
 from agent_mem_bridge.storage import MemoryStore
+
+
+def _open_legacy_store_process(db_path: str, log_dir: str, results) -> None:
+    try:
+        store = MemoryStore(Path(db_path), log_dir=Path(log_dir))
+        recalled = store.recall(namespace="project:bridge", query="concurrent", limit=1)
+        results.put({"count": recalled["count"]})
+    except BaseException as exc:  # pragma: no cover - surfaced in the parent process
+        results.put({"error": f"{type(exc).__name__}: {exc}"})
 
 
 def _candidate(**overrides):
@@ -216,6 +227,214 @@ def test_new_schema_has_learning_candidate_visibility_column(tmp_path: Path) -> 
 
     assert "is_learning_candidate" in columns
     assert "idx_memories_learning_candidate_visible" in indexes
+
+
+def test_new_schema_records_current_version(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+
+    with store._connect() as conn:
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION
+
+
+@pytest.mark.parametrize(
+    "legacy_columns",
+    [
+        """
+        id TEXT PRIMARY KEY,
+        namespace TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        content TEXT NOT NULL,
+        tags_json TEXT NOT NULL DEFAULT '[]',
+        content_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
+        """,
+        """
+        id TEXT PRIMARY KEY,
+        namespace TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        title TEXT,
+        content TEXT NOT NULL,
+        tags_json TEXT NOT NULL DEFAULT '[]',
+        signal_status TEXT,
+        claimed_by TEXT,
+        content_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
+        """,
+        """
+        id TEXT PRIMARY KEY,
+        namespace TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        title TEXT,
+        content TEXT NOT NULL,
+        tags_json TEXT NOT NULL DEFAULT '[]',
+        session_id TEXT,
+        actor TEXT,
+        correlation_id TEXT,
+        signal_status TEXT,
+        claimed_by TEXT,
+        claimed_at TEXT,
+        lease_expires_at TEXT,
+        expires_at TEXT,
+        acknowledged_at TEXT,
+        is_learning_candidate INTEGER NOT NULL DEFAULT 0,
+        content_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
+        """,
+    ],
+)
+def test_representative_legacy_schemas_upgrade_to_current_version(tmp_path: Path, legacy_columns: str) -> None:
+    db_path = tmp_path / "legacy.db"
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute(f"CREATE TABLE memories ({legacy_columns})")
+    conn.commit()
+
+    init_db(conn)
+
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(memories)")}
+    fts_columns = {row["name"] for row in conn.execute("PRAGMA table_info(memories_fts)")}
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION
+    assert {"lineage_status", "lineage_issues_json", "client_transport"}.issubset(columns)
+    assert {"memory_id", "title", "content"}.issubset(fts_columns)
+    assert conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memory_embeddings'"
+    ).fetchone()
+    assert conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memory_tombstones'"
+    ).fetchone()
+    conn.close()
+
+
+def test_schema_migration_failure_rolls_back_version_and_ddl(monkeypatch) -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+
+    def failing_migration(connection: sqlite3.Connection) -> None:
+        connection.execute("CREATE TABLE partial_migration (id INTEGER PRIMARY KEY)")
+        raise RuntimeError("migration failed")
+
+    monkeypatch.setattr(schema_module, "MIGRATIONS", ((1, failing_migration),))
+
+    with pytest.raises(RuntimeError, match="migration failed"):
+        init_db(conn)
+
+    assert schema_version(conn) == 0
+    assert conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'partial_migration'"
+    ).fetchone() is None
+
+
+def test_schema_migrations_run_in_order(monkeypatch) -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    observed: list[int] = []
+
+    def migration_one(connection: sqlite3.Connection) -> None:
+        observed.append(1)
+        connection.execute("CREATE TABLE migration_one (id INTEGER PRIMARY KEY)")
+
+    def migration_two(connection: sqlite3.Connection) -> None:
+        observed.append(2)
+        connection.execute("CREATE TABLE migration_two (id INTEGER PRIMARY KEY)")
+
+    monkeypatch.setattr(schema_module, "CURRENT_SCHEMA_VERSION", 2)
+    monkeypatch.setattr(schema_module, "MIGRATIONS", ((1, migration_one), (2, migration_two)))
+
+    init_db(conn)
+
+    assert observed == [1, 2]
+    assert schema_version(conn) == 2
+
+
+def test_schema_migration_sequence_gap_fails_closed(monkeypatch) -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+
+    def migration_one(connection: sqlite3.Connection) -> None:
+        connection.execute("CREATE TABLE migration_one (id INTEGER PRIMARY KEY)")
+
+    monkeypatch.setattr(schema_module, "CURRENT_SCHEMA_VERSION", 2)
+    monkeypatch.setattr(schema_module, "MIGRATIONS", ((1, migration_one),))
+
+    with pytest.raises(RuntimeError, match="stops at version 1"):
+        init_db(conn)
+
+    assert schema_version(conn) == 0
+    assert conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'migration_one'"
+    ).fetchone() is None
+
+
+def test_too_new_schema_fails_closed_without_mutation() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute("CREATE TABLE marker (value TEXT)")
+    conn.execute("INSERT INTO marker(value) VALUES ('stable')")
+    conn.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION + 1}")
+    conn.commit()
+
+    with pytest.raises(RuntimeError, match="newer than supported"):
+        init_db(conn)
+
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION + 1
+    assert conn.execute("SELECT value FROM marker").fetchone()["value"] == "stable"
+    assert conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memories'"
+    ).fetchone() is None
+
+
+def test_multiple_processes_converge_on_one_legacy_schema_upgrade(tmp_path: Path) -> None:
+    db_path = tmp_path / "legacy-concurrent.db"
+    conn = sqlite3.connect(db_path)
+    conn.executescript(
+        """
+        CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            namespace TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            content TEXT NOT NULL,
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            content_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE VIRTUAL TABLE memories_fts USING fts5(memory_id UNINDEXED, content);
+        INSERT INTO memories (id, namespace, kind, content, tags_json, content_hash, created_at)
+        VALUES (
+            'legacy-row',
+            'project:bridge',
+            'memory',
+            'concurrent legacy migration row',
+            '[]',
+            'legacy-hash',
+            '2026-01-01T00:00:00+00:00'
+        );
+        INSERT INTO memories_fts(memory_id, content)
+        VALUES ('legacy-row', 'concurrent legacy migration row');
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    context = get_context("spawn")
+    results = context.Queue()
+    processes = [
+        context.Process(
+            target=_open_legacy_store_process,
+            args=(str(db_path), str(tmp_path / "logs"), results),
+        )
+        for _ in range(4)
+    ]
+    for process in processes:
+        process.start()
+    for process in processes:
+        process.join(timeout=20)
+
+    reports = [results.get(timeout=5) for _ in processes]
+    assert all(process.exitcode == 0 for process in processes)
+    assert reports == [{"count": 1}] * 4
+
+    with sqlite3.connect(db_path) as upgraded:
+        assert upgraded.execute("PRAGMA user_version").fetchone()[0] == CURRENT_SCHEMA_VERSION
 
 
 def test_fts_startup_rebuild_is_concurrency_safe_smoke(tmp_path: Path) -> None:

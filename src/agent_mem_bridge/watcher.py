@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +13,7 @@ from .codex_rollout import (
     parse_rollout_file,
 )
 from .session_closeout import persist_session_payload
+from .state_io import load_json_state, write_json_state_atomic
 from .storage import MemoryStore
 
 
@@ -145,12 +145,10 @@ class CodexSessionWatcher:
         return has_checkpoint_signal(summary)
 
     def _load_state(self) -> dict[str, Any]:
-        if not self.config.state_path.exists():
-            return {}
-        return json.loads(self.config.state_path.read_text(encoding="utf-8"))
+        return load_json_state(self.config.state_path)
 
     def _save_state(self, state: dict[str, Any]) -> None:
-        self.config.state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        write_json_state_atomic(self.config.state_path, state)
 
     @staticmethod
     def _normalize_state_entry(raw: Any) -> dict[str, Any]:

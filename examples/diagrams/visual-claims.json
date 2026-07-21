@@ -16,7 +16,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.22.3"
+        "release": "0.23.0"
       }
     },
     {
@@ -32,7 +32,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.22.3"
+        "release": "0.23.0"
       }
     },
     {
@@ -48,7 +48,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.22.3"
+        "release": "0.23.0"
       }
     },
     {
@@ -64,7 +64,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.22.3"
+        "release": "0.23.0"
       }
     },
     {
@@ -84,7 +84,7 @@
       ],
       "release_applicability": {
         "status": "current",
-        "release": "0.22.3"
+        "release": "0.23.0"
       }
     }
   ]

@@ -1,13 +1,19 @@
 from __future__ import annotations
 
-import json
-import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .embedding_index import EmbeddingConfig, active_embedding_config, embedding_health, ensure_embedding_schema
+from .embedding_index import (
+    EmbeddingConfig,
+    PreparedEmbedding,
+    active_embedding_config,
+    embedding_health,
+    ensure_embedding_schema,
+    prepare_embeddings_for_rows,
+    upsert_prepared_embeddings,
+)
 from .index_health import inspect_indexes
 from .paths import (
     resolve_embedding_scheduler_batch_size,
@@ -15,6 +21,7 @@ from .paths import (
     resolve_embedding_scheduler_interval_seconds,
     resolve_embedding_scheduler_state_path,
 )
+from .state_io import load_json_state, write_json_state_atomic
 from .storage import MemoryStore
 
 
@@ -61,7 +68,7 @@ def run_embedding_sidecar_maintenance(
         }
 
     embedding_config = resolved.embedding_config or active_embedding_config()
-    state = _load_state(state_path)
+    state = load_json_state(state_path)
     due, due_reason = _is_due(
         state,
         timestamp=timestamp,
@@ -80,15 +87,13 @@ def run_embedding_sidecar_maintenance(
         }
 
     try:
-        with store._connect() as conn:
-            result = _run_due_batch(
-                conn,
-                embedding_config=embedding_config,
-                batch_size=max(1, resolved.batch_size),
-            )
-            conn.commit()
+        result = _run_due_batch(
+            store,
+            embedding_config=embedding_config,
+            batch_size=max(1, resolved.batch_size),
+        )
     except Exception as exc:
-        _write_state(
+        write_json_state_atomic(
             state_path,
             {
                 **state,
@@ -101,7 +106,7 @@ def run_embedding_sidecar_maintenance(
         )
         raise
 
-    _write_state(
+    write_json_state_atomic(
         state_path,
         {
             **state,
@@ -129,39 +134,54 @@ def run_embedding_sidecar_maintenance(
 
 
 def _run_due_batch(
-    conn: sqlite3.Connection,
+    store: MemoryStore,
     *,
     embedding_config: EmbeddingConfig,
     batch_size: int,
 ) -> dict[str, int]:
-    ensure_embedding_schema(conn)
-    orphan_removed_count = conn.execute(
-        """
-        DELETE FROM memory_embeddings
-        WHERE embedding_model = ?
-        AND embedding_dim = ?
-        AND memory_id NOT IN (SELECT id FROM memories)
-        """,
-        (embedding_config.model, embedding_config.dim),
-    ).rowcount
-    rows = conn.execute(
-        """
-        SELECT m.id, m.title, m.content, m.content_hash
-        FROM memories m
-        LEFT JOIN memory_embeddings e
-          ON e.memory_id = m.id
-         AND e.embedding_model = ?
-         AND e.embedding_dim = ?
-        WHERE e.memory_id IS NULL
-        OR e.content_hash != m.content_hash
-        ORDER BY m.created_at ASC, m.id ASC
-        LIMIT ?
-        """,
-        (embedding_config.model, embedding_config.dim, batch_size),
-    ).fetchall()
+    with store._connect() as conn:
+        ensure_embedding_schema(conn)
+        conn.commit()
+        rows = conn.execute(
+            """
+            SELECT m.id, m.title, m.content, m.content_hash
+            FROM memories m
+            LEFT JOIN memory_embeddings e
+              ON e.memory_id = m.id
+             AND e.embedding_model = ?
+             AND e.embedding_dim = ?
+            WHERE e.memory_id IS NULL
+            OR e.content_hash != m.content_hash
+            ORDER BY m.created_at ASC, m.id ASC
+            LIMIT ?
+            """,
+            (embedding_config.model, embedding_config.dim, batch_size),
+        ).fetchall()
 
-    processed_count = _ensure_embeddings_for_rows_batch(conn, rows, config=embedding_config)
-    health = embedding_health(conn, config=embedding_config)
+    prepared = prepare_embeddings_for_rows(rows, config=embedding_config)
+    return _apply_due_batch(store, prepared=prepared, embedding_config=embedding_config)
+
+
+def _apply_due_batch(
+    store: MemoryStore,
+    *,
+    prepared: list[PreparedEmbedding],
+    embedding_config: EmbeddingConfig,
+) -> dict[str, int]:
+    with store._connect() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        orphan_removed_count = conn.execute(
+            """
+            DELETE FROM memory_embeddings
+            WHERE embedding_model = ?
+            AND embedding_dim = ?
+            AND memory_id NOT IN (SELECT id FROM memories)
+            """,
+            (embedding_config.model, embedding_config.dim),
+        ).rowcount
+        processed_count = upsert_prepared_embeddings(conn, prepared, config=embedding_config)
+        conn.commit()
+        health = embedding_health(conn, config=embedding_config)
     return {
         "processed_count": processed_count,
         "remaining_count": int(health["missing_embedding_count"]) + int(health["stale_embedding_count"]),
@@ -169,52 +189,6 @@ def _run_due_batch(
         "memory_count": int(health["memory_count"]),
         "embedding_count": int(health["embedding_count"]),
     }
-
-
-def _ensure_embeddings_for_rows_batch(
-    conn: sqlite3.Connection,
-    rows: list[sqlite3.Row],
-    *,
-    config: EmbeddingConfig,
-) -> int:
-    # Import locally to keep the scheduler module focused on orchestration and
-    # avoid broadening the public embedding-index surface before benchmarks say
-    # this batching policy should become reusable API.
-    from .embedding_index import embed_texts, vector_json
-
-    if not rows:
-        return 0
-    texts = ["\n".join(part for part in (row["title"] or "", row["content"]) if part) for row in rows]
-    vectors = embed_texts(texts, config=config)
-    now = datetime.now(UTC).isoformat()
-    for row, vector in zip(rows, vectors, strict=True):
-        conn.execute(
-            """
-            INSERT INTO memory_embeddings (
-                memory_id,
-                content_hash,
-                embedding_model,
-                embedding_dim,
-                vector_json,
-                created_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(memory_id) DO UPDATE SET
-                content_hash = excluded.content_hash,
-                embedding_model = excluded.embedding_model,
-                embedding_dim = excluded.embedding_dim,
-                vector_json = excluded.vector_json,
-                created_at = excluded.created_at
-            """,
-            (
-                row["id"],
-                row["content_hash"],
-                config.model,
-                config.dim,
-                vector_json(vector),
-                now,
-            ),
-        )
-    return len(rows)
 
 
 def _is_due(
@@ -249,25 +223,6 @@ def _parse_datetime(value: Any) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=UTC)
     return parsed.astimezone(UTC)
-
-
-def _load_state(path: Path | None) -> dict[str, Any]:
-    if path is None or not path.is_file():
-        return {}
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return raw if isinstance(raw, dict) else {}
-
-
-def _write_state(path: Path | None, state: dict[str, Any]) -> None:
-    if path is None:
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    tmp_path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
-    tmp_path.replace(path)
 
 
 def embedding_sidecar_snapshot(store: MemoryStore, *, config: EmbeddingConfig | None = None) -> dict[str, Any]:

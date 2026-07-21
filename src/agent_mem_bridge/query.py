@@ -6,17 +6,21 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .embedding_index import (
+    EmbeddingProviderError,
     active_embedding_config,
     cosine_similarity,
-    embed_text,
-    ensure_embeddings_for_rows,
+    embed_texts,
+    embedding_text_for_row,
+    embedding_tokens,
     load_vector,
+    prepared_embeddings_from_vectors,
+    upsert_prepared_embeddings,
 )
 from .paths import resolve_hybrid_semantic_weight, resolve_retrieval_mode, resolve_semantic_scan_limit
 from .repository import MEMORY_ROW_SELECT, MemoryRow, normalize_tags
 
 
-TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
+LEXICAL_FTS_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 
 
 def recall_candidates(
@@ -33,6 +37,7 @@ def recall_candidates(
     correlation_id: str | None,
     since: str | None,
     retrieval_mode: str | None = None,
+    diagnostics: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     candidate_limit = max(limit, min(max(limit * 5, 20), 100))
     mode = normalize_retrieval_mode(retrieval_mode or resolve_retrieval_mode())
@@ -50,19 +55,44 @@ def recall_candidates(
             correlation_id=correlation_id,
             since=since,
         )
-        semantic_items = recall_via_semantic(
-            store,
-            namespace=namespace,
-            query=query,
-            limit=candidate_limit,
-            kind=kind,
-            signal_status=signal_status,
-            tags_any=tags_any,
-            session_id=session_id,
-            actor=actor,
-            correlation_id=correlation_id,
-            since=since,
-        )
+        try:
+            semantic_items = recall_via_semantic(
+                store,
+                namespace=namespace,
+                query=query,
+                limit=candidate_limit,
+                kind=kind,
+                signal_status=signal_status,
+                tags_any=tags_any,
+                session_id=session_id,
+                actor=actor,
+                correlation_id=correlation_id,
+                since=since,
+            )
+        except EmbeddingProviderError as exc:
+            if mode == "semantic":
+                raise RuntimeError(
+                    f"semantic recall failed because the embedding provider was unavailable ({exc.__class__.__name__})"
+                ) from exc
+            degraded = {
+                "mode": "hybrid",
+                "degraded": True,
+                "degraded_reason": "embedding-provider-failure",
+                "semantic_available": False,
+                "semantic_error_type": exc.__class__.__name__,
+            }
+            if diagnostics is not None:
+                diagnostics.update(degraded)
+            return [
+                {
+                    **item,
+                    "retrieval": {
+                        **(item.get("retrieval") or {}),
+                        **degraded,
+                    },
+                }
+                for item in lexical_items[:limit]
+            ]
         if mode == "semantic":
             return semantic_items[:limit]
         return hybrid_rerank_items(
@@ -185,8 +215,10 @@ def recall_via_semantic(
         alias="m",
     )
     scan_limit = max(limit, min(max(limit * 20, 50), resolve_semantic_scan_limit()))
-    embedding_config = active_embedding_config()
-    query_vector = embed_text(query, config=embedding_config)
+    try:
+        embedding_config = active_embedding_config()
+    except ValueError as exc:
+        raise EmbeddingProviderError("embedding configuration is invalid") from exc
     with store._connect() as conn:
         rows = conn.execute(
             f"""
@@ -206,12 +238,23 @@ def recall_via_semantic(
             """,
             (embedding_config.model, embedding_config.dim, *params, scan_limit),
         ).fetchall()
-        ensure_embeddings_for_rows(
-            conn,
-            [row for row in rows if row["vector_json"] is None],
-            config=embedding_config,
-        )
-        conn.commit()
+    missing_rows = [row for row in rows if row["vector_json"] is None]
+    vectors = embed_texts(
+        [query, *(embedding_text_for_row(row) for row in missing_rows)],
+        config=embedding_config,
+    )
+    query_vector = vectors[0]
+    prepared = prepared_embeddings_from_vectors(
+        missing_rows,
+        vectors=vectors[1:],
+        config=embedding_config,
+    )
+    if prepared:
+        with store._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            upsert_prepared_embeddings(conn, prepared, config=embedding_config)
+            conn.commit()
+    with store._connect() as conn:
         refreshed = conn.execute(
             f"""
             SELECT
@@ -564,7 +607,7 @@ def build_since_filter(
 
 
 def build_match_query(query: str) -> str:
-    tokens = TOKEN_RE.findall(query)
+    tokens = LEXICAL_FTS_TOKEN_RE.findall(query)
     if not tokens:
         return ""
     return " OR ".join(f'"{token}"' for token in tokens)
@@ -709,7 +752,7 @@ def normalize_text(value: str) -> str:
 
 
 def tokenize(text: str) -> list[str]:
-    return TOKEN_RE.findall(text.lower())
+    return embedding_tokens(text)
 
 
 def escape_like(value: str) -> str:

@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-21 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.22.3`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.22.1 visual launch polish, the v0.22.2 onboarding-coherence patch, and the v0.22.3 correctness hardening. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.23.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.22.1 visual launch polish, the v0.22.2 onboarding-coherence patch, the v0.22.3 correctness hardening, and the v0.23.0 reliability hardening. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,9 +636,67 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.23.0 = Reliability Hardening
+
+Status: current release-candidate story for `v0.23.0`; the public MCP surface
+remains exactly 10 tools.
+
+### Thesis
+
+External embedding work, background service failures, state persistence, and
+schema upgrades should have explicit short-lived failure boundaries.
+
+One sentence:
+
+`0.23.0 = batched embedding work outside write transactions, typed hybrid degradation, isolated service lanes, atomic state files, and transactional schema versioning; validation snapshot: 445 passed.`
+
+### Scope
+
+1. Read embedding candidates in a short database phase, call the provider in a
+   batch outside write transactions, and revalidate content hashes before
+   upsert across semantic recall, scheduler maintenance, and rebuild.
+2. Let hybrid recall return lexical results with explicit degraded metadata
+   only for typed embedding-provider failures; keep explicit semantic failure
+   clear and let SQLite/programming failures propagate.
+3. Reject non-finite provider and persisted vectors.
+4. Add bounded Chinese/Han tokenization to the local hash-semantic path without
+   claiming broad CJK lexical or FTS support.
+5. Isolate every service lane during cycle execution, track failure counts, and
+   apply capped retry delays without swallowing process-control exceptions.
+6. Use one tolerant, atomic JSON state contract across watcher, reflex,
+   consolidation, governance, and embedding scheduler state.
+7. Record ordered schema migrations with `PRAGMA user_version`, transactional
+   rollback, future-version rejection, and serialized concurrent upgrade tests.
+
+### Acceptance Gate
+
+`0.23.0` is acceptable only when:
+
+- provider callbacks run outside write transactions in semantic recall,
+  scheduler maintenance, and rebuild
+- stale content hashes prevent obsolete vector upserts
+- hybrid provider failure returns lexical results with degraded metadata while
+  explicit semantic mode fails clearly
+- database failures are not mislabeled as provider degradation
+- `NaN` and infinite vectors are rejected
+- one failed service lane does not prevent later lanes in the same cycle
+- failure counts, bounded backoff, enablement failures, and process-control
+  exceptions have regressions
+- malformed or non-object state cannot stop a lane, and failed atomic replace
+  preserves the previous valid state
+- fresh and representative legacy databases reach schema version `1`
+- migration failure and missing migration steps roll back both DDL and version
+- four spawned processes converge on one legacy schema upgrade
+- the full suite is `445 passed`
+- all nine GitHub OS/Python jobs pass
+- the public MCP surface remains exactly 10 tools
+- docs claim Chinese/Han hash-semantic retrieval, not broad CJK lexical support
+- no exactly-once Signal, ACL, singleton-lock, lane-timeout, or distributed queue
+  claim is added
+
 ## 0.22.3 = Correctness Hardening
 
-Status: current public version story for `v0.22.3`; the public MCP surface
+Status: historical public version story for `v0.22.3`; the public MCP surface
 remains exactly 10 tools.
 
 ### Thesis

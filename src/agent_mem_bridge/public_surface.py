@@ -46,6 +46,7 @@ PUBLIC_DOC_PATHS = (
     Path("docs/v0.22.1-announcement.md"),
     Path("docs/v0.22.2-announcement.md"),
     Path("docs/v0.22.3-announcement.md"),
+    Path("docs/v0.23.0-announcement.md"),
     Path("examples/README.md"),
     Path("examples/demo/before-after-gotcha.cast.md"),
     Path("examples/demo/README.md"),
