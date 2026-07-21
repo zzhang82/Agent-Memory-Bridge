@@ -410,7 +410,10 @@ def _temporary_database_path(parent: Path, *, prefix: str) -> Path:
 
 def _atomic_replace(source: Path, target: Path) -> None:
     os.replace(source, target)
-    with target.open("rb") as handle:
+    # Windows rejects fsync on a descriptor opened read-only. Opening the
+    # freshly replaced database for update keeps the durability barrier
+    # portable without changing its contents.
+    with target.open("r+b") as handle:
         os.fsync(handle.fileno())
     if os.name == "posix":
         directory_fd = os.open(target.parent, os.O_RDONLY)
