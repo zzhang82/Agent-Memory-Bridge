@@ -6,6 +6,7 @@ import math
 import os
 import sqlite3
 import tempfile
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -36,7 +37,7 @@ def inspect_database(db_path: Path, *, full: bool = False, log_dir: Path | None 
             "errors": ["database file does not exist"],
         }
     try:
-        with _read_only_connection(path) as conn:
+        with closing(_read_only_connection(path)) as conn:
             pragma_name = "integrity_check" if full else "quick_check"
             integrity_rows = [str(row[0]) for row in conn.execute(f"PRAGMA {pragma_name}").fetchall()]
             foreign_key_rows = [tuple(row) for row in conn.execute("PRAGMA foreign_key_check").fetchall()]
@@ -115,7 +116,7 @@ def rebuild_database_projections(
     path = Path(db_path).expanduser().resolve()
     lock_path = Path(service_lock_path).expanduser().resolve() if service_lock_path else path.parent / "service.lock"
     with ServiceFileLock(lock_path):
-        with sqlite3.connect(path, timeout=5.0) as conn:
+        with closing(sqlite3.connect(path, timeout=5.0)) as conn:
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("BEGIN IMMEDIATE")
@@ -240,7 +241,7 @@ def _restore_database_locked(
         # Restore through SQLite's backup API so already-open connections do not
         # retain a split view of an unlinked database inode.
         _copy_database(temporary, target)
-        with sqlite3.connect(target, timeout=5.0) as restored_conn:
+        with closing(sqlite3.connect(target, timeout=5.0)) as restored_conn:
             restored_conn.execute("BEGIN IMMEDIATE")
             restored_epoch = rotate_database_epoch(restored_conn)
             restored_conn.commit()
@@ -279,7 +280,7 @@ def checkpoint_database(db_path: Path, *, mode: str = "PASSIVE") -> dict[str, An
     path = Path(db_path)
     if not path.is_file():
         raise FileNotFoundError(f"database does not exist: {path}")
-    with sqlite3.connect(path, timeout=5.0) as conn:
+    with closing(sqlite3.connect(path, timeout=5.0)) as conn:
         row = conn.execute(f"PRAGMA wal_checkpoint({normalized})").fetchone()
     busy, log_frames, checkpointed_frames = (int(value) for value in (row or (0, 0, 0)))
     return {
@@ -309,7 +310,7 @@ def cleanup_signals(
     acked_cutoff = (timestamp - timedelta(days=acked_older_than_days)).isoformat()
     expired_cutoff = (timestamp - timedelta(days=expired_older_than_days)).isoformat()
     path = Path(db_path)
-    with sqlite3.connect(path, timeout=5.0) as conn:
+    with closing(sqlite3.connect(path, timeout=5.0)) as conn:
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON")
         rows = conn.execute(
@@ -395,8 +396,8 @@ def _read_only_connection(path: Path) -> sqlite3.Connection:
 
 
 def _copy_database(source: Path, target: Path) -> None:
-    with _read_only_connection(source) as source_conn:
-        with sqlite3.connect(target) as target_conn:
+    with closing(_read_only_connection(source)) as source_conn:
+        with closing(sqlite3.connect(target)) as target_conn:
             source_conn.backup(target_conn)
             target_conn.commit()
 

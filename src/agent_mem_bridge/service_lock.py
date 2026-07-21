@@ -11,6 +11,8 @@ from typing import Any, BinaryIO
 
 from .filesystem_safety import ensure_private_directory, ensure_private_file
 
+WINDOWS_LOCK_OFFSET = 1 << 30
+
 
 class ServiceLockConflict(RuntimeError):
     def __init__(self, path: Path, metadata: dict[str, Any] | None = None) -> None:
@@ -75,12 +77,10 @@ class ServiceFileLock:
 
 
 def _ensure_lockable_file(handle: BinaryIO) -> None:
-    if os.name != "nt":
-        return
-    handle.seek(0, os.SEEK_END)
-    if handle.tell() == 0:
-        handle.write(b"\0")
-        os.fsync(handle.fileno())
+    # Windows byte-range locks block reads through the locked range, including
+    # reads from another handle in the same process. The metadata must remain
+    # readable by operators and lock contenders, so the actual lock lives at a
+    # fixed offset far beyond the small JSON payload instead of byte zero.
     handle.seek(0)
 
 
@@ -89,6 +89,7 @@ def _lock_nonblocking(handle: BinaryIO) -> None:
     if os.name == "nt":
         import msvcrt
 
+        handle.seek(WINDOWS_LOCK_OFFSET)
         msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
         return
 
@@ -102,6 +103,7 @@ def _unlock(handle: BinaryIO) -> None:
     if os.name == "nt":
         import msvcrt
 
+        handle.seek(WINDOWS_LOCK_OFFSET)
         msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
         return
 
