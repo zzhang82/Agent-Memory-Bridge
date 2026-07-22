@@ -41,7 +41,7 @@ Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.23.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.24.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -72,7 +72,7 @@ client before editing its config:
 The default config path in the generated fragment is optional for this baseline.
 If no such `config.toml` exists, `doctor` may warn and the baseline server can
 still run. Restart or reload the client, then use its own MCP status/tool view
-to confirm the server connects and exposes the documented ten-tool public
+to confirm the server connects and exposes the documented 12-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
 
@@ -81,7 +81,7 @@ loaded.
 If `uvx` is already installed, it can run the GitHub source directly:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.23.1 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.24.0 agent-memory-bridge verify
 ```
 
 Do not make this the only install instruction. `uv` is not a project baseline

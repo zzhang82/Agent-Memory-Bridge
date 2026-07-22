@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import sqlite3
 from collections.abc import Callable
@@ -8,7 +9,7 @@ from .embedding_index import ensure_embedding_schema
 from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 def quote_identifier(identifier: str) -> str:
@@ -72,10 +73,15 @@ def _migrate_to_v3(conn: sqlite3.Connection) -> None:
     _ensure_bridge_metadata_schema(conn)
 
 
+def _migrate_to_v4(conn: sqlite3.Connection) -> None:
+    _ensure_exact_content_identity_schema(conn)
+
+
 MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     (1, _migrate_to_v1),
     (2, _migrate_to_v2),
     (3, _migrate_to_v3),
+    (4, _migrate_to_v4),
 )
 
 
@@ -108,6 +114,7 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
             lineage_status TEXT NOT NULL DEFAULT 'intact',
             lineage_issues_json TEXT NOT NULL DEFAULT '[]',
             content_hash TEXT NOT NULL,
+            exact_content_hash TEXT NOT NULL CHECK (length(trim(exact_content_hash)) > 0),
             created_at TEXT NOT NULL
         )
         """
@@ -177,13 +184,7 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
     )
     ensure_fts_columns(conn)
     ensure_embedding_schema(conn)
-    conn.execute(
-        """
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_dedup
-        ON memories (namespace, content_hash)
-        WHERE kind != 'signal'
-        """
-    )
+    _ensure_exact_content_identity_schema(conn)
     conn.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_memories_namespace_created_at
@@ -523,6 +524,80 @@ def _ensure_bridge_metadata_schema(conn: sqlite3.Connection) -> None:
         VALUES ('database_epoch', lower(hex(randomblob(16))))
         """
     )
+
+
+def _ensure_exact_content_identity_schema(conn: sqlite3.Connection) -> None:
+    ensure_column(
+        conn,
+        "memories",
+        "exact_content_hash",
+        "ALTER TABLE memories ADD COLUMN exact_content_hash TEXT NOT NULL DEFAULT ''",
+    )
+    rows = conn.execute(
+        """
+        SELECT id, content
+        FROM memories
+        WHERE exact_content_hash IS NULL OR length(trim(exact_content_hash)) = 0
+        ORDER BY rowid ASC
+        """
+    ).fetchall()
+    for row in rows:
+        conn.execute(
+            "UPDATE memories SET exact_content_hash = ? WHERE id = ?",
+            (exact_content_hash(str(row["content"])), row["id"]),
+        )
+    invalid = conn.execute(
+        """
+        SELECT id
+        FROM memories
+        WHERE exact_content_hash IS NULL OR length(trim(exact_content_hash)) = 0
+        LIMIT 1
+        """
+    ).fetchone()
+    if invalid is not None:
+        raise RuntimeError("exact_content_hash migration left an empty identity")
+    conn.execute("DROP INDEX IF EXISTS idx_memories_dedup")
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_dedup
+        ON memories (namespace, exact_content_hash)
+        WHERE kind != 'signal'
+        """
+    )
+    _ensure_exact_content_identity_triggers(conn)
+
+
+def _ensure_exact_content_identity_triggers(conn: sqlite3.Connection) -> None:
+    conn.execute("DROP TRIGGER IF EXISTS validate_exact_content_identity_insert")
+    conn.execute("DROP TRIGGER IF EXISTS validate_exact_content_identity_update")
+    conn.execute(
+        """
+        CREATE TRIGGER validate_exact_content_identity_insert
+        BEFORE INSERT ON memories
+        WHEN NEW.exact_content_hash IS NULL OR length(trim(NEW.exact_content_hash)) = 0
+        BEGIN
+            SELECT RAISE(ABORT, 'exact_content_hash must not be empty');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER validate_exact_content_identity_update
+        BEFORE UPDATE OF exact_content_hash ON memories
+        WHEN NEW.exact_content_hash IS NULL OR length(trim(NEW.exact_content_hash)) = 0
+        BEGIN
+            SELECT RAISE(ABORT, 'exact_content_hash must not be empty');
+        END
+        """
+    )
+
+
+def normalize_exact_content(content: str) -> str:
+    return content.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def exact_content_hash(content: str) -> str:
+    return hashlib.sha256(normalize_exact_content(content).encode("utf-8")).hexdigest()
 
 
 def database_epoch(conn: sqlite3.Connection) -> str:

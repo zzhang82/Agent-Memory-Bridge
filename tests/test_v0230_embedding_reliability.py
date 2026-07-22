@@ -49,7 +49,54 @@ def _recall_mode(store: MemoryStore, query: str, mode: str) -> list[dict[str, ob
     )
 
 
-def test_lazy_semantic_recall_batches_provider_work_outside_write_transaction(
+def _warm_embeddings(
+    store: MemoryStore,
+    tmp_path: Path,
+    *,
+    config: EmbeddingConfig | None = None,
+) -> None:
+    embedding_config = config or EmbeddingConfig()
+    result = run_embedding_sidecar_maintenance(
+        store,
+        config=EmbeddingSchedulerConfig(
+            enabled=True,
+            state_path=tmp_path / "embedding-state.json",
+            interval_seconds=0,
+            batch_size=100,
+            embedding_config=embedding_config,
+        ),
+    )
+    assert result["remaining_count"] == 0
+
+
+def _insert_compatible_sidecar(store: MemoryStore, *, config: EmbeddingConfig) -> None:
+    with store._connect() as conn:
+        rows = conn.execute("SELECT id, content_hash FROM memories ORDER BY id").fetchall()
+        for row in rows:
+            conn.execute(
+                """
+                INSERT INTO memory_embeddings (
+                    memory_id,
+                    content_hash,
+                    embedding_model,
+                    embedding_dim,
+                    vector_json,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row["id"],
+                    row["content_hash"],
+                    config.model,
+                    config.dim,
+                    vector_json([1.0, *([0.0] * (config.dim - 1))]),
+                    "2026-01-01T00:00:00+00:00",
+                ),
+            )
+        conn.commit()
+
+
+def test_semantic_recall_is_read_only_and_embeds_only_the_query_when_warm(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -58,20 +105,32 @@ def test_lazy_semantic_recall_batches_provider_work_outside_write_transaction(
     _store_memory(store, "Beta", "Beta semantic memory.")
     config = EmbeddingConfig(model="fixture-hash", dim=8)
     monkeypatch.setattr(query_module, "active_embedding_config", lambda: config)
+    _warm_embeddings(store, tmp_path, config=config)
 
-    opened: list[sqlite3.Connection] = []
     original_connect = store._connect
+    write_actions = {sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE}
 
     def tracked_connect() -> sqlite3.Connection:
         conn = original_connect()
-        opened.append(conn)
+
+        def deny_writes(
+            action: int,
+            _arg1: str | None,
+            _arg2: str | None,
+            _db_name: str | None,
+            _trigger: str | None,
+        ) -> int:
+            if action in write_actions:
+                return sqlite3.SQLITE_DENY
+            return sqlite3.SQLITE_OK
+
+        conn.set_authorizer(deny_writes)
         return conn
 
     calls: list[list[str]] = []
 
     def fake_embed_texts(texts: list[str], *, config: EmbeddingConfig) -> list[list[float]]:
         calls.append(list(texts))
-        assert not any(conn.in_transaction for conn in opened)
         return [hash_embed_text(text, dim=config.dim) for text in texts]
 
     monkeypatch.setattr(store, "_connect", tracked_connect)
@@ -80,14 +139,42 @@ def test_lazy_semantic_recall_batches_provider_work_outside_write_transaction(
     result = _recall_mode(store, "alpha", "semantic")
 
     assert result
-    assert len(calls) == 1
-    assert calls[0][0] == "alpha"
-    assert len(calls[0]) == 3
+    assert calls == [["alpha"]]
     with original_connect() as conn:
         assert conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()[0] == 2
 
 
-def test_semantic_recall_scans_full_namespace_beyond_embedding_batch_window(
+def test_semantic_recall_reports_cold_index_without_provider_calls_or_writes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    _store_memory(store, "Alpha", "Alpha semantic memory.")
+    _store_memory(store, "Beta", "Beta semantic memory.")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE", "semantic")
+    monkeypatch.setattr(
+        query_module,
+        "embed_texts",
+        lambda texts, *, config: (_ for _ in ()).throw(AssertionError("cold recall must not call provider")),
+    )
+
+    result = store.recall(namespace="project:bridge", query="alpha", limit=5)
+
+    assert result["items"] == []
+    assert result["retrieval"]["mode"] == "semantic"
+    assert result["retrieval"]["semantic_available"] is False
+    assert result["retrieval"]["semantic_completeness"] == "cold"
+    assert result["retrieval"]["semantic_memory_count"] == 2
+    assert result["retrieval"]["semantic_valid_embedding_count"] == 0
+    assert result["retrieval"]["semantic_missing_embedding_count"] == 2
+    assert result["retrieval"]["semantic_stale_embedding_count"] == 0
+    assert result["retrieval"]["degraded"] is True
+    assert result["retrieval"]["degraded_reason"] == "semantic-index-cold"
+    with store._connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()[0] == 0
+
+
+def test_semantic_recall_scores_warm_precomputed_index_and_reports_completeness(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -95,14 +182,57 @@ def test_semantic_recall_scans_full_namespace_beyond_embedding_batch_window(
     target = _store_memory(store, "Old target", "quasarneedle durable fact")
     for index in range(5):
         _store_memory(store, f"Recent decoy {index}", f"unrelated recent memory {index}")
-    monkeypatch.setattr(query_module, "resolve_semantic_scan_limit", lambda: 2)
+    config = EmbeddingConfig(model="fixture-hash", dim=8)
+    monkeypatch.setattr(query_module, "active_embedding_config", lambda: config)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE", "semantic")
+    _warm_embeddings(store, tmp_path, config=config)
+    calls: list[list[str]] = []
 
-    result = _recall_mode(store, "quasarneedle", "semantic")
+    def fake_embed_texts(texts: list[str], *, config: EmbeddingConfig) -> list[list[float]]:
+        calls.append(list(texts))
+        return [hash_embed_text(text, dim=config.dim) for text in texts]
 
-    assert result[0]["id"] == target["id"]
-    assert (result[0].get("retrieval") or {})["semantic_scope"] == "full-store-exact"
-    with store._connect() as conn:
-        assert conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()[0] == 6
+    monkeypatch.setattr(query_module, "embed_texts", fake_embed_texts)
+
+    result = store.recall(namespace="project:bridge", query="quasarneedle", limit=5)
+
+    assert result["items"][0]["id"] == target["id"]
+    assert calls == [["quasarneedle"]]
+    assert result["retrieval"]["mode"] == "semantic"
+    assert result["retrieval"]["semantic_available"] is True
+    assert result["retrieval"]["semantic_completeness"] == "complete"
+    assert result["retrieval"]["semantic_completeness_ratio"] == 1.0
+    assert result["retrieval"]["semantic_memory_count"] == 6
+    assert result["retrieval"]["semantic_valid_embedding_count"] == 6
+    assert result["retrieval"]["semantic_missing_embedding_count"] == 0
+    assert result["retrieval"]["semantic_stale_embedding_count"] == 0
+    assert result["retrieval"]["degraded"] is False
+    assert result["items"][0]["retrieval"]["semantic_scope"] == "precomputed-valid-only"
+
+
+def test_hybrid_cold_index_preserves_lexical_fallback_with_degraded_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    created = _store_memory(store, "Lexical fallback", "Alpha fallback remains available.")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE", "hybrid")
+    monkeypatch.setattr(
+        query_module,
+        "embed_texts",
+        lambda texts, *, config: (_ for _ in ()).throw(AssertionError("cold hybrid must not call provider")),
+    )
+
+    result = store.recall(namespace="project:bridge", query="alpha fallback", limit=5)
+
+    assert [item["id"] for item in result["items"]] == [created["id"]]
+    assert result["retrieval"]["mode"] == "hybrid"
+    assert result["retrieval"]["semantic_available"] is False
+    assert result["retrieval"]["semantic_completeness"] == "cold"
+    assert result["retrieval"]["semantic_missing_embedding_count"] == 1
+    assert result["retrieval"]["degraded"] is True
+    assert result["retrieval"]["degraded_reason"] == "semantic-index-cold"
+    assert result["items"][0]["retrieval"]["mode"] == "hybrid"
 
 
 def test_scheduler_batches_provider_work_outside_write_transaction(
@@ -172,7 +302,7 @@ def test_embedding_rebuild_batches_provider_work_before_write_transaction(
     assert len(calls[0]) == 2
 
 
-def test_provider_time_content_change_skips_stale_vector_upsert(
+def test_semantic_recall_reports_stale_precomputed_vector_without_refreshing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -180,29 +310,80 @@ def test_provider_time_content_change_skips_stale_vector_upsert(
     created = _store_memory(store, "Original", "Alpha content before provider execution.")
     config = EmbeddingConfig(model="fixture-hash", dim=8)
     monkeypatch.setattr(query_module, "active_embedding_config", lambda: config)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE", "semantic")
+    _warm_embeddings(store, tmp_path, config=config)
     changed_content = "Content changed while the provider was running."
     changed_hash = hashlib.sha256(changed_content.encode("utf-8")).hexdigest()
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE memories SET content = ?, content_hash = ? WHERE id = ?",
+            (changed_content, changed_hash, created["id"]),
+        )
+        conn.commit()
+    monkeypatch.setattr(
+        query_module,
+        "embed_texts",
+        lambda texts, *, config: (_ for _ in ()).throw(AssertionError("stale recall must not refresh embeddings")),
+    )
 
-    def mutate_then_embed(texts: list[str], *, config: EmbeddingConfig) -> list[list[float]]:
-        with store._connect() as conn:
-            conn.execute(
-                "UPDATE memories SET content = ?, content_hash = ? WHERE id = ?",
-                (changed_content, changed_hash, created["id"]),
-            )
-            conn.commit()
-        return [hash_embed_text(text, dim=config.dim) for text in texts]
-
-    monkeypatch.setattr(query_module, "embed_texts", mutate_then_embed)
-
-    result = _recall_mode(store, "alpha", "semantic")
+    result = store.recall(namespace="project:bridge", query="alpha", limit=5)
 
     with store._connect() as conn:
         memory = conn.execute("SELECT content, content_hash FROM memories WHERE id = ?", (created["id"],)).fetchone()
         embedding_count = conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()[0]
-    assert result == []
+    assert result["items"] == []
+    assert result["retrieval"]["mode"] == "semantic"
+    assert result["retrieval"]["semantic_available"] is False
+    assert result["retrieval"]["semantic_completeness"] == "cold"
+    assert result["retrieval"]["semantic_valid_embedding_count"] == 0
+    assert result["retrieval"]["semantic_missing_embedding_count"] == 0
+    assert result["retrieval"]["semantic_stale_embedding_count"] == 1
+    assert result["retrieval"]["degraded"] is True
+    assert result["retrieval"]["degraded_reason"] == "semantic-index-stale"
     assert memory["content"] == changed_content
     assert memory["content_hash"] == changed_hash
+    assert embedding_count == 1
+
+
+def test_title_annotation_invalidates_precomputed_embedding_until_rebuild(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    created = _store_memory(store, "Original title", "Stable content outside the title token.")
+    config = EmbeddingConfig(model="fixture-hash", dim=8)
+    monkeypatch.setattr(query_module, "active_embedding_config", lambda: config)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE", "semantic")
+    _warm_embeddings(store, tmp_path, config=config)
+
+    unique_token = "titleonlyneedle-v0230"
+    annotated = store.annotate(str(created["id"]), title=f"Reviewed {unique_token}")
+
+    assert annotated["changed"] is True
+    assert annotated["title_changed"] is True
+    with store._connect() as conn:
+        embedding_count = conn.execute(
+            "SELECT COUNT(*) FROM memory_embeddings WHERE memory_id = ?",
+            (created["id"],),
+        ).fetchone()[0]
     assert embedding_count == 0
+
+    degraded = store.recall(namespace="project:bridge", query=unique_token, limit=5)
+
+    assert degraded["items"] == []
+    assert degraded["retrieval"]["mode"] == "semantic"
+    assert degraded["retrieval"]["semantic_completeness"] != "complete"
+    assert degraded["retrieval"]["semantic_valid_embedding_count"] == 0
+    assert degraded["retrieval"]["semantic_missing_embedding_count"] == 1
+    assert degraded["retrieval"]["semantic_stale_embedding_count"] == 0
+    assert degraded["retrieval"]["degraded"] is True
+
+    _warm_embeddings(store, tmp_path, config=config)
+    rebuilt = store.recall(namespace="project:bridge", query=unique_token, limit=5)
+
+    assert rebuilt["items"][0]["id"] == created["id"]
+    assert rebuilt["retrieval"]["semantic_completeness"] == "complete"
+    assert rebuilt["retrieval"]["degraded"] is False
 
 
 def test_hybrid_provider_failure_returns_lexical_results_with_degraded_metadata(
@@ -211,6 +392,9 @@ def test_hybrid_provider_failure_returns_lexical_results_with_degraded_metadata(
 ) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     created = _store_memory(store, "Lexical fallback", "Alpha fallback remains available.")
+    config = EmbeddingConfig(model="fixture-hash", dim=8)
+    monkeypatch.setattr(query_module, "active_embedding_config", lambda: config)
+    _warm_embeddings(store, tmp_path, config=config)
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE", "hybrid")
     monkeypatch.setattr(
         query_module,
@@ -221,14 +405,13 @@ def test_hybrid_provider_failure_returns_lexical_results_with_degraded_metadata(
     result = store.recall(namespace="project:bridge", query="alpha fallback", limit=5)
 
     assert [item["id"] for item in result["items"]] == [created["id"]]
-    assert result["retrieval"] == {
-        "mode": "hybrid",
-        "degraded": True,
-        "degraded_reason": "embedding-provider-failure",
-        "semantic_available": False,
-        "semantic_error_type": "EmbeddingProviderError",
-    }
-    assert result["items"][0]["retrieval"] == result["retrieval"]
+    assert result["retrieval"]["mode"] == "hybrid"
+    assert result["retrieval"]["degraded"] is True
+    assert result["retrieval"]["degraded_reason"] == "embedding-provider-failure"
+    assert result["retrieval"]["semantic_available"] is False
+    assert result["retrieval"]["semantic_error_type"] == "EmbeddingProviderError"
+    assert result["retrieval"]["semantic_completeness"] == "complete"
+    assert result["items"][0]["retrieval"]["degraded_reason"] == "embedding-provider-failure"
     assert "private provider detail" not in str(result)
 
 
@@ -238,6 +421,9 @@ def test_explicit_semantic_provider_failure_is_clear_and_sanitized(
 ) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     _store_memory(store, "Semantic failure", "Alpha semantic provider failure.")
+    config = EmbeddingConfig(model="fixture-hash", dim=8)
+    monkeypatch.setattr(query_module, "active_embedding_config", lambda: config)
+    _warm_embeddings(store, tmp_path, config=config)
     monkeypatch.setattr(
         query_module,
         "embed_texts",
@@ -264,6 +450,7 @@ def test_invalid_utf8_command_output_degrades_hybrid_and_keeps_semantic_error_ty
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE", "hybrid")
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     created = _store_memory(store, "Lexical fallback", "Alpha fallback remains available.")
+    _insert_compatible_sidecar(store, config=EmbeddingConfig(model="fixture-embedding-v1", dim=4))
 
     hybrid = store.recall(namespace="project:bridge", query="alpha fallback", limit=5)
 
@@ -310,6 +497,7 @@ def test_chinese_han_hash_embedding_supports_semantic_retrieval(tmp_path: Path) 
 
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     created = _store_memory(store, "中文记忆", "部署故障需要重建语义索引。")
+    _warm_embeddings(store, tmp_path)
 
     result = _recall_mode(store, "语义索引", "semantic")
 

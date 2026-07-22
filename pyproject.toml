@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-bridge"
-version = "0.23.1"
+version = "0.24.0"
 description = "Persistent engineering memory for coding agents over MCP"
 readme = "README.md"
 license = "MIT"
@@ -38,6 +38,7 @@ dev = [
   "pytest>=9.0.3,<10",
   "pytest-cov>=6,<8",
   "ruff>=0.12,<1",
+  "setuptools>=83",
   "twine>=6,<7",
 ]
 

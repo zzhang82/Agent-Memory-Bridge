@@ -1,6 +1,6 @@
 # Client And Model Provenance
 
-Last updated: 2026-04-25 (America/New_York)
+Last updated: 2026-07-22 (America/New_York)
 
 ## Why This Exists
 
@@ -10,7 +10,8 @@ the same bridge and write into the same namespace.
 That is good news, but it exposed a real gap:
 
 - the bridge can prove that a record was written
-- it cannot always prove which external client or model caused that write
+- it cannot authenticate which external client, model, user, or workspace caused
+  that write
 
 AMB stores internal writer metadata such as:
 
@@ -31,8 +32,8 @@ That is not the same as client provenance.
 For multi-client operation, the bridge needs to distinguish:
 
 - who wrote the record inside the bridge
-- which external client initiated the action
-- which model was active when the action happened
+- which external client the caller declared for the action
+- which model the caller declared was active when the action happened
 
 ## Core Design Rule
 
@@ -45,7 +46,7 @@ Keep provenance separate from every other axis.
 | `control_level` | how strongly it should steer behavior | `policy`, `belief`, `signal` |
 | `record_type` | what kind of artifact it is | `learn`, `gotcha`, `persona` |
 | `writer` | which bridge component wrote the row | `bridge-reflex`, `bridge-consolidation` |
-| `provenance` | which external client/model initiated the work | `codex`, `antigravity`, `gpt-5.x`, `gemini-*` |
+| `provenance` | which external client/model the caller declared | `codex`, `antigravity`, `gpt-5.x`, `gemini-*` |
 
 Do not overload:
 
@@ -56,18 +57,41 @@ Do not overload:
 Those shortcuts become ambiguous as soon as multiple clients share the same
 bridge.
 
+## Trust Boundary
+
+Provenance fields are declared metadata. They may be supplied directly by the
+caller or injected by a local launcher through environment-backed defaults.
+
+AMB stores and preserves those values for filtering, debugging, calibration, and
+receipt-style local evidence. It does not authenticate them. A stored
+`source_client`, `source_model`, `client_session_id`, `client_workspace`, or
+`client_transport` value is not proof of origin, vendor certification, model
+execution, user identity, workspace ownership, or authorization.
+
+Caller-supplied tags have the same basic boundary: they are useful labels, not
+authenticated authority. Governance-sensitive code should validate reserved
+control tags and policy decisions at the bridge boundary instead of trusting a
+caller-provided label by itself.
+
+Exports preserve provenance and tags, so exported files are raw sensitive
+snapshots. Sanitize them before public sharing.
+
+For the broader security boundary, see
+[TRUST-BOUNDARY.md](TRUST-BOUNDARY.md) and [SECURITY.md](../SECURITY.md).
+
 ## Captured Provenance Fields
 
 Current first-class provenance fields:
 
 - `source_client`
-  - examples: `codex`, `antigravity`, `claude-code`, `cursor`
+  - declared caller label examples: `codex`, `antigravity`, `claude-code`,
+    `cursor`
 - `source_model`
-  - examples: `gpt-5.4`, `gemini-2.5-pro`
+  - declared model label examples: `gpt-5.4`, `gemini-2.5-pro`
 - `client_session_id`
-  - external client session/thread identifier when available
+  - declared external client session/thread identifier when available
 - `client_workspace`
-  - the client-visible workspace root or project label when useful
+  - declared client-visible workspace root or project label when useful
 - `client_transport`
   - `stdio`, `http`, `sse`
 
@@ -93,7 +117,7 @@ Examples:
 
 ### Origin metadata
 
-This describes the external caller or environment that caused the write.
+This describes the external caller or environment declared for the write.
 
 Examples:
 
@@ -111,7 +135,7 @@ For example:
 The final domain note should still preserve the origin chain:
 
 - writer: `bridge-consolidation`
-- origin: `antigravity`
+- declared origin: `antigravity`
 
 Without that split, multi-client evaluation becomes muddy.
 
@@ -135,6 +159,7 @@ Important:
 - keep them optional
 - prefer caller-supplied values over defaults
 - do not make legacy callers fail validation
+- do not use these fields as authentication or authorization
 
 For stdio MCP clients that cannot or do not pass provenance fields on each tool
 call, the bridge also supports optional environment-backed defaults such as:
@@ -155,7 +180,8 @@ When reflex or consolidation writes derived records:
 - carry forward origin metadata from the source rows when present
 
 Recall and export preserve these fields so calibration and debugging can filter
-by client and model.
+by declared client and model. Exports also preserve raw content and metadata, so
+they should be handled as sensitive snapshots.
 
 ## Why This Matters
 
@@ -164,16 +190,16 @@ This is not just nicer telemetry.
 It supports real product needs:
 
 - compare client behavior across the same bridge
-- verify whether a learn came from Codex or another tool
-- run cross-client dogfood without guesswork
-- calibrate model-assisted enrichment by client/model slice
+- inspect whether a learn was declared as coming from Codex or another tool
+- run cross-client dogfood with visible declared labels
+- calibrate model-assisted enrichment by declared client/model slice
 - understand which startup assumptions are portable and which are client-local
 
 ## Release Framing
 
 This should be framed as:
 
-- multi-client provenance
+- declared multi-client provenance
 - client-aware memory hygiene
 - better cross-client calibration
 
@@ -181,6 +207,7 @@ Not:
 
 - analytics for analytics' sake
 - a replacement for profile or control-layer architecture
+- authenticated identity, model attestation, or access control
 
 The main purpose is to make shared memory legible once more than one client is
 using the same bridge.

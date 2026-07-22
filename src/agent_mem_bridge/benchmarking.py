@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .index_health import rebuild_embedding_index
 from .proof import parse_markdown_entry, run_deterministic_proof
 from .query import recall_candidates
 from .storage import MemoryStore
@@ -30,16 +31,21 @@ def run_benchmark(
     runtime_dir = Path(tempfile.mkdtemp(prefix="agent-memory-bridge-bench-"))
     try:
         store = build_benchmark_store(runtime_dir / "benchmark.db", entries, log_dir=runtime_dir / "logs")
-        semantic_store = (
-            build_benchmark_store(runtime_dir / "benchmark-semantic.db", entries, log_dir=runtime_dir / "semantic-logs")
-            if include_hybrid
-            else None
-        )
-        hybrid_store = (
-            build_benchmark_store(runtime_dir / "benchmark-hybrid.db", entries, log_dir=runtime_dir / "hybrid-logs")
-            if include_hybrid
-            else None
-        )
+        semantic_store = None
+        hybrid_store = None
+        if include_hybrid:
+            semantic_store = build_benchmark_store(
+                runtime_dir / "benchmark-semantic.db",
+                entries,
+                log_dir=runtime_dir / "semantic-logs",
+            )
+            warm_benchmark_embeddings(semantic_store)
+            hybrid_store = build_benchmark_store(
+                runtime_dir / "benchmark-hybrid.db",
+                entries,
+                log_dir=runtime_dir / "hybrid-logs",
+            )
+            warm_benchmark_embeddings(hybrid_store)
 
         retrieval_results = []
         for question in questions:
@@ -109,6 +115,13 @@ def build_benchmark_store(db_path: Path, entries: list[dict[str, Any]], *, log_d
     for entry in entries:
         store.store(**entry)
     return store
+
+
+def warm_benchmark_embeddings(store: MemoryStore) -> dict[str, Any]:
+    with store._connect() as conn:
+        report = rebuild_embedding_index(conn)
+        conn.commit()
+    return report
 
 
 def run_memory_benchmark(

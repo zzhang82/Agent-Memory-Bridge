@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from typing import Any
 
@@ -10,9 +9,10 @@ from .repository import (
     LEARNING_CANDIDATE_TAG,
     LEARNING_REVIEW_TAG,
     MemoryRow,
+    content_hash_for_content,
+    exact_content_hash_for_content,
     fetch_row_by_id,
     merge_tags,
-    normalize_content,
 )
 from .structured_record import (
     LINEAGE_LIST_FIELDS,
@@ -64,16 +64,17 @@ def promote_entry(store: Any, memory_id: str, to_kind: str) -> dict[str, Any]:
             }
 
         updated_item = build_promoted_item(source, target_kind=target_kind, current_record_type=current_record_type)
-        content_hash = hashlib.sha256(normalize_content(updated_item["content"]).encode("utf-8")).hexdigest()
+        content_hash = content_hash_for_content(updated_item["content"])
+        exact_hash = exact_content_hash_for_content(updated_item["content"])
 
         duplicate = conn.execute(
             """
             SELECT id
             FROM memories
-            WHERE namespace = ? AND kind = 'memory' AND content_hash = ? AND id != ?
+            WHERE namespace = ? AND kind = 'memory' AND exact_content_hash = ? AND id != ?
             LIMIT 1
             """,
-            (source.namespace, content_hash, cleaned_id),
+            (source.namespace, exact_hash, cleaned_id),
         ).fetchone()
         if duplicate is not None:
             store._log(
@@ -97,7 +98,8 @@ def promote_entry(store: Any, memory_id: str, to_kind: str) -> dict[str, Any]:
         conn.execute(
             """
             UPDATE memories
-            SET title = ?, content = ?, tags_json = ?, is_learning_candidate = 0, content_hash = ?
+            SET title = ?, content = ?, tags_json = ?, is_learning_candidate = 0,
+                content_hash = ?, exact_content_hash = ?
             WHERE id = ?
             """,
             (
@@ -105,6 +107,7 @@ def promote_entry(store: Any, memory_id: str, to_kind: str) -> dict[str, Any]:
                 updated_item["content"],
                 json.dumps(updated_item["tags"]),
                 content_hash,
+                exact_hash,
                 cleaned_id,
             ),
         )

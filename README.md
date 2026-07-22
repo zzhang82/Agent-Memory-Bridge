@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.23.1` closes the reliability gaps found in the prior release audit. Classifier suggestions cannot mint policy tags, background cursors survive equal timestamps and database restores, and the local service has singleton ownership, heartbeat state, slow-lane timing, and meaningful one-shot exit codes. The storage layer now has typed metadata, indexed lineage, projection repair, consistent backup/restore, WAL maintenance, strict local profiles, bounded command providers, and explicit `annotate` / `revise` operations. The public MCP surface is now 12 tools.
+`0.24.0` is a correctness release for identity, recall, and local-maintenance contracts. Schema v4 adds `exact_content_hash` for exact memory identity while preserving legacy `content_hash`; semantic and hybrid recall use precomputed embeddings only, report degraded completeness when the derived index is cold or stale, and do not backfill candidate embeddings during recall. Benchmark/proof paths explicitly warm the derived embedding index, index rebuilds share the service exclusion lock, and the cooperative local trust boundary is documented. The public MCP surface remains 12 tools.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -44,7 +44,7 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
 - Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `546 passed`.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `560 tests collected`.
 
 ## How It Works
 
@@ -86,7 +86,7 @@ commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.23.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.24.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -94,7 +94,7 @@ In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.23.1 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.24.0 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -275,7 +275,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.23.1` adds regression-backed authority, storage, retrieval, and local-daemon hardening. Classifier output cannot mint governance tags, confidence must be present, finite, and within `[0, 1]`, and command providers use bounded I/O with `shell=False` by default. Reflex, consolidation, embedding scheduling, and Signal polling use database-generation-aware cursors or state. Typed projections and indexed lineage support short governed deletes, repairable derived state, explicit annotation/revision, and consistent backup/restore. A cross-platform OS file lock prevents ordinary duplicate service execution; heartbeat, slow-lane timing, one-shot failures, database health, and Signal repair are visible to operators.
+`0.24.0` adds schema v4 exact-content identity and tightens recall/index-maintenance contracts. After the existing store/revise input trimming, `exact_content_hash` normalizes newline sequences only and becomes the durable dedup identity while legacy `content_hash` is preserved. Semantic and hybrid recall never generate missing candidate embeddings or write during recall; they score precomputed valid vectors and report degraded completeness for cold, stale, or incomplete derived indexes. Benchmark/proof paths warm the derived embedding index before semantic scoring, and index rebuild uses the same local service exclusion lock as other maintenance.
 
 | Track | Current signal |
 |---|---|
@@ -284,7 +284,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
 | Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats unless explicitly queried with review tags; candidates are not durable authority until reviewed/promoted |
 | Signal contention | serialized lifecycle benchmark: `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0`; multiprocessing exact-ID claim test: 8 processes, 1 winner |
-| Current reliability patch | policy-tag isolation; epoch-aware cursors; singleton lock and heartbeat; typed metadata/lineage; backup/restore/checkpoint; bounded command providers; exact full-store semantic scoring; strict local profile |
+| Current correctness patch | schema v4 `exact_content_hash`; read-only semantic/hybrid recall over precomputed vectors; degraded completeness metadata; warmed benchmark/proof embeddings; service-locked index rebuild; documented cooperative trust boundary |
 | Inherited Signal correctness | 10,000-Signal polling acceptance: exact insertion order, `missing = 0`, `unexpected = 0`, `unique = 10000`; owner-matched active-claim ack and promotion-preservation regressions included in the suite |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
@@ -296,7 +296,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| Test suite | `546 passed` |
+| Test suite | `560 tests collected` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -437,9 +437,10 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Client integrations](docs/INTEGRATIONS.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Authority contract](docs/AUTHORITY-CONTRACT.md)
+- [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.23.1 announcement](docs/v0.23.1-announcement.md)
+- [v0.24.0 announcement](docs/v0.24.0-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

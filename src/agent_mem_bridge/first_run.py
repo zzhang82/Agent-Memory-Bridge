@@ -20,7 +20,7 @@ PYTHON_LAUNCHER_NOTE = (
     "Linux systems use `python3`; on Windows `py -3` may be appropriate. "
     "Generated Windows verification commands use PowerShell syntax."
 )
-GITHUB_ARCHIVE_URL = "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.23.1.zip"
+GITHUB_ARCHIVE_URL = "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.24.0.zip"
 VENV_INTERPRETER_COMMAND = (
     'python -c "import os; from pathlib import Path; '
     "print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())\""
@@ -87,7 +87,7 @@ def build_first_run_report(
             "github_install": baseline_install,
             "smoke_test": verify_commands[1],
             "optional_uv_smoke_test": (
-                "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.23.1 agent-memory-bridge verify"
+                "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.24.0 agent-memory-bridge verify"
             ),
         },
         "verify": verify_commands,

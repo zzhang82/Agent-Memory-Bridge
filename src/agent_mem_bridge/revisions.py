@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from typing import Any
 
@@ -9,9 +8,10 @@ from .repository import (
     HIDDEN_REVIEW_LANE_TAGS,
     MEMORY_ROW_SELECT,
     MemoryRow,
+    content_hash_for_content,
+    exact_content_hash_for_content,
     fetch_row_by_id,
     merge_tags,
-    normalize_content,
     normalize_tags,
 )
 from .structured_record import parse_structured_content
@@ -116,6 +116,7 @@ def annotate_entry(
             is_learning_candidate=bool(is_learning_candidate),
         )
         if title_changed:
+            conn.execute("DELETE FROM memory_embeddings WHERE memory_id = ?", (cleaned_id,))
             conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (cleaned_id,))
             conn.execute(
                 "INSERT INTO memories_fts(memory_id, title, content) VALUES (?, ?, ?)",
@@ -225,16 +226,17 @@ def revise_entry(
             payload_tags = merge_tags(requested_tags, title=title_after, content=cleaned_content)
             if HIDDEN_REVIEW_LANE_TAGS.intersection(payload_tags):
                 raise ValueError("revise cannot create a hidden learning-candidate or review row")
-            content_hash = hashlib.sha256(normalize_content(cleaned_content).encode("utf-8")).hexdigest()
+            content_hash = content_hash_for_content(cleaned_content)
+            exact_hash = exact_content_hash_for_content(cleaned_content)
             existing = conn.execute(
                 f"""
                 SELECT {MEMORY_ROW_SELECT}
                 FROM memories
-                WHERE namespace = ? AND kind != 'signal' AND content_hash = ?
+                WHERE namespace = ? AND kind != 'signal' AND exact_content_hash = ?
                 ORDER BY created_at ASC
                 LIMIT 1
                 """,
-                (source.namespace, content_hash),
+                (source.namespace, exact_hash),
             ).fetchone()
             if existing is not None:
                 existing_source = MemoryRow.from_sqlite(existing)
@@ -263,9 +265,9 @@ def revise_entry(
                         session_id, actor, correlation_id, source_app, source_client, source_model,
                         client_session_id, client_workspace, client_transport,
                         signal_status, claimed_by, claimed_at, lease_expires_at, expires_at,
-                        acknowledged_at, is_learning_candidate, content_hash, created_at
+                        acknowledged_at, is_learning_candidate, content_hash, exact_content_hash, created_at
                     ) VALUES (?, ?, 'memory', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                              NULL, NULL, NULL, NULL, NULL, NULL, 0, ?, ?)
+                              NULL, NULL, NULL, NULL, NULL, NULL, 0, ?, ?, ?)
                     """,
                     (
                         successor_id,
@@ -283,6 +285,7 @@ def revise_entry(
                         values["client_workspace"],
                         values["client_transport"],
                         content_hash,
+                        exact_hash,
                         created_at,
                     ),
                 )

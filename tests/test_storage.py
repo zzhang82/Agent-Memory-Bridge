@@ -130,6 +130,72 @@ def test_signal_entries_are_not_deduplicated(tmp_path: Path) -> None:
     assert first["signal_status"] == "pending"
 
 
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [
+        (
+            "def build():\n    value = 1\n    return value",
+            "def build():\n  value = 1\n  return value",
+        ),
+        (
+            "services:\n  api:\n    image: bridge",
+            "services:\n    api:\n      image: bridge",
+        ),
+        (
+            "Plan:\n- parent\n  - child",
+            "Plan:\n- parent\n    - child",
+        ),
+    ],
+)
+def test_memory_dedup_uses_exact_content_identity_for_whitespace_sensitive_formats(
+    tmp_path: Path,
+    left: str,
+    right: str,
+) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+
+    first = store.store(namespace="bridge", content=left, kind="memory")
+    second = store.store(namespace="bridge", content=right, kind="memory")
+
+    with store._connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT content_hash, exact_content_hash
+            FROM memories
+            WHERE id IN (?, ?)
+            ORDER BY id
+            """,
+            (first["id"], second["id"]),
+        ).fetchall()
+
+    assert first["stored"] is True
+    assert second["stored"] is True
+    assert second["id"] != first["id"]
+    assert {row["content_hash"] for row in rows} == {rows[0]["content_hash"]}
+    assert len({row["exact_content_hash"] for row in rows}) == 2
+
+
+def test_exact_content_identity_normalizes_line_endings_but_preserves_unicode_codepoints(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+
+    precomposed = store.store(namespace="bridge", content="Caf\u00e9\nline two", kind="memory")
+    decomposed = store.store(namespace="bridge", content="Cafe\u0301\nline two", kind="memory")
+    first = store.store(namespace="bridge", content="Caf\u00e9\r\nline two\rline three", kind="memory")
+    duplicate = store.store(namespace="bridge", content="Caf\u00e9\nline two\nline three", kind="memory")
+    first_signal = store.store(namespace="bridge", content="Caf\u00e9\r\nline two", kind="signal")
+    second_signal = store.store(namespace="bridge", content="Caf\u00e9\nline two", kind="signal")
+
+    assert precomposed["stored"] is True
+    assert decomposed["stored"] is True
+    assert decomposed["id"] != precomposed["id"]
+    assert first["stored"] is True
+    assert duplicate["stored"] is False
+    assert duplicate["duplicate_of"] == first["id"]
+    assert first_signal["stored"] is True
+    assert second_signal["stored"] is True
+    assert second_signal["id"] != first_signal["id"]
+
+
 def test_special_character_query_falls_back_safely(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
     store.store(

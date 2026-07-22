@@ -309,6 +309,7 @@ def test_database_health_detects_stale_metadata_tag_edge_and_fts_projections(tmp
 
     assert report["ok"] is False
     assert counts["stale_content_hash_count"] == 1
+    assert counts["stale_exact_content_hash_count"] == 1
     assert counts["stale_metadata_projection_count"] == 1
     assert counts["stale_tag_projection_count"] == 1
     assert counts["stale_edge_projection_count"] == 1
@@ -317,6 +318,26 @@ def test_database_health_detects_stale_metadata_tag_edge_and_fts_projections(tmp
     repaired = rebuild_database_projections(store.db_path)
     assert repaired["ok"] is True
     assert repaired["rebuilt_count"] == 3
+
+
+def test_database_health_detects_and_repairs_stale_exact_content_hash(tmp_path: Path) -> None:
+    store = _seed_store(tmp_path)
+    with store._connect() as conn:
+        memory_id = conn.execute("SELECT id FROM memories LIMIT 1").fetchone()["id"]
+        conn.execute(
+            "UPDATE memories SET exact_content_hash = 'stale-exact-hash' WHERE id = ?",
+            (memory_id,),
+        )
+        conn.commit()
+
+    report = inspect_database(store.db_path)
+    counts = report["content"]["counts"]
+    repaired = rebuild_database_projections(store.db_path)
+
+    assert report["ok"] is False
+    assert counts["stale_content_hash_count"] == 0
+    assert counts["stale_exact_content_hash_count"] == 1
+    assert repaired["ok"] is True
 
 
 def test_database_health_flags_canonical_metadata_validation_issues(tmp_path: Path) -> None:

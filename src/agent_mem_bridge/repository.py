@@ -10,6 +10,7 @@ from typing import Any
 from .lineage import DEGRADING_LINEAGE_RELATIONS, LineageRelation
 from .record_projection import sync_record_projection
 from .relation_metadata import extract_relation_tags, parse_relation_metadata, resolve_validity_status
+from .schema import exact_content_hash as exact_content_hash_for_content
 from .signals import SignalSnapshot, effective_signal_status, resolve_signal_expiry
 
 HASHTAG_RE = re.compile(r"(?<!\w)#([A-Za-z][A-Za-z0-9_/-]*)")
@@ -266,10 +267,10 @@ def store_entry(
     if cleaned_kind != "signal" and (expires_at is not None or ttl_seconds is not None):
         raise ValueError("expires_at and ttl_seconds are only valid for kind='signal'")
 
-    normalized_content = normalize_content(cleaned_content)
     payload_tags = merge_tags(tags, title=title, content=cleaned_content)
     is_learning_candidate = int(bool(HIDDEN_REVIEW_LANE_TAGS.intersection(payload_tags)))
-    content_hash = hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
+    content_hash = content_hash_for_content(cleaned_content)
+    exact_hash = exact_content_hash_for_content(cleaned_content)
     resolved_expires_at = resolve_signal_expiry(expires_at=expires_at, ttl_seconds=ttl_seconds)
     signal_status = "pending" if cleaned_kind == "signal" else None
 
@@ -279,11 +280,11 @@ def store_entry(
                 f"""
                 SELECT {MEMORY_ROW_SELECT}
                 FROM memories
-                WHERE namespace = ? AND kind != 'signal' AND content_hash = ?
+                WHERE namespace = ? AND kind != 'signal' AND exact_content_hash = ?
                 ORDER BY created_at ASC
                 LIMIT 1
                 """,
-                (cleaned_namespace, content_hash),
+                (cleaned_namespace, exact_hash),
             ).fetchone()
             if existing is not None:
                 duplicate_response = _duplicate_response(
@@ -343,8 +344,9 @@ def store_entry(
                     acknowledged_at,
                     is_learning_candidate,
                     content_hash,
+                    exact_content_hash,
                     created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory_id,
@@ -370,6 +372,7 @@ def store_entry(
                     None,
                     is_learning_candidate,
                     content_hash,
+                    exact_hash,
                     created_at,
                 ),
             )
@@ -399,11 +402,11 @@ def store_entry(
                 f"""
                 SELECT {MEMORY_ROW_SELECT}
                 FROM memories
-                WHERE namespace = ? AND kind != 'signal' AND content_hash = ?
+                WHERE namespace = ? AND kind != 'signal' AND exact_content_hash = ?
                 ORDER BY created_at ASC
                 LIMIT 1
                 """,
-                (cleaned_namespace, content_hash),
+                (cleaned_namespace, exact_hash),
             ).fetchone()
             if existing is None:
                 raise
@@ -911,6 +914,10 @@ def fetch_tombstone_metadata(conn: sqlite3.Connection, memory_id: str) -> dict[s
 
 def normalize_content(content: str) -> str:
     return " ".join(content.split())
+
+
+def content_hash_for_content(content: str) -> str:
+    return hashlib.sha256(normalize_content(content).encode("utf-8")).hexdigest()
 
 
 def normalize_tags(tags: list[str] | None) -> list[str]:

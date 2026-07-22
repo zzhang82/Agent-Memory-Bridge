@@ -35,7 +35,7 @@ def test_schema_v2_persists_canonical_metadata_tags_and_indexed_edges(tmp_path: 
     )
 
     with store._connect() as conn:
-        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 3
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 4
         metadata = conn.execute(
             "SELECT * FROM memory_metadata WHERE memory_id = ?",
             (dependent_id,),

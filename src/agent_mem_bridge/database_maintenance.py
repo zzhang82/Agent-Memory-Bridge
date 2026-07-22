@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import os
@@ -18,7 +17,7 @@ from .record_projection import (
     resolve_record_projection,
     sync_record_projection,
 )
-from .repository import delete_entry_in_transaction, normalize_content
+from .repository import content_hash_for_content, delete_entry_in_transaction, exact_content_hash_for_content
 from .schema import rotate_database_epoch
 from .service_lock import ServiceFileLock
 from .signals import SignalSnapshot, signal_validation_issues
@@ -154,8 +153,12 @@ def rebuild_database_projections(
                     if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
                         raise RuntimeError(f"cannot rebuild malformed tags_json for {row['id']}")
                     content = str(row["content"])
-                    content_hash = hashlib.sha256(normalize_content(content).encode("utf-8")).hexdigest()
-                    conn.execute("UPDATE memories SET content_hash = ? WHERE id = ?", (content_hash, row["id"]))
+                    content_hash = content_hash_for_content(content)
+                    exact_hash = exact_content_hash_for_content(content)
+                    conn.execute(
+                        "UPDATE memories SET content_hash = ?, exact_content_hash = ? WHERE id = ?",
+                        (content_hash, exact_hash, row["id"]),
+                    )
                     sync_record_projection(
                         conn,
                         memory_id=str(row["id"]),
@@ -442,6 +445,7 @@ def _content_checks(conn: sqlite3.Connection, *, tables: set[str]) -> dict[str, 
         "non_finite_embedding_count": 0,
         "invalid_signal_state_count": 0,
         "stale_content_hash_count": 0,
+        "stale_exact_content_hash_count": 0,
         "invalid_metadata_value_count": 0,
         "missing_metadata_projection_count": 0,
         "stale_metadata_projection_count": 0,
@@ -457,12 +461,15 @@ def _content_checks(conn: sqlite3.Connection, *, tables: set[str]) -> dict[str, 
         samples["missing_metadata_projection"].append("memories-table-missing")
         return {"ok": False, "counts": counts, "samples": samples}
 
+    memory_columns = {str(row["name"]) for row in conn.execute("PRAGMA table_info(memories)").fetchall()}
+    exact_hash_select = "exact_content_hash" if "exact_content_hash" in memory_columns else "NULL AS exact_content_hash"
     memory_rows = conn.execute(
         """
         SELECT id, namespace, kind, title, content, tags_json, lineage_issues_json, content_hash,
+               {exact_hash_select},
                actor, source_app, is_learning_candidate
         FROM memories
-        """
+        """.format(exact_hash_select=exact_hash_select)
     ).fetchall()
     for row in memory_rows:
         memory_id = str(row["id"])
@@ -470,9 +477,12 @@ def _content_checks(conn: sqlite3.Connection, *, tables: set[str]) -> dict[str, 
             _record_issue(counts, samples, "malformed_tags_json", memory_id)
         if not _json_container(row["lineage_issues_json"], list):
             _record_issue(counts, samples, "malformed_lineage_json", memory_id)
-        expected_content_hash = hashlib.sha256(normalize_content(str(row["content"])).encode("utf-8")).hexdigest()
+        expected_content_hash = content_hash_for_content(str(row["content"]))
         if str(row["content_hash"]) != expected_content_hash:
             _record_issue(counts, samples, "stale_content_hash", memory_id)
+        expected_exact_hash = exact_content_hash_for_content(str(row["content"]))
+        if str(row["exact_content_hash"] or "") != expected_exact_hash:
+            _record_issue(counts, samples, "stale_exact_content_hash", memory_id)
 
     if {"memory_metadata", "memory_tags", "memory_edges", "memories_fts"}.issubset(tables):
         for row in memory_rows:

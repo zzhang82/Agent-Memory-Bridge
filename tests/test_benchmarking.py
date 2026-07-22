@@ -3,13 +3,16 @@ from pathlib import Path
 from agent_mem_bridge.benchmarking import (
     DEFAULT_CORPUS_DIR,
     DEFAULT_QUESTIONS_PATH,
+    build_benchmark_store,
     build_retrieval_summary,
     first_relevant_rank,
     precision_at_k,
     recall_at_k,
     reciprocal_rank,
     run_benchmark,
+    warm_benchmark_embeddings,
 )
+from agent_mem_bridge.embedding_index import embedding_health
 
 
 def test_precision_at_k_and_rank_helpers() -> None:
@@ -87,6 +90,41 @@ def test_build_retrieval_summary_aggregates_precision_and_latency() -> None:
     assert summary["file_scan_recall_at_3"] == 1.0
     assert summary["file_scan_mrr"] == 0.75
     assert summary["file_scan_avg_latency_ms"] == 4.0
+
+
+def test_warm_benchmark_embeddings_builds_sidecar_before_semantic_scoring(tmp_path: Path) -> None:
+    entries = [
+        {
+            "namespace": "bench",
+            "kind": "memory",
+            "title": "Alpha Memory",
+            "content": "Alpha memory should be available to semantic scoring.",
+        },
+        {
+            "namespace": "bench",
+            "kind": "signal",
+            "title": "Beta Handoff",
+            "content": "Beta handoff should also be available to semantic scoring.",
+        },
+    ]
+    store = build_benchmark_store(tmp_path / "bench.db", entries, log_dir=tmp_path / "logs")
+
+    with store._connect() as conn:
+        cold_health = embedding_health(conn)
+
+    report = warm_benchmark_embeddings(store)
+
+    with store._connect() as conn:
+        warm_health = embedding_health(conn)
+
+    assert cold_health["embedding_count"] == 0
+    assert cold_health["missing_embedding_count"] == 2
+    assert report["memory_count"] == 2
+    assert report["embeddings"]["embedding_count"] == 2
+    assert report["embeddings"]["missing_embedding_count"] == 0
+    assert report["embeddings"]["healthy"] is True
+    assert warm_health["embedding_count"] == 2
+    assert warm_health["missing_embedding_count"] == 0
 
 
 def test_run_benchmark_returns_report_with_precision_and_proof(tmp_path: Path) -> None:

@@ -10,7 +10,13 @@ import pytest
 from agent_mem_bridge import schema as schema_module
 from agent_mem_bridge import server
 from agent_mem_bridge.learning_policy import evaluate_learning_candidate
-from agent_mem_bridge.schema import CURRENT_SCHEMA_VERSION, ensure_column, init_db, schema_version
+from agent_mem_bridge.schema import (
+    CURRENT_SCHEMA_VERSION,
+    ensure_column,
+    exact_content_hash,
+    init_db,
+    schema_version,
+)
 from agent_mem_bridge.storage import MemoryStore
 
 
@@ -307,6 +313,251 @@ def test_representative_legacy_schemas_upgrade_to_current_version(tmp_path: Path
     assert conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memory_embeddings'").fetchone()
     assert conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memory_tombstones'").fetchone()
     conn.close()
+
+
+def test_schema_v4_backfills_exact_identity_and_preserves_exact_variants(tmp_path: Path) -> None:
+    db_path = tmp_path / "legacy-v3.db"
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            namespace TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT,
+            content TEXT NOT NULL,
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            session_id TEXT,
+            actor TEXT,
+            correlation_id TEXT,
+            source_app TEXT,
+            source_client TEXT,
+            source_model TEXT,
+            client_session_id TEXT,
+            client_workspace TEXT,
+            client_transport TEXT,
+            signal_status TEXT,
+            claimed_by TEXT,
+            claimed_at TEXT,
+            lease_expires_at TEXT,
+            expires_at TEXT,
+            acknowledged_at TEXT,
+            is_learning_candidate INTEGER NOT NULL DEFAULT 0,
+            lineage_status TEXT NOT NULL DEFAULT 'intact',
+            lineage_issues_json TEXT NOT NULL DEFAULT '[]',
+            content_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX idx_memories_dedup
+        ON memories (namespace, content_hash)
+        WHERE kind != 'signal';
+        INSERT INTO memories (id, namespace, kind, title, content, tags_json, content_hash, created_at)
+        VALUES
+            ('py-four-spaces', 'project:bridge', 'memory', NULL,
+             'def build():\n    value = 1\n    return value', '[]', 'legacy-semantic-a',
+             '2026-01-01T00:00:00+00:00'),
+            ('py-two-spaces', 'project:bridge', 'memory', NULL,
+             'def build():\n  value = 1\n  return value', '[]', 'legacy-semantic-b',
+             '2026-01-01T00:00:01+00:00'),
+            ('unicode-precomposed', 'project:bridge', 'memory', NULL,
+             'Caf\u00e9 migration row', '[]', 'legacy-unicode-precomposed',
+             '2026-01-01T00:00:02+00:00'),
+            ('unicode-decomposed', 'project:bridge', 'memory', NULL,
+             'Cafe\u0301 migration row', '[]', 'legacy-unicode-decomposed',
+             '2026-01-01T00:00:03+00:00');
+        PRAGMA user_version = 3;
+        """
+    )
+    conn.commit()
+
+    init_db(conn)
+
+    rows = conn.execute(
+        """
+        SELECT id, content, content_hash, exact_content_hash
+        FROM memories
+        ORDER BY created_at ASC
+        """
+    ).fetchall()
+    columns_by_name = {row["name"]: row for row in conn.execute("PRAGMA table_info(memories)").fetchall()}
+    dedup_index_columns = [row["name"] for row in conn.execute("PRAGMA index_info(idx_memories_dedup)").fetchall()]
+
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION
+    assert columns_by_name["exact_content_hash"]["notnull"] == 1
+    assert [row["id"] for row in rows] == [
+        "py-four-spaces",
+        "py-two-spaces",
+        "unicode-precomposed",
+        "unicode-decomposed",
+    ]
+    assert [row["content_hash"] for row in rows] == [
+        "legacy-semantic-a",
+        "legacy-semantic-b",
+        "legacy-unicode-precomposed",
+        "legacy-unicode-decomposed",
+    ]
+    assert [row["exact_content_hash"] for row in rows] == [exact_content_hash(row["content"]) for row in rows]
+    assert rows[0]["exact_content_hash"] != rows[1]["exact_content_hash"]
+    assert rows[2]["exact_content_hash"] != rows[3]["exact_content_hash"]
+    assert rows[2]["content"] == "Caf\u00e9 migration row"
+    assert rows[3]["content"] == "Cafe\u0301 migration row"
+    assert dedup_index_columns == ["namespace", "exact_content_hash"]
+    conn.close()
+
+
+def test_schema_v4_exact_identity_constraints_block_direct_null_empty_duplicate_bypass(tmp_path: Path) -> None:
+    db_path = tmp_path / "legacy-v3-bypass.db"
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            namespace TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            title TEXT,
+            content TEXT NOT NULL,
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            session_id TEXT,
+            actor TEXT,
+            correlation_id TEXT,
+            source_app TEXT,
+            source_client TEXT,
+            source_model TEXT,
+            client_session_id TEXT,
+            client_workspace TEXT,
+            client_transport TEXT,
+            signal_status TEXT,
+            claimed_by TEXT,
+            claimed_at TEXT,
+            lease_expires_at TEXT,
+            expires_at TEXT,
+            acknowledged_at TEXT,
+            is_learning_candidate INTEGER NOT NULL DEFAULT 0,
+            lineage_status TEXT NOT NULL DEFAULT 'intact',
+            lineage_issues_json TEXT NOT NULL DEFAULT '[]',
+            content_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX idx_memories_dedup
+        ON memories (namespace, content_hash)
+        WHERE kind != 'signal';
+        INSERT INTO memories (id, namespace, kind, content, tags_json, content_hash, created_at)
+        VALUES ('legacy-row', 'project:bridge', 'memory', 'exact duplicate bypass row', '[]',
+                'legacy-semantic-hash', '2026-01-01T00:00:00+00:00');
+        PRAGMA user_version = 3;
+        """
+    )
+    conn.commit()
+
+    init_db(conn)
+    exact_hash = exact_content_hash("exact duplicate bypass row")
+
+    for memory_id, exact_identity in (("null-duplicate", None), ("empty-duplicate", "")):
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                """
+                INSERT INTO memories (
+                    id, namespace, kind, content, tags_json, content_hash, exact_content_hash, created_at
+                ) VALUES (?, 'project:bridge', 'memory', 'exact duplicate bypass row', '[]', ?, ?,
+                          '2026-01-01T00:00:01+00:00')
+                """,
+                (memory_id, f"legacy-semantic-{memory_id}", exact_identity),
+            )
+        conn.rollback()
+
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            """
+            INSERT INTO memories (id, namespace, kind, content, tags_json, content_hash, created_at)
+            VALUES ('omitted-duplicate', 'project:bridge', 'memory', 'exact duplicate bypass row', '[]',
+                    'legacy-semantic-omitted-duplicate', '2026-01-01T00:00:01+00:00')
+            """
+        )
+    conn.rollback()
+
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            """
+            INSERT INTO memories (
+                id, namespace, kind, content, tags_json, content_hash, exact_content_hash, created_at
+            ) VALUES ('real-duplicate', 'project:bridge', 'memory', 'exact duplicate bypass row', '[]',
+                      'legacy-semantic-real-duplicate', ?, '2026-01-01T00:00:02+00:00')
+            """,
+            (exact_hash,),
+        )
+    conn.rollback()
+
+    conn.execute(
+        """
+        INSERT INTO memories (
+            id, namespace, kind, content, tags_json, content_hash, exact_content_hash, created_at
+        ) VALUES ('distinct-row', 'project:bridge', 'memory', 'distinct exact identity row', '[]',
+                  'legacy-semantic-distinct', ?, '2026-01-01T00:00:03+00:00')
+        """,
+        (exact_content_hash("distinct exact identity row"),),
+    )
+    conn.commit()
+
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(
+            "UPDATE memories SET exact_content_hash = ? WHERE id = 'distinct-row'",
+            (exact_hash,),
+        )
+    conn.rollback()
+
+    for exact_identity in (None, ""):
+        with pytest.raises(sqlite3.IntegrityError):
+            conn.execute(
+                "UPDATE memories SET exact_content_hash = ? WHERE id = 'distinct-row'",
+                (exact_identity,),
+            )
+        conn.rollback()
+
+    rows = conn.execute("SELECT id, exact_content_hash FROM memories ORDER BY created_at ASC").fetchall()
+    assert [(row["id"], row["exact_content_hash"]) for row in rows] == [
+        ("legacy-row", exact_hash),
+        ("distinct-row", exact_content_hash("distinct exact identity row")),
+    ]
+    conn.close()
+
+
+def test_schema_v4_exact_hash_backfill_failure_rolls_back_transactionally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE memories (
+            id TEXT PRIMARY KEY,
+            namespace TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            content TEXT NOT NULL,
+            tags_json TEXT NOT NULL DEFAULT '[]',
+            content_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        INSERT INTO memories (id, namespace, kind, content, tags_json, content_hash, created_at)
+        VALUES ('legacy-row', 'project:bridge', 'memory', 'legacy exact backfill row', '[]',
+                'legacy-semantic-hash', '2026-01-01T00:00:00+00:00');
+        PRAGMA user_version = 3;
+        """
+    )
+    conn.commit()
+
+    def fail_exact_hash(content: str) -> str:
+        raise RuntimeError(f"exact hash failed for {content}")
+
+    monkeypatch.setattr(schema_module, "exact_content_hash", fail_exact_hash)
+
+    with pytest.raises(RuntimeError, match="exact hash failed"):
+        init_db(conn)
+
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(memories)").fetchall()}
+    assert schema_version(conn) == 3
+    assert "exact_content_hash" not in columns
 
 
 def test_schema_migration_failure_rolls_back_version_and_ddl(monkeypatch) -> None:

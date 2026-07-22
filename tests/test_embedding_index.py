@@ -90,7 +90,7 @@ def test_default_lexical_recall_does_not_generate_embeddings(tmp_path: Path) -> 
     assert health["missing_embedding_count"] == 1
 
 
-def test_semantic_recall_lazily_builds_sidecar_without_changing_memory_rows(tmp_path: Path) -> None:
+def test_semantic_recall_uses_precomputed_sidecar_without_changing_memory_rows(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     created = store.store(
         namespace="project:bridge",
@@ -99,6 +99,8 @@ def test_semantic_recall_lazily_builds_sidecar_without_changing_memory_rows(tmp_
         kind="memory",
     )
     with store._connect() as conn:
+        rebuild_embedding_index(conn)
+        conn.commit()
         before_memory_count = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
         conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (created["id"],))
         conn.commit()
@@ -131,13 +133,9 @@ def test_forget_removes_embedding_sidecar_row(tmp_path: Path) -> None:
         content="Embedding row should disappear with forgotten memory.",
         kind="memory",
     )
-    _recall_mode(
-        store,
-        namespace="project:bridge",
-        query="delete embedding",
-        limit=5,
-        retrieval_mode="semantic",
-    )
+    with store._connect() as conn:
+        rebuild_embedding_index(conn)
+        conn.commit()
 
     removed = store.forget(created["id"])
 
@@ -165,6 +163,8 @@ def test_hybrid_recall_combines_lexical_and_semantic_sidecars(tmp_path: Path) ->
         kind="memory",
     )
     with store._connect() as conn:
+        rebuild_embedding_index(conn)
+        conn.commit()
         conn.execute("DELETE FROM memories_fts WHERE memory_id = ?", (semantic["id"],))
         conn.commit()
 
@@ -353,6 +353,9 @@ def test_command_embedding_provider_retrieves_without_storing_command(tmp_path: 
         content="Beta content should rank lower for alpha.",
         kind="memory",
     )
+    with store._connect() as conn:
+        rebuild_embedding_index(conn)
+        conn.commit()
 
     semantic = _recall_mode(
         store,

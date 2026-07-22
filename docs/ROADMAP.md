@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-21 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.23.1`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.22.1 visual launch polish, the v0.22.2 onboarding-coherence patch, the v0.22.3 correctness hardening, the v0.23.0 reliability hardening, and the v0.23.1 authority/service reliability patch. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.24.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, and the v0.24 exact-identity / recall-boundary correctness patch. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,9 +636,53 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.24.0 = Exact Identity And Recall Boundary Correctness
+
+Status: current release-candidate story for `v0.24.0`; the public MCP surface
+remains exactly 12 tools.
+
+### Thesis
+
+Correct exact memory identity, semantic/hybrid recall write boundaries,
+benchmark/proof index warming, and local maintenance exclusion without claiming
+new infrastructure.
+
+One sentence:
+
+`0.24.0 = schema v4 exact_content_hash, read-only semantic/hybrid recall over precomputed vectors, warmed proof indexes, service-locked index rebuild, and documented cooperative local trust; validation snapshot: 560 tests collected.`
+
+### Scope
+
+1. Add schema v4 `exact_content_hash` with newline-sequence normalization after
+   existing store/revise input trimming; preserve
+   legacy `content_hash`.
+2. Keep semantic and hybrid recall from backfilling candidate embeddings or
+   writing during recall.
+3. Report degraded semantic completeness for cold, stale, or incomplete derived
+   indexes.
+4. Warm derived embedding indexes explicitly in benchmark/proof paths before
+   semantic scoring.
+5. Make index rebuild share the service exclusion lock.
+6. Document the cooperative local trust boundary.
+
+### Acceptance Gate
+
+`0.24.0` is acceptable only when:
+
+- exact memory identity distinguishes whitespace-sensitive content while
+  normalizing line endings
+- semantic and hybrid recall do not write missing candidate embeddings
+- degraded completeness metadata is explicit
+- benchmark/proof paths warm the derived embedding index before semantic scoring
+- index rebuild respects the service exclusion lock
+- the collected suite is `560 tests collected`
+- release, public-surface, onboarding, and targeted first-run tests pass
+- the public MCP surface is exactly 12 tools
+- no online restore, authenticated actor, ACL, ANN, or multi-user claim is added
+
 ## 0.23.1 = Full Local Hardening
 
-Status: current local release-candidate story for `v0.23.1`; the public MCP
+Status: historical public version story for `v0.23.1`; the public MCP
 surface is exactly 12 tools.
 
 ### Thesis

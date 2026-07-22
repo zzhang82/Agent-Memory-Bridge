@@ -10,6 +10,7 @@ from agent_mem_bridge import service as service_module
 from agent_mem_bridge.cli import main
 from agent_mem_bridge.service_health import ServiceHealthWriter
 from agent_mem_bridge.service_lock import ServiceFileLock, ServiceLockConflict
+from agent_mem_bridge.storage import MemoryStore
 
 
 def _hold_service_lock(lock_path: str, ready: object, release: object) -> None:
@@ -125,6 +126,49 @@ def test_cli_service_returns_lock_conflict_exit_code(monkeypatch, capsys, tmp_pa
 
     assert exit_code == 3
     assert "service lock is already held" in capsys.readouterr().err
+
+
+def test_cli_index_rebuild_refuses_when_service_lock_is_held_by_process(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    bridge_home = tmp_path / "bridge-home"
+    db_path = bridge_home / "bridge.db"
+    log_dir = bridge_home / "logs"
+    MemoryStore(db_path=db_path, log_dir=log_dir).store(
+        namespace="project:test",
+        kind="memory",
+        content="index rebuild must respect the service exclusion lock",
+    )
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(bridge_home))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(db_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(log_dir))
+
+    context = multiprocessing.get_context("spawn")
+    ready = context.Event()
+    release = context.Event()
+    process = context.Process(
+        target=_hold_service_lock,
+        args=(str(bridge_home / "service.lock"), ready, release),
+    )
+    process.start()
+    try:
+        assert ready.wait(10)
+        exit_code = main(["index-rebuild", "--fts"])
+        captured = capsys.readouterr()
+    finally:
+        release.set()
+        process.join(10)
+        if process.is_alive():
+            process.terminate()
+            process.join(5)
+
+    assert process.exitcode == 0
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "agent-memory-bridge: index rebuild failed: service lock is already held" in captured.err
+    assert str(bridge_home / "service.lock") in captured.err
 
 
 def test_service_once_respects_disabled_watcher_and_reflex(monkeypatch, capsys, tmp_path: Path) -> None:

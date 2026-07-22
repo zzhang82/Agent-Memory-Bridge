@@ -28,7 +28,7 @@ def main() -> int:
     args = parser.parse_args()
 
     report = run_v021_governed_change_proof(manifest_path=args.manifest_path)
-    args.report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    args.report_path.write_bytes((json.dumps(report, indent=2, sort_keys=True) + "\n").encode("utf-8"))
     print(json.dumps(report["summary"], indent=2, sort_keys=True))
     return 0 if report["summary"]["gate_passed"] else 1
 

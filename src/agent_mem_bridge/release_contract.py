@@ -168,17 +168,19 @@ V021_GOVERNED_CHANGE_REPORT = "latest-v0.21-governed-change-report.json"
 V021_PATCH_PATTERN = re.compile(r"0\.21\.\d+")
 V022_PATCH_PATTERN = re.compile(r"0\.22\.\d+")
 V023_PATCH_PATTERN = re.compile(r"0\.23\.\d+")
+V024_PATCH_PATTERN = re.compile(r"0\.24\.\d+")
 V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V021_PATCH_PATTERN,
     V022_PATCH_PATTERN,
     V023_PATCH_PATTERN,
+    V024_PATCH_PATTERN,
 )
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
-PASSED_PATTERN = re.compile(r"(\d+)\s+passed")
+TEST_COUNT_CLAIM_PATTERN = re.compile(r"(\d+)\s+(?:passed|tests collected)")
 PUBLIC_TOOL_COUNT_PATTERN = re.compile(r"`?(\d+)`?\s+public MCP tools", re.IGNORECASE)
 TOOL_TOKEN_PATTERN = re.compile(r"`([a-z_][a-z0-9_]*)`")
 
@@ -419,7 +421,7 @@ def build_v021_governed_change_proof_check(
         mismatches.append(
             {
                 "field": "pyproject.version",
-                "expected": "0.21.x, 0.22.x, or 0.23.x",
+                "expected": "0.21.x, 0.22.x, 0.23.x, or 0.24.x",
                 "actual": pyproject_version,
             }
         )
@@ -1322,7 +1324,7 @@ def extract_key_values(text: str) -> dict[str, list[int | float | bool]]:
 
 
 def extract_pass_counts(text: str) -> list[int]:
-    return [int(match) for match in PASSED_PATTERN.findall(text)]
+    return [int(match) for match in TEST_COUNT_CLAIM_PATTERN.findall(text)]
 
 
 def extract_public_tool_counts(text: str) -> list[int]:

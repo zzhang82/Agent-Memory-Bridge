@@ -26,6 +26,7 @@ from .onboarding import render_report, render_verify_success_message, run_doctor
 from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_bridge_log_dir, resolve_config_path
 from .review_queue import build_review_queue_report, render_review_queue_markdown
 from .review_workflow import build_review_workflow_report, render_review_workflow_markdown
+from .service_lock import ServiceFileLock, ServiceLockConflict
 from .storage import MemoryStore
 from .task_brief import build_task_brief_report, render_task_brief_markdown
 
@@ -443,7 +444,6 @@ def _run_verify(namespace: argparse.Namespace) -> int:
 
 def _run_service(namespace: argparse.Namespace) -> int:
     from .service import run_service
-    from .service_lock import ServiceLockConflict
 
     try:
         result = run_service(
@@ -479,17 +479,22 @@ def _run_index_rebuild(namespace: argparse.Namespace) -> int:
     if not rebuild_fts and not rebuild_embeddings:
         rebuild_fts = True
         rebuild_embeddings = True
-    store = MemoryStore.from_env()
-    with store._connect() as conn:
-        if rebuild_fts:
-            report = rebuild_fts_index(conn)
-        else:
-            report = inspect_indexes(conn)
-        conn.commit()
-    if rebuild_embeddings:
-        with store._connect() as conn:
-            report = rebuild_embedding_index(conn)
-            conn.commit()
+    try:
+        with ServiceFileLock(resolve_bridge_home() / "service.lock"):
+            store = MemoryStore.from_env()
+            with store._connect() as conn:
+                if rebuild_fts:
+                    report = rebuild_fts_index(conn)
+                else:
+                    report = inspect_indexes(conn)
+                conn.commit()
+            if rebuild_embeddings:
+                with store._connect() as conn:
+                    report = rebuild_embedding_index(conn)
+                    conn.commit()
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        print(f"agent-memory-bridge: index rebuild failed: {exc}", file=sys.stderr)
+        return 1
     if namespace.json:
         print(json.dumps(report, indent=2))
     else:

@@ -10,13 +10,10 @@ from .embedding_index import (
     active_embedding_config,
     cosine_similarity,
     embed_texts,
-    embedding_text_for_row,
     embedding_tokens,
     load_vector,
-    prepared_embeddings_from_vectors,
-    upsert_prepared_embeddings,
 )
-from .paths import resolve_hybrid_semantic_weight, resolve_retrieval_mode, resolve_semantic_scan_limit
+from .paths import resolve_hybrid_semantic_weight, resolve_retrieval_mode
 from .poll_cursor import decode_poll_cursor
 from .repository import MEMORY_ROW_SELECT, MemoryRow, memory_row_select, normalize_tags
 from .schema import database_epoch as read_database_epoch
@@ -72,6 +69,7 @@ def recall_candidates(
                 correlation_id=correlation_id,
                 since=since,
                 include_rowid=include_rowid,
+                diagnostics=diagnostics,
             )
         except EmbeddingProviderError as exc:
             if mode == "semantic":
@@ -79,6 +77,7 @@ def recall_candidates(
                     f"semantic recall failed because the embedding provider was unavailable ({exc.__class__.__name__})"
                 ) from exc
             degraded = {
+                **(diagnostics or {}),
                 "mode": "hybrid",
                 "degraded": True,
                 "degraded_reason": "embedding-provider-failure",
@@ -86,6 +85,7 @@ def recall_candidates(
                 "semantic_error_type": exc.__class__.__name__,
             }
             if diagnostics is not None:
+                diagnostics.clear()
                 diagnostics.update(degraded)
             return [
                 {
@@ -98,7 +98,11 @@ def recall_candidates(
                 for item in lexical_items[:limit]
             ]
         if mode == "semantic":
+            if diagnostics is not None:
+                diagnostics["mode"] = "semantic"
             return semantic_items[:limit]
+        if diagnostics is not None:
+            diagnostics["mode"] = "hybrid"
         return hybrid_rerank_items(
             query,
             lexical_items=lexical_items,
@@ -240,6 +244,7 @@ def recall_via_semantic(
     correlation_id: str | None,
     since: str | None,
     include_rowid: bool = False,
+    diagnostics: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     where_sql, params = build_filters(
         store,
@@ -253,53 +258,55 @@ def recall_via_semantic(
         since=since,
         alias="m",
     )
-    embedding_batch_size = max(1, resolve_semantic_scan_limit())
     try:
         embedding_config = active_embedding_config()
     except ValueError as exc:
         raise EmbeddingProviderError("embedding configuration is invalid") from exc
     with store._connect() as conn:
-        missing_rows = conn.execute(
+        stats = conn.execute(
             f"""
             SELECT
-                m.id,
-                m.title,
-                m.content,
-                m.content_hash
+                COUNT(*) AS memory_count,
+                COALESCE(SUM(
+                    CASE
+                        WHEN e.memory_id IS NOT NULL
+                         AND e.embedding_model = ?
+                         AND e.embedding_dim = ?
+                         AND e.content_hash = m.content_hash
+                        THEN 1 ELSE 0
+                    END
+                ), 0) AS precomputed_embedding_count,
+                COALESCE(SUM(
+                    CASE
+                        WHEN e.memory_id IS NULL
+                          OR e.embedding_model != ?
+                          OR e.embedding_dim != ?
+                        THEN 1 ELSE 0
+                    END
+                ), 0) AS missing_embedding_count,
+                COALESCE(SUM(
+                    CASE
+                        WHEN e.memory_id IS NOT NULL
+                         AND e.embedding_model = ?
+                         AND e.embedding_dim = ?
+                         AND e.content_hash != m.content_hash
+                        THEN 1 ELSE 0
+                    END
+                ), 0) AS stale_embedding_count
             FROM memories m
-            LEFT JOIN memory_embeddings e
-              ON e.memory_id = m.id
-             AND e.content_hash = m.content_hash
-             AND e.embedding_model = ?
-             AND e.embedding_dim = ?
+            LEFT JOIN memory_embeddings e ON e.memory_id = m.id
             WHERE {where_sql}
-              AND e.memory_id IS NULL
-            ORDER BY (SELECT sequence FROM memory_insertions WHERE memory_id = m.id) ASC
             """,
-            (embedding_config.model, embedding_config.dim, *params),
-        ).fetchall()
-    query_vector: list[float] | None = None
-    for index in range(0, len(missing_rows), embedding_batch_size):
-        batch = missing_rows[index : index + embedding_batch_size]
-        texts = [embedding_text_for_row(row) for row in batch]
-        if query_vector is None:
-            generated = embed_texts([query, *texts], config=embedding_config)
-            query_vector = generated[0]
-            vectors = generated[1:]
-        else:
-            vectors = embed_texts(texts, config=embedding_config)
-        prepared = prepared_embeddings_from_vectors(
-            batch,
-            vectors=vectors,
-            config=embedding_config,
-        )
-        with store._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE")
-            upsert_prepared_embeddings(conn, prepared, config=embedding_config)
-            conn.commit()
-    if query_vector is None:
-        query_vector = embed_texts([query], config=embedding_config)[0]
-    with store._connect() as conn:
+            (
+                embedding_config.model,
+                embedding_config.dim,
+                embedding_config.model,
+                embedding_config.dim,
+                embedding_config.model,
+                embedding_config.dim,
+                *params,
+            ),
+        ).fetchone()
         refreshed = conn.execute(
             f"""
             SELECT
@@ -317,9 +324,35 @@ def recall_via_semantic(
             (*params, embedding_config.model, embedding_config.dim),
         ).fetchall()
 
+    memory_count = int(stats["memory_count"] or 0)
+    precomputed_count = int(stats["precomputed_embedding_count"] or 0)
+    missing_count = int(stats["missing_embedding_count"] or 0)
+    stale_count = int(stats["stale_embedding_count"] or 0)
+    metadata = semantic_index_metadata(
+        model=embedding_config.model,
+        dim=embedding_config.dim,
+        memory_count=memory_count,
+        valid_embedding_count=precomputed_count,
+        missing_embedding_count=missing_count,
+        stale_embedding_count=stale_count,
+        invalid_embedding_count=0,
+    )
+    if not refreshed:
+        if diagnostics is not None:
+            diagnostics.update(metadata)
+        return []
+    if diagnostics is not None:
+        diagnostics.update(metadata)
+
+    query_vector = embed_texts([query], config=embedding_config)[0]
     scored: list[tuple[float, str, dict[str, Any]]] = []
+    invalid_count = 0
     for row in refreshed:
-        score = cosine_similarity(query_vector, load_vector(row["vector_json"]))
+        vector = load_vector(row["vector_json"])
+        if not vector or len(vector) != embedding_config.dim:
+            invalid_count += 1
+            continue
+        score = cosine_similarity(query_vector, vector)
         if score <= 0:
             continue
         item = _row_to_item(row, include_rowid=include_rowid)
@@ -327,11 +360,75 @@ def recall_via_semantic(
             **(item.get("retrieval") or {}),
             "semantic_score": score,
             "semantic_model": embedding_config.model,
-            "semantic_scope": "full-store-exact",
+            "semantic_scope": "precomputed-valid-only",
         }
         scored.append((score, normalize_text(str(item.get("title") or "")), item))
+    metadata = semantic_index_metadata(
+        model=embedding_config.model,
+        dim=embedding_config.dim,
+        memory_count=memory_count,
+        valid_embedding_count=max(0, precomputed_count - invalid_count),
+        missing_embedding_count=missing_count,
+        stale_embedding_count=stale_count,
+        invalid_embedding_count=invalid_count,
+    )
+    if diagnostics is not None:
+        diagnostics.update(metadata)
     scored.sort(key=lambda entry: (-entry[0], entry[1]))
     return [item for _, _, item in scored[:limit]]
+
+
+def semantic_index_metadata(
+    *,
+    model: str,
+    dim: int,
+    memory_count: int,
+    valid_embedding_count: int,
+    missing_embedding_count: int,
+    stale_embedding_count: int,
+    invalid_embedding_count: int,
+) -> dict[str, Any]:
+    if memory_count <= 0:
+        completeness = "empty"
+        completeness_ratio = 1.0
+        degraded = False
+        degraded_reason = None
+    else:
+        completeness_ratio = round(valid_embedding_count / memory_count, 6)
+        if valid_embedding_count <= 0:
+            completeness = "cold"
+        elif valid_embedding_count < memory_count:
+            completeness = "partial"
+        else:
+            completeness = "complete"
+        degraded = completeness != "complete"
+        if not degraded:
+            degraded_reason = None
+        elif invalid_embedding_count > 0:
+            degraded_reason = "semantic-index-invalid"
+        elif stale_embedding_count > 0:
+            degraded_reason = "semantic-index-stale"
+        elif missing_embedding_count > 0:
+            degraded_reason = "semantic-index-cold" if valid_embedding_count <= 0 else "semantic-index-incomplete"
+        else:
+            degraded_reason = "semantic-index-incomplete"
+    metadata: dict[str, Any] = {
+        "semantic_available": valid_embedding_count > 0,
+        "semantic_scope": "precomputed-valid-only",
+        "semantic_model": model,
+        "semantic_dim": dim,
+        "semantic_completeness": completeness,
+        "semantic_completeness_ratio": completeness_ratio,
+        "semantic_memory_count": memory_count,
+        "semantic_valid_embedding_count": valid_embedding_count,
+        "semantic_missing_embedding_count": missing_embedding_count,
+        "semantic_stale_embedding_count": stale_embedding_count,
+        "semantic_invalid_embedding_count": invalid_embedding_count,
+        "degraded": degraded,
+    }
+    if degraded_reason is not None:
+        metadata["degraded_reason"] = degraded_reason
+    return metadata
 
 
 def normalize_retrieval_mode(value: str) -> str:

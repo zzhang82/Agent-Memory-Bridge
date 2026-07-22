@@ -1,21 +1,23 @@
 # Production Status
 
-Last updated: 2026-07-21 (America/New_York)
+Last updated: 2026-07-22 (America/New_York)
 
-This maintainer note describes the current `0.23.1` full local-hardening patch, the inherited v0.23.0 retrieval work, the inherited v0.22.3 correctness guarantees, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.24.0` correctness patch, the inherited v0.23.1 local-hardening work, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.23.1 Release Status
+## 0.24.0 Release Status
 
-- Package version: `0.23.1`
-- Release thesis: close the v0.23.0 audit across authority, cursor/state generation, service ownership and health, database maintenance, command-provider limits, governed metadata, and large-store behavior
-- MCP runtime behavior: `annotate` and `revise` are explicit auditable write paths; the public surface grows from 10 to 12 tools
-- Baseline install: immutable `v0.23.1` archive in `.amb-venv`, using the derived venv interpreter
+- Package version: `0.24.0`
+- Release thesis: correct exact memory identity, semantic/hybrid recall write boundaries, benchmark/proof index warming, and local maintenance exclusion without expanding the public MCP surface
+- MCP runtime behavior: the public surface remains exactly 12 tools
+- Baseline install: immutable `v0.24.0` archive in `.amb-venv`, using the derived venv interpreter
+- Exact identity contract: schema version `4` adds `exact_content_hash`; after existing store/revise input trimming it normalizes newline sequences only, drives memory deduplication, and preserves legacy `content_hash`
 - Classifier authority contract: raw suggestions are exposed as `classifier_suggested_tags`; only `domain:` and `topic:` suggestions may become policy tags, and free-form governance tags remain rejected at the acceptance boundary
 - Classifier confidence contract: assist-mode enrichment requires confidence to be present, finite, and within `[0, 1]`; missing, `NaN`, infinite, negative, and greater-than-one values are rejected
 - Background cursor contract: reflex and consolidation persist monotonic `memory_insertions.sequence` cursors, resolve legacy `since_id` state, and reset when the database epoch changes after restore
 - Consolidation source contract: free-form reviewed/confidence tags do not bypass `allow_reflex_sources = false`
-- Embedding transaction contract: semantic recall, scheduled maintenance, and rebuild read candidates first, call the provider in a batch outside the SQLite write transaction, then revalidate content hashes before writing vectors in a short transaction
-- Hybrid degradation contract: only typed embedding-provider failures fall back to lexical results with explicit degraded metadata; SQLite and programming failures still propagate, and explicit semantic mode fails clearly
+- Embedding transaction contract: scheduled maintenance and rebuild read candidates first, call the provider in a batch outside the SQLite write transaction, then revalidate content hashes before writing vectors in a short transaction
+- Recall derived-index contract: semantic and hybrid recall use precomputed valid vectors only; they do not backfill candidate embeddings or write during recall, and they report degraded completeness when the derived index is cold, stale, or incomplete
+- Hybrid degradation contract: typed provider failures and derived-index incompleteness fall back to lexical results with explicit degraded metadata; SQLite and programming failures still propagate, and explicit semantic mode fails clearly
 - Vector contract: provider vectors must contain finite numeric values; invalid generated or persisted vectors are rejected rather than stored or scored
 - Chinese/Han boundary: Chinese/Han characters and bigrams participate in the local hash-semantic path; ordinary Chinese lexical recall still uses the existing LIKE fallback when FTS has no direct match
 - Semantic boundary: semantic recall scores every eligible row exactly; `semantic_scan_limit` is a provider batch size rather than a recent-window cutoff, and hybrid ranking uses reciprocal-rank fusion
@@ -24,7 +26,7 @@ This maintainer note describes the current `0.23.1` full local-hardening patch, 
 - One-shot exit contract: `service --once` returns `0` for successful enabled lanes, `1` when any enabled lane fails, and `3` on singleton-lock conflict
 - Signal health contract: doctor reports malformed Signal timestamps/state; `signal-repair` can make invalid rows recoverable, and `hardened-local` requires claim-before-ack
 - State contract: service-lane JSON state uses tolerant loading and unique temporary files followed by atomic replacement; failed replacement preserves the previous valid state
-- Schema contract: schema version `3` adds typed metadata, normalized tags, indexed relations, insertion sequences, annotations, revisions, and a database epoch while preserving ordered transactional migration
+- Schema contract: schema version `4` adds exact content identity on top of typed metadata, normalized tags, indexed relations, insertion sequences, annotations, revisions, and a database epoch while preserving ordered transactional migration
 - Database maintenance contract: `db-health`, projection repair, consistent backup/verify/offline restore, WAL checkpoint, retention cleanup, capacity warnings, private managed-file permissions, and bounded log rotation are operator-visible
 - Polling contract: `since` is valid only for empty-query `kind="signal"` recall; opaque cursors carry namespace, insertion sequence, and database epoch from the same query result snapshot
 - Cursor boundary: `since` tracks later insertions, not later lifecycle transitions on older Signals; text and memory recall return `next_since: null`
@@ -46,6 +48,7 @@ This maintainer note describes the current `0.23.1` full local-hardening patch, 
 - Current receipt visuals: `examples/diagrams/v0.22-cross-client-activation.svg` and `examples/diagrams/v0.22-receipt-anatomy.svg`
 - Machine visual inventory: `examples/diagrams/visual-claims.json`; the release contract treats it as hygiene, not semantic proof
 - Visual render gate: native-size and README-width raster renders must show no clipping, overlap, or crossed labels before visuals support a release story
+- Trust boundary: `docs/TRUST-BOUNDARY.md` documents the cooperative local trust model; AMB still does not provide authenticated actors, ACLs, or multi-user infrastructure
 
 ## Current Runtime Shape
 
@@ -75,7 +78,7 @@ This maintainer note describes the current `0.23.1` full local-hardening patch, 
 22. a Cross-Client Activation Receipt CLI/report that reads existing writer memory and reader signal rows for one namespace and correlation id, hashes sensitive identifiers, and performs no durable or config writes
 23. embedding maintenance that batches provider work outside SQLite write transactions and revalidates content hashes before derived-vector writes
 24. one shared service-lane boundary with exception isolation, failure counters, capped backoff, and tolerant atomic state replacement
-25. an ordered transactional schema migration spine recorded as SQLite schema version `3`
+25. an ordered transactional schema migration spine recorded as SQLite schema version `4`
 26. a classifier suggestion boundary that promotes only validated `domain:` and `topic:` tags and keeps shadow-mode output non-authoritative
 27. monotonic insertion-sequence cursors for reflex and consolidation with legacy `since_id` state compatibility
 28. one cross-platform local service lock with meaningful one-shot exit status, heartbeat state, and slow-lane timing
@@ -85,19 +88,19 @@ This maintainer note describes the current `0.23.1` full local-hardening patch, 
 32. database integrity/projection health, repair, consistent backup/restore, WAL checkpoint, size warnings, private managed-file permissions, and log rotation
 33. `local-single-user` and `hardened-local` operating profiles with an explicit cooperative-security boundary
 
-## Verified On 2026-07-21
+## Verified On 2026-07-22
 
-- `pytest` passes: `546 passed`
+- `pytest --collect-only -q tests`: `560 tests collected`
 - the integrated embedding, service, state, schema, command-provider, maintenance, revision, and storage regressions are part of the full suite
-- semantic recall, scheduled maintenance, and rebuild tests verify batched provider execution outside write transactions plus content-hash revalidation before vector writes
-- hybrid recall tests verify lexical degradation only for typed provider failures; explicit semantic failures and non-provider errors remain visible
+- scheduled maintenance and rebuild tests verify batched provider execution outside write transactions plus content-hash revalidation before vector writes
+- semantic and hybrid recall tests verify no candidate embedding backfill or recall-time writes, degraded completeness reporting for cold/stale indexes, and typed provider-failure lexical degradation
 - service tests verify one failing lane does not stop later lanes, failure counts and capped backoff are reported, and `KeyboardInterrupt` / `SystemExit` are not swallowed
 - classifier regressions verify reserved tags, missing/non-finite/out-of-range confidence, and shadow-mode non-mutation
 - reflex and consolidation regressions verify equal-timestamp rows remain visible across insertion-sequence cursor boundaries, deleted `memories.rowid` values cannot be reused to skip work, and legacy state migrates without omission
 - service regressions verify lock metadata, residual-file reacquisition, real spawned-process contention, one-shot lane-failure exit `1`, and lock-conflict exit `3`
 - doctor and repair regressions verify malformed claimed Signal state is detected and can be repaired explicitly
 - shared state-I/O tests cover malformed JSON, atomic replacement, unique temporary files, and preservation of the previous valid state when replacement fails
-- schema tests cover ordered version `3` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
+- schema tests cover ordered version `4` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
 - Chinese/Han hash-semantic tests cover character and bigram tokenization; no Chinese FTS support is claimed
 - 10,000-Signal polling acceptance with `limit=100`: exact insertion order, 10,000 unique ids, zero missing, zero unexpected, 100 pages
 - eight independent `spawn` processes claiming one exact Signal: one stored winner and no lock error in the local Linux run; the same test is part of the normal cross-platform CI matrix
@@ -221,7 +224,7 @@ This maintainer note describes the current `0.23.1` full local-hardening patch, 
 - governance triggers scan AMB's candidate lane rather than Codex logs, so non-Codex runtimes can use the same review path when they write candidates
 - always-on service gates default watcher/reflex/consolidation off, so multi-runtime installs can keep governance and embedding maintenance active without automatic Codex-log promotion
 - `service --once` reports watcher, reflex, and consolidation disabled when configured off; governance stays idle without pending candidates
-- `index-health` reports FTS and embedding sidecars synchronized with zero missing, stale, or orphan rows in the local validation snapshot
+- `index-health` reports FTS and embedding sidecars synchronized with zero missing, stale, or orphan rows in the local validation snapshot; index rebuild shares the service exclusion lock
 - healthcheck includes a relation-metadata smoke path
 - onboarding contract passes for required docs, README linkage, generated config parsing, and placeholder-safe public examples
 - relation-lite metadata is available on recall, export, and stats for:
@@ -242,6 +245,16 @@ This maintainer note describes the current `0.23.1` full local-hardening patch, 
 - the CLI can now render config snippets for generic stdio MCP, Codex, Cursor, Cline, Claude Code, Claude Desktop, Antigravity, OpenCode, and Hermes
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
+
+## What 0.24.0 Actually Means
+
+- `exact_content_hash` is the exact memory identity and, after existing store/revise input trimming, normalizes newline sequences only; legacy `content_hash` remains present for compatibility and derived index checks
+- semantic and hybrid recall do not write or backfill candidate embeddings during recall
+- degraded semantic completeness is explicit for cold, stale, or incomplete derived indexes
+- benchmark and proof code warms the derived embedding index before semantic scoring
+- index rebuild uses the same local service exclusion lock as other maintenance
+- `docs/TRUST-BOUNDARY.md` documents cooperative local trust; the release does not add authenticated actors, namespace ACLs, ANN retrieval, online restore, or multi-user infrastructure
+- the public MCP surface is exactly 12 tools
 
 ## What 0.23.1 Actually Means
 
@@ -288,7 +301,7 @@ This maintainer note describes the current `0.23.1` full local-hardening patch, 
 - the visual inventory is release hygiene, not semantic proof
 - native-size and README-width raster renders are a release gate for clipping,
   overlap, and crossed labels
-- the current validation snapshot is `546 passed`
+- the current validation snapshot is `560 tests collected`
 
 ## What 0.22.0 Actually Means
 
@@ -352,7 +365,7 @@ The release still does **not** mean:
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.23.1
+## Pressure Points After 0.24.0
 
 The most important remaining gaps are:
 
@@ -368,6 +381,8 @@ The most important remaining gaps are:
 10. measured need before adding lane cancellation, broader database CHECK constraints, or a Signal idempotency API
 
 ## Maintainer Read
+
+`0.24.0` corrects exact memory identity and derived-index boundaries without changing the 12-tool public MCP surface. It makes schema v4 exact identity explicit, keeps semantic/hybrid recall read-only over precomputed vectors, warms benchmark/proof embeddings before semantic scoring, shares the service exclusion lock for index rebuild, and documents the cooperative local trust boundary. It does not claim online restore, authenticated actors, ACLs, ANN retrieval, or multi-user infrastructure.
 
 `0.23.1` closes the audited local reliability gaps across authority tags, confidence validation, cursor generation, service ownership and health, typed projections, indexed lineage, command-provider resource limits, full-store semantic scoring, database maintenance, and local operating profiles. It adds explicit `annotate` and `revise` tools, bringing the public surface to 12. It does not claim authenticated actors, namespace ACLs, exactly-once Signals, distributed coordination, ANN retrieval, sandboxed providers, or lane cancellation.
 

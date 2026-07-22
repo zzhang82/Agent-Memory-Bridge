@@ -117,6 +117,29 @@ def test_explicit_revision_creates_successor_and_preserves_predecessor(tmp_path:
     assert receipt["reason"] == "Correction after verification"
 
 
+def test_revision_successor_dedup_uses_exact_content_identity(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    predecessor = store.store(
+        namespace="project:revisions",
+        content="claim: Old layout guidance.",
+    )
+    semantic_collision = store.store(
+        namespace="project:revisions",
+        content=(f"claim: Preserve YAML layout.\ndetails: root: child: value\nsupersedes: {predecessor['id']}"),
+    )
+
+    revision = store.revise(
+        str(predecessor["id"]),
+        replacement_content=(
+            f"claim: Preserve YAML layout.\ndetails: root:\n  child: value\nsupersedes: {predecessor['id']}"
+        ),
+    )
+
+    assert semantic_collision["stored"] is True
+    assert revision["result"]["stored"] is True
+    assert revision["successor_id"] != semantic_collision["id"]
+
+
 def test_server_exposes_explicit_annotate_and_revise_tools(tmp_path: Path, monkeypatch) -> None:
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     monkeypatch.setattr(server, "bridge", store)

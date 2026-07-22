@@ -5,6 +5,26 @@ and lightweight coordination. This page explains the default data boundary, what
 is stored locally, how to report vulnerabilities, and the trust boundary around
 optional classifier and embedding commands.
 
+For the concise project-wide boundary, see
+[docs/TRUST-BOUNDARY.md](docs/TRUST-BOUNDARY.md).
+
+## Trust Boundary Summary
+
+AMB is designed for trusted local operators. Local operating profiles are
+cooperative governance controls, not authenticated identity or access-control
+systems. `hardened-local` tightens local behavior, but it does not add OAuth,
+login, per-namespace ACLs, sandboxing, multi-user isolation, remote access
+control, compliance, or a distributed lock.
+
+Caller-supplied provenance and tags are declared metadata. They help filtering,
+auditing, debugging, and calibration, but AMB does not authenticate that a
+particular external client, model, user, workspace, or tag authority actually
+created the record.
+
+Exports are raw readable snapshots of records and metadata. Treat every export
+as sensitive unless you have sanitized the content, namespaces, tags,
+provenance fields, paths, sessions, and workspace labels.
+
 ## Local-First Data Model
 
 AMB stores runtime data in the local bridge home configured for the process. The
@@ -34,6 +54,9 @@ Treat the bridge database as sensitive project memory. Do not store secrets,
 credentials, access tokens, private keys, customer data, regulated data, or
 personal data unless you have intentionally decided that your local storage,
 backup, retention, and access controls are appropriate for that data.
+
+Provenance fields and tags can help you find and review records, but they are
+not an access-control boundary.
 
 ## What Not To Include In Public Issues
 
@@ -145,7 +168,8 @@ authoritative `memories` table unchanged.
 trusted-shell escape hatch for classifier and embedding providers. Both profiles
 remain local cooperative security models: neither adds authenticated client
 identity, per-namespace ACLs, sandboxing, multi-user isolation, compliance, or a
-distributed lock.
+distributed lock. They also do not provide remote ACLs or OAuth-backed
+authorization.
 
 On POSIX systems AMB creates the bridge home as `0700` and managed database,
 state, lock, health, and log files as `0600` where the platform permits. `doctor`

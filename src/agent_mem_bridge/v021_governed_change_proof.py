@@ -79,7 +79,8 @@ class CaseState:
     hazard_labels: set[str] = field(default_factory=set)
     baseline_mode: str = "raw_recall"
     flat_hazard_probe: Callable[[dict[str, Any]], bool] | None = None
-    transition: Callable[[], None] = lambda: None
+    transition: Callable[[], Any] = lambda: None
+    checkpoint_prepare: Callable[[int], None] = lambda _index: None
     checkpoint_extra: Callable[[int, dict[str, Any]], dict[str, bool]] = lambda _index, _snapshot: {}
     audit_tokens: dict[str, str] = field(default_factory=dict)
 
@@ -260,6 +261,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _checkpoint(state: CaseState, case: dict[str, Any], index: int) -> dict[str, Any]:
+    state.checkpoint_prepare(index)
     query = state.queries[index]
     as_of = state.as_of[index]
     task_domain = state.task_domains[index]
@@ -458,6 +460,9 @@ def _seed_deletion_case(state: CaseState) -> None:
         state.required_actionable[0].add("forgotten")
         state.forbidden_actionable[1].add("forgotten")
         state.transition = lambda: state.store.forget(target)
+        # v0.21's checked snapshot included the live fallback embedding after the
+        # first semantic probe; make that preparation explicit now that recall is read-only.
+        state.checkpoint_prepare = lambda index: _ensure_live_embeddings(state.store) if index == 1 else None
         state.checkpoint_extra = lambda index, snapshot: _deleted_lookup_checks(
             snapshot,
             "forgotten",
@@ -870,7 +875,7 @@ def _memory(
 ) -> str:
     original_new_id = state.store._new_id
     if fixed_id is not None:
-        state.store._new_id = lambda: fixed_id
+        state.store._new_id = lambda: fixed_id  # type: ignore[method-assign]
     try:
         result = state.store.store(
             namespace=namespace,
@@ -883,7 +888,7 @@ def _memory(
         )
     finally:
         if fixed_id is not None:
-            state.store._new_id = original_new_id
+            state.store._new_id = original_new_id  # type: ignore[method-assign]
     memory_id = str(result["id"])
     state.labels[memory_id] = label
     return memory_id
@@ -978,6 +983,19 @@ def _ensure_embedding(store: MemoryStore, memory_id: str) -> None:
         rows = conn.execute(
             "SELECT id, title, content, content_hash FROM memories WHERE id = ?",
             (memory_id,),
+        ).fetchall()
+        ensure_embeddings_for_rows(
+            conn,
+            rows,
+            config=EmbeddingConfig(provider="hash", model="local-token-hash-v1", dim=64),
+        )
+        conn.commit()
+
+
+def _ensure_live_embeddings(store: MemoryStore) -> None:
+    with store._connect() as conn:
+        rows = conn.execute(
+            "SELECT id, COALESCE(title, '') AS title, content, content_hash FROM memories ORDER BY id"
         ).fetchall()
         ensure_embeddings_for_rows(
             conn,
