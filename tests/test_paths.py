@@ -8,6 +8,7 @@ from agent_mem_bridge.paths import (
     resolve_classifier_trusted_shell,
     resolve_consolidation_allow_reflex_sources,
     resolve_consolidation_enabled,
+    resolve_embedding_capability,
     resolve_embedding_command,
     resolve_embedding_dim,
     resolve_embedding_model,
@@ -76,6 +77,7 @@ def test_path_resolvers_read_from_config_file(tmp_path: Path, monkeypatch) -> No
                 "",
                 "[retrieval]",
                 'embedding_provider = "command"',
+                'embedding_capability = "semantic"',
                 'embedding_command = "python fake_embedding.py"',
                 'embedding_model = "fixture-embedding-v1"',
                 "embedding_dim = 4",
@@ -123,6 +125,7 @@ def test_path_resolvers_read_from_config_file(tmp_path: Path, monkeypatch) -> No
     assert resolve_telemetry_log_dir() == tmp_path / "bridge-home" / "telemetry-spans"
     assert resolve_telemetry_service_name() == "amb-local"
     assert resolve_embedding_provider() == "command"
+    assert resolve_embedding_capability() == "semantic"
     assert resolve_embedding_command() == "python fake_embedding.py"
     assert resolve_embedding_model() == "fixture-embedding-v1"
     assert resolve_embedding_dim() == 4
@@ -162,6 +165,7 @@ def test_env_overrides_config_values(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_TELEMETRY_MODE", "jsonl")
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_TELEMETRY_SERVICE_NAME", "amb-env")
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER", "hash")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_CAPABILITY", "hashed-lexical")
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL", "env-embedding")
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_DIM", "8")
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_SCHEDULER_ENABLED", "yes")
@@ -176,6 +180,7 @@ def test_env_overrides_config_values(tmp_path: Path, monkeypatch) -> None:
     assert resolve_telemetry_mode() == "jsonl"
     assert resolve_telemetry_service_name() == "amb-env"
     assert resolve_embedding_provider() == "hash"
+    assert resolve_embedding_capability() == "hashed_lexical"
     assert resolve_embedding_model() == "env-embedding"
     assert resolve_embedding_dim() == 8
     assert resolve_embedding_scheduler_enabled() is True

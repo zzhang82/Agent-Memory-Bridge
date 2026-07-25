@@ -4,12 +4,21 @@ import hashlib
 import re
 import sqlite3
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from .embedding_index import ensure_embedding_schema
 from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
+
+
+@dataclass(frozen=True, slots=True)
+class SchemaMigration:
+    version: int
+    name: str
+    checksum: str
+    apply: Callable[[sqlite3.Connection], None]
 
 
 def quote_identifier(identifier: str) -> str:
@@ -28,9 +37,17 @@ def init_db(conn: sqlite3.Connection) -> None:
             raise RuntimeError(
                 f"database schema version {current_version} is newer than supported version {CURRENT_SCHEMA_VERSION}"
             )
+        ledger_exists = _schema_migrations_ledger_exists(conn)
+        if ledger_exists:
+            _validate_schema_migrations_ledger(conn, current_version)
+        else:
+            _ensure_schema_migrations_ledger(conn)
+            _backfill_schema_migrations_ledger(conn, current_version)
         migrated = False
         expected_version = current_version + 1
-        for target_version, migration in MIGRATIONS:
+        for raw_migration in MIGRATIONS:
+            migration = _coerce_schema_migration(raw_migration)
+            target_version = migration.version
             if target_version <= current_version:
                 continue
             if target_version != expected_version:
@@ -38,7 +55,8 @@ def init_db(conn: sqlite3.Connection) -> None:
                     f"schema migration sequence is incomplete: expected version {expected_version}, "
                     f"found {target_version}"
                 )
-            migration(conn)
+            migration.apply(conn)
+            _record_schema_migration(conn, migration)
             conn.execute(f"PRAGMA user_version = {target_version}")
             current_version = target_version
             expected_version += 1
@@ -61,7 +79,7 @@ def schema_version(conn: sqlite3.Connection) -> int:
 
 
 def _migrate_to_v1(conn: sqlite3.Connection) -> None:
-    _ensure_current_schema(conn)
+    _ensure_v1_schema(conn)
 
 
 def _migrate_to_v2(conn: sqlite3.Connection) -> None:
@@ -77,15 +95,164 @@ def _migrate_to_v4(conn: sqlite3.Connection) -> None:
     _ensure_exact_content_identity_schema(conn)
 
 
-MIGRATIONS: tuple[tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
-    (1, _migrate_to_v1),
-    (2, _migrate_to_v2),
-    (3, _migrate_to_v3),
-    (4, _migrate_to_v4),
+def _migrate_to_v5(conn: sqlite3.Connection) -> None:
+    _ensure_retrieval_feedback_schema(conn)
+
+
+MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
+    SchemaMigration(
+        1,
+        "v1_base_schema_snapshot",
+        "5175385fa3e27a9b0e025e2e0a59c74ab8b87dd383806ed0700e3f3154a7ccb6",
+        _migrate_to_v1,
+    ),
+    SchemaMigration(
+        2,
+        "v2_record_projection_schema",
+        "19f1742e3d0bd0f408006df94cc75fbcbf388e72f42bd6c5dc08525280f0e4f5",
+        _migrate_to_v2,
+    ),
+    SchemaMigration(
+        3,
+        "v3_bridge_metadata_schema",
+        "33fc37b0ad67cec090165517fc78a192a3acca9ca0c8c88fa3aef86c151779bf",
+        _migrate_to_v3,
+    ),
+    SchemaMigration(
+        4,
+        "v4_exact_content_identity_schema",
+        "64afdd68f8d67a5395dec229378d1add9593e40c0b39e0081150fed8cc473984",
+        _migrate_to_v4,
+    ),
+    SchemaMigration(
+        5,
+        "v5_retrieval_feedback_append_only",
+        "4b40b369da475605dd73e9629b8640959cae794fbf3fe46f674a9b15c4c92a01",
+        _migrate_to_v5,
+    ),
 )
 
 
 def _ensure_current_schema(conn: sqlite3.Connection) -> None:
+    _ensure_v1_schema(conn)
+    _ensure_projection_schema(conn)
+    _ensure_bridge_metadata_schema(conn)
+    _ensure_exact_content_identity_schema(conn)
+    _ensure_retrieval_feedback_schema(conn)
+    backfill_record_projections(conn, only_missing=True)
+
+
+def _coerce_schema_migration(
+    migration: SchemaMigration | tuple[int, Callable[[sqlite3.Connection], None]],
+) -> SchemaMigration:
+    if isinstance(migration, SchemaMigration):
+        return migration
+    version, apply = migration
+    name = getattr(apply, "__name__", f"migration_{version}")
+    checksum = hashlib.sha256(f"test-migration:{version}:{name}".encode("utf-8")).hexdigest()
+    return SchemaMigration(version=version, name=name, checksum=checksum, apply=apply)
+
+
+def _declared_schema_migrations() -> dict[int, SchemaMigration]:
+    declared: dict[int, SchemaMigration] = {}
+    for raw_migration in MIGRATIONS:
+        migration = _coerce_schema_migration(raw_migration)
+        if migration.version in declared:
+            raise RuntimeError(f"duplicate schema migration declaration for version {migration.version}")
+        if migration.version <= 0:
+            raise RuntimeError(f"invalid schema migration version {migration.version}")
+        if (
+            len(migration.checksum) != 64
+            or migration.checksum != migration.checksum.lower()
+            or any(char not in "0123456789abcdef" for char in migration.checksum)
+        ):
+            raise RuntimeError(f"invalid schema migration checksum for version {migration.version}")
+        declared[migration.version] = migration
+    return declared
+
+
+def _schema_migrations_ledger_exists(conn: sqlite3.Connection) -> bool:
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type = 'table'
+        AND name = 'schema_migrations'
+        LIMIT 1
+        """
+    ).fetchone()
+    return row is not None
+
+
+def _ensure_schema_migrations_ledger(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY CHECK (version > 0),
+            name TEXT NOT NULL CHECK (length(name) > 0),
+            checksum TEXT NOT NULL
+                CHECK (
+                    length(checksum) = 64
+                    AND checksum = lower(checksum)
+                    AND checksum NOT GLOB '*[^0-9a-f]*'
+                ),
+            applied_at TEXT NOT NULL CHECK (julianday(applied_at) IS NOT NULL),
+            UNIQUE (name)
+        ) WITHOUT ROWID
+        """
+    )
+
+
+def _validate_schema_migrations_ledger(conn: sqlite3.Connection, current_version: int) -> None:
+    declared = _declared_schema_migrations()
+    try:
+        rows = conn.execute(
+            """
+            SELECT version, name, checksum
+            FROM schema_migrations
+            ORDER BY version ASC
+            """
+        ).fetchall()
+    except sqlite3.DatabaseError as exc:
+        raise RuntimeError("schema_migrations ledger is invalid") from exc
+
+    observed_versions: set[int] = set()
+    for row in rows:
+        version = int(row["version"])
+        declared_migration = declared.get(version)
+        if declared_migration is None or version > CURRENT_SCHEMA_VERSION:
+            raise RuntimeError(f"schema_migrations ledger contains unknown version {version}")
+        if version > current_version:
+            raise RuntimeError(f"schema_migrations ledger version {version} is ahead of user_version {current_version}")
+        if row["name"] != declared_migration.name or row["checksum"] != declared_migration.checksum:
+            raise RuntimeError(f"schema_migrations ledger mismatch for version {version}")
+        observed_versions.add(version)
+
+    for version in range(1, current_version + 1):
+        if version not in observed_versions:
+            raise RuntimeError(f"schema_migrations ledger is missing version {version}")
+
+
+def _backfill_schema_migrations_ledger(conn: sqlite3.Connection, current_version: int) -> None:
+    declared = _declared_schema_migrations()
+    for version in range(1, current_version + 1):
+        migration = declared.get(version)
+        if migration is None:
+            raise RuntimeError(f"schema_migrations ledger cannot backfill unknown version {version}")
+        _record_schema_migration(conn, migration)
+
+
+def _record_schema_migration(conn: sqlite3.Connection, migration: SchemaMigration) -> None:
+    conn.execute(
+        """
+        INSERT INTO schema_migrations (version, name, checksum, applied_at)
+        VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        """,
+        (migration.version, migration.name, migration.checksum),
+    )
+
+
+def _ensure_v1_schema(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS memories (
@@ -114,7 +281,6 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
             lineage_status TEXT NOT NULL DEFAULT 'intact',
             lineage_issues_json TEXT NOT NULL DEFAULT '[]',
             content_hash TEXT NOT NULL,
-            exact_content_hash TEXT NOT NULL CHECK (length(trim(exact_content_hash)) > 0),
             created_at TEXT NOT NULL
         )
         """
@@ -184,7 +350,13 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
     )
     ensure_fts_columns(conn)
     ensure_embedding_schema(conn)
-    _ensure_exact_content_identity_schema(conn)
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_memories_dedup
+        ON memories (namespace, content_hash)
+        WHERE kind != 'signal'
+        """
+    )
     conn.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_memories_namespace_created_at
@@ -245,9 +417,6 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
         ON memories (namespace, is_learning_candidate, created_at DESC)
         """
     )
-    _ensure_projection_schema(conn)
-    _ensure_bridge_metadata_schema(conn)
-    backfill_record_projections(conn, only_missing=True)
 
 
 def _ensure_projection_schema(conn: sqlite3.Connection) -> None:
@@ -522,6 +691,59 @@ def _ensure_bridge_metadata_schema(conn: sqlite3.Connection) -> None:
         """
         INSERT OR IGNORE INTO bridge_metadata (key, value)
         VALUES ('database_epoch', lower(hex(randomblob(16))))
+        """
+    )
+
+
+def _ensure_retrieval_feedback_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS retrieval_feedback (
+            feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            namespace TEXT NOT NULL CHECK (length(trim(namespace)) > 0),
+            memory_id TEXT CHECK (memory_id IS NULL OR length(trim(memory_id)) > 0),
+            query_text TEXT NOT NULL,
+            retrieval_mode TEXT CHECK (retrieval_mode IS NULL OR length(trim(retrieval_mode)) > 0),
+            result_position INTEGER CHECK (result_position IS NULL OR result_position >= 0),
+            feedback_score INTEGER NOT NULL CHECK (feedback_score IN (-1, 0, 1)),
+            feedback_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(feedback_json)),
+            source_app TEXT CHECK (source_app IS NULL OR length(trim(source_app)) > 0),
+            actor TEXT CHECK (actor IS NULL OR length(trim(actor)) > 0),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_namespace_created
+        ON retrieval_feedback (namespace, created_at, feedback_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_memory_created
+        ON retrieval_feedback (memory_id, created_at, feedback_id)
+        WHERE memory_id IS NOT NULL
+        """
+    )
+    conn.execute("DROP TRIGGER IF EXISTS prevent_retrieval_feedback_update")
+    conn.execute("DROP TRIGGER IF EXISTS prevent_retrieval_feedback_delete")
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_retrieval_feedback_update
+        BEFORE UPDATE ON retrieval_feedback
+        BEGIN
+            SELECT RAISE(ABORT, 'retrieval_feedback is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_retrieval_feedback_delete
+        BEFORE DELETE ON retrieval_feedback
+        BEGIN
+            SELECT RAISE(ABORT, 'retrieval_feedback is append-only');
+        END
         """
     )
 

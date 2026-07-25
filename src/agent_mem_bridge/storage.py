@@ -275,7 +275,9 @@ class MemoryStore:
                 "recall",
                 {
                     "namespace": cleaned_namespace,
-                    "query": query_text,
+                    "query_present": bool(query_text),
+                    "query_hash": hash_label(query_text),
+                    "query_length": len(query_text),
                     "count": payload["count"],
                     "kind": kind,
                     "signal_status": normalized_signal_status,

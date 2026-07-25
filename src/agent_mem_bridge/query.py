@@ -6,12 +6,16 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .embedding_index import (
+    EmbeddingConfig,
     EmbeddingProviderError,
     active_embedding_config,
     cosine_similarity,
     embed_texts,
+    embedding_config_is_true_semantic,
     embedding_tokens,
     load_vector,
+    normalize_embedding_capability,
+    normalize_embedding_provider,
 )
 from .paths import resolve_hybrid_semantic_weight, resolve_retrieval_mode
 from .poll_cursor import decode_poll_cursor
@@ -41,6 +45,34 @@ def recall_candidates(
     candidate_limit = max(limit, min(max(limit * 5, 20), 100))
     mode = normalize_retrieval_mode(retrieval_mode or resolve_retrieval_mode())
     if query.strip() and mode in {"semantic", "hybrid"}:
+        try:
+            embedding_config = active_embedding_config()
+        except ValueError as exc:
+            raise EmbeddingProviderError("embedding configuration is invalid") from exc
+        if not embedding_config_is_true_semantic(embedding_config):
+            skipped = semantic_unavailable_metadata(mode=mode, config=embedding_config)
+            if mode == "semantic":
+                if diagnostics is not None:
+                    diagnostics.update(skipped)
+                raise RuntimeError(
+                    "semantic recall requires embedding_provider='command' with embedding_capability='semantic'"
+                )
+            if diagnostics is not None:
+                diagnostics.update(skipped)
+            return _recall_lexical_candidates(
+                store,
+                namespace=namespace,
+                query=query,
+                limit=limit,
+                kind=kind,
+                signal_status=signal_status,
+                tags_any=tags_any,
+                session_id=session_id,
+                actor=actor,
+                correlation_id=correlation_id,
+                since=since,
+                include_rowid=include_rowid,
+            )
         lexical_items = _recall_lexical_candidates(
             store,
             namespace=namespace,
@@ -70,6 +102,7 @@ def recall_candidates(
                 since=since,
                 include_rowid=include_rowid,
                 diagnostics=diagnostics,
+                embedding_config=embedding_config,
             )
         except EmbeddingProviderError as exc:
             if mode == "semantic":
@@ -245,6 +278,7 @@ def recall_via_semantic(
     since: str | None,
     include_rowid: bool = False,
     diagnostics: dict[str, Any] | None = None,
+    embedding_config: EmbeddingConfig | None = None,
 ) -> list[dict[str, Any]]:
     where_sql, params = build_filters(
         store,
@@ -259,7 +293,7 @@ def recall_via_semantic(
         alias="m",
     )
     try:
-        embedding_config = active_embedding_config()
+        resolved_embedding_config = embedding_config or active_embedding_config()
     except ValueError as exc:
         raise EmbeddingProviderError("embedding configuration is invalid") from exc
     with store._connect() as conn:
@@ -298,12 +332,12 @@ def recall_via_semantic(
             WHERE {where_sql}
             """,
             (
-                embedding_config.model,
-                embedding_config.dim,
-                embedding_config.model,
-                embedding_config.dim,
-                embedding_config.model,
-                embedding_config.dim,
+                resolved_embedding_config.model,
+                resolved_embedding_config.dim,
+                resolved_embedding_config.model,
+                resolved_embedding_config.dim,
+                resolved_embedding_config.model,
+                resolved_embedding_config.dim,
                 *params,
             ),
         ).fetchone()
@@ -321,7 +355,7 @@ def recall_via_semantic(
             AND e.embedding_dim = ?
             ORDER BY (SELECT sequence FROM memory_insertions WHERE memory_id = m.id) ASC
             """,
-            (*params, embedding_config.model, embedding_config.dim),
+            (*params, resolved_embedding_config.model, resolved_embedding_config.dim),
         ).fetchall()
 
     memory_count = int(stats["memory_count"] or 0)
@@ -329,8 +363,7 @@ def recall_via_semantic(
     missing_count = int(stats["missing_embedding_count"] or 0)
     stale_count = int(stats["stale_embedding_count"] or 0)
     metadata = semantic_index_metadata(
-        model=embedding_config.model,
-        dim=embedding_config.dim,
+        config=resolved_embedding_config,
         memory_count=memory_count,
         valid_embedding_count=precomputed_count,
         missing_embedding_count=missing_count,
@@ -344,12 +377,12 @@ def recall_via_semantic(
     if diagnostics is not None:
         diagnostics.update(metadata)
 
-    query_vector = embed_texts([query], config=embedding_config)[0]
+    query_vector = embed_texts([query], config=resolved_embedding_config)[0]
     scored: list[tuple[float, str, dict[str, Any]]] = []
     invalid_count = 0
     for row in refreshed:
         vector = load_vector(row["vector_json"])
-        if not vector or len(vector) != embedding_config.dim:
+        if not vector or len(vector) != resolved_embedding_config.dim:
             invalid_count += 1
             continue
         score = cosine_similarity(query_vector, vector)
@@ -359,13 +392,12 @@ def recall_via_semantic(
         item["retrieval"] = {
             **(item.get("retrieval") or {}),
             "semantic_score": score,
-            "semantic_model": embedding_config.model,
+            "semantic_model": resolved_embedding_config.model,
             "semantic_scope": "precomputed-valid-only",
         }
         scored.append((score, normalize_text(str(item.get("title") or "")), item))
     metadata = semantic_index_metadata(
-        model=embedding_config.model,
-        dim=embedding_config.dim,
+        config=resolved_embedding_config,
         memory_count=memory_count,
         valid_embedding_count=max(0, precomputed_count - invalid_count),
         missing_embedding_count=missing_count,
@@ -380,8 +412,7 @@ def recall_via_semantic(
 
 def semantic_index_metadata(
     *,
-    model: str,
-    dim: int,
+    config: EmbeddingConfig,
     memory_count: int,
     valid_embedding_count: int,
     missing_embedding_count: int,
@@ -412,11 +443,17 @@ def semantic_index_metadata(
             degraded_reason = "semantic-index-cold" if valid_embedding_count <= 0 else "semantic-index-incomplete"
         else:
             degraded_reason = "semantic-index-incomplete"
+    provider = normalize_embedding_provider(config.provider)
+    capability = normalize_embedding_capability(config.capability)
+    capability_verified = embedding_config_is_true_semantic(config)
     metadata: dict[str, Any] = {
-        "semantic_available": valid_embedding_count > 0,
+        "semantic_available": capability_verified and valid_embedding_count > 0,
         "semantic_scope": "precomputed-valid-only",
-        "semantic_model": model,
-        "semantic_dim": dim,
+        "semantic_model": config.model,
+        "semantic_dim": config.dim,
+        "semantic_provider": provider,
+        "semantic_capability": capability,
+        "semantic_capability_verified": capability_verified,
         "semantic_completeness": completeness,
         "semantic_completeness_ratio": completeness_ratio,
         "semantic_memory_count": memory_count,
@@ -428,6 +465,22 @@ def semantic_index_metadata(
     }
     if degraded_reason is not None:
         metadata["degraded_reason"] = degraded_reason
+    return metadata
+
+
+def semantic_unavailable_metadata(*, mode: str, config: EmbeddingConfig) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "mode": mode,
+        "semantic_available": False,
+        "semantic_skipped": True,
+        "semantic_skip_reason": "semantic-provider-not-declared",
+        "semantic_provider": normalize_embedding_provider(config.provider),
+        "semantic_capability": normalize_embedding_capability(config.capability),
+        "semantic_capability_verified": False,
+        "degraded": mode == "hybrid",
+    }
+    if mode == "hybrid":
+        metadata["degraded_reason"] = "semantic-provider-not-declared"
     return metadata
 
 

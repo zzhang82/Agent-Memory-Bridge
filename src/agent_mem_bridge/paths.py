@@ -392,6 +392,18 @@ def resolve_embedding_provider() -> str:
     ).lower()
 
 
+def resolve_embedding_capability() -> str:
+    return (
+        _resolve_str(
+            "AGENT_MEMORY_BRIDGE_EMBEDDING_CAPABILITY",
+            ("retrieval", "embedding_capability"),
+            "hashed_lexical",
+        )
+        .lower()
+        .replace("-", "_")
+    )
+
+
 def resolve_embedding_command() -> str | tuple[str, ...]:
     return _resolve_command("AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND", ("retrieval", "embedding_command"))
 

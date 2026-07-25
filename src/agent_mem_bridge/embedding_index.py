@@ -12,6 +12,7 @@ from typing import Any
 
 from .command_provider import CommandLimits, CommandProviderError, command_fingerprint, run_json_command
 from .paths import (
+    resolve_embedding_capability,
     resolve_embedding_command,
     resolve_embedding_dim,
     resolve_embedding_env_allowlist,
@@ -26,6 +27,8 @@ from .paths import (
 
 DEFAULT_EMBEDDING_MODEL = "local-token-hash-v1"
 DEFAULT_EMBEDDING_DIM = 64
+DEFAULT_EMBEDDING_CAPABILITY = "hashed_lexical"
+SEMANTIC_EMBEDDING_CAPABILITY = "semantic"
 TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
 HAN_RUN_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+")
 REQUIRED_EMBEDDING_COLUMNS = {
@@ -41,6 +44,7 @@ REQUIRED_EMBEDDING_COLUMNS = {
 @dataclass(frozen=True, slots=True)
 class EmbeddingConfig:
     provider: str = "hash"
+    capability: str = DEFAULT_EMBEDDING_CAPABILITY
     model: str = DEFAULT_EMBEDDING_MODEL
     dim: int = DEFAULT_EMBEDDING_DIM
     command: str | tuple[str, ...] = ""
@@ -65,6 +69,7 @@ class PreparedEmbedding:
 
 def active_embedding_config() -> EmbeddingConfig:
     provider = normalize_embedding_provider(resolve_embedding_provider())
+    capability = normalize_embedding_capability(resolve_embedding_capability())
     dim = resolve_embedding_dim()
     if dim <= 0:
         raise ValueError("embedding dim must be greater than 0")
@@ -79,6 +84,7 @@ def active_embedding_config() -> EmbeddingConfig:
         model = DEFAULT_EMBEDDING_MODEL
     return EmbeddingConfig(
         provider=provider,
+        capability=capability,
         model=model,
         dim=dim,
         command=command,
@@ -92,10 +98,28 @@ def active_embedding_config() -> EmbeddingConfig:
 
 
 def normalize_embedding_provider(value: str) -> str:
-    normalized = value.strip().lower()
-    if normalized in {"hash", "command"}:
+    normalized = value.strip().lower().replace("-", "_")
+    if normalized in {"hash", "hashed_lexical"}:
+        return "hash"
+    if normalized == "command":
         return normalized
     return "hash"
+
+
+def normalize_embedding_capability(value: str) -> str:
+    normalized = value.strip().lower().replace("-", "_")
+    if normalized in {"semantic", "true_semantic"}:
+        return SEMANTIC_EMBEDDING_CAPABILITY
+    if normalized in {"hash", "hashed_lexical", "lexical_hash", "unverified", ""}:
+        return DEFAULT_EMBEDDING_CAPABILITY
+    return DEFAULT_EMBEDDING_CAPABILITY
+
+
+def embedding_config_is_true_semantic(config: EmbeddingConfig) -> bool:
+    return (
+        normalize_embedding_provider(config.provider) == "command"
+        and normalize_embedding_capability(config.capability) == SEMANTIC_EMBEDDING_CAPABILITY
+    )
 
 
 def command_embedding_model_id(command: str | Sequence[str], *, trusted_shell: bool = False) -> str:

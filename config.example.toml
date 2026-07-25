@@ -38,15 +38,22 @@ service_name = "agent-memory-bridge"
 
 # Optional retrieval mode.
 # `lexical` keeps the stable SQLite FTS5 path as the default.
-# `semantic` and `hybrid` use a local derived sidecar cache and should be
-# validated against your own corpus before becoming the default.
+# `semantic` requires a command embedding provider explicitly declared with
+# embedding_capability = "semantic". `hybrid` falls back to lexical ordering
+# unless that semantic provider contract is present.
 [retrieval]
 mode = "lexical"
 # Full-store semantic scoring is exact O(N). This value controls provider batch
 # size while missing/stale embeddings are generated; it is not a recent window.
 semantic_scan_limit = 1000
 hybrid_semantic_weight = 18.0
+# The bundled `hash` provider is a deterministic hashed lexical sidecar, not a
+# true semantic embedding provider. Unset/unverified capability is treated as
+# hashed_lexical. `hash` is kept as the compatibility alias.
 embedding_provider = "hash"
+embedding_capability = "hashed_lexical"
+# Use `embedding_provider = "command"` plus `embedding_capability = "semantic"`
+# only for a local command provider you have validated to return semantic vectors.
 embedding_command = []
 embedding_trusted_shell = false
 embedding_model = ""

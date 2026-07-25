@@ -35,7 +35,7 @@ def test_schema_v2_persists_canonical_metadata_tags_and_indexed_edges(tmp_path: 
     )
 
     with store._connect() as conn:
-        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 4
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION
         metadata = conn.execute(
             "SELECT * FROM memory_metadata WHERE memory_id = ?",
             (dependent_id,),
@@ -141,6 +141,7 @@ def test_v1_upgrade_backfills_projection_tables_transactionally(tmp_path: Path) 
         conn.execute("DELETE FROM memory_edges")
         conn.execute("DELETE FROM memory_tags")
         conn.execute("DELETE FROM memory_metadata")
+        conn.execute("DROP TABLE schema_migrations")
         conn.execute("PRAGMA user_version = 1")
         conn.commit()
 

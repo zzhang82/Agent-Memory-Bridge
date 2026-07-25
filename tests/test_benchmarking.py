@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 from agent_mem_bridge.benchmarking import (
@@ -13,6 +14,11 @@ from agent_mem_bridge.benchmarking import (
     warm_benchmark_embeddings,
 )
 from agent_mem_bridge.embedding_index import embedding_health
+
+
+def _embedding_command() -> str:
+    fixture = Path(__file__).parent / "fixtures" / "fake_embedding_gateway.py"
+    return f'"{sys.executable}" "{fixture}" ok'
 
 
 def test_precision_at_k_and_rank_helpers() -> None:
@@ -201,7 +207,12 @@ Reviewer needed for the API handoff.
     assert report["results"][0]["memory"]["top_titles"][0] == "Storage Decision"
 
 
-def test_run_benchmark_can_emit_shadow_hybrid_retrieval_summaries(tmp_path: Path) -> None:
+def test_run_benchmark_can_emit_shadow_hybrid_retrieval_summaries(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER", "command")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND", _embedding_command())
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL", "fixture-embedding-v1")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_DIM", "4")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_CAPABILITY", "semantic")
     corpus_dir = tmp_path / "corpus"
     corpus_dir.mkdir()
     (corpus_dir / "01-storage.md").write_text(

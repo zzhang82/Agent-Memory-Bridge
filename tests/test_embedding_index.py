@@ -90,7 +90,15 @@ def test_default_lexical_recall_does_not_generate_embeddings(tmp_path: Path) -> 
     assert health["missing_embedding_count"] == 1
 
 
-def test_semantic_recall_uses_precomputed_sidecar_without_changing_memory_rows(tmp_path: Path) -> None:
+def test_semantic_recall_uses_precomputed_sidecar_without_changing_memory_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER", "command")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND", _embedding_command())
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL", "fixture-embedding-v1")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_DIM", "4")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_CAPABILITY", "semantic")
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     created = store.store(
         namespace="project:bridge",
@@ -116,7 +124,7 @@ def test_semantic_recall_uses_precomputed_sidecar_without_changing_memory_rows(t
 
     with store._connect() as conn:
         after_memory_count = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
-        health = embedding_health(conn)
+        health = embedding_health(conn, config=active_embedding_config())
 
     assert lexical["count"] == 0
     assert [item["id"] for item in semantic] == [created["id"]]
@@ -148,7 +156,15 @@ def test_forget_removes_embedding_sidecar_row(tmp_path: Path) -> None:
     assert health["orphan_embedding_count"] == 0
 
 
-def test_hybrid_recall_combines_lexical_and_semantic_sidecars(tmp_path: Path) -> None:
+def test_hybrid_recall_combines_lexical_and_semantic_sidecars(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER", "command")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND", _embedding_command())
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL", "fixture-embedding-v1")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_DIM", "4")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_CAPABILITY", "semantic")
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     lexical = store.store(
         namespace="project:bridge",
@@ -339,6 +355,7 @@ def test_command_embedding_provider_retrieves_without_storing_command(tmp_path: 
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND", _embedding_command())
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL", "fixture-embedding-v1")
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_DIM", "4")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_EMBEDDING_CAPABILITY", "semantic")
 
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     alpha = store.store(
