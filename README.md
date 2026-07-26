@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.25.0` is Trustworthy Adaptive Retrieval. AMB now labels retrieval capability honestly as `lexical`, `hashed_lexical`, or `semantic`; issues short-lived HMAC recall receipts for explicit memory text recall; and adds receipt-bound `feedback` as append-only, shadow-only evidence. Feedback does not mutate memory, indexes, or ranking. Receipt tokens are tamper-evident, not encrypted; caller provenance remains declared, not authenticated; and the database epoch is a restore-instance guard, not per-write freshness. The public MCP surface is 13 tools.
+`0.25.1` is the cross-platform integrity patch for Trustworthy Adaptive Retrieval. It rejects non-canonical base64url receipt aliases and removes a Python 3.11 command-provider test race while preserving the 13-tool MCP surface and the shadow-only feedback boundary.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -87,7 +87,7 @@ commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.1.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -95,7 +95,7 @@ In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.0 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.1 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -294,7 +294,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.25.0` adds Trustworthy Adaptive Retrieval on top of the v0.24 identity and recall-boundary work. Retrieval now reports whether it is operating as `lexical`, `hashed_lexical`, or true `semantic`; explicit memory text recall can return a short-lived HMAC receipt; and `feedback` records receipt-bound retrieval outcomes as append-only shadow evidence. Feedback is not a reranker, memory editor, authentication layer, ACL system, ANN index, graph engine, or automatic policy path.
+`0.25.1` hardens Trustworthy Adaptive Retrieval. Retrieval reports whether it is operating as `lexical`, `hashed_lexical`, or true `semantic`; explicit memory text recall can return a short-lived HMAC receipt; and `feedback` records receipt-bound retrieval outcomes as append-only shadow evidence. The patch additionally rejects non-canonical base64url receipt aliases and stabilizes command-provider validation on Python 3.11. Feedback is not a reranker, memory editor, authentication layer, ACL system, ANN index, graph engine, or automatic policy path.
 
 | Track | Current signal |
 |---|---|
@@ -460,7 +460,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.25.0 announcement](docs/v0.25.0-announcement.md)
+- [v0.25.1 announcement](docs/v0.25.1-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

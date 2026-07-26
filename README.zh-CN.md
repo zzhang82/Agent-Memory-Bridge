@@ -13,7 +13,7 @@
 
 Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 shared engineering memory。它补充 `AGENTS.md`、`CLAUDE.md` 和客户端原生 preference memory，而不是取代它们。SQLite/WAL 是 durable authority，FTS5 和可选本地 embeddings 则是 derived indexes；当前公开能力按 `lexical`、`hashed_lexical` 和声明式 `semantic` 边界表述。
 
-`0.25.0` 是 Trustworthy Adaptive Retrieval release。Public MCP surface 是 13 个 tools，新增 `feedback`；text memory recall 会返回短生命周期 HMAC receipt，feedback 只能基于该 receipt 记录 append-only、shadow-only evidence。Feedback 不会改写 memory、index、ranking 或 policy；receipt token 是 tamper-evident，不是加密容器；caller/provenance 是声明式字段，不是 authenticated identity；database epoch 只用于 restore-instance guard，不是 per-write freshness proof。
+`0.25.1` 是 Trustworthy Adaptive Retrieval 的跨平台完整性补丁。它拒绝非规范 base64url receipt 别名，并修复 Python 3.11 command-provider 测试竞态；13-tool MCP surface 与 shadow-only feedback 边界保持不变。
 
 > Codex 是参考工作流，不是产品边界。AMB 使用本地 stdio MCP；客户端集成只按下方标注声明为 documented 或 locally verified。
 
@@ -86,7 +86,7 @@ issue report。在 POSIX shell 中按需对该 path 做 shell quoting；在 Wind
 PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.1.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -94,7 +94,7 @@ PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
 可选的 pinned GitHub smoke test 使用 `uvx`：
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.0 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.1 agent-memory-bridge verify
 ```
 
 ### 快速开始：Unified First-Run
@@ -273,7 +273,7 @@ operator review work 是 CLI report，不是 MCP tool：
 
 ## Proof Snapshot
 
-`0.25.0` 把 retrieval 和 feedback claims 收窄到可验证边界。当前能力按 `lexical`、`hashed_lexical` 和声明式 `semantic` 区分；默认 hash provider 是 `hashed_lexical`，不能被写成真正 semantic retrieval。Text memory recall 的 receipt 由 HMAC 签名并短期有效；payload 不包含 raw query 或 raw content，但 token 本身不是加密。Feedback 是 receipt-bound、append-only、shadow-only evidence，不会 mutation memory、index、belief records 或默认排序。Caller/provenance 仍是 declared metadata，不是 authenticated origin；database epoch 用来让 restore 后的旧 receipt 失效，不代表每次写入后的 freshness。
+`0.25.1` 加固了 retrieval 与 feedback 边界。当前能力仍按 `lexical`、`hashed_lexical` 和声明式 `semantic` 区分；默认 hash provider 是 `hashed_lexical`，不能被写成真正 semantic retrieval。Text memory recall 的 receipt 由 HMAC 签名并短期有效；payload 不包含 raw query 或 raw content，但 token 本身不是加密。新补丁会拒绝非规范 base64url receipt 别名，并稳定 Python 3.11 的 command-provider 验证。Feedback 仍是 receipt-bound、append-only、shadow-only evidence，不会 mutation memory、index、belief records 或默认排序。
 
 | Track | Current signal |
 |---|---|

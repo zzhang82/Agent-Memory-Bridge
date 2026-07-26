@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-26 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.25.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, and the v0.25 Trustworthy Adaptive Retrieval release. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.25.1`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, and the v0.25 Trustworthy Adaptive Retrieval release. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,9 +636,18 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.25.1 = Cross-Platform Receipt Integrity
+
+Status: current public patch release; no MCP surface or schema change.
+
+`0.25.1` rejects non-canonical base64url receipt aliases that can decode to the
+same signature bytes and removes a Python 3.11 command-provider fixture race
+that could surface as an unrelated I/O error. The 13-tool surface, schema v5,
+and shadow-only feedback boundary remain unchanged.
+
 ## 0.25.0 = Trustworthy Adaptive Retrieval
 
-Status: current public version story for `v0.25.0`; the public MCP surface is
+Status: historical public version story for `v0.25.0`; the public MCP surface is
 exactly 13 tools.
 
 ### Thesis

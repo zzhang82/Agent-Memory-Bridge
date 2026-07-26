@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shlex
 import sqlite3
 import sys
 from pathlib import Path
@@ -44,7 +45,7 @@ def _recall_mode(
 
 def _embedding_command(mode: str = "ok") -> str:
     fixture = Path(__file__).parent / "fixtures" / "fake_embedding_gateway.py"
-    return f'"{sys.executable}" "{fixture}" {mode}'
+    return shlex.join((sys.executable, str(fixture), mode))
 
 
 def test_embedding_schema_is_empty_on_default_lexical_store(tmp_path: Path) -> None:

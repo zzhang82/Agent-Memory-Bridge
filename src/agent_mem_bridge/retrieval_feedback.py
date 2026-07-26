@@ -445,11 +445,17 @@ def _base64url_encode(raw: bytes) -> str:
 
 
 def _base64url_decode(encoded: str) -> bytes:
-    padding = "=" * (-len(encoded) % 4)
+    if not encoded:
+        raise ValueError("invalid base64url value")
     try:
-        return base64.urlsafe_b64decode((encoded + padding).encode("ascii"))
-    except (binascii.Error, ValueError) as exc:
+        encoded_bytes = encoded.encode("ascii")
+        padding = b"=" * (-len(encoded_bytes) % 4)
+        decoded = base64.b64decode(encoded_bytes + padding, altchars=b"-_", validate=True)
+    except (binascii.Error, UnicodeEncodeError, ValueError) as exc:
         raise ValueError("invalid base64url value") from exc
+    if _base64url_encode(decoded) != encoded:
+        raise ValueError("invalid base64url value")
+    return decoded
 
 
 def _fetch_feedback_by_idempotency_key(conn: sqlite3.Connection, idempotency_key: str) -> sqlite3.Row | None:

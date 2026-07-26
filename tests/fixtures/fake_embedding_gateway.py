@@ -8,6 +8,7 @@ import sys
 
 def main() -> int:
     mode = sys.argv[1] if len(sys.argv) > 1 else "ok"
+    request_json = sys.stdin.read()
     if mode == "invalid-json":
         print("{not json")
         return 0
@@ -31,7 +32,7 @@ def main() -> int:
         while True:
             os.write(sys.stderr.fileno(), chunk)
     if mode == "spawn-pipe-holder":
-        json.loads(sys.stdin.read() or "{}")
+        json.loads(request_json or "{}")
         subprocess.Popen(
             [sys.executable, "-c", "import time; time.sleep(30)"],
             stdin=subprocess.DEVNULL,
@@ -42,7 +43,7 @@ def main() -> int:
         print(json.dumps({"vectors": [[1.0, 0.0, 0.0, 0.0]], "model": "fixture-embedding-v1"}))
         return 0
 
-    payload = json.loads(sys.stdin.read() or "{}")
+    payload = json.loads(request_json or "{}")
     dim = int(payload.get("dim") or 4)
     texts = payload.get("texts") or []
     vectors = [_vector_for(str(text), dim=dim) for text in texts]

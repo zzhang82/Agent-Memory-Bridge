@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,6 +18,8 @@ from agent_mem_bridge.retrieval_feedback import (
 from agent_mem_bridge.schema import rotate_database_epoch
 from agent_mem_bridge.storage import MemoryStore
 from agent_mem_bridge.telemetry import hash_label
+
+_BASE64URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 
 
 def _isolate_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
@@ -127,11 +132,51 @@ def test_receipt_validation_rejects_tamper_expiry_epoch_namespace_instance_and_m
     token = str(recalled["recall_receipt"]["token"])
     payload = decode_recall_receipt(token, secret=store.recall_receipt_secret)
 
-    tampered = f"{token[:-1]}{'A' if token[-1] != 'A' else 'B'}"
+    prefix, payload_part, signature_part = token.split(".")
+    tampered_signature = f"{'A' if signature_part[0] != 'A' else 'B'}{signature_part[1:]}"
+    tampered = ".".join((prefix, payload_part, tampered_signature))
     with pytest.raises(ValueError, match="signature mismatch"):
         validate_recall_receipt(
             store,
             recall_receipt=tampered,
+            namespace="project:receipts",
+            memory_id=str(created["id"]),
+            result_rank=1,
+        )
+
+    signature_tail_index = _BASE64URL_ALPHABET.index(signature_part[-1])
+    assert signature_tail_index % 4 == 0
+    noncanonical_signature = f"{signature_part[:-1]}{_BASE64URL_ALPHABET[signature_tail_index + 1]}"
+    noncanonical_signature_token = ".".join((prefix, payload_part, noncanonical_signature))
+    assert base64.urlsafe_b64decode(f"{noncanonical_signature}=") == base64.urlsafe_b64decode(f"{signature_part}=")
+    with pytest.raises(ValueError, match="malformed signature"):
+        validate_recall_receipt(
+            store,
+            recall_receipt=noncanonical_signature_token,
+            namespace="project:receipts",
+            memory_id=str(created["id"]),
+            result_rank=1,
+        )
+
+    padded_payload_part = f"{payload_part}{'=' * (-len(payload_part) % 4)}"
+    if padded_payload_part == payload_part:
+        padded_payload_part = f"{payload_part}===="
+    padded_payload_signature = (
+        base64.urlsafe_b64encode(
+            hmac.new(
+                store.recall_receipt_secret.hmac_key,
+                padded_payload_part.encode("ascii"),
+                hashlib.sha256,
+            ).digest()
+        )
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+    noncanonical_payload_token = ".".join((prefix, padded_payload_part, padded_payload_signature))
+    with pytest.raises(ValueError, match="malformed payload"):
+        validate_recall_receipt(
+            store,
+            recall_receipt=noncanonical_payload_token,
             namespace="project:receipts",
             memory_id=str(created["id"]),
             result_rank=1,

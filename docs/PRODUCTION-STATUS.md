@@ -2,14 +2,14 @@
 
 Last updated: 2026-07-26 (America/New_York)
 
-This maintainer note describes the current `0.25.0` Trustworthy Adaptive Retrieval release, the inherited v0.24 exact-identity and recall-boundary work, the inherited v0.23.1 local-hardening work, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.25.1` cross-platform integrity patch for Trustworthy Adaptive Retrieval, the inherited v0.24 exact-identity and recall-boundary work, the inherited v0.23.1 local-hardening work, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.25.0 Release Status
+## 0.25.1 Release Status
 
-- Package version: `0.25.0`
+- Package version: `0.25.1`
 - Release thesis: make adaptive retrieval explainable and feedback auditable without claiming active reranking, authentication, ACLs, ANN retrieval, graph memory, or automatic policy
 - MCP runtime behavior: the public surface is exactly 13 tools
-- Baseline install: immutable `v0.25.0` archive in `.amb-venv`, using the derived venv interpreter
+- Baseline install: immutable `v0.25.1` archive in `.amb-venv`, using the derived venv interpreter
 - Retrieval capability contract: retrieval reports the honest operating capability as `lexical`, `hashed_lexical`, or `semantic`; default hash embeddings remain `hashed_lexical`, while true semantic mode requires a declared semantic provider
 - Recall receipt contract: explicit non-empty `kind="memory"` text recall can return a short-lived HMAC receipt that binds bridge instance, database epoch, namespace, query hash, retrieval mode, and memory ids/ranks
 - Recall receipt boundary: receipt tokens are tamper-evident, not encrypted; they omit raw query/content and do not authenticate caller identity or provenance
@@ -261,7 +261,7 @@ This maintainer note describes the current `0.25.0` Trustworthy Adaptive Retriev
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.25.0 Actually Means
+## What 0.25.1 Actually Means
 
 - retrieval reports whether the active capability is `lexical`, `hashed_lexical`, or `semantic`
 - `hashed_lexical` is not presented as true semantic retrieval; true semantic mode requires a declared semantic provider
@@ -396,7 +396,7 @@ The release still does **not** mean:
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.25.0
+## Pressure Points After 0.25.1
 
 The most important remaining gaps are:
 
@@ -414,7 +414,7 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.25.0` is Trustworthy Adaptive Retrieval. It labels retrieval capability as `lexical`, `hashed_lexical`, or `semantic`, adds short-lived HMAC receipts for explicit memory text recall, and exposes receipt-bound `feedback` as the thirteenth MCP tool. Feedback is append-only shadow evidence: it does not mutate memory, indexes, recall ordering, or ranking. Receipt tokens are tamper-evident but not encrypted; provenance remains declared, not authenticated; and the database epoch is a restore-instance guard, not per-write freshness.
+`0.25.1` is the cross-platform integrity patch for Trustworthy Adaptive Retrieval. It preserves the `lexical`, `hashed_lexical`, and `semantic` capability contract, the short-lived HMAC receipts, and the thirteenth `feedback` tool introduced in `0.25.0`. The patch rejects non-canonical base64url receipt aliases and removes a Python 3.11 command-provider test race. Feedback remains append-only shadow evidence: it does not mutate memory, indexes, recall ordering, or ranking.
 
 `0.24.0` corrected exact memory identity and derived-index boundaries without changing the 12-tool public MCP surface. It made schema v4 exact identity explicit, kept semantic/hybrid recall read-only over precomputed vectors, warmed benchmark/proof embeddings before semantic scoring, shared the service exclusion lock for index rebuild, and documented the cooperative local trust boundary. It did not claim online restore, authenticated actors, ACLs, ANN retrieval, or multi-user infrastructure.
 

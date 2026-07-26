@@ -341,7 +341,9 @@ def test_feedback_rejects_invalid_receipt_binding(
     payload = decode_recall_receipt(token, secret=store.recall_receipt_secret)
 
     if case_name == "tampered_signature":
-        receipt = f"{token[:-1]}{'A' if token[-1] != 'A' else 'B'}"
+        prefix, payload_part, signature_part = token.split(".")
+        tampered_signature = f"{'A' if signature_part[0] != 'A' else 'B'}{signature_part[1:]}"
+        receipt = ".".join((prefix, payload_part, tampered_signature))
     elif case_name == "expired":
         now = datetime.now(UTC)
         receipt = encode_recall_receipt(
