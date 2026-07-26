@@ -23,6 +23,7 @@ from .paths import (
     resolve_bridge_log_dir,
     resolve_log_backup_count,
     resolve_log_max_bytes,
+    resolve_recall_receipt_secret_path,
     resolve_require_claim_before_ack,
 )
 from .poll_cursor import encode_poll_cursor
@@ -37,6 +38,13 @@ from .repository import (
     forget_entry,
     stats_for_namespace,
     store_entry,
+)
+from .retrieval_feedback import (
+    FEEDBACK_OUTCOMES,
+    issue_recall_receipt,
+    load_or_create_recall_receipt_secret,
+    record_retrieval_feedback,
+    should_issue_recall_receipt,
 )
 from .revisions import annotate_entry, revise_entry
 from .schema import database_epoch, init_db
@@ -64,12 +72,25 @@ def _optional_list(value: list[str] | None) -> list[str] | None:
     return cleaned or None
 
 
+def _safe_feedback_outcome_category(value: str) -> str:
+    cleaned = str(value).strip().lower()
+    return cleaned if cleaned in FEEDBACK_OUTCOMES else "invalid"
+
+
+def _safe_transport_category(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip().lower()
+    return cleaned if cleaned in {"stdio", "http", "sse"} else "other"
+
+
 class MemoryStore:
     def __init__(self, db_path: Path, log_dir: Path | None = None, telemetry: Telemetry | None = None) -> None:
         self.db_path = Path(db_path)
         self.log_dir = Path(log_dir) if log_dir is not None else self.db_path.parent / "logs"
         self.log_max_bytes = resolve_log_max_bytes()
         self.log_backup_count = resolve_log_backup_count()
+        self.recall_receipt_secret_path = resolve_recall_receipt_secret_path(default_parent=self.db_path.parent)
         if self.log_max_bytes <= 0 or self.log_backup_count < 0:
             raise ValueError("log rotation limits must use max_bytes > 0 and backup_count >= 0")
         self.telemetry = telemetry or Telemetry.from_env()
@@ -84,6 +105,7 @@ class MemoryStore:
         )
         self._init_db()
         ensure_private_file(self.db_path)
+        self.recall_receipt_secret = load_or_create_recall_receipt_secret(self.recall_receipt_secret_path)
 
     @classmethod
     def from_env(cls) -> "MemoryStore":
@@ -263,6 +285,15 @@ class MemoryStore:
             )
             self._strip_internal_fields(items)
             payload = {"count": len(items), "items": items, "next_since": next_since}
+            if should_issue_recall_receipt(query=query_text, kind=kind):
+                payload["recall_receipt"] = issue_recall_receipt(
+                    self,
+                    secret=self.recall_receipt_secret,
+                    namespace=cleaned_namespace,
+                    query=query_text,
+                    items=items,
+                    retrieval_mode=str(retrieval_diagnostics.get("mode") or "lexical"),
+                )
             if retrieval_diagnostics:
                 payload["retrieval"] = retrieval_diagnostics
             span.set_attributes(
@@ -371,6 +402,79 @@ class MemoryStore:
                 {
                     "total_count": payload.get("total_count"),
                     "namespace_kind_count": len(payload.get("kind_counts", {})),
+                }
+            )
+            return payload
+
+    def feedback(
+        self,
+        namespace: str,
+        recall_receipt: str,
+        memory_id: str,
+        result_rank: int,
+        outcome: str,
+        reason: str | None = None,
+        source_app: str | None = None,
+        source_client: str | None = None,
+        source_model: str | None = None,
+        client_session_id: str | None = None,
+        client_workspace: str | None = None,
+        client_transport: str | None = None,
+        actor: str | None = None,
+    ) -> dict[str, Any]:
+        reason = _optional_text(reason)
+        source_app = _optional_text(source_app)
+        source_client = _optional_text(source_client)
+        source_model = _optional_text(source_model)
+        client_session_id = _optional_text(client_session_id)
+        client_workspace = _optional_text(client_workspace)
+        client_transport = _optional_text(client_transport)
+        actor = _optional_text(actor)
+        with self.telemetry.span(
+            "amb.feedback.record",
+            {
+                "namespace_hash": hash_label(namespace),
+                "memory_id_hash": hash_label(memory_id),
+                "result_rank": result_rank,
+                "outcome": _safe_feedback_outcome_category(outcome),
+                "has_reason": reason is not None,
+                "receipt_present": bool(str(recall_receipt).strip()),
+                "has_source_app": source_app is not None,
+                "has_source_client": source_client is not None,
+                "source_client_hash": hash_label(source_client),
+                "has_source_model": source_model is not None,
+                "has_client_session_id": client_session_id is not None,
+                "client_session_hash": hash_label(client_session_id),
+                "has_client_workspace": client_workspace is not None,
+                "client_transport": _safe_transport_category(client_transport),
+                "has_actor": actor is not None,
+                "provenance": "server_declared_not_authenticated",
+                "authenticated_origin": False,
+            },
+        ) as span:
+            payload = record_retrieval_feedback(
+                self,
+                secret_path=self.recall_receipt_secret_path,
+                namespace=namespace,
+                recall_receipt=recall_receipt,
+                memory_id=memory_id,
+                result_rank=result_rank,
+                outcome=outcome,
+                reason=reason,
+                source_app=source_app,
+                source_client=source_client,
+                source_model=source_model,
+                client_session_id=client_session_id,
+                client_workspace=client_workspace,
+                client_transport=client_transport,
+                actor=actor,
+            )
+            span.set_attributes(
+                {
+                    "stored": payload.get("stored"),
+                    "duplicate": payload.get("duplicate"),
+                    "feedback_mode": payload.get("feedback_mode"),
+                    "ordering_unchanged": payload.get("ordering_unchanged"),
                 }
             )
             return payload

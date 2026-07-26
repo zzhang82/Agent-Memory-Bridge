@@ -57,12 +57,13 @@ def test_v022_release_announcements_are_on_public_surface() -> None:
     }.issubset(set(PUBLIC_DOC_PATHS))
 
 
-def test_v023_and_v024_release_docs_are_on_public_surface() -> None:
+def test_v023_v024_and_v025_release_docs_are_on_public_surface() -> None:
     assert {
         Path("docs/v0.23.0-announcement.md"),
         Path("docs/v0.23.1-announcement.md"),
         Path("docs/TRUST-BOUNDARY.md"),
         Path("docs/v0.24.0-announcement.md"),
+        Path("docs/v0.25.0-announcement.md"),
     }.issubset(set(PUBLIC_DOC_PATHS))
 
 

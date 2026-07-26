@@ -27,7 +27,7 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
 
     assert report["ok"] is True
     assert report["pyproject_version"] == "0.9.0"
-    assert report["server_tool_count"] == 12
+    assert report["server_tool_count"] == 13
     assert report["test_count_source"] == "pytest_collect_only"
     assert all(check["ok"] for check in report["checks"])
 
@@ -72,6 +72,17 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert v023_proof_check["actual_release"] == "0.21.0"
     assert v023_proof_check["actual_target_release"] == "0.21.0"
 
+    v025_root = create_v021_release_fixture(tmp_path / "v025", package_version="0.25.0")
+    v025_report = run_release_contract_check(v025_root, test_count_provider=lambda _: 146)
+    v025_checks = {check["name"]: check for check in v025_report["checks"]}
+    assert v025_report["ok"] is True
+    assert "v020_proof_version_matches_pyproject" not in v025_checks
+    v025_proof_check = v025_checks["v021_governed_change_proof_matches_release_gate"]
+    assert v025_proof_check["ok"] is True
+    assert v025_proof_check["package_version"] == "0.25.0"
+    assert v025_proof_check["actual_release"] == "0.21.0"
+    assert v025_proof_check["actual_target_release"] == "0.21.0"
+
     v022_report_path = v022_root / "benchmark" / "latest-v0.21-governed-change-report.json"
     v022_proof = json.loads(v022_report_path.read_text(encoding="utf-8"))
     v022_proof["summary"]["governed_failures"] = 1
@@ -98,7 +109,7 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
         readme.read_text(encoding="utf-8")
         .replace("`146 passed`", "`140 passed`")
         .replace("`classifier_exact_match_rate = 0.875`", "`classifier_exact_match_rate = 0.9`")
-        .replace("`12` public MCP tools", "`11` public MCP tools"),
+        .replace("`13` public MCP tools", "`11` public MCP tools"),
         encoding="utf-8",
     )
     production_status = root / "docs" / "PRODUCTION-STATUS.md"
@@ -603,7 +614,7 @@ def create_release_fixture(root: Path) -> Path:
 
         `0.9.0` makes memory more structured and more applicable.
 
-        - `12` public MCP tools, with most sophistication staying behind the bridge
+        - `13` public MCP tools, with most sophistication staying behind the bridge
 
         ## Evidence
 
@@ -701,7 +712,7 @@ def create_release_fixture(root: Path) -> Path:
 
         - `store` and `recall`
         - `browse` and `stats`
-        - `forget`, `promote`, `annotate`, and `revise`
+        - `forget`, `feedback`, `promote`, `annotate`, and `revise`
         - `claim_signal`, `extend_signal_lease`, and `ack_signal`
         - `export`
 
@@ -942,6 +953,10 @@ def create_release_fixture(root: Path) -> Path:
 
         @mcp.tool()
         def forget():
+            return None
+
+        @mcp.tool()
+        def feedback():
             return None
 
         @mcp.tool()

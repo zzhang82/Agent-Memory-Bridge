@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
@@ -29,6 +29,12 @@ def _optional_text(value: str | None) -> str | None:
         return None
     cleaned = value.strip()
     return cleaned or None
+
+
+def _provenance_text(provenance: dict[str, str] | None, key: str) -> str | None:
+    if provenance is None:
+        return None
+    return _optional_text(provenance.get(key))
 
 
 @mcp.tool(structured_output=True)
@@ -189,6 +195,73 @@ def store(
         client_transport=client_transport,
         expires_at=expires_at,
         ttl_seconds=ttl_seconds,
+    )
+
+
+@mcp.tool(structured_output=True)
+def feedback(
+    namespace: Annotated[
+        str,
+        Field(description="Namespace used by the recall receipt, such as `project:<workspace>` or `global`."),
+    ],
+    recall_receipt: Annotated[
+        str,
+        Field(description="Signed recall receipt token returned by a durable memory text `recall` response."),
+    ],
+    memory_id: Annotated[
+        str,
+        Field(description="Exact recalled memory id being evaluated."),
+    ],
+    result_rank: Annotated[
+        int,
+        Field(gt=0, description="One-based rank of the memory in the recalled result list."),
+    ],
+    outcome: Annotated[
+        Literal["helpful", "misleading", "outdated", "not_applicable", "not_used"],
+        Field(description="Declared retrieval outcome for the recalled memory."),
+    ],
+    reason: Annotated[
+        str | None,
+        Field(description="Optional compact reason. Required for `misleading` and `outdated` outcomes."),
+    ] = None,
+    provenance: Annotated[
+        dict[str, str] | None,
+        Field(
+            description=(
+                "Optional declared provenance fields such as source_app, source_client, source_model, "
+                "client_session_id, client_workspace, client_transport, or actor."
+            )
+        ),
+    ] = None,
+) -> dict[str, Any]:
+    """Record structured retrieval feedback for one recalled memory result.
+
+    Evidence is append-only/shadow-only. Provenance is caller-declared and not
+    authenticated. This tool does not mutate memory records, recall results, or
+    ranking behavior.
+    """
+    source_app = _provenance_text(provenance, "source_app")
+    source_client = _provenance_text(provenance, "source_client") or resolve_default_source_client()
+    source_model = _provenance_text(provenance, "source_model") or resolve_default_source_model()
+    client_session_id = _provenance_text(provenance, "client_session_id") or resolve_default_client_session_id()
+    client_workspace = _provenance_text(provenance, "client_workspace") or resolve_default_client_workspace()
+    client_transport = _provenance_text(provenance, "client_transport") or resolve_default_client_transport()
+    actor = _provenance_text(provenance, "actor")
+
+    return bridge.feedback(
+        namespace=namespace,
+        recall_receipt=recall_receipt,
+        memory_id=memory_id,
+        result_rank=result_rank,
+        outcome=outcome,
+        reason=_optional_text(reason),
+        source_app=source_app,
+        source_client=source_client,
+        source_model=source_model,
+        client_session_id=client_session_id,
+        client_workspace=client_workspace,
+        client_transport=client_transport,
+        actor=actor,
     )
 
 
@@ -581,7 +654,7 @@ def annotate(
         memory_id=id,
         tags=tags,
         title=_optional_text(title),
-        provenance=provenance,
+        provenance=cast("dict[str, str | None] | None", provenance),
         actor=_optional_text(actor),
     )
 
@@ -629,7 +702,7 @@ def revise(
         tags=tags,
         actor=_optional_text(actor),
         reason=_optional_text(reason),
-        provenance=provenance,
+        provenance=cast("dict[str, str | None] | None", provenance),
     )
 
 

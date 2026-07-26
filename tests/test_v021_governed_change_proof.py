@@ -84,6 +84,13 @@ def test_every_case_has_two_real_checkpoints_evidence_and_sanitized_write_scope(
         assert case["write_scope"]["runtime_root"] == "<temp>"
         assert case["write_scope"]["writes_only_under_temp"] is True
         assert case["write_scope"]["config_write_count"] == 0
+        assert case["write_scope"]["recall_receipt_secret_path"] == "<temp>/recall-receipt-secret.json"
+        assert case["write_scope"]["recall_receipt_secret_file_count"] == 1
+        assert case["write_scope"]["recall_receipt_secret_contents_snapshotted"] is False
+        assert "recall-receipt-secret.json" in case["write_scope"]["written_files"]
+        serialized_write_scope = json.dumps(case["write_scope"], sort_keys=True)
+        assert "hmac_key" not in serialized_write_scope
+        assert "bridge_instance_id" not in serialized_write_scope
         assert case["write_scope"]["durable_live_writeback_count"] == 0
         for checkpoint in case["checkpoints"]:
             assert checkpoint["passed"] is True

@@ -201,6 +201,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="amb-v021-governed-change-") as temp_name:
         runtime_dir = Path(temp_name).resolve()
         config_path = runtime_dir / "config.toml"
+        receipt_secret_path = runtime_dir / "recall-receipt-secret.json"
         with _proof_environment(runtime_dir):
             store = MemoryStore(runtime_dir / "bridge.db", log_dir=runtime_dir / "logs")
             state = _seed_case(store, case["id"])
@@ -211,6 +212,7 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 path.relative_to(runtime_dir).as_posix() for path in runtime_dir.rglob("*") if path.is_file()
             )
             config_write_count = int(config_path.exists())
+            receipt_secret_file_count = int(receipt_secret_path.exists())
 
         checkpoints = [first, second]
         flat_observed = _flat_hazard_observed(state, second)
@@ -249,9 +251,12 @@ def _run_case(case: dict[str, Any]) -> dict[str, Any]:
                 "db_path": "<temp>/bridge.db",
                 "log_dir": "<temp>/logs",
                 "config_path": "<temp>/config.toml",
+                "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
                 "written_files": written_files,
                 "writes_only_under_temp": True,
                 "config_write_count": config_write_count,
+                "recall_receipt_secret_file_count": receipt_secret_file_count,
+                "recall_receipt_secret_contents_snapshotted": False,
                 "durable_live_writeback_count": 0,
             },
         }
@@ -1173,6 +1178,7 @@ def _proof_environment(runtime_dir: Path) -> Iterator[None]:
         "AGENT_MEMORY_BRIDGE_HOME": str(runtime_dir),
         "AGENT_MEMORY_BRIDGE_DB_PATH": str(runtime_dir / "bridge.db"),
         "AGENT_MEMORY_BRIDGE_LOG_DIR": str(runtime_dir / "logs"),
+        "AGENT_MEMORY_BRIDGE_RECALL_RECEIPT_SECRET_PATH": str(runtime_dir / "recall-receipt-secret.json"),
         "AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE": "lexical",
         "AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER": "hash",
         "AGENT_MEMORY_BRIDGE_EMBEDDING_MODEL": "local-token-hash-v1",

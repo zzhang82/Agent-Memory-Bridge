@@ -33,6 +33,7 @@ async def _exercise_server(tmp_path: Path) -> None:
                 "browse",
                 "stats",
                 "forget",
+                "feedback",
                 "claim_signal",
                 "extend_signal_lease",
                 "ack_signal",

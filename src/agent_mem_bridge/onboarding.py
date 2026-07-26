@@ -34,6 +34,7 @@ TOOL_NAMES = {
     "browse",
     "stats",
     "forget",
+    "feedback",
     "claim_signal",
     "extend_signal_lease",
     "ack_signal",
@@ -204,6 +205,22 @@ async def _run_verify_stdio(project_root: Path, runtime_dir: Path) -> dict[str, 
                     "limit": 5,
                 },
             )
+            first_payload_for_feedback = _structured_payload(first)
+            recall_payload_for_feedback = _structured_payload(recall)
+            feedback = await session.call_tool(
+                "feedback",
+                arguments={
+                    "namespace": "verify",
+                    "recall_receipt": recall_payload_for_feedback["recall_receipt"]["token"],
+                    "memory_id": first_payload_for_feedback["id"],
+                    "result_rank": 1,
+                    "outcome": "helpful",
+                    "provenance": {
+                        "source_app": "agent-memory-bridge verify",
+                        "actor": "verify-cli",
+                    },
+                },
+            )
             signal = await session.call_tool(
                 "store",
                 arguments={
@@ -215,19 +232,20 @@ async def _run_verify_stdio(project_root: Path, runtime_dir: Path) -> dict[str, 
                     "ttl_seconds": 120,
                 },
             )
+            signal_payload_for_lifecycle = _structured_payload(signal)
             claimed = await session.call_tool(
                 "claim_signal",
                 arguments={
                     "namespace": "verify",
                     "consumer": "verify-worker",
-                    "signal_id": signal.structuredContent["id"],
+                    "signal_id": signal_payload_for_lifecycle["id"],
                     "lease_seconds": 60,
                 },
             )
             extended = await session.call_tool(
                 "extend_signal_lease",
                 arguments={
-                    "id": signal.structuredContent["id"],
+                    "id": signal_payload_for_lifecycle["id"],
                     "consumer": "verify-worker",
                     "lease_seconds": 60,
                 },
@@ -235,7 +253,7 @@ async def _run_verify_stdio(project_root: Path, runtime_dir: Path) -> dict[str, 
             acked = await session.call_tool(
                 "ack_signal",
                 arguments={
-                    "id": signal.structuredContent["id"],
+                    "id": signal_payload_for_lifecycle["id"],
                     "consumer": "verify-worker",
                 },
             )
@@ -243,6 +261,7 @@ async def _run_verify_stdio(project_root: Path, runtime_dir: Path) -> dict[str, 
     first_payload = _structured_payload(first)
     duplicate_payload = _structured_payload(duplicate)
     recall_payload = _structured_payload(recall)
+    feedback_payload = _structured_payload(feedback)
     claim_payload = _structured_payload(claimed)
     extend_payload = _structured_payload(extended)
     ack_payload = _structured_payload(acked)
@@ -269,6 +288,19 @@ async def _run_verify_stdio(project_root: Path, runtime_dir: Path) -> dict[str, 
             status="pass" if bool(duplicate_payload.get("duplicate")) else "fail",
             detail="Duplicate durable memory is detected.",
             duplicate_store=duplicate_payload,
+        ),
+        _build_check(
+            name="feedback_shadow_record",
+            ok=bool(feedback_payload.get("stored"))
+            and feedback_payload.get("feedback_mode") == "shadow_only"
+            and feedback_payload.get("ordering_unchanged") is True,
+            status="pass"
+            if bool(feedback_payload.get("stored"))
+            and feedback_payload.get("feedback_mode") == "shadow_only"
+            and feedback_payload.get("ordering_unchanged") is True
+            else "fail",
+            detail="Stored one append-only shadow retrieval feedback record.",
+            feedback=feedback_payload,
         ),
         _build_check(
             name="signal_lifecycle",
@@ -433,7 +465,7 @@ def _permission_check(name: str, path: Path, *, directory: bool, hardened: bool)
             report=report,
         )
     private = bool(report["private"])
-    status = "pass" if private else "fail" if hardened else "warn"
+    status: Literal["pass", "warn", "fail"] = "pass" if private else "fail" if hardened else "warn"
     return _build_check(
         name=name,
         ok=private or not hardened,
@@ -447,7 +479,7 @@ def _permission_check(name: str, path: Path, *, directory: bool, hardened: bool)
 
 def _storage_location_check(bridge_home: Path, db_path: Path, *, hardened: bool) -> dict[str, Any]:
     warnings = sorted({*path_storage_warnings(bridge_home), *path_storage_warnings(db_path)})
-    status = "fail" if warnings and hardened else "warn" if warnings else "pass"
+    status: Literal["pass", "warn", "fail"] = "fail" if warnings and hardened else "warn" if warnings else "pass"
     return _build_check(
         name="storage_location",
         ok=not warnings or not hardened,
@@ -494,7 +526,7 @@ def _service_health_check(bridge_home: Path, *, hardened: bool) -> dict[str, Any
     if health_error is not None:
         failures.append("malformed-service-health")
 
-    status = "fail" if failures else "warn" if warnings else "pass"
+    status: Literal["pass", "warn", "fail"] = "fail" if failures else "warn" if warnings else "pass"
     return _build_check(
         name="service_health",
         ok=not failures,

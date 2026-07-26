@@ -47,6 +47,10 @@ mode = "lexical"
 # size while missing/stale embeddings are generated; it is not a recent window.
 semantic_scan_limit = 1000
 hybrid_semantic_weight = 18.0
+# Non-empty durable memory text recall responses can include a 15-minute
+# HMAC-signed receipt for feedback binding. The token is tamper-evident, not
+# encrypted; treat the token and this secret file as sensitive local data.
+recall_receipt_secret_path = "recall-receipt-secret.json"
 # The bundled `hash` provider is a deterministic hashed lexical sidecar, not a
 # true semantic embedding provider. Unset/unverified capability is treated as
 # hashed_lexical. `hash` is kept as the compatibility alias.

@@ -27,10 +27,11 @@ agent-memory-harness
             v
 
 agent-memory-bridge
-  12 MCP tools
+  13 MCP tools
   SQLite/WAL durable authority
   FTS5 lexical recall
   optional local embedding sidecar
+  HMAC recall receipts and shadow-only feedback
   signal lifecycle
   governed learning
   context assembly internals
@@ -46,8 +47,10 @@ AMB Core owns durable, inspectable memory behavior:
 - local SQLite/WAL durable storage
 - FTS5 lexical recall and optional local embedding sidecar indexes
 - `store`, `recall`, `browse`, `stats`
-- `forget`, `promote`, `annotate`, `revise`, `export`
+- `forget`, `feedback`, `promote`, `annotate`, `revise`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
+- short-lived recall receipts for receipt-bound feedback
+- append-only feedback evidence that does not mutate ranking or memory
 - namespace, provenance, and relation metadata
 - governed learning records such as gotchas, domain notes, beliefs, concepts,
   procedures, and supporting records
@@ -114,7 +117,7 @@ The next useful core-adjacent design is packet compilation.
 - why each item was included
 
 These packet names describe internal compiler outputs and preview artifacts.
-They are not public MCP tools yet.
+They are not public MCP tools.
 
 ## Compiled Truth And Evidence Timeline
 

@@ -49,6 +49,7 @@ PUBLIC_DOC_PATHS = (
     Path("docs/v0.23.0-announcement.md"),
     Path("docs/v0.23.1-announcement.md"),
     Path("docs/v0.24.0-announcement.md"),
+    Path("docs/v0.25.0-announcement.md"),
     Path("examples/README.md"),
     Path("examples/demo/before-after-gotcha.cast.md"),
     Path("examples/demo/README.md"),
@@ -126,7 +127,7 @@ PUBLIC_CORE_NOTES = (
     "authority contract and adversarial memory-governance fixtures",
     "public docs such as comparison, configuration, provenance, memory taxonomy, and promotion rules",
     "examples and demo assets that are already sanitized",
-    "released runtime behind the 12 MCP tools",
+    "released runtime behind the 13 MCP tools",
 )
 
 PRIVATE_LAB_NOTES = (

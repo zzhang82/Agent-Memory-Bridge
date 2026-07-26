@@ -1,16 +1,24 @@
 # Production Status
 
-Last updated: 2026-07-22 (America/New_York)
+Last updated: 2026-07-26 (America/New_York)
 
-This maintainer note describes the current `0.24.0` correctness patch, the inherited v0.23.1 local-hardening work, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.25.0` Trustworthy Adaptive Retrieval release, the inherited v0.24 exact-identity and recall-boundary work, the inherited v0.23.1 local-hardening work, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.24.0 Release Status
+## 0.25.0 Release Status
 
-- Package version: `0.24.0`
-- Release thesis: correct exact memory identity, semantic/hybrid recall write boundaries, benchmark/proof index warming, and local maintenance exclusion without expanding the public MCP surface
-- MCP runtime behavior: the public surface remains exactly 12 tools
-- Baseline install: immutable `v0.24.0` archive in `.amb-venv`, using the derived venv interpreter
-- Exact identity contract: schema version `4` adds `exact_content_hash`; after existing store/revise input trimming it normalizes newline sequences only, drives memory deduplication, and preserves legacy `content_hash`
+- Package version: `0.25.0`
+- Release thesis: make adaptive retrieval explainable and feedback auditable without claiming active reranking, authentication, ACLs, ANN retrieval, graph memory, or automatic policy
+- MCP runtime behavior: the public surface is exactly 13 tools
+- Baseline install: immutable `v0.25.0` archive in `.amb-venv`, using the derived venv interpreter
+- Retrieval capability contract: retrieval reports the honest operating capability as `lexical`, `hashed_lexical`, or `semantic`; default hash embeddings remain `hashed_lexical`, while true semantic mode requires a declared semantic provider
+- Recall receipt contract: explicit non-empty `kind="memory"` text recall can return a short-lived HMAC receipt that binds bridge instance, database epoch, namespace, query hash, retrieval mode, and memory ids/ranks
+- Recall receipt boundary: receipt tokens are tamper-evident, not encrypted; they omit raw query/content and do not authenticate caller identity or provenance
+- Feedback contract: `feedback` validates a recall receipt, memory id, result rank, namespace, bridge instance, expiry, and database epoch before storing a declared outcome
+- Feedback outcomes: `helpful`, `misleading`, `outdated`, `not_applicable`, and `not_used`; `misleading` and `outdated` require a compact reason
+- Feedback storage contract: feedback is append-only, idempotent for the same stable receipt/client/session identity, redacted in responses/logs/telemetry, and shadow-only evidence
+- Feedback boundary: feedback does not mutate memory rows, FTS rows, embedding rows, belief records, recall results, or ranking behavior
+- Database epoch boundary: the epoch is a restore-instance guard for stale receipts/cursors, not per-write freshness or a concurrency guarantee
+- Exact identity contract inherited from v0.24: schema version `4` adds `exact_content_hash`; after existing store/revise input trimming it normalizes newline sequences only, drives memory deduplication, and preserves legacy `content_hash`
 - Classifier authority contract: raw suggestions are exposed as `classifier_suggested_tags`; only `domain:` and `topic:` suggestions may become policy tags, and free-form governance tags remain rejected at the acceptance boundary
 - Classifier confidence contract: assist-mode enrichment requires confidence to be present, finite, and within `[0, 1]`; missing, `NaN`, infinite, negative, and greater-than-one values are rejected
 - Background cursor contract: reflex and consolidation persist monotonic `memory_insertions.sequence` cursors, resolve legacy `since_id` state, and reset when the database epoch changes after restore
@@ -26,7 +34,7 @@ This maintainer note describes the current `0.24.0` correctness patch, the inher
 - One-shot exit contract: `service --once` returns `0` for successful enabled lanes, `1` when any enabled lane fails, and `3` on singleton-lock conflict
 - Signal health contract: doctor reports malformed Signal timestamps/state; `signal-repair` can make invalid rows recoverable, and `hardened-local` requires claim-before-ack
 - State contract: service-lane JSON state uses tolerant loading and unique temporary files followed by atomic replacement; failed replacement preserves the previous valid state
-- Schema contract: schema version `4` adds exact content identity on top of typed metadata, normalized tags, indexed relations, insertion sequences, annotations, revisions, and a database epoch while preserving ordered transactional migration
+- Schema contract: schema version `5` adds append-only retrieval feedback on top of typed metadata, normalized tags, indexed relations, insertion sequences, annotations, revisions, exact content identity, and a database epoch while preserving ordered transactional migration
 - Database maintenance contract: `db-health`, projection repair, consistent backup/verify/offline restore, WAL checkpoint, retention cleanup, capacity warnings, private managed-file permissions, and bounded log rotation are operator-visible
 - Polling contract: `since` is valid only for empty-query `kind="signal"` recall; opaque cursors carry namespace, insertion sequence, and database epoch from the same query result snapshot
 - Cursor boundary: `since` tracks later insertions, not later lifecycle transitions on older Signals; text and memory recall return `next_since: null`
@@ -38,7 +46,7 @@ This maintainer note describes the current `0.24.0` correctness patch, the inher
 - Receipt command: `agent-memory-bridge activation-receipt --namespace ... --correlation-id ... --format markdown`
 - Receipt proof: one reviewed writer memory plus one acked reader signal under one namespace and correlation id, with two distinct declared `source_client` labels
 - Receipt boundary: declared provenance only; not identity proof, certification, distribution proof, or use proof
-- Public MCP surface: exactly `12` tools
+- Public MCP surface: exactly `13` tools
 - Automatic writes: no auto durable writeback and no client config writes
 - Fixed governed-change proof report target: `0.21.0`
 - Governed-change manifest releases: `current_release = 0.20.0`, `target_release = 0.21.0`
@@ -54,7 +62,7 @@ This maintainer note describes the current `0.24.0` correctness patch, the inher
 
 `agent-memory-bridge` now has these cooperating layers:
 
-1. stdio MCP server for `store`, `recall`, `browse`, `stats`, `forget`, `promote`, `annotate`, `revise`, `claim_signal`, `extend_signal_lease`, `ack_signal`, and `export`
+1. stdio MCP server for `store`, `recall`, `browse`, `stats`, `forget`, `feedback`, `promote`, `annotate`, `revise`, `claim_signal`, `extend_signal_lease`, `ack_signal`, and `export`
 2. shared SQLite/WAL durable storage with typed metadata, normalized tags/relations, FTS5 lexical, and optional embedding sidecar indexes
 3. optional checkpoint/closeout capture helpers around the core bridge, disabled by default in the always-on service
 4. optional reflex promotion into machine-first durable artifacts, disabled by default in the always-on service
@@ -78,7 +86,7 @@ This maintainer note describes the current `0.24.0` correctness patch, the inher
 22. a Cross-Client Activation Receipt CLI/report that reads existing writer memory and reader signal rows for one namespace and correlation id, hashes sensitive identifiers, and performs no durable or config writes
 23. embedding maintenance that batches provider work outside SQLite write transactions and revalidates content hashes before derived-vector writes
 24. one shared service-lane boundary with exception isolation, failure counters, capped backoff, and tolerant atomic state replacement
-25. an ordered transactional schema migration spine recorded as SQLite schema version `4`
+25. an ordered transactional schema migration spine recorded as SQLite schema version `5`
 26. a classifier suggestion boundary that promotes only validated `domain:` and `topic:` tags and keeps shadow-mode output non-authoritative
 27. monotonic insertion-sequence cursors for reflex and consolidation with legacy `since_id` state compatibility
 28. one cross-platform local service lock with meaningful one-shot exit status, heartbeat state, and slow-lane timing
@@ -87,10 +95,17 @@ This maintainer note describes the current `0.24.0` correctness patch, the inher
 31. indexed governed deletion shared by forget, Signal retention cleanup, and profile-source pruning
 32. database integrity/projection health, repair, consistent backup/restore, WAL checkpoint, size warnings, private managed-file permissions, and log rotation
 33. `local-single-user` and `hardened-local` operating profiles with an explicit cooperative-security boundary
+34. receipt-bound retrieval feedback that is append-only, shadow-only, redacted, and ordering-neutral
 
-## Verified On 2026-07-22
+## Verified On 2026-07-26
 
-- `pytest --collect-only -q tests`: `560 tests collected`
+- `pytest --collect-only -q tests`: `604 tests collected`; full run result: `601 pass`, `3 skip`
+- stdio verify now expects 13 tools and includes a `feedback_shadow_record` check
+- v0.25 retrieval capability tests verify the default `hashed_lexical` capability, explicit semantic-provider gating, hybrid semantic-arm skipping when no semantic provider is declared, and semantic availability only for a declared semantic command provider
+- v0.25 recall receipt tests verify short-lived signed receipts for explicit memory text recall, redaction of raw query/content, receipt scope, tamper rejection, expiry rejection, namespace/rank/member binding, bridge-instance binding, and database-epoch mismatch rejection
+- v0.25 feedback tests verify idempotent retry, conflict rejection, allowed outcomes, required reasons for `misleading` and `outdated`, reason length limits, invalid receipt rejection, append-only shadow behavior, no memory/index/ranking mutation, and redacted logs/telemetry
+- stdio feedback integration covers startup tool-surface visibility, successful feedback, duplicate retry, conflict rejection, and redacted structured responses
+- schema migration tests verify SQLite schema version `5`, append-only `retrieval_feedback`, unique idempotency keys, legacy v0-v4 upgrade to v5, rollback on injected v5 migration failure, and fail-closed handling for unsupported legacy v5 feedback tables
 - the integrated embedding, service, state, schema, command-provider, maintenance, revision, and storage regressions are part of the full suite
 - scheduled maintenance and rebuild tests verify batched provider execution outside write transactions plus content-hash revalidation before vector writes
 - semantic and hybrid recall tests verify no candidate embedding backfill or recall-time writes, degraded completeness reporting for cold/stale indexes, and typed provider-failure lexical degradation
@@ -100,7 +115,7 @@ This maintainer note describes the current `0.24.0` correctness patch, the inher
 - service regressions verify lock metadata, residual-file reacquisition, real spawned-process contention, one-shot lane-failure exit `1`, and lock-conflict exit `3`
 - doctor and repair regressions verify malformed claimed Signal state is detected and can be repaired explicitly
 - shared state-I/O tests cover malformed JSON, atomic replacement, unique temporary files, and preservation of the previous valid state when replacement fails
-- schema tests cover ordered version `4` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
+- schema tests cover ordered version `5` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
 - Chinese/Han hash-semantic tests cover character and bigram tokenization; no Chinese FTS support is claimed
 - 10,000-Signal polling acceptance with `limit=100`: exact insertion order, 10,000 unique ids, zero missing, zero unexpected, 100 pages
 - eight independent `spawn` processes claiming one exact Signal: one stored winner and no lock error in the local Linux run; the same test is part of the normal cross-platform CI matrix
@@ -246,6 +261,18 @@ This maintainer note describes the current `0.24.0` correctness patch, the inher
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
+## What 0.25.0 Actually Means
+
+- retrieval reports whether the active capability is `lexical`, `hashed_lexical`, or `semantic`
+- `hashed_lexical` is not presented as true semantic retrieval; true semantic mode requires a declared semantic provider
+- explicit non-empty memory text recall can return a short-lived HMAC receipt bound to the result set
+- receipt tokens are tamper-evident, not encrypted, and omit raw query/content
+- receipt provenance is server-declared and caller provenance remains unauthenticated
+- `feedback` stores receipt-bound retrieval outcomes as append-only shadow evidence
+- feedback does not alter memory records, FTS rows, embedding rows, belief records, returned ordering, or ranking behavior
+- the database epoch protects against stale restore-instance receipts and cursors; it is not a per-write freshness guarantee
+- the public MCP surface is exactly 13 tools
+
 ## What 0.24.0 Actually Means
 
 - `exact_content_hash` is the exact memory identity and, after existing store/revise input trimming, normalizes newline sequences only; legacy `content_hash` remains present for compatibility and derived index checks
@@ -301,7 +328,7 @@ This maintainer note describes the current `0.24.0` correctness patch, the inher
 - the visual inventory is release hygiene, not semantic proof
 - native-size and README-width raster renders are a release gate for clipping,
   overlap, and crossed labels
-- the current validation snapshot is `560 tests collected`
+- the current validation snapshot is `604 tests collected`
 
 ## What 0.22.0 Actually Means
 
@@ -354,6 +381,10 @@ The release still does **not** mean:
 - autonomous memory revision, deletion, or policy promotion
 - general machine unlearning, unbounded graph traversal, or automatic policy enforcement
 - ACL enforcement, GDPR/privacy compliance, vendor certification, authenticated client identity, external adoption proof, or certified poisoning defense
+- active feedback-based reranking or automatic memory-quality scoring
+- encrypted recall receipt tokens
+- authenticated caller provenance or origin-bound client identity
+- database-epoch proof of per-write freshness
 - a full agent runtime, scheduler, queue platform, or distributed lock
 - pre-compaction capture before model-side context loss
 - active pubsub or consumer execution on top of stored signals
@@ -365,24 +396,27 @@ The release still does **not** mean:
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.24.0
+## Pressure Points After 0.25.0
 
 The most important remaining gaps are:
 
-1. broader reviewed retrieval and task-success fixtures so credibility does not overfit the current corpus
-2. stronger write-side calibration for promotion quality and merge/reject decisions
-3. operator ergonomics for reviewing degraded lineage and tombstone evidence at larger store sizes
-4. cross-domain concept synthesis beyond the current domain-local concept-note step
-5. more deliberate procedure curation or promotion instead of only manual procedure records
-6. pre-compaction capture before model-side loss
-7. broader multi-process contention and crash-recovery dogfood beyond the exact-ID claim test, concurrent schema upgrade test, and serialized lifecycle benchmark
-8. a human-facing review UI or external harness that consumes review-workflow output without moving execution into AMB core
-9. optional receipt ergonomics for operators without moving receipt generation into the MCP tool surface
-10. measured need before adding lane cancellation, broader database CHECK constraints, or a Signal idempotency API
+1. reviewed retrieval-feedback analysis before any future ranking or policy use
+2. broader reviewed retrieval and task-success fixtures so credibility does not overfit the current corpus
+3. stronger write-side calibration for promotion quality and merge/reject decisions
+4. operator ergonomics for reviewing degraded lineage, tombstone evidence, and feedback evidence at larger store sizes
+5. cross-domain concept synthesis beyond the current domain-local concept-note step
+6. more deliberate procedure curation or promotion instead of only manual procedure records
+7. pre-compaction capture before model-side loss
+8. broader multi-process contention and crash-recovery dogfood beyond the exact-ID claim test, concurrent schema upgrade test, and serialized lifecycle benchmark
+9. a human-facing review UI or external harness that consumes review-workflow output without moving execution into AMB core
+10. optional receipt ergonomics for operators without moving receipt generation into the MCP tool surface
+11. measured need before adding lane cancellation, broader database CHECK constraints, or a Signal idempotency API
 
 ## Maintainer Read
 
-`0.24.0` corrects exact memory identity and derived-index boundaries without changing the 12-tool public MCP surface. It makes schema v4 exact identity explicit, keeps semantic/hybrid recall read-only over precomputed vectors, warms benchmark/proof embeddings before semantic scoring, shares the service exclusion lock for index rebuild, and documents the cooperative local trust boundary. It does not claim online restore, authenticated actors, ACLs, ANN retrieval, or multi-user infrastructure.
+`0.25.0` is Trustworthy Adaptive Retrieval. It labels retrieval capability as `lexical`, `hashed_lexical`, or `semantic`, adds short-lived HMAC receipts for explicit memory text recall, and exposes receipt-bound `feedback` as the thirteenth MCP tool. Feedback is append-only shadow evidence: it does not mutate memory, indexes, recall ordering, or ranking. Receipt tokens are tamper-evident but not encrypted; provenance remains declared, not authenticated; and the database epoch is a restore-instance guard, not per-write freshness.
+
+`0.24.0` corrected exact memory identity and derived-index boundaries without changing the 12-tool public MCP surface. It made schema v4 exact identity explicit, kept semantic/hybrid recall read-only over precomputed vectors, warmed benchmark/proof embeddings before semantic scoring, shared the service exclusion lock for index rebuild, and documented the cooperative local trust boundary. It did not claim online restore, authenticated actors, ACLs, ANN retrieval, or multi-user infrastructure.
 
 `0.23.1` closes the audited local reliability gaps across authority tags, confidence validation, cursor generation, service ownership and health, typed projections, indexed lineage, command-provider resource limits, full-store semantic scoring, database maintenance, and local operating profiles. It adds explicit `annotate` and `revise` tools, bringing the public surface to 12. It does not claim authenticated actors, namespace ACLs, exactly-once Signals, distributed coordination, ANN retrieval, sandboxed providers, or lane cancellation.
 
@@ -410,6 +444,7 @@ It now behaves like:
 - an operator-facing review queue that keeps hidden/stale/quarantined memory work visible without making it authority
 - an operator-facing human workflow plan that makes each review decision explicit without becoming an auto-writer
 - an operator-facing activation receipt that keeps cross-client provenance inspectable without becoming an identity system
+- a receipt-bound retrieval-feedback ledger that keeps user-visible retrieval outcomes inspectable without becoming a reranker
 - a local maintenance service whose ordinary lane failures are isolated, heartbeat and duration are visible, and schema upgrades follow an explicit transactional version path
 - a local operator maintenance layer for health, projection repair, backup/restore, WAL checkpoint, retention cleanup, and capacity warnings
 

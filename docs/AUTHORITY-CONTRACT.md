@@ -76,6 +76,27 @@ Use `agent-memory-bridge index-health` to inspect cache drift and
 `agent-memory-bridge index-rebuild` to rebuild cache tables. These commands must
 not change the count or content of `memories` rows.
 
+### 5. Recall receipts and feedback
+
+Recall receipts are 15-minute proof artifacts for explicit durable memory text
+recall. They are emitted only for non-empty `kind = "memory"` recall responses
+and bind the bridge instance id, namespace, query hash, retrieval mode, database
+epoch, result memory ids and ranks, issue time, and expiry.
+
+The receipt token is HMAC-signed, so it is tamper-evident. It is not encrypted
+and should be treated as sensitive metadata. A receipt is not durable authority,
+does not authenticate caller provenance, and does not prove external adoption or
+vendor identity.
+
+The database epoch in a receipt is a restore-instance guard. It helps reject
+receipts across restore or epoch rotation boundaries, but it is not a per-write
+freshness guarantee.
+
+Retrieval feedback is append-only shadow evidence over one receipt-bound result.
+It can help humans and future tooling review retrieval quality, but it does not
+mutate memory rows, indexes, belief records, recall output, ranking behavior, or
+promotion policy.
+
 ## What Can Be Regenerated
 
 These artifacts can be rebuilt from source records and code:
@@ -136,9 +157,10 @@ an agent. This is a product behavior over the existing memory and signal tools,
 not a separate public MCP contract.
 
 Agent Memory Bridge should not add `startup_packet` or `task_packet` MCP tools
-just to expose this behavior. Clients can store, recall, browse, promote,
-annotate, revise, forget, export, and coordinate through the existing surface while assembly logic
-improves behind it.
+just to expose this behavior. Clients can use `store`, `recall`, `feedback`,
+`browse`, `stats`, `forget`, `promote`, `annotate`, `revise`, `export`,
+`claim_signal`, `extend_signal_lease`, and `ack_signal` while assembly logic
+improves behind that surface.
 
 This keeps the public contract small:
 

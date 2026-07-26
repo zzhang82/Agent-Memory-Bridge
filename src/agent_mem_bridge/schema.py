@@ -11,6 +11,30 @@ from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 CURRENT_SCHEMA_VERSION = 5
+RETRIEVAL_FEEDBACK_COLUMNS = (
+    "feedback_id",
+    "idempotency_key",
+    "receipt_hash",
+    "namespace",
+    "memory_id",
+    "result_rank",
+    "outcome",
+    "reason",
+    "retrieval_mode",
+    "database_epoch",
+    "bridge_instance_id",
+    "receipt_issued_at",
+    "receipt_expires_at",
+    "feedback_json",
+    "source_app",
+    "source_client",
+    "source_model",
+    "client_session_id",
+    "client_workspace",
+    "client_transport",
+    "actor",
+    "created_at",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +65,7 @@ def init_db(conn: sqlite3.Connection) -> None:
         if ledger_exists:
             _validate_schema_migrations_ledger(conn, current_version)
         else:
+            _validate_unledgered_schema_before_backfill(conn, current_version)
             _ensure_schema_migrations_ledger(conn)
             _backfill_schema_migrations_ledger(conn, current_version)
         migrated = False
@@ -127,7 +152,7 @@ MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], No
     SchemaMigration(
         5,
         "v5_retrieval_feedback_append_only",
-        "4b40b369da475605dd73e9629b8640959cae794fbf3fe46f674a9b15c4c92a01",
+        "bf1ad8c49e78e15d11962e31a659f8e955dc3fbd8047d801e457183e75163be4",
         _migrate_to_v5,
     ),
 )
@@ -184,6 +209,17 @@ def _schema_migrations_ledger_exists(conn: sqlite3.Connection) -> bool:
     return row is not None
 
 
+def _validate_unledgered_schema_before_backfill(conn: sqlite3.Connection, current_version: int) -> None:
+    if current_version < 5:
+        return
+    feedback_columns = _table_column_names(conn, "retrieval_feedback")
+    if feedback_columns != list(RETRIEVAL_FEEDBACK_COLUMNS):
+        raise RuntimeError(
+            "unledgered schema version 5 has an unsupported retrieval_feedback shape; "
+            "cannot backfill the migration ledger"
+        )
+
+
 def _ensure_schema_migrations_ledger(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
@@ -201,6 +237,11 @@ def _ensure_schema_migrations_ledger(conn: sqlite3.Connection) -> None:
         ) WITHOUT ROWID
         """
     )
+
+
+def _table_column_names(conn: sqlite3.Connection, table: str) -> list[str]:
+    table_sql = quote_identifier(table)
+    return [row["name"] for row in conn.execute(f"PRAGMA table_info({table_sql})").fetchall()]
 
 
 def _validate_schema_migrations_ledger(conn: sqlite3.Connection, current_version: int) -> None:
@@ -700,17 +741,49 @@ def _ensure_retrieval_feedback_schema(conn: sqlite3.Connection) -> None:
         """
         CREATE TABLE IF NOT EXISTS retrieval_feedback (
             feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            idempotency_key TEXT NOT NULL
+                CHECK (
+                    length(idempotency_key) = 64
+                    AND idempotency_key = lower(idempotency_key)
+                    AND idempotency_key NOT GLOB '*[^0-9a-f]*'
+                ),
+            receipt_hash TEXT NOT NULL
+                CHECK (
+                    length(receipt_hash) = 64
+                    AND receipt_hash = lower(receipt_hash)
+                    AND receipt_hash NOT GLOB '*[^0-9a-f]*'
+                ),
             namespace TEXT NOT NULL CHECK (length(trim(namespace)) > 0),
-            memory_id TEXT CHECK (memory_id IS NULL OR length(trim(memory_id)) > 0),
-            query_text TEXT NOT NULL,
-            retrieval_mode TEXT CHECK (retrieval_mode IS NULL OR length(trim(retrieval_mode)) > 0),
-            result_position INTEGER CHECK (result_position IS NULL OR result_position >= 0),
-            feedback_score INTEGER NOT NULL CHECK (feedback_score IN (-1, 0, 1)),
+            memory_id TEXT NOT NULL CHECK (length(trim(memory_id)) > 0),
+            result_rank INTEGER NOT NULL CHECK (result_rank > 0),
+            outcome TEXT NOT NULL
+                CHECK (outcome IN ('helpful', 'misleading', 'outdated', 'not_applicable', 'not_used')),
+            reason TEXT CHECK (reason IS NULL OR (length(trim(reason)) > 0 AND length(reason) <= 280)),
+            retrieval_mode TEXT NOT NULL CHECK (length(trim(retrieval_mode)) > 0),
+            database_epoch TEXT NOT NULL CHECK (length(trim(database_epoch)) > 0),
+            bridge_instance_id TEXT NOT NULL CHECK (length(trim(bridge_instance_id)) > 0),
+            receipt_issued_at TEXT NOT NULL CHECK (julianday(receipt_issued_at) IS NOT NULL),
+            receipt_expires_at TEXT NOT NULL
+                CHECK (
+                    julianday(receipt_expires_at) IS NOT NULL
+                    AND julianday(receipt_expires_at) >= julianday(receipt_issued_at)
+                ),
             feedback_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(feedback_json)),
             source_app TEXT CHECK (source_app IS NULL OR length(trim(source_app)) > 0),
+            source_client TEXT CHECK (source_client IS NULL OR length(trim(source_client)) > 0),
+            source_model TEXT CHECK (source_model IS NULL OR length(trim(source_model)) > 0),
+            client_session_id TEXT CHECK (client_session_id IS NULL OR length(trim(client_session_id)) > 0),
+            client_workspace TEXT CHECK (client_workspace IS NULL OR length(trim(client_workspace)) > 0),
+            client_transport TEXT CHECK (client_transport IS NULL OR length(trim(client_transport)) > 0),
             actor TEXT CHECK (actor IS NULL OR length(trim(actor)) > 0),
             created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL)
         )
+        """
+    )
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_retrieval_feedback_idempotency_key
+        ON retrieval_feedback (idempotency_key)
         """
     )
     conn.execute(
@@ -724,6 +797,12 @@ def _ensure_retrieval_feedback_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_memory_created
         ON retrieval_feedback (memory_id, created_at, feedback_id)
         WHERE memory_id IS NOT NULL
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_receipt_rank
+        ON retrieval_feedback (receipt_hash, result_rank, feedback_id)
         """
     )
     conn.execute("DROP TRIGGER IF EXISTS prevent_retrieval_feedback_update")

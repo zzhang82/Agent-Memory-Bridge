@@ -7,6 +7,33 @@ import pytest
 from agent_mem_bridge import schema as schema_module
 from agent_mem_bridge.schema import CURRENT_SCHEMA_VERSION, SchemaMigration, exact_content_hash, init_db, schema_version
 
+EXPECTED_RETRIEVAL_FEEDBACK_COLUMNS = [
+    "feedback_id",
+    "idempotency_key",
+    "receipt_hash",
+    "namespace",
+    "memory_id",
+    "result_rank",
+    "outcome",
+    "reason",
+    "retrieval_mode",
+    "database_epoch",
+    "bridge_instance_id",
+    "receipt_issued_at",
+    "receipt_expires_at",
+    "feedback_json",
+    "source_app",
+    "source_client",
+    "source_model",
+    "client_session_id",
+    "client_workspace",
+    "client_transport",
+    "actor",
+    "created_at",
+]
+
+LEGACY_V5_RETRIEVAL_FEEDBACK_CHECKSUM = "4b40b369da475605dd73e9629b8640959cae794fbf3fe46f674a9b15c4c92a01"
+
 
 def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(":memory:")
@@ -43,6 +70,25 @@ def _declared_rows() -> list[tuple[int, str, str]]:
         (migration.version, migration.name, migration.checksum)
         for migration in (schema_module._coerce_schema_migration(raw) for raw in schema_module.MIGRATIONS)
     ]
+
+
+def _feedback_column_names(conn: sqlite3.Connection) -> list[str]:
+    return [row["name"] for row in conn.execute("PRAGMA table_info(retrieval_feedback)").fetchall()]
+
+
+def _assert_receipt_bound_feedback_schema(conn: sqlite3.Connection) -> None:
+    feedback_columns = _feedback_column_names(conn)
+    assert feedback_columns == EXPECTED_RETRIEVAL_FEEDBACK_COLUMNS
+    assert {"query_text", "query", "content", "result_content", "feedback_score", "result_position"}.isdisjoint(
+        feedback_columns
+    )
+    assert conn.execute("PRAGMA foreign_key_list(retrieval_feedback)").fetchall() == []
+    unique_indexes = {
+        row["name"]
+        for row in conn.execute("PRAGMA index_list(retrieval_feedback)").fetchall()
+        if int(row["unique"]) == 1
+    }
+    assert "ux_retrieval_feedback_idempotency_key" in unique_indexes
 
 
 def _apply_schema_version(conn: sqlite3.Connection, target_version: int) -> None:
@@ -101,36 +147,47 @@ def test_fresh_schema_records_v5_ledger_and_append_only_feedback_table() -> None
 
     assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 5
     assert _ledger_rows(conn) == _declared_rows()
-    feedback_columns = {row["name"] for row in conn.execute("PRAGMA table_info(retrieval_feedback)").fetchall()}
-    assert {
-        "feedback_id",
-        "namespace",
-        "memory_id",
-        "query_text",
-        "retrieval_mode",
-        "result_position",
-        "feedback_score",
-        "feedback_json",
-        "source_app",
-        "actor",
-        "created_at",
-    }.issubset(feedback_columns)
+    _assert_receipt_bound_feedback_schema(conn)
 
     conn.execute(
         """
         INSERT INTO retrieval_feedback (
-            namespace, memory_id, query_text, retrieval_mode, result_position,
-            feedback_score, feedback_json, source_app, actor, created_at
+            idempotency_key,
+            receipt_hash,
+            namespace,
+            memory_id,
+            result_rank,
+            outcome,
+            reason,
+            retrieval_mode,
+            database_epoch,
+            bridge_instance_id,
+            receipt_issued_at,
+            receipt_expires_at,
+            feedback_json,
+            source_app,
+            source_client,
+            source_model,
+            client_session_id,
+            client_workspace,
+            client_transport,
+            actor,
+            created_at
         ) VALUES (
-            'project:bridge', 'memory-1', 'schema migration', 'fts', 0,
-            1, '{}', 'pytest', 'builder', '2026-01-01T00:00:00+00:00'
+            ?, ?, 'project:bridge', 'memory-1', 1, 'helpful', 'confirmed useful',
+            'lexical', 'epoch-1', 'bridge-1', '2026-01-01T00:00:00+00:00',
+            '2026-01-01T00:15:00+00:00',
+            '{"provenance":"server_declared_not_authenticated","query_hash":"abc123"}',
+            'pytest', 'codex', 'gpt-5.5', 'session-1', 'workspace-1', 'mcp',
+            'builder', '2026-01-01T00:01:00+00:00'
         )
-        """
+        """,
+        ("a" * 64, "b" * 64),
     )
     conn.commit()
 
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):
-        conn.execute("UPDATE retrieval_feedback SET feedback_score = -1 WHERE feedback_id = 1")
+        conn.execute("UPDATE retrieval_feedback SET outcome = 'not_used' WHERE feedback_id = 1")
     conn.rollback()
 
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):
@@ -138,6 +195,32 @@ def test_fresh_schema_records_v5_ledger_and_append_only_feedback_table() -> None
     conn.rollback()
 
     assert conn.execute("SELECT COUNT(*) FROM retrieval_feedback").fetchone()[0] == 1
+
+
+def test_retrieval_feedback_enforces_unique_idempotency_and_outcome_enum() -> None:
+    conn = _connect()
+    init_db(conn)
+
+    insert_sql = """
+        INSERT INTO retrieval_feedback (
+            idempotency_key, receipt_hash, namespace, memory_id, result_rank, outcome, retrieval_mode,
+            database_epoch, bridge_instance_id, receipt_issued_at, receipt_expires_at, feedback_json, created_at
+        ) VALUES (
+            ?, ?, 'project:bridge', 'memory-1', 1, ?, 'lexical',
+            'epoch-1', 'bridge-1', '2026-01-01T00:00:00+00:00',
+            '2026-01-01T00:15:00+00:00', '{}', '2026-01-01T00:01:00+00:00'
+        )
+    """
+    conn.execute(insert_sql, ("c" * 64, "d" * 64, "helpful"))
+    conn.commit()
+
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(insert_sql, ("c" * 64, "e" * 64, "not_used"))
+    conn.rollback()
+
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(insert_sql, ("f" * 64, "e" * 64, "raw_score"))
+    conn.rollback()
 
 
 @pytest.mark.parametrize("fixture_version", [0, 1, 2, 3, 4])
@@ -154,6 +237,7 @@ def test_v0_through_v4_fixtures_upgrade_to_v5(fixture_version: int) -> None:
     assert schema_version(conn) == CURRENT_SCHEMA_VERSION
     assert _ledger_rows(conn) == _declared_rows()
     assert "retrieval_feedback" in _table_names(conn)
+    _assert_receipt_bound_feedback_schema(conn)
     assert conn.execute("SELECT COUNT(*) FROM memories WHERE namespace = 'project:bridge'").fetchone()[0] == 1
 
 
@@ -188,9 +272,26 @@ def test_injected_v5_failure_rolls_back_ddl_data_user_version_and_ledger(monkeyp
         connection.execute(
             """
             INSERT INTO retrieval_feedback (
-                namespace, memory_id, query_text, feedback_score, feedback_json, created_at
-            ) VALUES ('project:bridge', 'rollback-row', 'rollback check', 1, '{}', '2026-01-01T00:00:00+00:00')
-            """
+                idempotency_key,
+                receipt_hash,
+                namespace,
+                memory_id,
+                result_rank,
+                outcome,
+                retrieval_mode,
+                database_epoch,
+                bridge_instance_id,
+                receipt_issued_at,
+                receipt_expires_at,
+                feedback_json,
+                created_at
+            ) VALUES (
+                ?, ?, 'project:bridge', 'rollback-row', 1, 'helpful', 'lexical',
+                'epoch-1', 'bridge-1', '2026-01-01T00:00:00+00:00',
+                '2026-01-01T00:15:00+00:00', '{}', '2026-01-01T00:01:00+00:00'
+            )
+            """,
+            ("1" * 64, "2" * 64),
         )
         connection.execute("CREATE TABLE partial_v5_data (id INTEGER PRIMARY KEY)")
         connection.execute("INSERT INTO partial_v5_data(id) VALUES (1)")
@@ -232,6 +333,74 @@ def test_schema_migration_checksum_mismatch_fails_closed_without_repair() -> Non
 
     assert schema_version(conn) == CURRENT_SCHEMA_VERSION
     assert conn.execute("SELECT checksum FROM schema_migrations WHERE version = 4").fetchone()["checksum"] == "0" * 64
+
+
+def test_unledgered_legacy_v5_retrieval_feedback_shape_fails_closed_with_clear_error() -> None:
+    conn = _connect()
+    _apply_schema_version(conn, 4)
+    conn.execute(
+        """
+        CREATE TABLE retrieval_feedback (
+            feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            namespace TEXT NOT NULL,
+            memory_id TEXT,
+            query_text TEXT NOT NULL,
+            feedback_score INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute("PRAGMA user_version = 5")
+    conn.commit()
+
+    with pytest.raises(RuntimeError, match="unsupported retrieval_feedback shape"):
+        init_db(conn)
+
+    assert schema_version(conn) == 5
+    assert "schema_migrations" not in _table_names(conn)
+    assert "query_text" in _feedback_column_names(conn)
+    assert "idempotency_key" not in _feedback_column_names(conn)
+
+
+def test_legacy_v5_checksum_mismatch_fails_closed_without_schema_repair() -> None:
+    conn = _connect()
+    _apply_schema_version(conn, 4)
+    schema_module._ensure_schema_migrations_ledger(conn)
+    for version, name, checksum in _declared_rows()[:4]:
+        conn.execute(
+            """
+            INSERT INTO schema_migrations (version, name, checksum, applied_at)
+            VALUES (?, ?, ?, '2026-01-01T00:00:00Z')
+            """,
+            (version, name, checksum),
+        )
+    conn.execute(
+        """
+        CREATE TABLE retrieval_feedback (
+            feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            namespace TEXT NOT NULL,
+            memory_id TEXT,
+            query_text TEXT NOT NULL,
+            feedback_score INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO schema_migrations (version, name, checksum, applied_at)
+        VALUES (5, 'v5_retrieval_feedback_append_only', ?, '2026-01-01T00:00:00Z')
+        """,
+        (LEGACY_V5_RETRIEVAL_FEEDBACK_CHECKSUM,),
+    )
+    conn.execute("PRAGMA user_version = 5")
+    conn.commit()
+
+    with pytest.raises(RuntimeError, match="ledger mismatch for version 5"):
+        init_db(conn)
+
+    assert "query_text" in _feedback_column_names(conn)
+    assert "idempotency_key" not in _feedback_column_names(conn)
 
 
 def test_newer_schema_fails_closed_before_creating_ledger() -> None:

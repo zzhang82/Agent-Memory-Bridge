@@ -43,7 +43,7 @@ V020_CASE_MANIFEST: tuple[dict[str, str], ...] = (
         "id": "v020-stdio-tool-surface",
         "category": "stdio_mcp",
         "purpose": "Prove the real stdio MCP server exposes exactly the documented public surface.",
-        "expected_behavior": "MCP `list_tools` returns the documented 12 tools and no v0.20 tool.",
+        "expected_behavior": f"MCP `list_tools` returns the documented {EXPECTED_PUBLIC_TOOL_COUNT} tools and no v0.20 tool.",
         "non_goal_guard": "Does not add startup_packet, task_packet, plugin, watcher, or harness tools.",
     },
     {

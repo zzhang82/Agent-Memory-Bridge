@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-07-21 (America/New_York)
+Last updated: 2026-07-26 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.24.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, and the v0.24 exact-identity / recall-boundary correctness patch. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.25.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, and the v0.25 Trustworthy Adaptive Retrieval release. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,10 +636,65 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.25.0 = Trustworthy Adaptive Retrieval
+
+Status: current public version story for `v0.25.0`; the public MCP surface is
+exactly 13 tools.
+
+### Thesis
+
+Make adaptive retrieval explainable and feedback auditable without treating
+feedback as ranking authority or widening local trust claims.
+
+One sentence:
+
+`0.25.0 = honest lexical/hashed_lexical/semantic capability labels, short-lived HMAC recall receipts, and receipt-bound shadow feedback; validation snapshot: 604 tests collected, 601 pass, 3 skip.`
+
+### Scope
+
+1. Report retrieval capability as `lexical`, `hashed_lexical`, or `semantic`.
+2. Keep `hashed_lexical` distinct from true semantic retrieval; semantic mode
+   requires a declared semantic provider.
+3. Issue short-lived HMAC recall receipts for explicit non-empty memory text
+   recall.
+4. Bind receipts to bridge instance, database epoch, namespace, query hash,
+   retrieval mode, and memory ids/ranks.
+5. Add `feedback` as the thirteenth public MCP tool.
+6. Store feedback as receipt-bound append-only shadow evidence with redacted
+   responses, logs, and telemetry.
+7. Keep feedback out of memory mutation, index mutation, returned ordering, and
+   ranking behavior.
+
+### Acceptance Gate
+
+`0.25.0` is acceptable only when:
+
+- the install/archive tag is `0.25.0`
+- the public MCP surface is exactly 13 tools and includes `feedback`
+- `feedback` accepts only `helpful`, `misleading`, `outdated`,
+  `not_applicable`, and `not_used`
+- `misleading` and `outdated` feedback require a compact reason
+- invalid, expired, tampered, cross-namespace, wrong-rank, wrong-memory,
+  wrong-instance, and stale-epoch receipts are rejected
+- feedback writes are append-only, idempotent for stable retry identity, and
+  conflict-rejecting
+- feedback does not mutate memories, FTS, embeddings, belief records, returned
+  ordering, or ranking
+- receipt tokens are described as tamper-evident, not encrypted
+- caller and provenance fields remain declared, not authenticated
+- database epoch is described as a restore-instance guard, not per-write
+  freshness
+- the collected suite is `604 tests collected`; the full run result is
+  `601 pass`, `3 skip`
+- release, public-surface, onboarding, stdio feedback, v0.25 receipt, v0.25
+  feedback, v0.25 capability, and v0.25 migration tests pass
+- no active rerank, auth, ACL, ANN, graph, auto-policy, hosted identity, or
+  multi-user infrastructure claim is added
+
 ## 0.24.0 = Exact Identity And Recall Boundary Correctness
 
-Status: current release-candidate story for `v0.24.0`; the public MCP surface
-remains exactly 12 tools.
+Status: historical public version story for `v0.24.0`; the public MCP surface
+remained exactly 12 tools.
 
 ### Thesis
 

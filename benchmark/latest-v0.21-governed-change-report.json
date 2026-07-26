@@ -244,6 +244,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -254,7 +257,8 @@
           "logs/export.log",
           "logs/forget.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -478,6 +482,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -488,7 +495,8 @@
           "logs/export.log",
           "logs/forget.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -769,6 +777,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -779,7 +790,8 @@
           "logs/export.log",
           "logs/forget.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -1058,6 +1070,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -1068,7 +1083,8 @@
           "logs/export.log",
           "logs/forget.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -1329,6 +1345,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -1339,7 +1358,8 @@
           "logs/export.log",
           "logs/forget.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -1537,6 +1557,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -1546,7 +1569,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -1746,6 +1770,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -1755,7 +1782,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -2002,6 +2030,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -2011,7 +2042,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -2233,6 +2265,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -2242,7 +2277,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -2489,6 +2525,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -2498,7 +2537,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -2699,6 +2739,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -2708,7 +2751,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -2909,6 +2953,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -2918,7 +2965,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -3119,6 +3167,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -3128,7 +3179,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -3329,6 +3381,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -3338,7 +3393,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -3539,6 +3595,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -3548,7 +3607,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -3744,6 +3804,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -3753,7 +3816,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -3949,6 +4013,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -3958,7 +4025,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -4154,6 +4222,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -4163,7 +4234,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -4355,6 +4427,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -4364,7 +4439,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     },
@@ -4560,6 +4636,9 @@
         "db_path": "<temp>/bridge.db",
         "durable_live_writeback_count": 0,
         "log_dir": "<temp>/logs",
+        "recall_receipt_secret_contents_snapshotted": false,
+        "recall_receipt_secret_file_count": 1,
+        "recall_receipt_secret_path": "<temp>/recall-receipt-secret.json",
         "runtime_root": "<temp>",
         "writes_only_under_temp": true,
         "written_files": [
@@ -4569,7 +4648,8 @@
           "logs/browse.log",
           "logs/export.log",
           "logs/recall.log",
-          "logs/store.log"
+          "logs/store.log",
+          "recall-receipt-secret.json"
         ]
       }
     }

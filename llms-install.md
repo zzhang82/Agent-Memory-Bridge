@@ -41,7 +41,7 @@ Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.24.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -72,7 +72,7 @@ client before editing its config:
 The default config path in the generated fragment is optional for this baseline.
 If no such `config.toml` exists, `doctor` may warn and the baseline server can
 still run. Restart or reload the client, then use its own MCP status/tool view
-to confirm the server connects and exposes the documented 12-tool public
+to confirm the server connects and exposes the documented 13-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
 
@@ -81,7 +81,7 @@ loaded.
 If `uvx` is already installed, it can run the GitHub source directly:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.24.0 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.0 agent-memory-bridge verify
 ```
 
 Do not make this the only install instruction. `uv` is not a project baseline
@@ -93,6 +93,12 @@ In the configured MCP client, call the `store(...)` and `recall(...)` MCP tools
 to store one non-sensitive project gotcha and recall it from a later task or
 session. They are not terminal subcommands. Keep the first check small and
 review tool input before approval.
+
+For non-empty `kind="memory"` text recall, AMB can return a 15-minute
+`recall_receipt`. Treat it as sensitive: the token is HMAC-signed and
+tamper-evident, not encrypted, and it does not authenticate caller provenance.
+The `feedback(...)` tool can append receipt-bound shadow evidence, but it does
+not mutate memories, indexes, recall results, or ranking behavior.
 
 Agent Memory Bridge is an additional MCP memory store. Do not claim that it
 replaces a client's built-in memory, instructions, rules, or project context.

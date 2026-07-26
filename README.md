@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.24.0` is a correctness release for identity, recall, and local-maintenance contracts. Schema v4 adds `exact_content_hash` for exact memory identity while preserving legacy `content_hash`; semantic and hybrid recall use precomputed embeddings only, report degraded completeness when the derived index is cold or stale, and do not backfill candidate embeddings during recall. Benchmark/proof paths explicitly warm the derived embedding index, index rebuilds share the service exclusion lock, and the cooperative local trust boundary is documented. The public MCP surface remains 12 tools.
+`0.25.0` is Trustworthy Adaptive Retrieval. AMB now labels retrieval capability honestly as `lexical`, `hashed_lexical`, or `semantic`; issues short-lived HMAC recall receipts for explicit memory text recall; and adds receipt-bound `feedback` as append-only, shadow-only evidence. Feedback does not mutate memory, indexes, or ranking. Receipt tokens are tamper-evident, not encrypted; caller provenance remains declared, not authenticated; and the database epoch is a restore-instance guard, not per-write freshness. The public MCP surface is 13 tools.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -34,7 +34,7 @@ Most agent memory either feels too shallow or too heavy:
 - every new session starts cold or gets a stale context dump
 - handoff state turns into ad hoc notes or a queue you did not want to build
 
-AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectable records, benchmarked lexical/hybrid recall, and a signal lifecycle for lightweight coordination.
+AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectable records, capability-labeled retrieval, and a signal lifecycle for lightweight coordination.
 
 ## What You Get
 
@@ -44,16 +44,17 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
 - Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `560 tests collected`.
+- Retrieval feedback: callers can mark a receipt-bound result as `helpful`, `misleading`, `outdated`, `not_applicable`, or `not_used` without changing ranking or memory.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `604 tests collected`.
 
 ## How It Works
 
 <p align="center">
-  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge architecture: generic MCP-compatible coding agents use 12 grouped tools backed by SQLite/WAL authority, derived indexes, governed change, and no-auto-writeback context and reports; proof gates remain outside runtime." width="760">
+  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge architecture: generic MCP-compatible coding agents use a small grouped tool surface backed by SQLite/WAL authority, derived indexes, governed change, and no-auto-writeback context and reports; proof gates remain outside runtime." width="760">
 </p>
 
-AMB keeps the runtime path small: MCP-compatible coding agents call `12` public
-tools; SQLite/WAL remains the durable authority; FTS5 and optional local
+AMB keeps the runtime path small: MCP-compatible coding agents call 13 public
+MCP tools; SQLite/WAL remains the durable authority; FTS5 and optional local
 embeddings are derived indexes; governed context and CLI reports are rendered
 without automatic durable writeback. Release checks, benchmarks, and the visual
 claim inventory stay outside that runtime path.
@@ -86,7 +87,7 @@ commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.24.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -94,7 +95,7 @@ In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.24.0 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.0 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -237,10 +238,28 @@ Status labels are intentionally narrow.
 
 ## MCP Tools
 
-The bridge exposes `12` public MCP tools:
+The bridge exposes `13` public MCP tools:
+
+| Tool | Lane | Boundary |
+|---|---|---|
+| `store` | memory/signal write | Durable memories may deduplicate; Signals stay coordination events. |
+| `recall` | retrieval | Explicit memory text recall can include a short-lived receipt. |
+| `browse` | inspection | Filtered namespace view without text-ranking claims. |
+| `stats` | inspection | Counts and derived health signals, not durable authority changes. |
+| `forget` | governed mutation | Explicit deletion with audit boundaries. |
+| `feedback` | retrieval evidence | Receipt-bound, append-only, shadow-only; no ranking or memory mutation. |
+| `promote` | governed mutation | Review-only path into durable authority. |
+| `annotate` | metadata mutation | Adds non-policy tags and provenance without rewriting content. |
+| `revise` | governed mutation | Creates a successor plus supersession receipt in one transaction. |
+| `claim_signal` | signal lifecycle | Claims one pending or expired Signal for a local consumer. |
+| `extend_signal_lease` | signal lifecycle | Extends the current owner lease. |
+| `ack_signal` | signal lifecycle | Acknowledges with owner checks for active claims. |
+| `export` | inspection | Sanitized export over existing records. |
+
+Same tools by group:
 
 - `store`, `recall`, `browse`, `stats`
-- `forget`, `promote`, `annotate`, `revise`, `export`
+- `forget`, `feedback`, `promote`, `annotate`, `revise`, `export`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
 `annotate` adds non-policy tags and provenance without rewriting the original
@@ -249,7 +268,7 @@ receipt in one transaction. Both operations preserve the review boundary:
 callers cannot mint reserved governance tags or revise hidden learning
 candidates into authority.
 
-The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, human review workflows, and activation receipts. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, `review_workflow`, or `activation_receipt` MCP tools.
+The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, human review workflows, and activation receipts. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, `review_workflow`, or `activation_receipt` MCP tools, and no rerank, auth, ACL, ANN, graph, or auto-policy interface.
 
 For normal service use, log capture helpers, promotion helpers, and strong consolidation are disabled by default. During each cycle, every enabled lane has its own exception boundary: one lane failure is reported with a failure count and bounded retry delay without stopping its siblings. The lanes still execute sequentially, so a slow call can delay later lanes; lane duration and slow-lane warnings make that delay visible. Watcher, reflex, consolidation, governance, and embedding scheduler state use tolerant atomic JSON and reset when a restored database has a different epoch. The service writes `service-health.json`, holds a local bridge-home singleton lock, exits `1` from `service --once` when any enabled lane fails, and exits `3` when another service owns the lock. Use `--allow-multiple-services` only when duplicate processing is deliberate.
 
@@ -275,7 +294,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.24.0` adds schema v4 exact-content identity and tightens recall/index-maintenance contracts. After the existing store/revise input trimming, `exact_content_hash` normalizes newline sequences only and becomes the durable dedup identity while legacy `content_hash` is preserved. Semantic and hybrid recall never generate missing candidate embeddings or write during recall; they score precomputed valid vectors and report degraded completeness for cold, stale, or incomplete derived indexes. Benchmark/proof paths warm the derived embedding index before semantic scoring, and index rebuild uses the same local service exclusion lock as other maintenance.
+`0.25.0` adds Trustworthy Adaptive Retrieval on top of the v0.24 identity and recall-boundary work. Retrieval now reports whether it is operating as `lexical`, `hashed_lexical`, or true `semantic`; explicit memory text recall can return a short-lived HMAC receipt; and `feedback` records receipt-bound retrieval outcomes as append-only shadow evidence. Feedback is not a reranker, memory editor, authentication layer, ACL system, ANN index, graph engine, or automatic policy path.
 
 | Track | Current signal |
 |---|---|
@@ -296,7 +315,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| Test suite | `560 tests collected` |
+| v0.25 retrieval receipts and feedback | explicit memory text recall emits redacted, short-lived HMAC receipts; feedback accepts five declared outcomes and stays append-only, shadow-only, and ordering-neutral |
+| Test suite | `604 tests collected`; full run result: `601 pass`, `3 skip` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -440,7 +460,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.24.0 announcement](docs/v0.24.0-announcement.md)
+- [v0.25.0 announcement](docs/v0.25.0-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

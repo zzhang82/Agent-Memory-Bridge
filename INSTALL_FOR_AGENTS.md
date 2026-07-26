@@ -16,12 +16,14 @@ memory and lightweight coordination.
 
 The public MCP surface is intentionally small:
 
-- `store`, `recall`, `browse`, `stats`
-- `forget`, `promote`, `annotate`, `revise`, `export`
+- `store`, `recall`, `browse`, `stats`, `export`
+- `forget`, `feedback`, `promote`, `annotate`, `revise`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
+Retrieval feedback is receipt-bound and shadow-only; it does not change memory
+records, recall results, or ranking behavior.
 
 ## Ask Before You Configure
 
@@ -49,7 +51,7 @@ user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
    ```
 
 3. Derive the venv interpreter as described in `llms-install.md`, then install
-   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.24.0.zip"`.
+   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.0.zip"`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:
@@ -141,12 +143,33 @@ store(
 
 recall(
   namespace="project:demo",
+  kind="memory",
   query="schema edit generator gotcha"
 )
 ```
 
 The goal is not to create a large memory dump. The goal is to prove that a later
 session can recover a specific engineering gotcha without the human retyping it.
+
+For non-empty `kind="memory"` text recall, the response can include a 15-minute
+`recall_receipt`. Treat that token as sensitive local metadata. It is HMAC-signed
+and tamper-evident, not encrypted, and it does not authenticate the caller,
+client, model, workspace, or user.
+
+If the human wants retrieval feedback, bind it to that receipt:
+
+```text
+feedback(
+  namespace="project:demo",
+  recall_receipt="<token from recall>",
+  memory_id="<recalled memory id>",
+  result_rank=1,
+  outcome="helpful"
+)
+```
+
+Feedback is append-only shadow evidence. It does not promote records, rewrite
+memories, update indexes, or change future ranking.
 
 If a separate helper is present, keep it on this path: check AMB, connect one
 MCP client, store one real gotcha, recall it, and optionally render a Task Brief
@@ -160,6 +183,7 @@ Do not:
 - store secrets, tokens, or private credentials
 - create a watcher or scheduler inside the core bridge
 - add new MCP tools just to expose startup packets, task packets, or Task Briefs
+- claim feedback actively changes ranking, memory, or policy
 - write machine-specific paths into public examples
 - claim a client is verified unless it has been locally tested
 - claim the bridge replaces a client's built-in memory, rules, or instructions

@@ -13,6 +13,9 @@ remote access control.
 - optional local operating profiles that tighten cooperative behavior
 - raw export paths for inspection, backup, migration, and debugging
 - bounded local command-provider controls for classifier and embedding helpers
+- short-lived HMAC recall receipts for binding explicit memory-recall results to
+  feedback
+- append-only retrieval feedback records that remain shadow-only evidence
 
 ## What AMB Does Not Provide
 
@@ -21,6 +24,8 @@ remote access control.
 - multi-user or remote ACL systems
 - sandboxing for configured local command providers
 - distributed locking or exactly-once coordination across machines
+- encrypted recall receipt tokens; they are tamper-evident, not confidential
+- ranking, memory mutation, or policy changes from retrieval feedback
 - compliance certification or regulated-data handling guarantees
 
 ## Local Operating Profiles
@@ -44,10 +49,39 @@ AMB stores those values so records are easier to filter, debug, compare, and
 audit. They are not proof that a specific client, model, user, workspace, or
 vendor produced the record.
 
+Recall receipts and feedback responses use the same boundary. Their provenance
+fields are server- or caller-declared metadata, not authenticated origin.
+
 Caller-supplied tags are also declared labels. They improve retrieval and review,
 but they are not authenticated authority. Security-sensitive or governance
 behavior must validate policy at the bridge boundary rather than trusting a tag
 because a caller supplied it.
+
+## Recall Receipts
+
+Durable memory text recall can return a 15-minute `recall_receipt` for
+`kind = "memory"` queries. The token is signed with a local HMAC secret so AMB
+can reject tampering, expired receipts, namespace mismatches, bridge-instance
+mismatches, database-epoch mismatches, and memory-id/rank mismatches.
+
+The token is not encrypted. Treat it as sensitive local metadata because it can
+carry namespace, retrieval-mode, database-epoch, result-id/rank, and hashed-query
+details. The receipt does not authenticate the caller, client, model, workspace,
+or user.
+
+The database epoch in a receipt is a restore-instance guard. It helps reject
+receipts minted before a restore or epoch rotation, but it is not per-write
+freshness and does not prove that no later write changed the database.
+
+## Retrieval Feedback
+
+The `feedback` MCP tool records structured outcomes such as `helpful`,
+`misleading`, `outdated`, `not_applicable`, and `not_used` for one recalled
+memory result. It is append-only, receipt-bound, and shadow-only.
+
+Feedback does not rewrite memories, rebuild indexes, promote or suppress
+records, change recall results, or train ranking behavior. Use it as audit and
+review evidence, not as an automatic policy or learning path.
 
 ## Exports Are Sensitive
 

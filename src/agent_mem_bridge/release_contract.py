@@ -169,11 +169,13 @@ V021_PATCH_PATTERN = re.compile(r"0\.21\.\d+")
 V022_PATCH_PATTERN = re.compile(r"0\.22\.\d+")
 V023_PATCH_PATTERN = re.compile(r"0\.23\.\d+")
 V024_PATCH_PATTERN = re.compile(r"0\.24\.\d+")
+V025_PATCH_PATTERN = re.compile(r"0\.25\.\d+")
 V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V021_PATCH_PATTERN,
     V022_PATCH_PATTERN,
     V023_PATCH_PATTERN,
     V024_PATCH_PATTERN,
+    V025_PATCH_PATTERN,
 )
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 KV_PATTERN = re.compile(
@@ -421,7 +423,7 @@ def build_v021_governed_change_proof_check(
         mismatches.append(
             {
                 "field": "pyproject.version",
-                "expected": "0.21.x, 0.22.x, 0.23.x, or 0.24.x",
+                "expected": "0.21.x, 0.22.x, 0.23.x, 0.24.x, or 0.25.x",
                 "actual": pyproject_version,
             }
         )
@@ -1344,6 +1346,7 @@ def extract_readme_tool_names(text: str) -> set[str]:
                 "browse",
                 "stats",
                 "forget",
+                "feedback",
                 "promote",
                 "annotate",
                 "revise",

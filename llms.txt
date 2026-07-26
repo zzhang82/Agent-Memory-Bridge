@@ -9,7 +9,7 @@ Primary docs:
 - INSTALL_FOR_AGENTS.md - agent-readable install protocol
 - llms-install.md - concise GitHub-source install path for coding agents
 - docs/INTEGRATIONS.md - client configuration examples
-- docs/CONFIGURATION.md - runtime and classifier configuration
+- docs/CONFIGURATION.md - runtime, retrieval, receipt, and classifier configuration
 - docs/AUTHORITY-CONTRACT.md - source-of-truth and compiled-view rules
 - docs/CONTEXT-ASSEMBLY.md - startup/task context assembly model
 - docs/HARNESS-DESIGN.md - boundary between AMB Core and future harness tools
@@ -20,6 +20,7 @@ Stable public MCP tools:
 
 - store
 - recall
+- feedback
 - browse
 - stats
 - forget
@@ -36,6 +37,14 @@ Important boundaries:
 - No separate startup_packet, task_packet, or Task Brief MCP tools.
 - No watcher, scheduler, autonomous runner, hosted backend, or graph database in
   AMB Core.
+- Retrieval capabilities are `lexical`, `hashed_lexical`, and explicitly
+  declared `semantic`; do not claim ANN, graph retrieval, ACLs, authentication,
+  active reranking, or automatic policy.
+- Recall receipts are 15-minute HMAC tokens. They are tamper-evident, not
+  encrypted, and should be treated as sensitive metadata.
+- Provenance is declared by callers or launch defaults, not authenticated.
+- Feedback is append-only shadow evidence. It does not mutate memory, indexes,
+  recall results, or ranking behavior.
 - Startup and task-time packets are compiled views over existing records.
 - Optional helper commands can render Task Brief reports around the bridge;
   Task Brief is a derived CLI/report view, not part of the core MCP surface.
@@ -51,7 +60,7 @@ Treat the printed path as `<venv-python>`. Shell-quote it on POSIX when needed;
 in Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.24.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```

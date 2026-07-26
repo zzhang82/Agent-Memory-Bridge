@@ -11,9 +11,9 @@
 
 让不同 coding agents 在不同工具和 session 之间共享一份受治理的项目决策记录。
 
-Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 shared engineering memory。它补充 `AGENTS.md`、`CLAUDE.md` 和客户端原生 preference memory，而不是取代它们。SQLite/WAL 是 durable authority，FTS5 和可选本地 embeddings 则是用于 lexical、semantic 或 hybrid retrieval 的 derived indexes。
+Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 shared engineering memory。它补充 `AGENTS.md`、`CLAUDE.md` 和客户端原生 preference memory，而不是取代它们。SQLite/WAL 是 durable authority，FTS5 和可选本地 embeddings 则是 derived indexes；当前公开能力按 `lexical`、`hashed_lexical` 和声明式 `semantic` 边界表述。
 
-`0.24.0` 是 identity、recall 和本地维护 contract 的 correctness release。Schema v4 新增 `exact_content_hash` 作为精确 memory identity，同时保留 legacy `content_hash`；semantic 和 hybrid recall 只使用预先计算好的 embeddings，在 derived index cold 或 stale 时报告 degraded completeness，并且不会在 recall 过程中 backfill candidate embeddings。Benchmark/proof 路径会显式 warm derived embedding index，index rebuild 共享 service exclusion lock，cooperative local trust boundary 已文档化。Public MCP surface 仍是 12 个 tools。
+`0.25.0` 是 Trustworthy Adaptive Retrieval release。Public MCP surface 是 13 个 tools，新增 `feedback`；text memory recall 会返回短生命周期 HMAC receipt，feedback 只能基于该 receipt 记录 append-only、shadow-only evidence。Feedback 不会改写 memory、index、ranking 或 policy；receipt token 是 tamper-evident，不是加密容器；caller/provenance 是声明式字段，不是 authenticated identity；database epoch 只用于 restore-instance guard，不是 per-write freshness proof。
 
 > Codex 是参考工作流，不是产品边界。AMB 使用本地 stdio MCP；客户端集成只按下方标注声明为 documented 或 locally verified。
 
@@ -34,7 +34,7 @@ Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 sh
 - 每个新 session 都要重新学习同一个 gotcha
 - handoff 状态变成临时笔记，或者被迫搭一个并不想要的队列
 
-AMB 选择更小的路径：本地 SQLite authority、显式 namespace、可检查记录、benchmark 过的 lexical / hybrid recall，以及轻量 signal lifecycle。
+AMB 选择更小的路径：本地 SQLite authority、显式 namespace、可检查记录、可解释 lexical retrieval、明确区分 `hashed_lexical` 和声明式 `semantic` 的 capability 边界，以及轻量 signal lifecycle。
 
 ## 能带来什么
 
@@ -44,15 +44,15 @@ AMB 选择更小的路径：本地 SQLite authority、显式 namespace、可检�
 - Context assembly：startup 和 task-time context 可以从 procedure、concept、belief、gotcha 和 linked support 编译出来，不需要增加更多 MCP tools。
 - Governed change：在 guidance 变为 actionable 之前检查显式 deletion、supersession、changed premise 和 task-domain applicability。
 - Cross-client activation receipts：read-only CLI receipt 可以显示一个 memory loop 中有两个不同的声明式 client labels 参与，同时不暴露 path、content、session ID 或 model ID。
-- Proof discipline：release contract、public-surface check、onboarding check、benchmark snapshot、visual inventory checks，以及 `560 tests collected`。
+- Proof discipline：release contract、public-surface check、onboarding check、benchmark snapshot、visual inventory checks，以及 `604 tests collected`（完整运行：`601 pass`, `3 skip`）。
 
 ## 工作方式
 
 <p align="center">
-  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge 架构：通用 MCP-compatible coding agents 通过分组的 12 个工具访问 SQLite/WAL authority、derived indexes、governed change，以及不会自动 durable writeback 的 context 和 reports；proof gates 独立于 runtime。" width="760">
+  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge 架构：通用 MCP-compatible coding agents 通过分组的 13 个工具访问 SQLite/WAL authority、derived indexes、governed change，以及不会自动 durable writeback 的 context 和 reports；proof gates 独立于 runtime。" width="760">
 </p>
 
-AMB 保持 runtime path 很小：MCP-compatible coding agents 调用 `12` 个
+AMB 保持 runtime path 很小：MCP-compatible coding agents 调用 `13` 个
 public tools；SQLite/WAL 仍是 durable authority；FTS5 和可选本地 embeddings
 是 derived indexes；governed context 和 CLI reports 在不自动 durable
 writeback 的前提下生成。Release checks、benchmarks 和 visual claim inventory
@@ -86,7 +86,7 @@ issue report。在 POSIX shell 中按需对该 path 做 shell quoting；在 Wind
 PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.24.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -94,7 +94,7 @@ PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
 可选的 pinned GitHub smoke test 使用 `uvx`：
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.24.0 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.0 agent-memory-bridge verify
 ```
 
 ### 快速开始：Unified First-Run
@@ -235,16 +235,18 @@ view；它不是第二个 durable store，也不会增加 MCP tools。
 
 ## MCP Tools
 
-bridge 暴露 `12` public MCP tools：
+bridge 暴露 `13` public MCP tools：
 
-- `store`, `recall`, `browse`, `stats`
-- `forget`, `promote`, `annotate`, `revise`, `export`
-- `claim_signal`, `extend_signal_lease`, `ack_signal`
+| Group | Tools | Boundary |
+|---|---|---|
+| Memory - 6 | `store`, `recall`, `browse`, `stats`, `export`, `feedback` | `feedback` 只记录 receipt-bound retrieval outcome evidence；append-only、shadow-only，不改变 ranking、memory 或 indexes |
+| Change - 4 | `forget`, `promote`, `annotate`, `revise` | 显式 mutating/review operations；不会绕过 reserved governance boundary |
+| Signals - 3 | `claim_signal`, `extend_signal_lease`, `ack_signal` | 轻量 coordination lifecycle，不是 scheduler、queue 或 distributed lock |
 
 `annotate` 可以补充非 policy tags 和 provenance，而不重写原 content。
 `revise` 会在同一事务中创建 successor record 和可审计的 supersession
 receipt。两者都保留 review boundary：调用方不能生成 reserved governance
-tags，也不能把 hidden learning candidate 直接修订成 authority。
+tags，也不能把 hidden learning candidate 直接修订成 authority。`feedback` 使用短生命周期 recall receipt 绑定 recalled memory id 和 rank；它不会让 helpful/outdated 等 outcome 参与默认 ranking，也不会把 caller-declared provenance 当成 authenticated identity。
 
 更复杂的能力留在 surface 后面：reflex promotion、consolidation、startup/task-time assembly、procedure governance、telemetry summaries、signal contention checks、learning-candidate review queues、Task Brief reports、human review workflows，以及 activation receipts。当前没有单独的 `task_packet`、`startup_packet`、`learning_candidate`、`task_brief`、`review_queue`、`review_workflow` 或 `activation_receipt` MCP tools。
 
@@ -271,16 +273,21 @@ operator review work 是 CLI report，不是 MCP tool：
 
 ## Proof Snapshot
 
-`0.24.0` 增加 schema v4 exact-content identity，并收紧 recall / index-maintenance contract。在既有 store/revise 输入首尾清理之后，`exact_content_hash` 只规范化换行序列，并作为 durable dedup identity；legacy `content_hash` 保留。Semantic 和 hybrid recall 不会生成缺失的 candidate embeddings，也不会在 recall 过程中写入；它们只评分预先计算且有效的 vectors，并在 derived index cold、stale 或 incomplete 时报告 degraded completeness。Benchmark/proof 路径会在 semantic scoring 前 warm derived embedding index，index rebuild 使用与其他维护相同的 local service exclusion lock。
+`0.25.0` 把 retrieval 和 feedback claims 收窄到可验证边界。当前能力按 `lexical`、`hashed_lexical` 和声明式 `semantic` 区分；默认 hash provider 是 `hashed_lexical`，不能被写成真正 semantic retrieval。Text memory recall 的 receipt 由 HMAC 签名并短期有效；payload 不包含 raw query 或 raw content，但 token 本身不是加密。Feedback 是 receipt-bound、append-only、shadow-only evidence，不会 mutation memory、index、belief records 或默认排序。Caller/provenance 仍是 declared metadata，不是 authenticated origin；database epoch 用来让 restore 后的旧 receipt 失效，不代表每次写入后的 freshness。
 
 | Track | Current signal |
 |---|---|
+| Trustworthy Adaptive Retrieval | `lexical` / `hashed_lexical` / declared `semantic` capability labels；不声明 active rerank、ANN、graph traversal 或 automatic policy decisions |
+| Recall receipts | 短生命周期 HMAC token；tamper-evident，不加密；raw query/content 不进入 receipt payload |
+| Retrieval feedback | append-only shadow evidence；`feedback_mode = shadow_only`, `ordering = unchanged`；不 mutation memory、indexes、belief records 或 default ranking |
+| Trust boundary | caller/provenance declared but not authenticated；没有 auth、ACL、caller identity proof 或 certification claim |
+| Restore guard | database epoch 只用于 restore-instance mismatch guard；不是 per-write freshness proof |
 | Retrieval | `memory_expected_top1_accuracy = 1.0`, `file_scan_expected_top1_accuracy = 0.636` |
 | Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
 | Learning candidates | policy-gated staging records 默认不进入 normal recall、browse、export 和 stats；只有显式 review tag 才会出现，且在 review/promotion 之前不属于 durable authority |
 | Signal contention | serialized lifecycle benchmark：`signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0`；multiprocessing exact-ID claim test：8 processes，1 winner |
-| 当前 correctness patch | schema v4 `exact_content_hash`；read-only semantic/hybrid recall over precomputed vectors；degraded completeness metadata；warmed benchmark/proof embeddings；service-locked index rebuild；documented cooperative trust boundary |
+| 继承的 v0.24 correctness patch | schema v4 `exact_content_hash`；read-only derived-index recall over precomputed vectors；degraded completeness metadata；warmed benchmark/proof embeddings；service-locked index rebuild；documented cooperative trust boundary |
 | 继承的 Signal correctness | 10,000-Signal polling acceptance：精确插入顺序，`missing = 0`, `unexpected = 0`, `unique = 10000`；suite 覆盖 active-claim owner ack 和 promotion preservation regression |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
@@ -292,7 +299,7 @@ operator review work 是 CLI report，不是 MCP tool：
 | v0.21 governed change proof | 固定的本地 executable proof：`v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | 仅为 declared-provenance local receipt；要求两个不同的声明式 `source_client` labels 和 acked reader signal；`public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory：`examples/diagrams/visual-claims.json`；native-size 和 README-width raster render gate 要求无 clipping、overlap 或 crossed labels；hero PNG 标记为 conceptual，semantic validation not performed；SVG assets 带 title/desc metadata |
-| Test suite | `560 tests collected` |
+| Test suite | `604 tests collected`；完整运行：`601 pass`, `3 skip` |
 
 <details>
 <summary>Release contract facts</summary>
@@ -424,7 +431,7 @@ v021_durable_live_writeback_count = 0
 
 ## 边界
 
-AMB 不是 graph database、通用 unlearning system、hosted memory platform、scheduler、worker runtime、distributed lock、exactly-once coordination system、packet API、automatic policy engine、compliance certification、authenticated identity system，也不是从原始 transcript 自动 durable writeback 的通道。它是一个小而可检查的本地 bridge，用来保存可复用工程记忆和轻量协作状态。`forget` 仍然是显式 mutating operation；governed change 让它更保守、可审计，而不是自动执行。
+AMB 不是 graph database、通用 unlearning system、hosted memory platform、scheduler、worker runtime、distributed lock、exactly-once coordination system、packet API、active reranker、ANN/vector database、ACL 或 auth system、automatic policy engine、compliance certification、authenticated identity system，也不是从原始 transcript 自动 durable writeback 的通道。它是一个小而可检查的本地 bridge，用来保存可复用工程记忆和轻量协作状态。`forget` 仍然是显式 mutating operation；governed change 让它更保守、可审计，而不是自动执行。`feedback` 仍是 shadow evidence，不是 ranking、policy 或 memory mutation channel。
 
 替代方案和取舍见 [docs/COMPARISON.md](docs/COMPARISON.md)。
 
@@ -436,7 +443,6 @@ AMB 不是 graph database、通用 unlearning system、hosted memory platform、
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.24.0 announcement](docs/v0.24.0-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

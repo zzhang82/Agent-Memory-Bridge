@@ -287,6 +287,16 @@ def resolve_bridge_log_dir() -> Path:
     )
 
 
+def resolve_recall_receipt_secret_path(*, default_parent: Path | None = None) -> Path:
+    raw = _first_env("AGENT_MEMORY_BRIDGE_RECALL_RECEIPT_SECRET_PATH")
+    if raw:
+        return Path(raw).expanduser()
+    configured = _config_value("retrieval", "recall_receipt_secret_path")
+    if isinstance(configured, str) and configured.strip():
+        return _resolve_config_path_value(configured.strip(), base_dir=default_parent or resolve_bridge_home())
+    return (default_parent or resolve_bridge_home()) / "recall-receipt-secret.json"
+
+
 def resolve_log_max_bytes() -> int:
     return _resolve_int(
         "AGENT_MEMORY_BRIDGE_LOG_MAX_BYTES",

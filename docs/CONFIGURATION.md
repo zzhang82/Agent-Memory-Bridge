@@ -139,8 +139,10 @@ Controls recall ranking mode. The default remains conservative:
 mode = "lexical"
 semantic_scan_limit = 1000
 hybrid_semantic_weight = 18.0
+recall_receipt_secret_path = "recall-receipt-secret.json"
 embedding_provider = "hash"
-embedding_command = ""
+embedding_capability = "hashed_lexical"
+embedding_command = []
 embedding_model = ""
 embedding_dim = 64
 embedding_timeout_seconds = 10
@@ -148,21 +150,31 @@ embedding_timeout_seconds = 10
 
 | Mode | Behavior |
 |---|---|
-| `lexical` | stable SQLite FTS5 recall plus existing local reranking |
-| `semantic` | exact cosine scoring over all eligible rows in the namespace |
-| `hybrid` | reciprocal-rank fusion of lexical and semantic candidate rankings |
+| `lexical` | SQLite FTS5 recall |
+| `semantic` | exact cosine scoring over eligible rows when a command provider declares `embedding_capability = "semantic"` |
+| `hybrid` | lexical recall plus the semantic arm only when that semantic provider contract is present; otherwise lexical order is preserved with diagnostics |
 
 The semantic sidecar is a derived cache. It is not source of truth and can be
-rebuilt from the `memories` table. The bundled provider is
-`local-token-hash-v1`, a deterministic local token-hash vectorizer meant for
-safe shadow testing and regression checks. It is not a broad hosted embedding
-model and should not be used to claim general semantic retrieval quality.
+rebuilt from the `memories` table.
+
+Retrieval capability is deliberately explicit:
+
+- `lexical` is the SQLite FTS5 path.
+- `hashed_lexical` is the bundled deterministic token-hash sidecar. It is useful
+  for shadow tests and regression checks, but it is not semantic retrieval.
+- `semantic` requires `embedding_provider = "command"` and
+  `embedding_capability = "semantic"` for a local command you have validated to
+  return semantic vectors.
+
+If `mode = "semantic"` is configured without a declared semantic provider, AMB
+fails closed. If `mode = "hybrid"` is configured without that provider, AMB skips
+the semantic arm and preserves lexical ordering.
 
 Embedding providers:
 
 | Provider | Behavior |
 |---|---|
-| `hash` | bundled deterministic local token-hash vectorizer; no extra dependencies |
+| `hash` | bundled deterministic hashed-lexical vectorizer; no extra dependencies |
 | `command` | trusted local command that receives texts as JSON on stdin and returns vectors as JSON on stdout |
 
 The command provider lets you connect local tools such as an Ollama wrapper,
@@ -172,6 +184,7 @@ runtime dependency. It is disabled unless you set both:
 ```toml
 [retrieval]
 embedding_provider = "command"
+embedding_capability = "semantic"
 embedding_command = ["python", "/path/to/local_embedding_gateway.py"]
 embedding_trusted_shell = false
 embedding_model = "local-model-name"
@@ -245,6 +258,30 @@ Derived indexes can be rebuilt safely:
 ```
 
 These commands rebuild cache tables only. They do not change `memories` rows.
+
+## Recall Receipts And Feedback Binding
+
+Non-empty durable memory text recall can return a `recall_receipt` when
+`kind = "memory"` is explicit. AMB does not emit these receipts for filter-only
+memory recall, Signal recall, browse, or export.
+
+The receipt is a 15-minute HMAC-signed token. By default the signing secret is
+created at `recall-receipt-secret.json` beside the bridge database, or at
+`[retrieval].recall_receipt_secret_path` /
+`AGENT_MEMORY_BRIDGE_RECALL_RECEIPT_SECRET_PATH` when configured. A relative
+config path is resolved from the database directory. The secret file contains a
+bridge instance id and HMAC key and is created with private-file checks. Rotate
+it by stopping AMB and replacing the file; outstanding receipts from the old
+secret will no longer validate.
+
+Receipt tokens are tamper-evident, not encrypted. Treat them as sensitive local
+metadata because the signed payload can identify the namespace, retrieval mode,
+database epoch, result memory ids and ranks, and hashes of recall inputs.
+
+The `feedback` MCP tool validates the receipt, namespace, memory id, result
+rank, expiry, bridge instance id, and database epoch before appending feedback.
+Feedback is shadow-only evidence. It does not mutate memory rows, indexes,
+belief records, recall results, or ranking behavior.
 
 ## `[embedding_scheduler]`
 
@@ -333,6 +370,8 @@ Restore is deliberately offline maintenance: stop the service and all MCP/client
 processes that may write the database before running it. The service lock does
 not coordinate arbitrary MCP writers, and a busy target is rejected rather than
 presented as an online restore.
+The database epoch is a restore-instance guard for cursors and receipt binding.
+It is not per-write freshness, identity authentication, or caller provenance.
 Signal cleanup is dry-run unless `--apply` is supplied and uses the same governed
 deletion path as `forget`.
 
@@ -414,8 +453,10 @@ section alone if you only want the basic bridge runtime.
 | `AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT` | optional transport default, usually `stdio` |
 | `AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE` | `lexical`, `semantic`, or `hybrid` |
 | `AGENT_MEMORY_BRIDGE_SEMANTIC_SCAN_LIMIT` | provider batch size while exact semantic recall fills missing/stale embeddings |
-| `AGENT_MEMORY_BRIDGE_HYBRID_SEMANTIC_WEIGHT` | weight used when hybrid reranks semantic sidecar scores |
+| `AGENT_MEMORY_BRIDGE_HYBRID_SEMANTIC_WEIGHT` | fusion weight used when hybrid combines semantic sidecar scores with lexical results |
+| `AGENT_MEMORY_BRIDGE_RECALL_RECEIPT_SECRET_PATH` | path to the local HMAC secret used for short-lived recall receipts |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_PROVIDER` | `hash` or `command` |
+| `AGENT_MEMORY_BRIDGE_EMBEDDING_CAPABILITY` | `hashed_lexical` by default; set `semantic` only for a validated semantic command provider |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_COMMAND` | trusted local command for semantic vectors |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_TRUSTED_SHELL` | opt in to shell execution; default false and forbidden by `hardened-local` |
 | `AGENT_MEMORY_BRIDGE_EMBEDDING_MAX_INPUT_BYTES` | maximum JSON stdin bytes per provider call |
