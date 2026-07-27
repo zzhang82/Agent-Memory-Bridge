@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">AMB v0.25 feedback shadow loop</title>
+  <desc id="desc">A detailed feedback flow for Agent Memory Bridge 0.25.1. Recall returns ranked memory results and a short-lived HMAC receipt. The caller submits one feedback outcome for an exact memory id and result rank. AMB validates canonical token encoding, signature, expiry, bridge instance, database epoch, namespace, memory id, and rank. It then writes an append-only idempotent feedback record. Feedback is shadow-only evidence and does not alter memory, FTS, embeddings, beliefs, or ranking.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f7f4ec"/><stop offset="1" stop-color="#eef4f2"/></linearGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#173d47" flood-opacity="0.12"/></filter>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#2d6f67"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#9a6817"/></marker>
+    <style>
+      .bg{fill:url(#bg)}.card{fill:#fffdf8;stroke:#244f5a;stroke-width:1.8;filter:url(#shadow)}.green{fill:#edf5f2;stroke:#2d6f67;stroke-width:1.6}.blue{fill:#edf2f8;stroke:#466780;stroke-width:1.6}.amber{fill:#fff4d9;stroke:#9a6817;stroke-width:1.6}.red{fill:#fff1ed;stroke:#a34d3d;stroke-width:1.6}.gray{fill:#f3f1eb;stroke:#6c7376;stroke-width:1.4;stroke-dasharray:7 6}.chip{fill:#fff;stroke:#8da3a8;stroke-width:1.1}.line{fill:none;stroke:#2d6f67;stroke-width:2.2;marker-end:url(#a)}.line2{fill:none;stroke:#9a6817;stroke-width:2.1;marker-end:url(#b)}.dash{fill:none;stroke:#6b7b80;stroke-width:1.8;stroke-dasharray:6 5}.title{fill:#102f3a;font:700 31px "Segoe UI",Arial,sans-serif}.sub{fill:#36515a;font:15px "Segoe UI",Arial,sans-serif}.head{fill:#102f3a;font:700 19px "Segoe UI",Arial,sans-serif}.label{fill:#173d47;font:700 14px "Segoe UI",Arial,sans-serif}.body{fill:#29434b;font:13.5px "Segoe UI",Arial,sans-serif}.small{fill:#43575d;font:12px "Segoe UI",Arial,sans-serif}.mono{fill:#173d47;font:600 12px Consolas,"Courier New",monospace}.safe{fill:#235a52;font:700 13px "Segoe UI",Arial,sans-serif}.warn{fill:#8b3f22;font:700 13px "Segoe UI",Arial,sans-serif}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="700"/>
+  <text class="title" x="44" y="54">Feedback is an auditable shadow loop</text>
+  <text class="sub" x="44" y="82">v0.25.1 records retrieval outcomes without turning caller-declared feedback into authority or ranking control.</text>
+
+  <rect class="card" x="44" y="112" width="1112" height="420" rx="18"/>
+
+  <rect class="green" x="72" y="154" width="208" height="144" rx="12"/>
+  <text class="head" x="96" y="187">1. Recall</text>
+  <text class="body" x="96" y="215">ranked memory results</text>
+  <text class="body" x="96" y="237">+ retrieval diagnostics</text>
+  <rect class="chip" x="96" y="254" width="160" height="26" rx="6"/>
+  <text class="mono" x="110" y="272">signed receipt</text>
+
+  <path class="line2" d="M280 226 H342"/>
+
+  <rect class="amber" x="352" y="142" width="242" height="168" rx="12"/>
+  <text class="head" x="376" y="175">2. Caller feedback</text>
+  <text class="body" x="376" y="203">exact memory id + result rank</text>
+  <text class="small" x="376" y="229">helpful · misleading · outdated</text>
+  <text class="small" x="376" y="250">not_applicable · not_used</text>
+  <text class="small" x="376" y="276">reason required for negative claims</text>
+
+  <path class="line" d="M594 226 H656"/>
+
+  <rect class="blue" x="666" y="132" width="258" height="188" rx="12"/>
+  <text class="head" x="690" y="165">3. Receipt validation</text>
+  <text class="small" x="690" y="192">canonical base64url</text>
+  <text class="small" x="690" y="213">HMAC signature + expiry</text>
+  <text class="small" x="690" y="234">bridge instance + database epoch</text>
+  <text class="small" x="690" y="255">namespace + memory id + rank</text>
+  <text class="safe" x="690" y="286">Reject before write on mismatch</text>
+
+  <path class="line" d="M924 226 H982"/>
+
+  <rect class="green" x="992" y="142" width="136" height="168" rx="12"/>
+  <text class="head" x="1014" y="175">4. Store</text>
+  <text class="small" x="1014" y="202">append-only</text>
+  <text class="small" x="1014" y="223">idempotent</text>
+  <text class="small" x="1014" y="244">redacted output</text>
+  <text class="mono" x="1014" y="276">schema v5</text>
+
+  <rect class="red" x="72" y="352" width="500" height="138" rx="12"/>
+  <text class="head" x="96" y="385">Hard boundary in 0.25.1</text>
+  <text class="body" x="96" y="414">Feedback does not mutate memory, FTS, embeddings, beliefs,</text>
+  <text class="body" x="96" y="436">review state, or returned ordering. It is not a vote with authority.</text>
+  <text class="warn" x="96" y="467">No active reranking · no auto-quarantine · no auto-policy</text>
+
+  <rect class="gray" x="610" y="352" width="518" height="138" rx="12"/>
+  <text class="head" x="634" y="385">Future governed analysis</text>
+  <text class="body" x="634" y="414">Operator review can aggregate evidence, calibrate reliability, and</text>
+  <text class="body" x="634" y="436">compare ranking experiments before any bounded effect is enabled.</text>
+  <text class="small" x="634" y="467">Current release deliberately stops before this control path.</text>
+
+  <path class="dash" d="M1060 320 V336 H870 V350"/>
+
+  <rect class="card" x="44" y="560" width="1112" height="104" rx="14"/>
+  <text class="label" x="68" y="592">Trust boundary</text>
+  <text class="body" x="68" y="618">Caller provenance fields are declared metadata, not authenticated identity. A receipt proves that the bridge issued a result set,</text>
+  <text class="body" x="68" y="640">not that the feedback source is unique, human, vendor-certified, or resistant to repeated caller identities.</text>
+</svg>
