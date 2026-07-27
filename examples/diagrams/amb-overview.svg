@@ -1,104 +1,181 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1100" role="img" aria-labelledby="amb-title amb-desc">
-  <title id="amb-title">Agent Memory Bridge architecture</title>
-  <desc id="amb-desc">Generic MCP-compatible coding agents use thirteen public tools grouped into memory, governed change, and signals. SQLite in WAL mode is the durable authority. FTS5 and optional embeddings are derived indexes. Feedback is shadow-only evidence and does not change ranking or memory. Governed change checks redacted tombstones, lineage, supersession, current premises, and task domains before producing derived context and reports with no automatic durable writeback. Release proof gates are separate from the runtime path.</desc>
-
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1040" viewBox="0 0 1200 1040" role="img" aria-labelledby="amb-title amb-desc">
+  <title id="amb-title">Agent Memory Bridge 0.25.1 architecture and trustworthy retrieval flow</title>
+  <desc id="amb-desc">A three-stage overview of Agent Memory Bridge 0.25.1. MCP-compatible coding agents use thirteen public tools. SQLite in WAL mode is the durable authority, while FTS5 and optional embeddings are derived indexes. Retrieval labels lexical, hashed lexical, and semantic capability honestly, uses only precomputed valid vectors for true semantic retrieval, and may issue a short-lived signed recall receipt. Feedback validates that receipt and writes append-only shadow evidence without changing memory, indexes, beliefs, or ranking. Governed change and proof gates remain explicit.</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#315b66"/>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7f4ec"/>
+      <stop offset="1" stop-color="#eef4f2"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#163f4b"/>
+      <stop offset="1" stop-color="#2d6f67"/>
+    </linearGradient>
+    <linearGradient id="receipt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff6d9"/>
+      <stop offset="1" stop-color="#f8e4a8"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#18343d" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#2d6f67"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#9a6817"/>
+    </marker>
+    <marker id="arrow-slate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#526a73"/>
     </marker>
     <style>
-      .bg { fill: #f7f5ef; }
-      .panel { fill: #fffdf8; stroke: #1f4b57; stroke-width: 2; }
-      .panel-soft { fill: #edf5f2; stroke: #2d6f67; stroke-width: 1.8; }
-      .panel-change { fill: #fff4dd; stroke: #9a5a12; stroke-width: 1.8; }
-      .panel-derived { fill: #eef2f7; stroke: #405d78; stroke-width: 1.8; }
-      .proof { fill: #f3f1eb; stroke: #6b6f73; stroke-width: 1.6; stroke-dasharray: 7 6; }
-      .group { fill: #ffffff; stroke: #7f969c; stroke-width: 1.4; }
-      .index { fill: #ffffff; stroke: #2d6f67; stroke-width: 1.4; stroke-dasharray: 5 4; }
-      .line { fill: none; stroke: #315b66; stroke-width: 2.2; marker-end: url(#arrow); }
-      .index-line { fill: none; stroke: #2d6f67; stroke-width: 1.7; stroke-dasharray: 5 4; marker-end: url(#arrow); }
-      .eyebrow { fill: #315b66; font: 700 14px "Segoe UI", sans-serif; letter-spacing: 1.8px; }
-      .heading { fill: #102f3a; font: 700 24px "Segoe UI", sans-serif; }
-      .section { fill: #102f3a; font: 700 20px "Segoe UI", sans-serif; }
-      .label { fill: #173d47; font: 700 16px "Segoe UI", sans-serif; }
-      .body { fill: #29434b; font: 15px "Segoe UI", sans-serif; }
-      .small { fill: #3d535a; font: 14px "Segoe UI", sans-serif; }
-      .tool { fill: #173d47; font: 600 15px Consolas, "Courier New", monospace; }
-      .warning { fill: #70400d; font: 700 15px "Segoe UI", sans-serif; }
-      .proof-text { fill: #4f5559; font: 600 14px "Segoe UI", sans-serif; }
+      .bg{fill:url(#page)} .hero{fill:url(#hero)}
+      .panel{fill:#fffdf8;stroke:#244f5a;stroke-width:1.8;filter:url(#shadow)}
+      .panel-soft{fill:#edf5f2;stroke:#2d6f67;stroke-width:1.6}
+      .panel-blue{fill:#edf2f8;stroke:#466780;stroke-width:1.6}
+      .panel-amber{fill:url(#receipt);stroke:#9a6817;stroke-width:1.6}
+      .panel-red{fill:#fff1ed;stroke:#a34d3d;stroke-width:1.6}
+      .panel-gray{fill:#f3f1eb;stroke:#6c7376;stroke-width:1.4;stroke-dasharray:7 6}
+      .chip{fill:#fff;stroke:#8da3a8;stroke-width:1.1}
+      .chip-green{fill:#fff;stroke:#2d6f67;stroke-width:1.2}
+      .chip-blue{fill:#fff;stroke:#466780;stroke-width:1.2}
+      .chip-amber{fill:#fffaf0;stroke:#9a6817;stroke-width:1.2}
+      .line{fill:none;stroke:#2d6f67;stroke-width:2.2;marker-end:url(#arrow-teal)}
+      .line-amber{fill:none;stroke:#9a6817;stroke-width:2;marker-end:url(#arrow-amber)}
+      .line-slate{fill:none;stroke:#526a73;stroke-width:1.8;stroke-dasharray:6 5;marker-end:url(#arrow-slate)}
+      .title{fill:#fff;font:700 34px "Segoe UI",Arial,sans-serif}
+      .subtitle{fill:#dbeae6;font:16px "Segoe UI",Arial,sans-serif}
+      .eyebrow{fill:#315b66;font:700 13px "Segoe UI",Arial,sans-serif;letter-spacing:1.7px}
+      .heading{fill:#102f3a;font:700 21px "Segoe UI",Arial,sans-serif}
+      .label{fill:#173d47;font:700 15px "Segoe UI",Arial,sans-serif}
+      .body{fill:#29434b;font:14px "Segoe UI",Arial,sans-serif}
+      .small{fill:#43575d;font:12.5px "Segoe UI",Arial,sans-serif}
+      .mono{fill:#173d47;font:600 12.5px Consolas,"Courier New",monospace}
+      .safe{fill:#235a52;font:700 13px "Segoe UI",Arial,sans-serif}
+      .warn{fill:#8b3f22;font:700 13px "Segoe UI",Arial,sans-serif}
+      .white-label{fill:#fff;font:700 14px "Segoe UI",Arial,sans-serif}
+      .white-small{fill:#dbeae6;font:13px "Segoe UI",Arial,sans-serif}
     </style>
   </defs>
 
-  <rect class="bg" width="800" height="1100"/>
-  <text class="eyebrow" x="40" y="34">RUNTIME PATH</text>
-  <text class="heading" x="40" y="64">Shared, governed engineering memory</text>
+  <rect class="bg" width="1200" height="1040"/>
+  <rect class="hero" x="0" y="0" width="1200" height="118"/>
+  <text class="title" x="48" y="54">Agent Memory Bridge 0.25.1</text>
+  <text class="subtitle" x="48" y="84">Durable local authority, honest retrieval capability, signed recall receipts, and shadow-only feedback.</text>
+  <rect x="930" y="28" width="220" height="62" rx="12" fill="#ffffff" fill-opacity="0.10" stroke="#cbe2dc" stroke-width="1"/>
+  <text class="white-label" x="954" y="52">PUBLIC MCP SURFACE</text>
+  <text class="white-small" x="954" y="76">13 tools · local stdio</text>
 
-  <rect class="panel" x="40" y="88" width="720" height="82" rx="10"/>
-  <text class="section" x="64" y="120">MCP-compatible coding agents</text>
-  <text class="body" x="64" y="146">Generic local stdio clients; AMB complements native and project guidance.</text>
+  <text class="eyebrow" x="48" y="154">01 · RUNTIME AND AUTHORITY</text>
+  <rect class="panel" x="48" y="170" width="1104" height="238" rx="16"/>
 
-  <path class="line" d="M400 170 V198"/>
+  <rect class="panel-soft" x="76" y="204" width="248" height="160" rx="12"/>
+  <text class="heading" x="98" y="236">Coding agents</text>
+  <text class="body" x="98" y="262">Any MCP-compatible client</text>
+  <text class="small" x="98" y="286">Codex · Claude Code · Cursor</text>
+  <text class="small" x="98" y="306">OpenCode · Hermes · generic stdio</text>
+  <rect class="chip-green" x="98" y="326" width="202" height="26" rx="6"/>
+  <text class="mono" x="112" y="344">store · recall · feedback</text>
 
-  <rect class="panel-soft" x="40" y="204" width="720" height="250" rx="10"/>
-  <text class="section" x="64" y="236">Public MCP surface</text>
-  <text class="small" x="248" y="236">exactly 13 tools</text>
+  <path class="line" d="M324 284 H376"/>
+  <text class="small" x="336" y="270">MCP</text>
 
-  <rect class="group" x="64" y="256" width="210" height="168" rx="8"/>
-  <text class="label" x="82" y="285">Memory - 6</text>
-  <text class="tool" x="82" y="316">store</text>
-  <text class="tool" x="178" y="316">recall</text>
-  <text class="tool" x="82" y="348">browse</text>
-  <text class="tool" x="178" y="348">stats</text>
-  <text class="tool" x="82" y="380">export</text>
-  <text class="tool" x="178" y="380">feedback</text>
+  <rect class="panel-blue" x="386" y="198" width="352" height="174" rx="12"/>
+  <text class="heading" x="410" y="230">SQLite / WAL</text>
+  <text class="label" x="555" y="230">durable authority</text>
+  <text class="body" x="410" y="257">Memories · Signals · audit metadata</text>
+  <text class="body" x="410" y="279">schema v5 + migration ledger</text>
+  <rect class="chip-blue" x="410" y="300" width="142" height="44" rx="7"/>
+  <text class="label" x="428" y="320">FTS5</text>
+  <text class="small" x="428" y="337">lexical index</text>
+  <rect class="chip-blue" x="570" y="300" width="144" height="44" rx="7"/>
+  <text class="label" x="588" y="320">Embeddings</text>
+  <text class="small" x="588" y="337">derived cache</text>
 
-  <rect class="group" x="294" y="256" width="190" height="168" rx="8"/>
-  <text class="label" x="312" y="285">Change - 4</text>
-  <text class="tool" x="312" y="312">forget</text>
-  <text class="tool" x="312" y="342">promote</text>
-  <text class="tool" x="312" y="372">annotate</text>
-  <text class="tool" x="312" y="402">revise</text>
+  <path class="line" d="M738 284 H790"/>
+  <text class="small" x="747" y="270">render</text>
 
-  <rect class="group" x="504" y="256" width="232" height="168" rx="8"/>
-  <text class="label" x="522" y="285">Signals - 3</text>
-  <text class="tool" x="522" y="316">claim_signal</text>
-  <text class="tool" x="522" y="348">extend_signal_lease</text>
-  <text class="tool" x="522" y="380">ack_signal</text>
+  <rect class="panel-amber" x="800" y="204" width="324" height="160" rx="12"/>
+  <text class="heading" x="824" y="236">Governed outputs</text>
+  <text class="body" x="824" y="262">Task Brief · review queue · exports</text>
+  <text class="body" x="824" y="284">promotion · revision · tombstones</text>
+  <rect class="chip-amber" x="824" y="310" width="276" height="34" rx="7"/>
+  <text class="safe" x="842" y="332">No automatic durable writeback</text>
 
-  <path class="line" d="M400 454 V480"/>
+  <text class="eyebrow" x="48" y="450">02 · TRUSTWORTHY RETRIEVAL</text>
+  <rect class="panel" x="48" y="466" width="1104" height="260" rx="16"/>
 
-  <rect class="panel" x="40" y="486" width="720" height="184" rx="10"/>
-  <text class="section" x="64" y="518">SQLite / WAL</text>
-  <text class="label" x="199" y="518">durable authority</text>
-  <text class="body" x="64" y="545">Inspectable records, namespaces, memory/signal lanes, and audit metadata</text>
+  <rect class="panel-soft" x="76" y="500" width="196" height="176" rx="12"/>
+  <text class="heading" x="98" y="532">Text query</text>
+  <text class="body" x="98" y="558">namespace + filters</text>
+  <rect class="chip-green" x="98" y="584" width="152" height="28" rx="6"/>
+  <text class="mono" x="112" y="603">kind = memory</text>
+  <text class="small" x="98" y="638">Recall remains read-only.</text>
 
-  <path class="index-line" d="M282 558 V580"/>
-  <path class="index-line" d="M518 558 V580"/>
-  <rect class="index" x="100" y="584" width="300" height="62" rx="8"/>
-  <text class="label" x="120" y="609">FTS5</text>
-  <text class="small" x="120" y="630">derived lexical index</text>
-  <rect class="index" x="420" y="584" width="300" height="62" rx="8"/>
-  <text class="label" x="440" y="609">Optional embeddings</text>
-  <text class="small" x="440" y="630">derived hashed / semantic cache</text>
+  <path class="line" d="M272 588 H324"/>
 
-  <path class="line" d="M400 670 V696"/>
+  <rect class="panel-blue" x="334" y="492" width="270" height="192" rx="12"/>
+  <text class="heading" x="358" y="524">Capability gate</text>
+  <rect class="chip-blue" x="358" y="546" width="220" height="28" rx="6"/>
+  <text class="mono" x="373" y="565">lexical → FTS5 / LIKE</text>
+  <rect class="chip-blue" x="358" y="584" width="220" height="28" rx="6"/>
+  <text class="mono" x="373" y="603">hashed_lexical ≠ semantic</text>
+  <rect class="chip-blue" x="358" y="622" width="220" height="40" rx="6"/>
+  <text class="mono" x="373" y="640">semantic requires:</text>
+  <text class="small" x="373" y="656">command + declared semantic</text>
 
-  <rect class="panel-change" x="40" y="702" width="720" height="160" rx="10"/>
-  <text class="section" x="64" y="734">Governed change</text>
-  <text class="small" x="242" y="734">checked before guidance becomes actionable</text>
-  <text class="warning" x="64" y="772">Redacted tombstones</text>
-  <text class="body" x="64" y="796">Exact lineage cascade; uncertain dependents retained as degraded evidence</text>
-  <text class="warning" x="64" y="828">Current guidance</text>
-  <text class="body" x="220" y="828">Lineage + transitive supersession + current premise + declared domain checks</text>
+  <path class="line" d="M604 588 H656"/>
 
-  <path class="line" d="M400 862 V888"/>
+  <rect class="panel-soft" x="666" y="492" width="214" height="192" rx="12"/>
+  <text class="heading" x="690" y="524">Rank results</text>
+  <text class="body" x="690" y="552">Lexical, semantic, or hybrid</text>
+  <text class="small" x="690" y="578">True semantic uses only</text>
+  <text class="small" x="690" y="597">precomputed valid vectors.</text>
+  <rect class="chip-green" x="690" y="620" width="166" height="42" rx="6"/>
+  <text class="safe" x="706" y="640">Explicit diagnostics</text>
+  <text class="small" x="706" y="656">cold · partial · degraded</text>
 
-  <rect class="panel-derived" x="40" y="894" width="720" height="116" rx="10"/>
-  <text class="section" x="64" y="926">Derived context and reports</text>
-  <text class="body" x="64" y="956">Startup/task context / Task Brief / review queue/workflow / exports</text>
-  <text class="label" x="64" y="984">Regenerable / proposal/read-only views / no automatic durable writeback</text>
+  <path class="line-amber" d="M880 588 H930"/>
 
-  <rect class="proof" x="40" y="1028" width="720" height="60" rx="8"/>
-  <text class="eyebrow" x="60" y="1052">PROOF GATES / OUTSIDE RUNTIME</text>
-  <text class="proof-text" x="60" y="1076">release contract / public surface / onboarding / benchmark/test gates</text>
+  <rect class="panel-amber" x="940" y="500" width="184" height="176" rx="12"/>
+  <text class="heading" x="962" y="532">Recall receipt</text>
+  <text class="small" x="962" y="558">HMAC · 15 min TTL</text>
+  <text class="small" x="962" y="580">namespace · epoch</text>
+  <text class="small" x="962" y="602">query hash · ids/ranks</text>
+  <rect class="chip-amber" x="962" y="624" width="140" height="30" rx="6"/>
+  <text class="mono" x="978" y="644">tamper-evident</text>
+
+  <text class="eyebrow" x="48" y="770">03 · FEEDBACK IS EVIDENCE, NOT CONTROL</text>
+  <rect class="panel" x="48" y="786" width="1104" height="178" rx="16"/>
+
+  <rect class="panel-amber" x="76" y="820" width="216" height="106" rx="12"/>
+  <text class="heading" x="98" y="852">feedback()</text>
+  <text class="small" x="98" y="877">helpful · misleading · outdated</text>
+  <text class="small" x="98" y="897">not_applicable · not_used</text>
+
+  <path class="line-amber" d="M292 873 H350"/>
+
+  <rect class="panel-blue" x="360" y="812" width="280" height="122" rx="12"/>
+  <text class="heading" x="384" y="844">Validate receipt</text>
+  <text class="small" x="384" y="870">signature · expiry · instance · epoch</text>
+  <text class="small" x="384" y="891">namespace · memory id · result rank</text>
+  <text class="small" x="384" y="912">canonical base64url only</text>
+
+  <path class="line" d="M640 873 H698"/>
+
+  <rect class="panel-soft" x="708" y="812" width="238" height="122" rx="12"/>
+  <text class="heading" x="732" y="844">Append-only ledger</text>
+  <text class="small" x="732" y="870">idempotent · redacted response</text>
+  <text class="small" x="732" y="891">schema v5 retrieval_feedback</text>
+  <text class="small" x="732" y="912">shadow analysis only</text>
+
+  <path class="line-slate" d="M946 873 H1002"/>
+
+  <rect class="panel-red" x="1012" y="812" width="112" height="122" rx="12"/>
+  <text class="warn" x="1031" y="844">NO</text>
+  <text class="small" x="1031" y="870">rerank</text>
+  <text class="small" x="1031" y="890">rewrite</text>
+  <text class="small" x="1031" y="910">auto-policy</text>
+
+  <rect class="panel-gray" x="48" y="982" width="1104" height="42" rx="10"/>
+  <text class="eyebrow" x="70" y="1008">OUTSIDE RUNTIME</text>
+  <text class="small" x="228" y="1008">release contract · tests · benchmark snapshots · visual claim inventory · human review</text>
 </svg>
