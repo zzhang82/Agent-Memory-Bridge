@@ -7,12 +7,14 @@
       "id": "amb-overview-runtime-surface",
       "asset_path": "examples/diagrams/amb-overview.svg",
       "asset_type": "svg",
-      "claim": "The overview diagram presents AMB's runtime path as MCP-compatible coding agents, a 13-tool public MCP surface, SQLite/WAL durable authority, governed change, and derived context/reports.",
+      "claim": "The overview diagram presents AMB 0.25.1 as a 13-tool MCP runtime over SQLite/WAL durable authority, honest retrieval capability, signed recall receipts, append-only shadow feedback, governed outputs, and explicit no-auto-writeback boundaries.",
       "evidence_paths": [
         "README.md",
         "README.zh-CN.md",
         "docs/PRODUCTION-STATUS.md",
-        "src/agent_mem_bridge/server.py"
+        "src/agent_mem_bridge/server.py",
+        "src/agent_mem_bridge/query.py",
+        "src/agent_mem_bridge/retrieval_feedback.py"
       ],
       "release_applicability": {
         "status": "current",
@@ -23,12 +25,52 @@
       "id": "amb-overview-proof-boundary",
       "asset_path": "examples/diagrams/amb-overview.svg",
       "asset_type": "svg",
-      "claim": "The overview diagram labels release proof gates as separate from the runtime path.",
+      "claim": "The overview diagram labels release proof gates and human review as separate from the runtime path.",
       "evidence_paths": [
         "README.md",
         "docs/PRODUCTION-STATUS.md",
         "scripts/check_release_contract.py",
         "benchmark/README.md"
+      ],
+      "release_applicability": {
+        "status": "current",
+        "release": "0.25.1"
+      }
+    },
+    {
+      "id": "v025-trustworthy-retrieval-capability-flow",
+      "asset_path": "examples/diagrams/v0.25-trustworthy-retrieval.svg",
+      "asset_type": "svg",
+      "claim": "The trustworthy retrieval diagram distinguishes lexical, hashed-lexical, and declared semantic capability; shows semantic-provider gating, precomputed-valid-only vector use, explicit degradation, read-only recall, and optional signed recall receipts.",
+      "evidence_paths": [
+        "docs/v0.25.1-announcement.md",
+        "docs/CONFIGURATION.md",
+        "docs/PRODUCTION-STATUS.md",
+        "src/agent_mem_bridge/embedding_index.py",
+        "src/agent_mem_bridge/query.py",
+        "src/agent_mem_bridge/retrieval_feedback.py",
+        "tests/test_v0250_retrieval_capabilities.py",
+        "tests/test_v0250_recall_receipts.py"
+      ],
+      "release_applicability": {
+        "status": "current",
+        "release": "0.25.1"
+      }
+    },
+    {
+      "id": "v025-feedback-shadow-loop",
+      "asset_path": "examples/diagrams/v0.25-feedback-shadow-loop.svg",
+      "asset_type": "svg",
+      "claim": "The feedback diagram presents receipt-bound outcome submission, canonical token and receipt validation, append-only idempotent storage, and the current boundary that feedback does not mutate memory, indexes, beliefs, review state, or ranking.",
+      "evidence_paths": [
+        "docs/v0.25.1-announcement.md",
+        "docs/AUTHORITY-CONTRACT.md",
+        "docs/TRUST-BOUNDARY.md",
+        "docs/PRODUCTION-STATUS.md",
+        "src/agent_mem_bridge/retrieval_feedback.py",
+        "src/agent_mem_bridge/schema.py",
+        "tests/test_v0250_feedback.py",
+        "tests/test_stdio_feedback.py"
       ],
       "release_applicability": {
         "status": "current",
