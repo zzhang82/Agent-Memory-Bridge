@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">AMB v0.25 trustworthy retrieval flow</title>
+  <desc id="desc">A detailed flow for Agent Memory Bridge 0.25.1 retrieval. A query enters a capability gate. Lexical retrieval uses FTS5 or LIKE. The local hash provider is labeled hashed lexical and cannot satisfy semantic mode. True semantic and hybrid semantic arms require a command provider explicitly declaring semantic capability and use precomputed valid vectors only. Results include diagnostics and an optional short-lived HMAC recall receipt. Recall performs no database writes.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f8f5ee"/><stop offset="1" stop-color="#edf5f2"/></linearGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#173d47" flood-opacity="0.12"/></filter>
+    <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#2d6f67"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#9a6817"/></marker>
+    <style>
+      .bg{fill:url(#bg)}.card{fill:#fffdf8;stroke:#244f5a;stroke-width:1.8;filter:url(#shadow)}.green{fill:#edf5f2;stroke:#2d6f67;stroke-width:1.6}.blue{fill:#edf2f8;stroke:#466780;stroke-width:1.6}.amber{fill:#fff4d9;stroke:#9a6817;stroke-width:1.6}.red{fill:#fff1ed;stroke:#a34d3d;stroke-width:1.6}.chip{fill:#fff;stroke:#8da3a8;stroke-width:1.1}.line{fill:none;stroke:#2d6f67;stroke-width:2.2;marker-end:url(#a)}.line2{fill:none;stroke:#9a6817;stroke-width:2.1;marker-end:url(#b)}.dash{fill:none;stroke:#6b7b80;stroke-width:1.8;stroke-dasharray:6 5}.title{fill:#102f3a;font:700 31px "Segoe UI",Arial,sans-serif}.sub{fill:#36515a;font:15px "Segoe UI",Arial,sans-serif}.head{fill:#102f3a;font:700 19px "Segoe UI",Arial,sans-serif}.label{fill:#173d47;font:700 14px "Segoe UI",Arial,sans-serif}.body{fill:#29434b;font:13.5px "Segoe UI",Arial,sans-serif}.small{fill:#43575d;font:12px "Segoe UI",Arial,sans-serif}.mono{fill:#173d47;font:600 12px Consolas,"Courier New",monospace}.safe{fill:#235a52;font:700 13px "Segoe UI",Arial,sans-serif}.warn{fill:#8b3f22;font:700 13px "Segoe UI",Arial,sans-serif}
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="720"/>
+  <text class="title" x="44" y="54">Trustworthy retrieval in v0.25.1</text>
+  <text class="sub" x="44" y="82">Capability is labeled before ranking; only a declared semantic command provider may enter the semantic arm.</text>
+
+  <rect class="card" x="44" y="112" width="1112" height="496" rx="18"/>
+  <rect class="green" x="72" y="154" width="178" height="130" rx="12"/>
+  <text class="head" x="94" y="186">1. Query</text>
+  <text class="body" x="94" y="214">namespace + filters</text>
+  <text class="body" x="94" y="235">non-empty text</text>
+  <rect class="chip" x="94" y="250" width="132" height="24" rx="6"/>
+  <text class="mono" x="107" y="267">kind=memory</text>
+
+  <path class="line" d="M250 219 H304"/>
+
+  <rect class="blue" x="314" y="136" width="250" height="166" rx="12"/>
+  <text class="head" x="338" y="169">2. Capability gate</text>
+  <rect class="chip" x="338" y="190" width="202" height="25" rx="6"/><text class="mono" x="351" y="207">mode = lexical</text>
+  <rect class="chip" x="338" y="225" width="202" height="25" rx="6"/><text class="mono" x="351" y="242">mode = semantic</text>
+  <rect class="chip" x="338" y="260" width="202" height="25" rx="6"/><text class="mono" x="351" y="277">mode = hybrid</text>
+
+  <path class="line" d="M564 190 H622"/>
+  <path class="line" d="M564 246 H622"/>
+  <path class="line" d="M564 278 C592 278 596 384 622 384"/>
+
+  <rect class="green" x="632" y="126" width="224" height="128" rx="12"/>
+  <text class="head" x="656" y="159">Lexical arm</text>
+  <text class="body" x="656" y="186">FTS5, then LIKE fallback</text>
+  <text class="body" x="656" y="208">Transparent lexical reranker</text>
+  <text class="safe" x="656" y="233">Default, no vector claim</text>
+
+  <rect class="red" x="632" y="274" width="224" height="100" rx="12"/>
+  <text class="head" x="656" y="307">Hashed lexical</text>
+  <text class="body" x="656" y="333">Token hashing is not semantic.</text>
+  <text class="warn" x="656" y="356">Semantic mode rejects it.</text>
+
+  <rect class="blue" x="632" y="394" width="224" height="148" rx="12"/>
+  <text class="head" x="656" y="427">True semantic arm</text>
+  <text class="body" x="656" y="453">provider = command</text>
+  <text class="body" x="656" y="475">capability = semantic</text>
+  <text class="body" x="656" y="497">precomputed valid vectors only</text>
+  <text class="safe" x="656" y="522">No recall-time backfill</text>
+
+  <path class="line" d="M856 190 H908"/>
+  <path class="line" d="M856 468 H908"/>
+  <path class="dash" d="M856 324 H884 V246 H908"/>
+
+  <rect class="green" x="918" y="160" width="202" height="168" rx="12"/>
+  <text class="head" x="942" y="193">3. Results</text>
+  <text class="body" x="942" y="220">ranked memory items</text>
+  <text class="body" x="942" y="242">mode + provider metadata</text>
+  <text class="body" x="942" y="264">cold / partial / degraded</text>
+  <rect class="chip" x="942" y="282" width="154" height="26" rx="6"/><text class="mono" x="955" y="300">read-only path</text>
+
+  <path class="line2" d="M1019 328 V378"/>
+
+  <rect class="amber" x="918" y="388" width="202" height="154" rx="12"/>
+  <text class="head" x="942" y="421">4. Recall receipt</text>
+  <text class="body" x="942" y="448">HMAC-SHA256 · 15 min</text>
+  <text class="small" x="942" y="472">instance · database epoch</text>
+  <text class="small" x="942" y="493">namespace · query hash</text>
+  <text class="small" x="942" y="514">memory ids + result ranks</text>
+
+  <rect class="red" x="72" y="334" width="492" height="208" rx="12"/>
+  <text class="head" x="96" y="368">Failure and degradation behavior</text>
+  <text class="body" x="96" y="398">• semantic + undeclared provider → clear error</text>
+  <text class="body" x="96" y="424">• hybrid + undeclared provider → lexical order preserved</text>
+  <text class="body" x="96" y="450">• provider unavailable → explicit degraded metadata</text>
+  <text class="body" x="96" y="476">• stale, missing, or invalid vectors → reported, never silently rebuilt</text>
+  <text class="warn" x="96" y="512">Recall never writes memory, FTS, embeddings, beliefs, or feedback.</text>
+
+  <rect class="card" x="44" y="630" width="1112" height="54" rx="12"/>
+  <text class="label" x="68" y="663">Honesty boundary:</text>
+  <text class="body" x="202" y="663">a configured command is caller-declared capability, not model certification or authenticated provenance.</text>
+</svg>
