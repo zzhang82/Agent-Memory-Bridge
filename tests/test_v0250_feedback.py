@@ -73,6 +73,20 @@ def _seed_recall_receipt(store: MemoryStore) -> tuple[str, str, str, list[str]]:
     return str(first["id"]), token, "alpha protocol exact", order
 
 
+def _seed_distinct_recall_receipt(store: MemoryStore, label: str) -> tuple[str, str, int]:
+    query = f"v0250 {label} outcome target"
+    created = store.store(
+        namespace=NAMESPACE,
+        kind="memory",
+        title=query,
+        content=f"{query} durable result.",
+        tags=["domain:feedback", f"outcome:{label}"],
+    )
+    recalled = store.recall(namespace=NAMESPACE, query=query, kind="memory", limit=5)
+    rank = next(index for index, item in enumerate(recalled["items"], start=1) if str(item["id"]) == str(created["id"]))
+    return str(created["id"]), str(recalled["recall_receipt"]["token"]), rank
+
+
 def _feedback_count(store: MemoryStore) -> int:
     with store._connect() as conn:
         return int(conn.execute("SELECT COUNT(*) FROM retrieval_feedback").fetchone()[0])
@@ -191,9 +205,9 @@ def test_feedback_rejects_conflicting_outcome_or_reason_for_same_stable_identity
     stored = store.feedback(**identity, outcome="misleading", reason="wrong file")
     assert stored["stored"] is True
 
-    with pytest.raises(ValueError, match="conflicting feedback"):
+    with pytest.raises(ValueError, match="conflicting plain feedback vote; submit a correction"):
         store.feedback(**identity, outcome="helpful", reason=None)
-    with pytest.raises(ValueError, match="conflicting feedback"):
+    with pytest.raises(ValueError, match="conflicting plain feedback vote; submit a correction"):
         store.feedback(**identity, outcome="misleading", reason="wrong namespace")
 
     rows = _feedback_rows(store)
@@ -207,7 +221,6 @@ def test_feedback_accepts_all_declared_outcomes_and_keeps_not_used_shadow_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = _new_store(tmp_path, monkeypatch)
-    memory_id, token, _query, _order = _seed_recall_receipt(store)
     reasons = {
         "helpful": None,
         "misleading": "wrong conclusion",
@@ -216,16 +229,15 @@ def test_feedback_accepts_all_declared_outcomes_and_keeps_not_used_shadow_only(
         "not_used": None,
     }
 
-    for index, outcome in enumerate(sorted(FEEDBACK_OUTCOMES), start=1):
+    for outcome in sorted(FEEDBACK_OUTCOMES):
+        memory_id, token, result_rank = _seed_distinct_recall_receipt(store, outcome)
         result = store.feedback(
             namespace=NAMESPACE,
             recall_receipt=token,
             memory_id=memory_id,
-            result_rank=1,
+            result_rank=result_rank,
             outcome=outcome,
             reason=reasons[outcome],
-            source_client=f"client-{index}",
-            client_session_id=f"session-{index}",
         )
         assert result["stored"] is True
         assert result["outcome"] == outcome
@@ -394,16 +406,23 @@ def test_feedback_does_not_mutate_memories_indexes_belief_records_or_default_ran
         conn.commit()
     before_snapshot = _authority_snapshot(store)
 
-    for index, outcome in enumerate(("helpful", "not_used"), start=1):
-        result = store.feedback(
-            namespace=NAMESPACE,
-            recall_receipt=token,
-            memory_id=memory_id,
-            result_rank=1,
-            outcome=outcome,
-            source_client=f"ranking-client-{index}",
-            client_session_id=f"ranking-session-{index}",
-        )
+    first = store.feedback(
+        namespace=NAMESPACE,
+        recall_receipt=token,
+        memory_id=memory_id,
+        result_rank=1,
+        outcome="helpful",
+    )
+    changed = store.feedback(
+        namespace=NAMESPACE,
+        recall_receipt=token,
+        memory_id=memory_id,
+        result_rank=1,
+        outcome="not_used",
+        feedback_type="correction",
+        supersedes_feedback_id=first["feedback_id"],
+    )
+    for result in (first, changed):
         assert result["feedback_mode"] == "shadow_only"
         assert result["ordering"] == "unchanged"
 

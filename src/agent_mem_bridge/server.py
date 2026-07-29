@@ -217,12 +217,23 @@ def feedback(
         Field(gt=0, description="One-based rank of the memory in the recalled result list."),
     ],
     outcome: Annotated[
-        Literal["helpful", "misleading", "outdated", "not_applicable", "not_used"],
-        Field(description="Declared retrieval outcome for the recalled memory."),
-    ],
+        Literal["helpful", "misleading", "outdated", "not_applicable", "not_used"] | None,
+        Field(description="Declared retrieval outcome. Required for votes and corrections; optional for retractions."),
+    ] = None,
     reason: Annotated[
         str | None,
         Field(description="Optional compact reason. Required for `misleading` and `outdated` outcomes."),
+    ] = None,
+    feedback_type: Annotated[
+        Literal["vote", "correction", "retraction"],
+        Field(description="Append-only feedback event type. Defaults to a root vote."),
+    ] = "vote",
+    supersedes_feedback_id: Annotated[
+        int | None,
+        Field(
+            gt=0,
+            description="Current feedback head id. Required for corrections and retractions; omitted for root votes.",
+        ),
     ] = None,
     provenance: Annotated[
         dict[str, str] | None,
@@ -255,6 +266,8 @@ def feedback(
         result_rank=result_rank,
         outcome=outcome,
         reason=_optional_text(reason),
+        feedback_type=feedback_type,
+        supersedes_feedback_id=supersedes_feedback_id,
         source_app=source_app,
         source_client=source_client,
         source_model=source_model,
@@ -335,6 +348,17 @@ def recall(
             )
         ),
     ] = None,
+    evidence_context: Annotated[
+        dict[str, str] | None,
+        Field(
+            max_length=3,
+            description=(
+                "Optional caller-declared evidence labels. Only `model`, `harness`, and `chat_template` "
+                "are accepted; signed receipts contain bounded SHA-256 digests, never raw values. "
+                "These labels are not authenticated and do not affect retrieval order or feedback identity."
+            ),
+        ),
+    ] = None,
 ) -> dict[str, Any]:
     """Recall matching entries or poll for new signals from the bridge.
 
@@ -372,6 +396,7 @@ def recall(
         actor=actor,
         correlation_id=correlation_id,
         since=since,
+        evidence_context=evidence_context,
     )
 
 

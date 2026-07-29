@@ -30,6 +30,9 @@ EXPECTED_RETRIEVAL_FEEDBACK_COLUMNS = [
     "client_transport",
     "actor",
     "created_at",
+    "feedback_type",
+    "supersedes_feedback_id",
+    "feedback_identity_digest",
 ]
 
 LEGACY_V5_RETRIEVAL_FEEDBACK_CHECKSUM = "4b40b369da475605dd73e9629b8640959cae794fbf3fe46f674a9b15c4c92a01"
@@ -140,12 +143,12 @@ def _create_v0_fixture(conn: sqlite3.Connection) -> None:
     _insert_memory_row(conn, "v0-row")
 
 
-def test_fresh_schema_records_v5_ledger_and_append_only_feedback_table() -> None:
+def test_fresh_schema_records_current_ledger_and_append_only_feedback_table() -> None:
     conn = _connect()
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 5
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 7
     assert _ledger_rows(conn) == _declared_rows()
     _assert_receipt_bound_feedback_schema(conn)
 
@@ -154,6 +157,7 @@ def test_fresh_schema_records_v5_ledger_and_append_only_feedback_table() -> None
         INSERT INTO retrieval_feedback (
             idempotency_key,
             receipt_hash,
+            feedback_identity_digest,
             namespace,
             memory_id,
             result_rank,
@@ -174,7 +178,7 @@ def test_fresh_schema_records_v5_ledger_and_append_only_feedback_table() -> None
             actor,
             created_at
         ) VALUES (
-            ?, ?, 'project:bridge', 'memory-1', 1, 'helpful', 'confirmed useful',
+            ?, ?, ?, 'project:bridge', 'memory-1', 1, 'helpful', 'confirmed useful',
             'lexical', 'epoch-1', 'bridge-1', '2026-01-01T00:00:00+00:00',
             '2026-01-01T00:15:00+00:00',
             '{"provenance":"server_declared_not_authenticated","query_hash":"abc123"}',
@@ -182,7 +186,7 @@ def test_fresh_schema_records_v5_ledger_and_append_only_feedback_table() -> None
             'builder', '2026-01-01T00:01:00+00:00'
         )
         """,
-        ("a" * 64, "b" * 64),
+        ("a" * 64, "b" * 64, "c" * 64),
     )
     conn.commit()
 
@@ -203,28 +207,29 @@ def test_retrieval_feedback_enforces_unique_idempotency_and_outcome_enum() -> No
 
     insert_sql = """
         INSERT INTO retrieval_feedback (
-            idempotency_key, receipt_hash, namespace, memory_id, result_rank, outcome, retrieval_mode,
+            idempotency_key, receipt_hash, feedback_identity_digest,
+            namespace, memory_id, result_rank, outcome, retrieval_mode,
             database_epoch, bridge_instance_id, receipt_issued_at, receipt_expires_at, feedback_json, created_at
         ) VALUES (
-            ?, ?, 'project:bridge', 'memory-1', 1, ?, 'lexical',
+            ?, ?, ?, 'project:bridge', 'memory-1', 1, ?, 'lexical',
             'epoch-1', 'bridge-1', '2026-01-01T00:00:00+00:00',
             '2026-01-01T00:15:00+00:00', '{}', '2026-01-01T00:01:00+00:00'
         )
     """
-    conn.execute(insert_sql, ("c" * 64, "d" * 64, "helpful"))
+    conn.execute(insert_sql, ("c" * 64, "d" * 64, "e" * 64, "helpful"))
     conn.commit()
 
     with pytest.raises(sqlite3.IntegrityError):
-        conn.execute(insert_sql, ("c" * 64, "e" * 64, "not_used"))
+        conn.execute(insert_sql, ("c" * 64, "f" * 64, "e" * 64, "not_used"))
     conn.rollback()
 
     with pytest.raises(sqlite3.IntegrityError):
-        conn.execute(insert_sql, ("f" * 64, "e" * 64, "raw_score"))
+        conn.execute(insert_sql, ("f" * 64, "e" * 64, "f" * 64, "raw_score"))
     conn.rollback()
 
 
-@pytest.mark.parametrize("fixture_version", [0, 1, 2, 3, 4])
-def test_v0_through_v4_fixtures_upgrade_to_v5(fixture_version: int) -> None:
+@pytest.mark.parametrize("fixture_version", [0, 1, 2, 3, 4, 5])
+def test_v0_through_v5_fixtures_upgrade_to_current(fixture_version: int) -> None:
     conn = _connect()
     if fixture_version == 0:
         _create_v0_fixture(conn)
@@ -258,6 +263,85 @@ def test_existing_v4_database_upgrades_to_v5_without_rewriting_memory_schema() -
     assert conn.execute("SELECT content FROM memories WHERE id = 'v4-existing-row'").fetchone()["content"] == (
         "v4-existing-row survives migration"
     )
+
+
+def test_existing_v5_feedback_duplicates_upgrade_without_mutating_legacy_evidence() -> None:
+    conn = _connect()
+    _apply_schema_version(conn, 5)
+    insert_sql = """
+        INSERT INTO retrieval_feedback (
+            idempotency_key, receipt_hash, namespace, memory_id, result_rank, outcome, reason, retrieval_mode,
+            database_epoch, bridge_instance_id, receipt_issued_at, receipt_expires_at, feedback_json,
+            source_client, client_session_id, created_at
+        ) VALUES (
+            ?, ?, 'project:bridge', 'legacy-memory', 1, ?, ?, 'lexical',
+            'epoch-1', 'bridge-1', '2026-01-01T00:00:00+00:00',
+            '2026-01-01T00:15:00+00:00', ?, ?, ?, ?
+        )
+    """
+    conn.execute(
+        insert_sql,
+        (
+            "1" * 64,
+            "a" * 64,
+            "helpful",
+            None,
+            '{"legacy":1}',
+            "client-a",
+            "session-a",
+            "2026-01-01T00:01:00+00:00",
+        ),
+    )
+    conn.execute(
+        insert_sql,
+        (
+            "2" * 64,
+            "a" * 64,
+            "outdated",
+            "legacy duplicate",
+            '{"legacy":2}',
+            "client-b",
+            "session-b",
+            "2026-01-01T00:02:00+00:00",
+        ),
+    )
+    conn.commit()
+    legacy_columns = ", ".join(schema_module.LEGACY_V5_RETRIEVAL_FEEDBACK_COLUMNS)
+    before = [
+        tuple(row)
+        for row in conn.execute(
+            f"SELECT {legacy_columns} FROM retrieval_feedback ORDER BY feedback_id"  # noqa: S608
+        ).fetchall()
+    ]
+
+    init_db(conn)
+
+    after = [
+        tuple(row)
+        for row in conn.execute(
+            f"SELECT {legacy_columns} FROM retrieval_feedback ORDER BY feedback_id"  # noqa: S608
+        ).fetchall()
+    ]
+    assert schema_version(conn) == 7
+    assert after == before
+    assert conn.execute("SELECT COUNT(*) FROM retrieval_feedback").fetchone()[0] == 2
+    assert [
+        tuple(row)
+        for row in conn.execute(
+            """
+            SELECT feedback_type, supersedes_feedback_id, feedback_identity_digest
+            FROM retrieval_feedback
+            ORDER BY feedback_id
+            """
+        ).fetchall()
+    ] == [("vote", None, "a" * 64), ("vote", None, "a" * 64)]
+    effective = conn.execute(
+        """
+        SELECT feedback_id, outcome
+        FROM retrieval_feedback_effective_votes
+        """
+    ).fetchall()
+    assert [tuple(row) for row in effective] == [(2, "outdated")]
 
 
 def test_injected_v5_failure_rolls_back_ddl_data_user_version_and_ledger(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -312,6 +396,69 @@ def test_injected_v5_failure_rolls_back_ddl_data_user_version_and_ledger(monkeyp
     assert "partial_v5_data" not in _table_names(conn)
     assert conn.execute("SELECT content FROM memories WHERE id = 'rollback-row'").fetchone()["content"] == (
         "rollback-row survives migration"
+    )
+
+
+def test_injected_v7_failure_rolls_back_identity_column_data_user_version_and_ledger(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = _connect()
+    _apply_schema_version(conn, 6)
+    conn.execute(
+        """
+        INSERT INTO retrieval_feedback (
+            idempotency_key,
+            receipt_hash,
+            namespace,
+            memory_id,
+            result_rank,
+            outcome,
+            retrieval_mode,
+            database_epoch,
+            bridge_instance_id,
+            receipt_issued_at,
+            receipt_expires_at,
+            feedback_json,
+            created_at
+        ) VALUES (
+            ?, ?, 'project:bridge', 'legacy-v6-row', 1, 'helpful', 'lexical',
+            'epoch-1', 'bridge-1', '2026-01-01T00:00:00+00:00',
+            '2026-01-01T00:15:00+00:00', '{}', '2026-01-01T00:01:00+00:00'
+        )
+        """,
+        ("1" * 64, "2" * 64),
+    )
+    conn.commit()
+    real_migrations = tuple(schema_module.MIGRATIONS)
+    real_v7 = schema_module._coerce_schema_migration(real_migrations[6])
+
+    def failing_v7(connection: sqlite3.Connection) -> None:
+        schema_module._migrate_to_v7(connection)
+        connection.execute("CREATE TABLE partial_v7_data (id INTEGER PRIMARY KEY)")
+        connection.execute("INSERT INTO partial_v7_data(id) VALUES (1)")
+        raise RuntimeError("injected v7 failure")
+
+    monkeypatch.setattr(
+        schema_module,
+        "MIGRATIONS",
+        (
+            *real_migrations[:6],
+            SchemaMigration(real_v7.version, real_v7.name, real_v7.checksum, failing_v7),
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="injected v7 failure"):
+        init_db(conn)
+
+    assert schema_version(conn) == 6
+    assert "schema_migrations" not in _table_names(conn)
+    assert "feedback_identity_digest" not in _feedback_column_names(conn)
+    assert "partial_v7_data" not in _table_names(conn)
+    assert (
+        conn.execute("SELECT receipt_hash FROM retrieval_feedback WHERE memory_id = 'legacy-v6-row'").fetchone()[
+            "receipt_hash"
+        ]
+        == "2" * 64
     )
 
 

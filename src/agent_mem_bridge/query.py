@@ -41,6 +41,8 @@ def recall_candidates(
     retrieval_mode: str | None = None,
     diagnostics: dict[str, Any] | None = None,
     include_rowid: bool = False,
+    connection: sqlite3.Connection | None = None,
+    current_database_epoch: str | None = None,
 ) -> list[dict[str, Any]]:
     candidate_limit = max(limit, min(max(limit * 5, 20), 100))
     mode = normalize_retrieval_mode(retrieval_mode or resolve_retrieval_mode())
@@ -72,6 +74,8 @@ def recall_candidates(
                 correlation_id=correlation_id,
                 since=since,
                 include_rowid=include_rowid,
+                connection=connection,
+                current_database_epoch=current_database_epoch,
             )
         lexical_items = _recall_lexical_candidates(
             store,
@@ -86,6 +90,8 @@ def recall_candidates(
             correlation_id=correlation_id,
             since=since,
             include_rowid=include_rowid,
+            connection=connection,
+            current_database_epoch=current_database_epoch,
         )
         try:
             semantic_items = recall_via_semantic(
@@ -103,6 +109,8 @@ def recall_candidates(
                 include_rowid=include_rowid,
                 diagnostics=diagnostics,
                 embedding_config=embedding_config,
+                connection=connection,
+                current_database_epoch=current_database_epoch,
             )
         except EmbeddingProviderError as exc:
             if mode == "semantic":
@@ -156,6 +164,8 @@ def recall_candidates(
         correlation_id=correlation_id,
         since=since,
         include_rowid=include_rowid,
+        connection=connection,
+        current_database_epoch=current_database_epoch,
     )
 
 
@@ -205,6 +215,8 @@ def _recall_lexical_candidates(
     correlation_id: str | None,
     since: str | None,
     include_rowid: bool,
+    connection: sqlite3.Connection | None = None,
+    current_database_epoch: str | None = None,
 ) -> list[dict[str, Any]]:
     candidate_limit = max(limit, min(max(limit * 5, 20), 100))
     match_query = build_match_query(query)
@@ -221,6 +233,8 @@ def _recall_lexical_candidates(
             actor=actor,
             correlation_id=correlation_id,
             since=since,
+            connection=connection,
+            current_database_epoch=current_database_epoch,
         )
         if rows:
             items = [_row_to_item(row, include_rowid=include_rowid) for row in rows]
@@ -241,6 +255,8 @@ def _recall_lexical_candidates(
             actor=actor,
             correlation_id=correlation_id,
             since=since,
+            connection=connection,
+            current_database_epoch=current_database_epoch,
         )
     else:
         rows = recall_via_filters(
@@ -254,6 +270,8 @@ def _recall_lexical_candidates(
             actor=actor,
             correlation_id=correlation_id,
             since=since,
+            connection=connection,
+            current_database_epoch=current_database_epoch,
         )
     items = [_row_to_item(row, include_rowid=include_rowid) for row in rows]
     if signal_status is not None:
@@ -279,6 +297,8 @@ def recall_via_semantic(
     include_rowid: bool = False,
     diagnostics: dict[str, Any] | None = None,
     embedding_config: EmbeddingConfig | None = None,
+    connection: sqlite3.Connection | None = None,
+    current_database_epoch: str | None = None,
 ) -> list[dict[str, Any]]:
     where_sql, params = build_filters(
         store,
@@ -291,12 +311,15 @@ def recall_via_semantic(
         correlation_id=correlation_id,
         since=since,
         alias="m",
+        connection=connection,
+        current_database_epoch=current_database_epoch,
     )
     try:
         resolved_embedding_config = embedding_config or active_embedding_config()
     except ValueError as exc:
         raise EmbeddingProviderError("embedding configuration is invalid") from exc
-    with store._connect() as conn:
+
+    def _read_semantic_rows(conn: sqlite3.Connection) -> tuple[sqlite3.Row, list[sqlite3.Row]]:
         stats = conn.execute(
             f"""
             SELECT
@@ -357,6 +380,15 @@ def recall_via_semantic(
             """,
             (*params, resolved_embedding_config.model, resolved_embedding_config.dim),
         ).fetchall()
+        if stats is None:
+            raise RuntimeError("semantic recall failed to read index statistics")
+        return stats, refreshed
+
+    if connection is not None:
+        stats, refreshed = _read_semantic_rows(connection)
+    else:
+        with store._connect() as conn:
+            stats, refreshed = _read_semantic_rows(conn)
 
     memory_count = int(stats["memory_count"] or 0)
     precomputed_count = int(stats["precomputed_embedding_count"] or 0)
@@ -445,15 +477,19 @@ def semantic_index_metadata(
             degraded_reason = "semantic-index-incomplete"
     provider = normalize_embedding_provider(config.provider)
     capability = normalize_embedding_capability(config.capability)
-    capability_verified = embedding_config_is_true_semantic(config)
+    capability_declared = embedding_config_is_true_semantic(config)
     metadata: dict[str, Any] = {
-        "semantic_available": capability_verified and valid_embedding_count > 0,
+        "semantic_available": capability_declared and valid_embedding_count > 0,
         "semantic_scope": "precomputed-valid-only",
         "semantic_model": config.model,
         "semantic_dim": config.dim,
         "semantic_provider": provider,
         "semantic_capability": capability,
-        "semantic_capability_verified": capability_verified,
+        "semantic_capability_declared": capability_declared,
+        "semantic_capability_provenance": "configuration_declared_not_runtime_verified",
+        "semantic_capability_verified": capability_declared,
+        "semantic_capability_verified_deprecated": True,
+        "semantic_capability_verified_replacement": "semantic_capability_declared",
         "semantic_completeness": completeness,
         "semantic_completeness_ratio": completeness_ratio,
         "semantic_memory_count": memory_count,
@@ -476,7 +512,11 @@ def semantic_unavailable_metadata(*, mode: str, config: EmbeddingConfig) -> dict
         "semantic_skip_reason": "semantic-provider-not-declared",
         "semantic_provider": normalize_embedding_provider(config.provider),
         "semantic_capability": normalize_embedding_capability(config.capability),
+        "semantic_capability_declared": False,
+        "semantic_capability_provenance": "configuration_declared_not_runtime_verified",
         "semantic_capability_verified": False,
+        "semantic_capability_verified_deprecated": True,
+        "semantic_capability_verified_replacement": "semantic_capability_declared",
         "degraded": mode == "hybrid",
     }
     if mode == "hybrid":
@@ -553,6 +593,8 @@ def recall_via_fts(
     actor: str | None,
     correlation_id: str | None,
     since: str | None,
+    connection: sqlite3.Connection | None = None,
+    current_database_epoch: str | None = None,
 ) -> list[sqlite3.Row]:
     where_sql, params = build_filters(
         store,
@@ -565,20 +607,23 @@ def recall_via_fts(
         correlation_id=correlation_id,
         since=since,
         alias="m",
+        connection=connection,
+        current_database_epoch=current_database_epoch,
     )
+    sql = f"""
+        SELECT
+            {alias_columns("m")}
+        FROM memories m
+        JOIN memories_fts f ON f.memory_id = m.id
+        WHERE {where_sql} AND memories_fts MATCH ?
+        ORDER BY bm25(memories_fts), m.created_at ASC, m.rowid ASC
+        LIMIT ?
+        """
+    query_params = (*params, match_query, limit)
+    if connection is not None:
+        return connection.execute(sql, query_params).fetchall()
     with store._connect() as conn:
-        return conn.execute(
-            f"""
-            SELECT
-                {alias_columns("m")}
-            FROM memories m
-            JOIN memories_fts f ON f.memory_id = m.id
-            WHERE {where_sql} AND memories_fts MATCH ?
-            ORDER BY bm25(memories_fts), m.created_at ASC, m.rowid ASC
-            LIMIT ?
-            """,
-            (*params, match_query, limit),
-        ).fetchall()
+        return conn.execute(sql, query_params).fetchall()
 
 
 def recall_via_like(
@@ -594,6 +639,8 @@ def recall_via_like(
     actor: str | None,
     correlation_id: str | None,
     since: str | None,
+    connection: sqlite3.Connection | None = None,
+    current_database_epoch: str | None = None,
 ) -> list[sqlite3.Row]:
     where_sql, params = build_filters(
         store,
@@ -605,21 +652,24 @@ def recall_via_like(
         actor=actor,
         correlation_id=correlation_id,
         since=since,
+        connection=connection,
+        current_database_epoch=current_database_epoch,
     )
     like_value = f"%{escape_like(query)}%"
+    sql = f"""
+        SELECT
+            {MEMORY_ROW_SELECT}
+        FROM memories
+        WHERE {where_sql}
+        AND (content LIKE ? ESCAPE '\\' OR COALESCE(title, '') LIKE ? ESCAPE '\\')
+        ORDER BY created_at ASC, rowid ASC
+        LIMIT ?
+        """
+    query_params = (*params, like_value, like_value, limit)
+    if connection is not None:
+        return connection.execute(sql, query_params).fetchall()
     with store._connect() as conn:
-        return conn.execute(
-            f"""
-            SELECT
-                {MEMORY_ROW_SELECT}
-            FROM memories
-            WHERE {where_sql}
-            AND (content LIKE ? ESCAPE '\\' OR COALESCE(title, '') LIKE ? ESCAPE '\\')
-            ORDER BY created_at ASC, rowid ASC
-            LIMIT ?
-            """,
-            (*params, like_value, like_value, limit),
-        ).fetchall()
+        return conn.execute(sql, query_params).fetchall()
 
 
 def recall_via_filters(
@@ -634,6 +684,8 @@ def recall_via_filters(
     actor: str | None,
     correlation_id: str | None,
     since: str | None,
+    connection: sqlite3.Connection | None = None,
+    current_database_epoch: str | None = None,
 ) -> list[sqlite3.Row]:
     rows, _snapshot_epoch = _recall_via_filters_snapshot(
         store,
@@ -646,6 +698,8 @@ def recall_via_filters(
         actor=actor,
         correlation_id=correlation_id,
         since=since,
+        connection=connection,
+        current_database_epoch=current_database_epoch,
     )
     return rows
 
@@ -662,10 +716,10 @@ def _recall_via_filters_snapshot(
     actor: str | None,
     correlation_id: str | None,
     since: str | None,
+    connection: sqlite3.Connection | None = None,
+    current_database_epoch: str | None = None,
 ) -> tuple[list[sqlite3.Row], str]:
-    with store._connect() as conn:
-        conn.execute("BEGIN")
-        snapshot_epoch = read_database_epoch(conn)
+    def _read_filter_rows(conn: sqlite3.Connection, snapshot_epoch: str) -> list[sqlite3.Row]:
         where_sql, params = build_filters(
             store,
             namespace=namespace,
@@ -684,7 +738,7 @@ def _recall_via_filters_snapshot(
             if since is not None
             else "created_at DESC, rowid DESC"
         )
-        rows = conn.execute(
+        return conn.execute(
             f"""
             SELECT
                 {MEMORY_ROW_SELECT}
@@ -695,6 +749,15 @@ def _recall_via_filters_snapshot(
             """,
             (*params, limit),
         ).fetchall()
+
+    if connection is not None:
+        snapshot_epoch = current_database_epoch or read_database_epoch(connection)
+        return _read_filter_rows(connection, snapshot_epoch), snapshot_epoch
+
+    with store._connect() as conn:
+        conn.execute("BEGIN")
+        snapshot_epoch = read_database_epoch(conn)
+        rows = _read_filter_rows(conn, snapshot_epoch)
     return rows, snapshot_epoch
 
 
@@ -1040,7 +1103,9 @@ def alias_columns(alias: str) -> str:
 
 
 def _row_to_item(row: sqlite3.Row, *, include_rowid: bool) -> dict[str, Any]:
-    item = MemoryRow.from_sqlite(row).as_dict()
+    memory = MemoryRow.from_sqlite(row)
+    item = memory.as_dict()
+    item["_exact_content_hash"] = memory.exact_content_hash
     if include_rowid:
         item["_cursor_sequence"] = int(row["_insertion_sequence"])
     return item

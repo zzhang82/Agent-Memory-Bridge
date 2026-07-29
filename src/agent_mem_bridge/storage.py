@@ -213,6 +213,7 @@ class MemoryStore:
         actor: str | None = None,
         correlation_id: str | None = None,
         since: str | None = None,
+        evidence_context: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         cleaned_namespace = namespace.strip()
         if not cleaned_namespace:
@@ -241,11 +242,14 @@ class MemoryStore:
                 "has_actor": bool(actor),
                 "has_correlation_id": bool(correlation_id),
                 "has_since": bool(cleaned_since),
+                "has_evidence_context": bool(evidence_context),
             },
         ) as span:
             retrieval_diagnostics: dict[str, Any] = {}
             is_polling_recall = not query_text and kind == "signal"
+            is_receipt_recall = should_issue_recall_receipt(query=query_text, kind=kind)
             poll_snapshot_epoch: str | None = None
+            recall_receipt: dict[str, Any] | None = None
             if is_polling_recall:
                 items, poll_snapshot_epoch = recall_signal_poll_page(
                     self,
@@ -258,6 +262,44 @@ class MemoryStore:
                     correlation_id=correlation_id,
                     since=cleaned_since,
                 )
+            elif is_receipt_recall:
+                with self._connect() as conn:
+                    conn.execute("BEGIN")
+                    snapshot_epoch = database_epoch(conn)
+                    items = recall_candidates(
+                        self,
+                        namespace=cleaned_namespace,
+                        query=query_text,
+                        limit=search_limit,
+                        kind=kind,
+                        signal_status=normalized_signal_status,
+                        tags_any=tags_any,
+                        session_id=session_id,
+                        actor=actor,
+                        correlation_id=correlation_id,
+                        since=cleaned_since,
+                        diagnostics=retrieval_diagnostics,
+                        include_rowid=False,
+                        connection=conn,
+                        current_database_epoch=snapshot_epoch,
+                    )
+                    recall_receipt = issue_recall_receipt(
+                        secret=self.recall_receipt_secret,
+                        database_epoch=snapshot_epoch,
+                        namespace=cleaned_namespace,
+                        query=query_text,
+                        items=items,
+                        retrieval_mode=str(retrieval_diagnostics.get("mode") or "lexical"),
+                        limit=search_limit,
+                        kind="memory",
+                        signal_status=normalized_signal_status,
+                        tags_any=tags_any,
+                        session_id=session_id,
+                        actor=actor,
+                        correlation_id=correlation_id,
+                        since=cleaned_since,
+                        evidence_context=evidence_context,
+                    )
             else:
                 items = recall_candidates(
                     self,
@@ -285,15 +327,8 @@ class MemoryStore:
             )
             self._strip_internal_fields(items)
             payload = {"count": len(items), "items": items, "next_since": next_since}
-            if should_issue_recall_receipt(query=query_text, kind=kind):
-                payload["recall_receipt"] = issue_recall_receipt(
-                    self,
-                    secret=self.recall_receipt_secret,
-                    namespace=cleaned_namespace,
-                    query=query_text,
-                    items=items,
-                    retrieval_mode=str(retrieval_diagnostics.get("mode") or "lexical"),
-                )
+            if recall_receipt is not None:
+                payload["recall_receipt"] = recall_receipt
             if retrieval_diagnostics:
                 payload["retrieval"] = retrieval_diagnostics
             span.set_attributes(
@@ -412,8 +447,10 @@ class MemoryStore:
         recall_receipt: str,
         memory_id: str,
         result_rank: int,
-        outcome: str,
+        outcome: str | None = None,
         reason: str | None = None,
+        feedback_type: str = "vote",
+        supersedes_feedback_id: int | None = None,
         source_app: str | None = None,
         source_client: str | None = None,
         source_model: str | None = None,
@@ -430,13 +467,18 @@ class MemoryStore:
         client_workspace = _optional_text(client_workspace)
         client_transport = _optional_text(client_transport)
         actor = _optional_text(actor)
+        feedback_type_category = str(feedback_type).strip().lower()
+        if feedback_type_category not in {"vote", "correction", "retraction"}:
+            feedback_type_category = "invalid"
         with self.telemetry.span(
             "amb.feedback.record",
             {
                 "namespace_hash": hash_label(namespace),
                 "memory_id_hash": hash_label(memory_id),
                 "result_rank": result_rank,
-                "outcome": _safe_feedback_outcome_category(outcome),
+                "outcome": _safe_feedback_outcome_category(outcome or ""),
+                "feedback_type": feedback_type_category,
+                "supersedes_feedback": supersedes_feedback_id is not None,
                 "has_reason": reason is not None,
                 "receipt_present": bool(str(recall_receipt).strip()),
                 "has_source_app": source_app is not None,
@@ -448,7 +490,7 @@ class MemoryStore:
                 "has_client_workspace": client_workspace is not None,
                 "client_transport": _safe_transport_category(client_transport),
                 "has_actor": actor is not None,
-                "provenance": "server_declared_not_authenticated",
+                "provenance": "caller_declared_not_authenticated",
                 "authenticated_origin": False,
             },
         ) as span:
@@ -461,6 +503,8 @@ class MemoryStore:
                 result_rank=result_rank,
                 outcome=outcome,
                 reason=reason,
+                feedback_type=feedback_type,
+                supersedes_feedback_id=supersedes_feedback_id,
                 source_app=source_app,
                 source_client=source_client,
                 source_model=source_model,
@@ -855,6 +899,7 @@ class MemoryStore:
     def _strip_internal_fields(items: list[dict[str, Any]]) -> None:
         for item in items:
             item.pop("_cursor_sequence", None)
+            item.pop("_exact_content_hash", None)
 
     @staticmethod
     def _utc_now() -> str:

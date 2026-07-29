@@ -22,8 +22,11 @@ The public MCP surface is intentionally small:
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
-Retrieval feedback is receipt-bound and shadow-only; it does not change memory
-records, recall results, or ranking behavior.
+Receipt-bearing recall binds the complete returned exposure set and exact
+content versions from one SQLite snapshot. Retrieval feedback supports
+append-only votes, corrections, and retractions while exposing at most one
+current effective vote per receipt-bound subject. It remains shadow-only and
+does not change memory records, recall results, or ranking behavior.
 
 ## Ask Before You Configure
 
@@ -51,7 +54,7 @@ user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
    ```
 
 3. Derive the venv interpreter as described in `llms-install.md`, then install
-   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.1.zip"`.
+   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.2.zip"`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:
@@ -144,7 +147,12 @@ store(
 recall(
   namespace="project:demo",
   kind="memory",
-  query="schema edit generator gotcha"
+  query="schema edit generator gotcha",
+  evidence_context={
+    "model": "<caller-declared model label>",
+    "harness": "<caller-declared harness label>",
+    "chat_template": "<caller-declared chat-template label>"
+  }
 )
 ```
 
@@ -152,9 +160,16 @@ The goal is not to create a large memory dump. The goal is to prove that a later
 session can recover a specific engineering gotcha without the human retyping it.
 
 For non-empty `kind="memory"` text recall, the response can include a 15-minute
-`recall_receipt`. Treat that token as sensitive local metadata. It is HMAC-signed
-and tamper-evident, not encrypted, and it does not authenticate the caller,
-client, model, workspace, or user.
+`recall_receipt`. The returned rows, database epoch, complete exposure set,
+exact content versions, and receipt signature come from the same SQLite read
+snapshot. Treat the token as sensitive local metadata. It is HMAC-signed and
+tamper-evident, not encrypted, and it does not authenticate the caller, client,
+model, workspace, or user.
+
+`evidence_context` is optional and accepts only `model`, `harness`, and
+`chat_template`. The signed receipt contains bounded SHA-256 digests, never the
+raw labels. These caller-declared values do not affect retrieval order or
+feedback identity.
 
 If the human wants retrieval feedback, bind it to that receipt:
 
@@ -170,6 +185,12 @@ feedback(
 
 Feedback is append-only shadow evidence. It does not promote records, rewrite
 memories, update indexes, or change future ranking.
+
+The default `feedback_type` is `vote`. To change or withdraw the current vote,
+append a `correction` or `retraction` with the current
+`supersedes_feedback_id`; existing rows are never rewritten. Caller-declared
+client or session labels cannot create additional votes for the same signed
+retrieval subject.
 
 If a separate helper is present, keep it on this path: check AMB, connect one
 MCP client, store one real gotcha, recall it, and optionally render a Task Brief

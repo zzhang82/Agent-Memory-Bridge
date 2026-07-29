@@ -13,7 +13,7 @@
 
 Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 shared engineering memory。它补充 `AGENTS.md`、`CLAUDE.md` 和客户端原生 preference memory，而不是取代它们。SQLite/WAL 是 durable authority，FTS5 和可选本地 embeddings 则是 derived indexes；当前公开能力按 `lexical`、`hashed_lexical` 和声明式 `semantic` 边界表述。
 
-`0.25.1` 是 Trustworthy Adaptive Retrieval 的跨平台完整性补丁。它拒绝非规范 base64url receipt 别名，并修复 Python 3.11 command-provider 测试竞态；13-tool MCP surface 与 shadow-only feedback 边界保持不变。
+`0.25.2` 在不增加 MCP tools 的前提下强化 snapshot-bound retrieval evidence。带 receipt 的 recall 会从同一 SQLite snapshot 返回 rows，并签名完整 exposure set 与 exact content versions；feedback 增加 append-only correction/retraction events，只保留一个 current effective vote，同时继续保持 shadow-only。
 
 > Codex 是参考工作流，不是产品边界。AMB 使用本地 stdio MCP；客户端集成只按下方标注声明为 documented 或 locally verified。
 
@@ -44,7 +44,9 @@ AMB 选择更小的路径：本地 SQLite authority、显式 namespace、可检�
 - Context assembly：startup 和 task-time context 可以从 procedure、concept、belief、gotcha 和 linked support 编译出来，不需要增加更多 MCP tools。
 - Governed change：在 guidance 变为 actionable 之前检查显式 deletion、supersession、changed premise 和 task-domain applicability。
 - Cross-client activation receipts：read-only CLI receipt 可以显示一个 memory loop 中有两个不同的声明式 client labels 参与，同时不暴露 path、content、session ID 或 model ID。
-- Proof discipline：release contract、public-surface check、onboarding check、benchmark snapshot、visual inventory checks，以及 `604 tests collected`（完整运行：`601 pass`, `3 skip`）。
+- Retrieval feedback：调用方可以追加 receipt-bound vote、correction 或 retraction；AMB 最多暴露一个 current effective vote，但不会改变 ranking 或 memory。
+- Evidence context：recall 可以为可选且由调用方声明的 `model`、`harness`、`chat_template` labels 签入 bounded SHA-256 digests，不包含 raw values，也不把它们当作 authenticated identity。
+- Proof discipline：release contract、public-surface check、onboarding check、benchmark snapshot、visual inventory checks，以及针对 receipt/feedback 的 targeted regressions。
 
 ## 工作方式
 
@@ -86,7 +88,7 @@ issue report。在 POSIX shell 中按需对该 path 做 shell quoting；在 Wind
 PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.2.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -94,7 +96,7 @@ PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
 可选的 pinned GitHub smoke test 使用 `uvx`：
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.1 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.2 agent-memory-bridge verify
 ```
 
 ### 快速开始：Unified First-Run
@@ -239,7 +241,7 @@ bridge 暴露 `13` public MCP tools：
 
 | Group | Tools | Boundary |
 |---|---|---|
-| Memory - 6 | `store`, `recall`, `browse`, `stats`, `export`, `feedback` | `feedback` 只记录 receipt-bound retrieval outcome evidence；append-only、shadow-only，不改变 ranking、memory 或 indexes |
+| Memory - 6 | `store`, `recall`, `browse`, `stats`, `export`, `feedback` | `recall` 可接受 caller-declared evidence-context labels；`feedback` 使用 append-only vote/correction/retraction events；两者都不改变 ranking |
 | Change - 4 | `forget`, `promote`, `annotate`, `revise` | 显式 mutating/review operations；不会绕过 reserved governance boundary |
 | Signals - 3 | `claim_signal`, `extend_signal_lease`, `ack_signal` | 轻量 coordination lifecycle，不是 scheduler、queue 或 distributed lock |
 
@@ -247,6 +249,20 @@ bridge 暴露 `13` public MCP tools：
 `revise` 会在同一事务中创建 successor record 和可审计的 supersession
 receipt。两者都保留 review boundary：调用方不能生成 reserved governance
 tags，也不能把 hidden learning candidate 直接修订成 authority。`feedback` 使用短生命周期 recall receipt 绑定 recalled memory id 和 rank；它不会让 helpful/outdated 等 outcome 参与默认 ranking，也不会把 caller-declared provenance 当成 authenticated identity。
+
+带 receipt 的 recall 会在同一个 SQLite read snapshot 中读取 rows，并生成
+带签名的完整 exposure set；每个 exposure 都绑定 `memory_id`、rank 和 exact
+content version。可选 `evidence_context` 只接受 `model`、`harness` 和
+`chat_template`，receipt 只包含 bounded SHA-256 digests，不包含 raw
+caller-declared values。这些 labels 不会影响 retrieval order 或 feedback
+identity。
+
+`feedback` 默认创建 root `vote`。`correction` 或 `retraction` 必须通过
+`supersedes_feedback_id` 指向 current head，从而保留完整 append-only event
+history，同时最多暴露一个 current effective vote。caller-declared client
+或 session labels 不能为同一 signed retrieval subject 增加 votes。
+`receipt_hash` 仍是 actual token hash；`feedback_identity_digest` 是独立的
+canonical subject identity。
 
 更复杂的能力留在 surface 后面：reflex promotion、consolidation、startup/task-time assembly、procedure governance、telemetry summaries、signal contention checks、learning-candidate review queues、Task Brief reports、human review workflows，以及 activation receipts。当前没有单独的 `task_packet`、`startup_packet`、`learning_candidate`、`task_brief`、`review_queue`、`review_workflow` 或 `activation_receipt` MCP tools。
 
@@ -273,13 +289,13 @@ operator review work 是 CLI report，不是 MCP tool：
 
 ## Proof Snapshot
 
-`0.25.1` 加固了 retrieval 与 feedback 边界。当前能力仍按 `lexical`、`hashed_lexical` 和声明式 `semantic` 区分；默认 hash provider 是 `hashed_lexical`，不能被写成真正 semantic retrieval。Text memory recall 的 receipt 由 HMAC 签名并短期有效；payload 不包含 raw query 或 raw content，但 token 本身不是加密。新补丁会拒绝非规范 base64url receipt 别名，并稳定 Python 3.11 的 command-provider 验证。Feedback 仍是 receipt-bound、append-only、shadow-only evidence，不会 mutation memory、index、belief records 或默认排序。
+`0.25.2` 在保留 13 个 public MCP tools 的同时强化 signed retrieval evidence。`recall` argument schema 增加可选 caller-declared evidence-context labels，`feedback` schema 增加 append-only vote/correction/retraction fields。带 receipt 的 recall 把 returned rows、database epoch、完整 exposure set、exact content versions 和 signature 绑定到同一 SQLite snapshot。Semantic capability 是 configuration-declared，不是 runtime-verified。Feedback 继续保持 shadow-only，不是 reranker、memory editor、authentication layer、ACL system、ANN index、graph engine 或 automatic policy path。
 
 | Track | Current signal |
 |---|---|
 | Trustworthy Adaptive Retrieval | `lexical` / `hashed_lexical` / declared `semantic` capability labels；不声明 active rerank、ANN、graph traversal 或 automatic policy decisions |
-| Recall receipts | 短生命周期 HMAC token；tamper-evident，不加密；raw query/content 不进入 receipt payload |
-| Retrieval feedback | append-only shadow evidence；`feedback_mode = shadow_only`, `ordering = unchanged`；不 mutation memory、indexes、belief records 或 default ranking |
+| Recall receipts | 短生命周期 HMAC token；same-snapshot complete exposure set 绑定 exact content versions；可选 model/harness/chat-template digests；tamper-evident，不加密 |
+| Retrieval feedback | schema v7；append-only vote/correction/retraction history；每个 signed retrieval subject 最多一个 effective vote；`feedback_mode = shadow_only`, `ordering = unchanged` |
 | Trust boundary | caller/provenance declared but not authenticated；没有 auth、ACL、caller identity proof 或 certification claim |
 | Restore guard | database epoch 只用于 restore-instance mismatch guard；不是 per-write freshness proof |
 | Retrieval | `memory_expected_top1_accuracy = 1.0`, `file_scan_expected_top1_accuracy = 0.636` |
@@ -299,7 +315,7 @@ operator review work 是 CLI report，不是 MCP tool：
 | v0.21 governed change proof | 固定的本地 executable proof：`v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | 仅为 declared-provenance local receipt；要求两个不同的声明式 `source_client` labels 和 acked reader signal；`public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory：`examples/diagrams/visual-claims.json`；native-size 和 README-width raster render gate 要求无 clipping、overlap 或 crossed labels；hero PNG 标记为 conceptual，semantic validation not performed；SVG assets 带 title/desc metadata |
-| Test suite | `604 tests collected`；完整运行：`601 pass`, `3 skip` |
+| Test suite | isolated CPython 3.11 validation：`620 tests collected`、`620 passed`；v0.25.2 包含 snapshot、context、semantic-declaration、effective-feedback、migration、stdio、install 和 public-surface targeted regressions |
 
 <details>
 <summary>Release contract facts</summary>
@@ -443,6 +459,7 @@ AMB 不是 graph database、通用 unlearning system、hosted memory platform、
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
+- [v0.25.2 announcement](docs/v0.25.2-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

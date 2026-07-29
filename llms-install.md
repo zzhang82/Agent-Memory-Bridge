@@ -41,7 +41,7 @@ Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.2.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -81,7 +81,7 @@ loaded.
 If `uvx` is already installed, it can run the GitHub source directly:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.1 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.2 agent-memory-bridge verify
 ```
 
 Do not make this the only install instruction. `uv` is not a project baseline
@@ -97,8 +97,16 @@ review tool input before approval.
 For non-empty `kind="memory"` text recall, AMB can return a 15-minute
 `recall_receipt`. Treat it as sensitive: the token is HMAC-signed and
 tamper-evident, not encrypted, and it does not authenticate caller provenance.
-The `feedback(...)` tool can append receipt-bound shadow evidence, but it does
-not mutate memories, indexes, recall results, or ranking behavior.
+The returned rows, database epoch, complete exposure set, exact content
+versions, and signature are assembled from the same SQLite read snapshot.
+`recall(...)` can optionally sign bounded SHA-256 digests for caller-declared
+`model`, `harness`, and `chat_template` labels; raw labels are not included.
+
+The `feedback(...)` tool can append a vote, correction, or retraction for a
+receipt-bound result. One current effective vote is exposed per signed
+retrieval subject, and caller-declared client or session labels cannot create
+additional votes. Feedback remains shadow-only: it does not mutate memories,
+indexes, recall results, or ranking behavior.
 
 Agent Memory Bridge is an additional MCP memory store. Do not claim that it
 replaces a client's built-in memory, instructions, rules, or project context.

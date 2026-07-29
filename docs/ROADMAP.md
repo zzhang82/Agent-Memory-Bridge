@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-07-26 (America/New_York)
+Last updated: 2026-07-28 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.25.1`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, and the v0.25 Trustworthy Adaptive Retrieval release. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.25.2`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, and the v0.25 Trustworthy Adaptive Retrieval and Evidence Integrity releases. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,9 +636,47 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.25.2 = Evidence Integrity
+
+Status: current patch release; 13 MCP tools retained, with expanded `recall`
+and `feedback` argument schemas.
+
+### Thesis
+
+Make retrieval feedback explainable at the exact evidence version that was
+shown, without turning caller-declared identity into authority or activating
+feedback-based reranking.
+
+### Scope
+
+1. Build receipt-bearing recall results and receipt evidence from one SQLite
+   read snapshot.
+2. Sign the complete exposure set, exact content versions, and canonical
+   retrieval-contract digest.
+3. Accept optional model, harness, and chat-template context only as
+   caller-declared digests.
+4. Store vote, correction, and retraction events append-only.
+5. Keep one current effective vote per receipt/result subject; changing
+   caller-declared session or client labels does not create another vote.
+6. Preserve the actual receipt token hash separately from the stable feedback
+   identity digest.
+7. Migrate ordered SQLite schema to v7 with v5/v6 compatibility and injected
+   rollback coverage.
+8. Keep feedback shadow-only: no active reranking, policy mutation, or
+   automatic promotion.
+
+### Acceptance Gate
+
+- full isolated suite: `620 tests collected`, `620 passed`
+- complete exposure and exact-version receipt tests pass
+- concurrent duplicate voting and stale idempotent replay tests pass
+- v5/v6 migration and injected v7 rollback tests pass
+- Ruff check/format and focused mypy pass
+- no new MCP tool and no 0.26 episode/branch/training scope
+
 ## 0.25.1 = Cross-Platform Receipt Integrity
 
-Status: current public patch release; no MCP surface or schema change.
+Status: historical public patch release; no MCP surface or schema change.
 
 `0.25.1` rejects non-canonical base64url receipt aliases that can decode to the
 same signature bytes and removes a Python 3.11 command-provider fixture race

@@ -132,6 +132,11 @@ def test_hybrid_without_semantic_provider_preserves_lexical_order_and_skips_sema
     assert hybrid["retrieval"]["semantic_skip_reason"] == "semantic-provider-not-declared"
     assert hybrid["retrieval"]["semantic_provider"] == "hash"
     assert hybrid["retrieval"]["semantic_capability"] == "hashed_lexical"
+    assert hybrid["retrieval"]["semantic_capability_declared"] is False
+    assert hybrid["retrieval"]["semantic_capability_verified"] is False
+    assert hybrid["retrieval"]["semantic_capability_verified_deprecated"] is True
+    assert hybrid["retrieval"]["semantic_capability_verified_replacement"] == "semantic_capability_declared"
+    assert hybrid["retrieval"]["semantic_capability_provenance"] == "configuration_declared_not_runtime_verified"
 
 
 def test_only_declared_semantic_command_provider_reports_semantic_available(
@@ -154,7 +159,11 @@ def test_only_declared_semantic_command_provider_reports_semantic_available(
     assert result["retrieval"]["semantic_available"] is True
     assert result["retrieval"]["semantic_provider"] == "command"
     assert result["retrieval"]["semantic_capability"] == "semantic"
+    assert result["retrieval"]["semantic_capability_declared"] is True
     assert result["retrieval"]["semantic_capability_verified"] is True
+    assert result["retrieval"]["semantic_capability_verified_deprecated"] is True
+    assert result["retrieval"]["semantic_capability_verified_replacement"] == "semantic_capability_declared"
+    assert result["retrieval"]["semantic_capability_provenance"] == "configuration_declared_not_runtime_verified"
 
 
 def test_recall_operational_log_hashes_query_without_raw_query(

@@ -1,21 +1,22 @@
 # Production Status
 
-Last updated: 2026-07-26 (America/New_York)
+Last updated: 2026-07-28 (America/New_York)
 
-This maintainer note describes the current `0.25.1` cross-platform integrity patch for Trustworthy Adaptive Retrieval, the inherited v0.24 exact-identity and recall-boundary work, the inherited v0.23.1 local-hardening work, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.25.2` Evidence Integrity patch for Trustworthy Adaptive Retrieval, the inherited v0.24 exact-identity and recall-boundary work, the inherited v0.23.1 local-hardening work, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
 
-## 0.25.1 Release Status
+## 0.25.2 Release Status
 
-- Package version: `0.25.1`
-- Release thesis: make adaptive retrieval explainable and feedback auditable without claiming active reranking, authentication, ACLs, ANN retrieval, graph memory, or automatic policy
-- MCP runtime behavior: the public surface is exactly 13 tools
-- Baseline install: immutable `v0.25.1` archive in `.amb-venv`, using the derived venv interpreter
+- Package version: `0.25.2`
+- Release thesis: bind retrieval evidence to one SQLite snapshot and make feedback correction auditable without granting caller-declared provenance extra authority
+- MCP runtime behavior: the public surface retains exactly 13 tools; `recall` and `feedback` argument schemas expand
+- Baseline install: immutable `v0.25.2` archive in `.amb-venv`, using the derived venv interpreter
 - Retrieval capability contract: retrieval reports the honest operating capability as `lexical`, `hashed_lexical`, or `semantic`; default hash embeddings remain `hashed_lexical`, while true semantic mode requires a declared semantic provider
-- Recall receipt contract: explicit non-empty `kind="memory"` text recall can return a short-lived HMAC receipt that binds bridge instance, database epoch, namespace, query hash, retrieval mode, and memory ids/ranks
-- Recall receipt boundary: receipt tokens are tamper-evident, not encrypted; they omit raw query/content and do not authenticate caller identity or provenance
-- Feedback contract: `feedback` validates a recall receipt, memory id, result rank, namespace, bridge instance, expiry, and database epoch before storing a declared outcome
+- Recall receipt contract: explicit non-empty `kind="memory"` text recall can return a short-lived HMAC receipt generated from the same SQLite read snapshot as the returned rows; it binds bridge instance, database epoch, namespace, query hash, retrieval contract, complete exposure set, memory ids/ranks, and exact content versions
+- Recall receipt boundary: receipt tokens are tamper-evident, not encrypted; they omit raw query/content, may carry only digests of optional caller-declared model/harness/chat-template labels, and do not authenticate caller identity or provenance
+- Feedback contract: `feedback` validates the exact receipt member, content version, memory id, result rank, namespace, bridge instance, expiry, and database epoch before storing a declared event
 - Feedback outcomes: `helpful`, `misleading`, `outdated`, `not_applicable`, and `not_used`; `misleading` and `outdated` require a compact reason
-- Feedback storage contract: feedback is append-only, idempotent for the same stable receipt/client/session identity, redacted in responses/logs/telemetry, and shadow-only evidence
+- Feedback storage contract: vote, correction, and retraction events are append-only; one receipt/result subject has one current effective vote, caller-declared client/session fields cannot create additional voting power, stale idempotent replay reports current effectiveness, and evidence remains redacted and shadow-only
+- Feedback identity contract: `receipt_hash` stores the actual token hash; schema v7 adds a separate `feedback_identity_digest` for stable vote identity and safely backfills v5/v6 rows
 - Feedback boundary: feedback does not mutate memory rows, FTS rows, embedding rows, belief records, recall results, or ranking behavior
 - Database epoch boundary: the epoch is a restore-instance guard for stale receipts/cursors, not per-write freshness or a concurrency guarantee
 - Exact identity contract inherited from v0.24: schema version `4` adds `exact_content_hash`; after existing store/revise input trimming it normalizes newline sequences only, drives memory deduplication, and preserves legacy `content_hash`
@@ -34,7 +35,7 @@ This maintainer note describes the current `0.25.1` cross-platform integrity pat
 - One-shot exit contract: `service --once` returns `0` for successful enabled lanes, `1` when any enabled lane fails, and `3` on singleton-lock conflict
 - Signal health contract: doctor reports malformed Signal timestamps/state; `signal-repair` can make invalid rows recoverable, and `hardened-local` requires claim-before-ack
 - State contract: service-lane JSON state uses tolerant loading and unique temporary files followed by atomic replacement; failed replacement preserves the previous valid state
-- Schema contract: schema version `5` adds append-only retrieval feedback on top of typed metadata, normalized tags, indexed relations, insertion sequences, annotations, revisions, exact content identity, and a database epoch while preserving ordered transactional migration
+- Schema contract: schema version `7` adds append-only correction/retraction chains and a separate feedback identity digest on top of typed metadata, normalized tags, indexed relations, insertion sequences, annotations, revisions, exact content identity, and a database epoch while preserving ordered transactional migration
 - Database maintenance contract: `db-health`, projection repair, consistent backup/verify/offline restore, WAL checkpoint, retention cleanup, capacity warnings, private managed-file permissions, and bounded log rotation are operator-visible
 - Polling contract: `since` is valid only for empty-query `kind="signal"` recall; opaque cursors carry namespace, insertion sequence, and database epoch from the same query result snapshot
 - Cursor boundary: `since` tracks later insertions, not later lifecycle transitions on older Signals; text and memory recall return `next_since: null`
@@ -86,7 +87,7 @@ This maintainer note describes the current `0.25.1` cross-platform integrity pat
 22. a Cross-Client Activation Receipt CLI/report that reads existing writer memory and reader signal rows for one namespace and correlation id, hashes sensitive identifiers, and performs no durable or config writes
 23. embedding maintenance that batches provider work outside SQLite write transactions and revalidates content hashes before derived-vector writes
 24. one shared service-lane boundary with exception isolation, failure counters, capped backoff, and tolerant atomic state replacement
-25. an ordered transactional schema migration spine recorded as SQLite schema version `5`
+25. an ordered transactional schema migration spine recorded as SQLite schema version `7`
 26. a classifier suggestion boundary that promotes only validated `domain:` and `topic:` tags and keeps shadow-mode output non-authoritative
 27. monotonic insertion-sequence cursors for reflex and consolidation with legacy `since_id` state compatibility
 28. one cross-platform local service lock with meaningful one-shot exit status, heartbeat state, and slow-lane timing
@@ -95,17 +96,17 @@ This maintainer note describes the current `0.25.1` cross-platform integrity pat
 31. indexed governed deletion shared by forget, Signal retention cleanup, and profile-source pruning
 32. database integrity/projection health, repair, consistent backup/restore, WAL checkpoint, size warnings, private managed-file permissions, and log rotation
 33. `local-single-user` and `hardened-local` operating profiles with an explicit cooperative-security boundary
-34. receipt-bound retrieval feedback that is append-only, shadow-only, redacted, and ordering-neutral
+34. same-snapshot receipt-bound retrieval feedback with exact content versions, append-only correction/retraction history, one effective vote, and shadow-only ordering-neutral behavior
 
-## Verified On 2026-07-26
+## Verified On 2026-07-28
 
-- `pytest --collect-only -q tests`: `604 tests collected`; full run result: `601 pass`, `3 skip`
+- isolated CPython 3.11 clean-room suite: `620 tests collected`; full run result: `620 passed`
 - stdio verify now expects 13 tools and includes a `feedback_shadow_record` check
 - v0.25 retrieval capability tests verify the default `hashed_lexical` capability, explicit semantic-provider gating, hybrid semantic-arm skipping when no semantic provider is declared, and semantic availability only for a declared semantic command provider
-- v0.25 recall receipt tests verify short-lived signed receipts for explicit memory text recall, redaction of raw query/content, receipt scope, tamper rejection, expiry rejection, namespace/rank/member binding, bridge-instance binding, and database-epoch mismatch rejection
-- v0.25 feedback tests verify idempotent retry, conflict rejection, allowed outcomes, required reasons for `misleading` and `outdated`, reason length limits, invalid receipt rejection, append-only shadow behavior, no memory/index/ranking mutation, and redacted logs/telemetry
+- v0.25.2 recall receipt tests verify one SQLite snapshot for returned rows and receipt evidence, complete exposure sets, exact content-version binding, retrieval-contract digests, optional caller-declared evidence-context digests, redaction of raw values, and rejection of tampered or stale evidence
+- v0.25.2 feedback tests verify append-only vote/correction/retraction chains, one current effective vote, stale replay semantics, caller-declared provenance neutrality, concurrent duplicate collapse, separate token and vote-identity hashes, no memory/index/ranking mutation, and redacted logs/telemetry
 - stdio feedback integration covers startup tool-surface visibility, successful feedback, duplicate retry, conflict rejection, and redacted structured responses
-- schema migration tests verify SQLite schema version `5`, append-only `retrieval_feedback`, unique idempotency keys, legacy v0-v4 upgrade to v5, rollback on injected v5 migration failure, and fail-closed handling for unsupported legacy v5 feedback tables
+- schema migration tests verify SQLite schema version `7`, append-only `retrieval_feedback`, unique idempotency and supersession constraints, legacy v0-v6 upgrades, v5 duplicate preservation, rollback on injected v5/v7 failures, and fail-closed handling for unsupported legacy feedback tables
 - the integrated embedding, service, state, schema, command-provider, maintenance, revision, and storage regressions are part of the full suite
 - scheduled maintenance and rebuild tests verify batched provider execution outside write transactions plus content-hash revalidation before vector writes
 - semantic and hybrid recall tests verify no candidate embedding backfill or recall-time writes, degraded completeness reporting for cold/stale indexes, and typed provider-failure lexical degradation
@@ -115,7 +116,7 @@ This maintainer note describes the current `0.25.1` cross-platform integrity pat
 - service regressions verify lock metadata, residual-file reacquisition, real spawned-process contention, one-shot lane-failure exit `1`, and lock-conflict exit `3`
 - doctor and repair regressions verify malformed claimed Signal state is detected and can be repaired explicitly
 - shared state-I/O tests cover malformed JSON, atomic replacement, unique temporary files, and preservation of the previous valid state when replacement fails
-- schema tests cover ordered version `5` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
+- schema tests cover ordered version `7` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
 - Chinese/Han hash-semantic tests cover character and bigram tokenization; no Chinese FTS support is claimed
 - 10,000-Signal polling acceptance with `limit=100`: exact insertion order, 10,000 unique ids, zero missing, zero unexpected, 100 pages
 - eight independent `spawn` processes claiming one exact Signal: one stored winner and no lock error in the local Linux run; the same test is part of the normal cross-platform CI matrix
@@ -261,14 +262,16 @@ This maintainer note describes the current `0.25.1` cross-platform integrity pat
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
-## What 0.25.1 Actually Means
+## What 0.25.2 Actually Means
 
 - retrieval reports whether the active capability is `lexical`, `hashed_lexical`, or `semantic`
-- `hashed_lexical` is not presented as true semantic retrieval; true semantic mode requires a declared semantic provider
-- explicit non-empty memory text recall can return a short-lived HMAC receipt bound to the result set
-- receipt tokens are tamper-evident, not encrypted, and omit raw query/content
-- receipt provenance is server-declared and caller provenance remains unauthenticated
-- `feedback` stores receipt-bound retrieval outcomes as append-only shadow evidence
+- `hashed_lexical` is not presented as true semantic retrieval; true semantic mode requires a configuration-declared semantic provider, not runtime verification
+- explicit non-empty memory text recall can return a short-lived HMAC receipt built from the same SQLite read snapshot as the returned rows
+- receipts sign the complete exposure set, exact content versions, and retrieval-contract digest; optional model/harness/chat-template labels are stored only as caller-declared digests
+- receipt tokens are tamper-evident, not encrypted, and omit raw query/content and raw evidence-context values
+- vote identity excludes caller-declared client/session provenance, so a caller cannot gain extra voting power by changing labels
+- `feedback` stores vote, correction, and retraction events as append-only shadow evidence with one current effective vote
+- `receipt_hash` remains the actual token hash while `feedback_identity_digest` is a separate schema v7 field
 - feedback does not alter memory records, FTS rows, embedding rows, belief records, returned ordering, or ranking behavior
 - the database epoch protects against stale restore-instance receipts and cursors; it is not a per-write freshness guarantee
 - the public MCP surface is exactly 13 tools
@@ -328,7 +331,7 @@ This maintainer note describes the current `0.25.1` cross-platform integrity pat
 - the visual inventory is release hygiene, not semantic proof
 - native-size and README-width raster renders are a release gate for clipping,
   overlap, and crossed labels
-- the current validation snapshot is `604 tests collected`
+- the current validation snapshot is `620 tests collected`
 
 ## What 0.22.0 Actually Means
 
@@ -396,7 +399,7 @@ The release still does **not** mean:
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.25.1
+## Pressure Points After 0.25.2
 
 The most important remaining gaps are:
 
@@ -414,7 +417,9 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.25.1` is the cross-platform integrity patch for Trustworthy Adaptive Retrieval. It preserves the `lexical`, `hashed_lexical`, and `semantic` capability contract, the short-lived HMAC receipts, and the thirteenth `feedback` tool introduced in `0.25.0`. The patch rejects non-canonical base64url receipt aliases and removes a Python 3.11 command-provider test race. Feedback remains append-only shadow evidence: it does not mutate memory, indexes, recall ordering, or ranking.
+`0.25.2` is the Evidence Integrity patch for Trustworthy Adaptive Retrieval. It preserves the 13-tool surface while expanding the `recall` and `feedback` argument schemas. Receipt-bearing recall now binds returned rows, the complete exposure set, exact content versions, and retrieval-contract evidence to one SQLite snapshot. Feedback gains append-only correction/retraction history, a single current effective vote, caller-declared provenance neutrality, and separate token-hash versus vote-identity fields under schema v7. Feedback remains shadow-only: it does not mutate memory, indexes, recall ordering, or ranking.
+
+`0.25.1` was the cross-platform receipt-integrity patch. It rejected non-canonical base64url aliases and removed a Python 3.11 command-provider test race without changing the 13-tool surface or feedback authority boundary.
 
 `0.24.0` corrected exact memory identity and derived-index boundaries without changing the 12-tool public MCP surface. It made schema v4 exact identity explicit, kept semantic/hybrid recall read-only over precomputed vectors, warmed benchmark/proof embeddings before semantic scoring, shared the service exclusion lock for index rebuild, and documented the cooperative local trust boundary. It did not claim online restore, authenticated actors, ACLs, ANN retrieval, or multi-user infrastructure.
 

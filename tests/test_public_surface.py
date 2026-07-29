@@ -65,6 +65,7 @@ def test_v023_v024_and_v025_release_docs_are_on_public_surface() -> None:
         Path("docs/v0.24.0-announcement.md"),
         Path("docs/v0.25.0-announcement.md"),
         Path("docs/v0.25.1-announcement.md"),
+        Path("docs/v0.25.2-announcement.md"),
     }.issubset(set(PUBLIC_DOC_PATHS))
 
 

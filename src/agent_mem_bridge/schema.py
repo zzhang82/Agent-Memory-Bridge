@@ -10,8 +10,8 @@ from .embedding_index import ensure_embedding_schema
 from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CURRENT_SCHEMA_VERSION = 5
-RETRIEVAL_FEEDBACK_COLUMNS = (
+CURRENT_SCHEMA_VERSION = 7
+LEGACY_V5_RETRIEVAL_FEEDBACK_COLUMNS = (
     "feedback_id",
     "idempotency_key",
     "receipt_hash",
@@ -34,6 +34,15 @@ RETRIEVAL_FEEDBACK_COLUMNS = (
     "client_transport",
     "actor",
     "created_at",
+)
+LEGACY_V6_RETRIEVAL_FEEDBACK_COLUMNS = (
+    *LEGACY_V5_RETRIEVAL_FEEDBACK_COLUMNS,
+    "feedback_type",
+    "supersedes_feedback_id",
+)
+RETRIEVAL_FEEDBACK_COLUMNS = (
+    *LEGACY_V6_RETRIEVAL_FEEDBACK_COLUMNS,
+    "feedback_identity_digest",
 )
 
 
@@ -124,6 +133,14 @@ def _migrate_to_v5(conn: sqlite3.Connection) -> None:
     _ensure_retrieval_feedback_schema(conn)
 
 
+def _migrate_to_v6(conn: sqlite3.Connection) -> None:
+    _ensure_retrieval_feedback_effective_vote_schema(conn)
+
+
+def _migrate_to_v7(conn: sqlite3.Connection) -> None:
+    _ensure_retrieval_feedback_identity_schema(conn)
+
+
 MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     SchemaMigration(
         1,
@@ -155,6 +172,18 @@ MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], No
         "bf1ad8c49e78e15d11962e31a659f8e955dc3fbd8047d801e457183e75163be4",
         _migrate_to_v5,
     ),
+    SchemaMigration(
+        6,
+        "v6_retrieval_feedback_effective_votes",
+        "f2fb0b4e3f9dd723fc205ea35f20b1f19ed7cd7e47d922c258871242221f7c94",
+        _migrate_to_v6,
+    ),
+    SchemaMigration(
+        7,
+        "v7_retrieval_feedback_identity_digest",
+        "cc4074acb0aee9f77eae265f3b9940b337737918e9c8d6e31f6ad702e202aa98",
+        _migrate_to_v7,
+    ),
 )
 
 
@@ -164,6 +193,8 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
     _ensure_bridge_metadata_schema(conn)
     _ensure_exact_content_identity_schema(conn)
     _ensure_retrieval_feedback_schema(conn)
+    _ensure_retrieval_feedback_effective_vote_schema(conn)
+    _ensure_retrieval_feedback_identity_schema(conn)
     backfill_record_projections(conn, only_missing=True)
 
 
@@ -213,7 +244,14 @@ def _validate_unledgered_schema_before_backfill(conn: sqlite3.Connection, curren
     if current_version < 5:
         return
     feedback_columns = _table_column_names(conn, "retrieval_feedback")
-    if feedback_columns != list(RETRIEVAL_FEEDBACK_COLUMNS):
+    supported_shapes = {tuple(LEGACY_V5_RETRIEVAL_FEEDBACK_COLUMNS)}
+    if current_version >= 7:
+        supported_shapes = {tuple(RETRIEVAL_FEEDBACK_COLUMNS)}
+    elif current_version == 6:
+        supported_shapes = {tuple(LEGACY_V6_RETRIEVAL_FEEDBACK_COLUMNS)}
+    elif current_version == 5:
+        supported_shapes.add(tuple(LEGACY_V6_RETRIEVAL_FEEDBACK_COLUMNS))
+    if tuple(feedback_columns) not in supported_shapes:
         raise RuntimeError(
             "unledgered schema version 5 has an unsupported retrieval_feedback shape; "
             "cannot backfill the migration ledger"
@@ -823,6 +861,264 @@ def _ensure_retrieval_feedback_schema(conn: sqlite3.Connection) -> None:
         BEGIN
             SELECT RAISE(ABORT, 'retrieval_feedback is append-only');
         END
+        """
+    )
+
+
+def _ensure_retrieval_feedback_effective_vote_schema(conn: sqlite3.Connection) -> None:
+    ensure_column(
+        conn,
+        "retrieval_feedback",
+        "feedback_type",
+        """
+        ALTER TABLE retrieval_feedback
+        ADD COLUMN feedback_type TEXT NOT NULL DEFAULT 'vote'
+            CHECK (feedback_type IN ('vote', 'correction', 'retraction'))
+        """,
+    )
+    ensure_column(
+        conn,
+        "retrieval_feedback",
+        "supersedes_feedback_id",
+        """
+        ALTER TABLE retrieval_feedback
+        ADD COLUMN supersedes_feedback_id INTEGER
+            CHECK (supersedes_feedback_id IS NULL OR supersedes_feedback_id > 0)
+        """,
+    )
+    conn.execute("DROP INDEX IF EXISTS idx_retrieval_feedback_vote_identity")
+    conn.execute(
+        """
+        CREATE INDEX idx_retrieval_feedback_vote_identity
+        ON retrieval_feedback (receipt_hash, namespace, memory_id, result_rank, feedback_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_supersedes
+        ON retrieval_feedback (supersedes_feedback_id)
+        WHERE supersedes_feedback_id IS NOT NULL
+        """
+    )
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_retrieval_feedback_supersedes
+        ON retrieval_feedback (supersedes_feedback_id)
+        WHERE supersedes_feedback_id IS NOT NULL
+        """
+    )
+    conn.execute("DROP TRIGGER IF EXISTS validate_retrieval_feedback_insert")
+    conn.execute(
+        """
+        CREATE TRIGGER validate_retrieval_feedback_insert
+        BEFORE INSERT ON retrieval_feedback
+        BEGIN
+            SELECT CASE
+                WHEN NEW.feedback_type = 'vote' AND NEW.supersedes_feedback_id IS NOT NULL
+                THEN RAISE(ABORT, 'vote feedback cannot supersede another event')
+            END;
+            SELECT CASE
+                WHEN NEW.feedback_type IN ('correction', 'retraction')
+                    AND NEW.supersedes_feedback_id IS NULL
+                THEN RAISE(ABORT, 'feedback correction or retraction must supersede the current head')
+            END;
+            SELECT CASE
+                WHEN NEW.feedback_type = 'vote' AND EXISTS (
+                    SELECT 1
+                    FROM retrieval_feedback existing
+                    WHERE existing.receipt_hash = NEW.receipt_hash
+                      AND existing.namespace = NEW.namespace
+                      AND existing.memory_id = NEW.memory_id
+                      AND existing.result_rank = NEW.result_rank
+                )
+                THEN RAISE(ABORT, 'feedback subject already has a root vote')
+            END;
+            SELECT CASE
+                WHEN NEW.feedback_type IN ('correction', 'retraction')
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM retrieval_feedback parent
+                        WHERE parent.feedback_id = NEW.supersedes_feedback_id
+                          AND parent.receipt_hash = NEW.receipt_hash
+                          AND parent.namespace = NEW.namespace
+                          AND parent.memory_id = NEW.memory_id
+                          AND parent.result_rank = NEW.result_rank
+                    )
+                THEN RAISE(ABORT, 'superseded feedback must have the same subject')
+            END;
+            SELECT CASE
+                WHEN NEW.feedback_type IN ('correction', 'retraction')
+                    AND NEW.supersedes_feedback_id != (
+                        SELECT head.feedback_id
+                        FROM retrieval_feedback head
+                        WHERE head.receipt_hash = NEW.receipt_hash
+                          AND head.namespace = NEW.namespace
+                          AND head.memory_id = NEW.memory_id
+                          AND head.result_rank = NEW.result_rank
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM retrieval_feedback child
+                              WHERE child.supersedes_feedback_id = head.feedback_id
+                          )
+                        ORDER BY head.feedback_id DESC
+                        LIMIT 1
+                    )
+                THEN RAISE(ABORT, 'feedback event must supersede the current head')
+            END;
+        END
+        """
+    )
+    conn.execute("DROP VIEW IF EXISTS retrieval_feedback_effective_votes")
+    conn.execute(
+        """
+        CREATE VIEW retrieval_feedback_effective_votes AS
+        SELECT rf.*
+        FROM retrieval_feedback rf
+        WHERE rf.feedback_type != 'retraction'
+          AND rf.feedback_id = (
+            SELECT head.feedback_id
+            FROM retrieval_feedback head
+            LEFT JOIN retrieval_feedback child
+              ON child.supersedes_feedback_id = head.feedback_id
+            WHERE head.receipt_hash = rf.receipt_hash
+              AND head.namespace = rf.namespace
+              AND head.memory_id = rf.memory_id
+              AND head.result_rank = rf.result_rank
+              AND child.feedback_id IS NULL
+            ORDER BY head.feedback_id DESC
+            LIMIT 1
+        )
+        """
+    )
+
+
+def _ensure_retrieval_feedback_identity_schema(conn: sqlite3.Connection) -> None:
+    conn.execute("DROP TRIGGER IF EXISTS prevent_retrieval_feedback_update")
+    conn.execute("DROP TRIGGER IF EXISTS prevent_retrieval_feedback_delete")
+    ensure_column(
+        conn,
+        "retrieval_feedback",
+        "feedback_identity_digest",
+        """
+        ALTER TABLE retrieval_feedback
+        ADD COLUMN feedback_identity_digest TEXT
+            CHECK (
+                feedback_identity_digest IS NULL
+                OR (
+                    length(feedback_identity_digest) = 64
+                    AND feedback_identity_digest = lower(feedback_identity_digest)
+                    AND feedback_identity_digest NOT GLOB '*[^0-9a-f]*'
+                )
+            )
+        """,
+    )
+    conn.execute(
+        """
+        UPDATE retrieval_feedback
+        SET feedback_identity_digest = receipt_hash
+        WHERE feedback_identity_digest IS NULL
+        """
+    )
+    _ensure_retrieval_feedback_schema(conn)
+
+    conn.execute("DROP INDEX IF EXISTS idx_retrieval_feedback_vote_identity")
+    conn.execute(
+        """
+        CREATE INDEX idx_retrieval_feedback_vote_identity
+        ON retrieval_feedback (
+            feedback_identity_digest,
+            namespace,
+            memory_id,
+            result_rank,
+            feedback_id
+        )
+        """
+    )
+    conn.execute("DROP TRIGGER IF EXISTS validate_retrieval_feedback_insert")
+    conn.execute(
+        """
+        CREATE TRIGGER validate_retrieval_feedback_insert
+        BEFORE INSERT ON retrieval_feedback
+        BEGIN
+            SELECT CASE
+                WHEN NEW.feedback_identity_digest IS NULL
+                THEN RAISE(ABORT, 'feedback identity digest is required')
+            END;
+            SELECT CASE
+                WHEN NEW.feedback_type = 'vote' AND NEW.supersedes_feedback_id IS NOT NULL
+                THEN RAISE(ABORT, 'vote feedback cannot supersede another event')
+            END;
+            SELECT CASE
+                WHEN NEW.feedback_type IN ('correction', 'retraction')
+                    AND NEW.supersedes_feedback_id IS NULL
+                THEN RAISE(ABORT, 'feedback correction or retraction must supersede the current head')
+            END;
+            SELECT CASE
+                WHEN NEW.feedback_type = 'vote' AND EXISTS (
+                    SELECT 1
+                    FROM retrieval_feedback existing
+                    WHERE existing.feedback_identity_digest = NEW.feedback_identity_digest
+                      AND existing.namespace = NEW.namespace
+                      AND existing.memory_id = NEW.memory_id
+                      AND existing.result_rank = NEW.result_rank
+                )
+                THEN RAISE(ABORT, 'feedback subject already has a root vote')
+            END;
+            SELECT CASE
+                WHEN NEW.feedback_type IN ('correction', 'retraction')
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM retrieval_feedback parent
+                        WHERE parent.feedback_id = NEW.supersedes_feedback_id
+                          AND parent.feedback_identity_digest = NEW.feedback_identity_digest
+                          AND parent.namespace = NEW.namespace
+                          AND parent.memory_id = NEW.memory_id
+                          AND parent.result_rank = NEW.result_rank
+                    )
+                THEN RAISE(ABORT, 'superseded feedback must have the same subject')
+            END;
+            SELECT CASE
+                WHEN NEW.feedback_type IN ('correction', 'retraction')
+                    AND NEW.supersedes_feedback_id != (
+                        SELECT head.feedback_id
+                        FROM retrieval_feedback head
+                        WHERE head.feedback_identity_digest = NEW.feedback_identity_digest
+                          AND head.namespace = NEW.namespace
+                          AND head.memory_id = NEW.memory_id
+                          AND head.result_rank = NEW.result_rank
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM retrieval_feedback child
+                              WHERE child.supersedes_feedback_id = head.feedback_id
+                          )
+                        ORDER BY head.feedback_id DESC
+                        LIMIT 1
+                    )
+                THEN RAISE(ABORT, 'feedback event must supersede the current head')
+            END;
+        END
+        """
+    )
+    conn.execute("DROP VIEW IF EXISTS retrieval_feedback_effective_votes")
+    conn.execute(
+        """
+        CREATE VIEW retrieval_feedback_effective_votes AS
+        SELECT rf.*
+        FROM retrieval_feedback rf
+        WHERE rf.feedback_type != 'retraction'
+          AND rf.feedback_id = (
+            SELECT head.feedback_id
+            FROM retrieval_feedback head
+            LEFT JOIN retrieval_feedback child
+              ON child.supersedes_feedback_id = head.feedback_id
+            WHERE head.feedback_identity_digest = rf.feedback_identity_digest
+              AND head.namespace = rf.namespace
+              AND head.memory_id = rf.memory_id
+              AND head.result_rank = rf.result_rank
+              AND child.feedback_id IS NULL
+            ORDER BY head.feedback_id DESC
+            LIMIT 1
+        )
         """
     )
 

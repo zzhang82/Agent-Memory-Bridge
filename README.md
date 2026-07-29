@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.25.1` is the cross-platform integrity patch for Trustworthy Adaptive Retrieval. It rejects non-canonical base64url receipt aliases and removes a Python 3.11 command-provider test race while preserving the 13-tool MCP surface and the shadow-only feedback boundary.
+`0.25.2` strengthens snapshot-bound retrieval evidence without adding MCP tools. Receipt-bearing recall signs the complete exposure set and exact content versions from the same SQLite snapshot as the returned rows; feedback adds append-only correction and retraction events with one current effective vote while remaining shadow-only.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -44,8 +44,9 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
 - Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
-- Retrieval feedback: callers can mark a receipt-bound result as `helpful`, `misleading`, `outdated`, `not_applicable`, or `not_used` without changing ranking or memory.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and `604 tests collected`.
+- Retrieval feedback: callers can append a receipt-bound vote, correction, or retraction while AMB exposes at most one current effective vote without changing ranking or memory.
+- Evidence context: recall can sign bounded SHA-256 digests for optional caller-declared `model`, `harness`, and `chat_template` labels without including raw values or treating them as authenticated identity.
+- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and targeted receipt/feedback regressions.
 
 ## How It Works
 
@@ -87,7 +88,7 @@ commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.2.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -95,7 +96,7 @@ In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.1 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.2 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -243,11 +244,11 @@ The bridge exposes `13` public MCP tools:
 | Tool | Lane | Boundary |
 |---|---|---|
 | `store` | memory/signal write | Durable memories may deduplicate; Signals stay coordination events. |
-| `recall` | retrieval | Explicit memory text recall can include a short-lived receipt. |
+| `recall` | retrieval | Explicit memory text recall can include a snapshot-bound receipt and optional caller-declared evidence-context digests. |
 | `browse` | inspection | Filtered namespace view without text-ranking claims. |
 | `stats` | inspection | Counts and derived health signals, not durable authority changes. |
 | `forget` | governed mutation | Explicit deletion with audit boundaries. |
-| `feedback` | retrieval evidence | Receipt-bound, append-only, shadow-only; no ranking or memory mutation. |
+| `feedback` | retrieval evidence | Receipt-bound votes, corrections, and retractions are append-only and shadow-only; no ranking or memory mutation. |
 | `promote` | governed mutation | Review-only path into durable authority. |
 | `annotate` | metadata mutation | Adds non-policy tags and provenance without rewriting content. |
 | `revise` | governed mutation | Creates a successor plus supersession receipt in one transaction. |
@@ -267,6 +268,20 @@ content. `revise` creates a successor record and an auditable supersession
 receipt in one transaction. Both operations preserve the review boundary:
 callers cannot mint reserved governance tags or revise hidden learning
 candidates into authority.
+
+Receipt-bearing recall returns rows and creates the signed complete exposure set
+from one SQLite read snapshot. Every exposure binds `memory_id`, rank, and exact
+content version. Optional `evidence_context` accepts only `model`, `harness`,
+and `chat_template`; the receipt contains bounded SHA-256 digests rather than
+raw caller-declared values. These labels do not affect retrieval order or
+feedback identity.
+
+`feedback` defaults to a root `vote`. A `correction` or `retraction` must name
+the current `supersedes_feedback_id`, preserving the complete append-only event
+history while exposing at most one current effective vote. Caller-declared
+client and session labels cannot create additional votes for the same signed
+retrieval subject. `receipt_hash` remains the hash of the actual token;
+`feedback_identity_digest` is a separate canonical subject identity.
 
 The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, human review workflows, and activation receipts. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, `review_workflow`, or `activation_receipt` MCP tools, and no rerank, auth, ACL, ANN, graph, or auto-policy interface.
 
@@ -294,7 +309,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.25.1` hardens Trustworthy Adaptive Retrieval. Retrieval reports whether it is operating as `lexical`, `hashed_lexical`, or true `semantic`; explicit memory text recall can return a short-lived HMAC receipt; and `feedback` records receipt-bound retrieval outcomes as append-only shadow evidence. The patch additionally rejects non-canonical base64url receipt aliases and stabilizes command-provider validation on Python 3.11. Feedback is not a reranker, memory editor, authentication layer, ACL system, ANN index, graph engine, or automatic policy path.
+`0.25.2` hardens signed retrieval evidence while retaining the 13 public MCP tools. The `recall` argument schema adds optional caller-declared evidence-context labels, and the `feedback` schema adds append-only vote/correction/retraction fields. Receipt-bearing recall binds the returned rows, database epoch, complete exposure set, exact content versions, and signature to one SQLite snapshot. Semantic capability remains configuration-declared, not runtime-verified. Feedback remains shadow-only and is not a reranker, memory editor, authentication layer, ACL system, ANN index, graph engine, or automatic policy path.
 
 | Track | Current signal |
 |---|---|
@@ -303,7 +318,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
 | Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats unless explicitly queried with review tags; candidates are not durable authority until reviewed/promoted |
 | Signal contention | serialized lifecycle benchmark: `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0`; multiprocessing exact-ID claim test: 8 processes, 1 winner |
-| Current correctness patch | schema v4 `exact_content_hash`; read-only semantic/hybrid recall over precomputed vectors; degraded completeness metadata; warmed benchmark/proof embeddings; service-locked index rebuild; documented cooperative trust boundary |
+| Inherited v0.24 correctness | schema v4 `exact_content_hash`; read-only semantic/hybrid recall over precomputed vectors; degraded completeness metadata; warmed benchmark/proof embeddings; service-locked index rebuild; documented cooperative trust boundary |
 | Inherited Signal correctness | 10,000-Signal polling acceptance: exact insertion order, `missing = 0`, `unexpected = 0`, `unique = 10000`; owner-matched active-claim ack and promotion-preservation regressions included in the suite |
 | Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
 | Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
@@ -315,8 +330,8 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| v0.25 retrieval receipts and feedback | explicit memory text recall emits redacted, short-lived HMAC receipts; feedback accepts five declared outcomes and stays append-only, shadow-only, and ordering-neutral |
-| Test suite | `604 tests collected`; full run result: `601 pass`, `3 skip` |
+| v0.25.2 retrieval receipts and feedback | schema v7; same-snapshot complete exposure sets with exact content versions; optional model/harness/chat-template digests; append-only vote/correction/retraction history with one effective vote; separate token hash and feedback identity digest |
+| Test suite | isolated CPython 3.11 validation: `620 tests collected`, `620 passed`; v0.25.2 includes snapshot, context, semantic-declaration, effective-feedback, migration, stdio, install, and public-surface regressions |
 
 <details>
 <summary>Release contract facts</summary>
@@ -460,7 +475,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.25.1 announcement](docs/v0.25.1-announcement.md)
+- [v0.25.2 announcement](docs/v0.25.2-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

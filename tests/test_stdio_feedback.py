@@ -96,7 +96,7 @@ async def _exercise_feedback_tool(tmp_path: Path) -> None:
     assert first_payload["receipt_bound"] is True
     assert first_payload["feedback_mode"] == "shadow_only"
     assert first_payload["ordering_unchanged"] is True
-    assert first_payload["provenance"] == "server_declared_not_authenticated"
+    assert first_payload["provenance"] == "caller_declared_not_authenticated"
     assert first_payload["authenticated_origin"] is False
     forbidden_keys = {
         "namespace",
@@ -132,7 +132,7 @@ async def _exercise_feedback_tool(tmp_path: Path) -> None:
     assert retry_payload["feedback_id"] == first_payload["feedback_id"]
 
     assert getattr(conflict, "isError", False) is True
-    assert "conflicting feedback" in _response_text(conflict)
+    assert "conflicting plain feedback vote; submit a correction" in _response_text(conflict)
 
 
 def test_stdio_feedback_tool_success_retry_conflict_and_startup_surface(tmp_path: Path) -> None:

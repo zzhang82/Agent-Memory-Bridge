@@ -38,13 +38,23 @@ Important boundaries:
 - No watcher, scheduler, autonomous runner, hosted backend, or graph database in
   AMB Core.
 - Retrieval capabilities are `lexical`, `hashed_lexical`, and explicitly
-  declared `semantic`; do not claim ANN, graph retrieval, ACLs, authentication,
+  declared `semantic`. Semantic capability is configuration-declared, not
+  runtime-verified; do not claim ANN, graph retrieval, ACLs, authentication,
   active reranking, or automatic policy.
 - Recall receipts are 15-minute HMAC tokens. They are tamper-evident, not
-  encrypted, and should be treated as sensitive metadata.
+  encrypted, and should be treated as sensitive metadata. Receipt-bearing
+  recall signs a complete exposure set with exact content versions from the
+  same SQLite snapshot as the returned rows and database epoch.
+- Recall can optionally include bounded SHA-256 digests for caller-declared
+  `model`, `harness`, and `chat_template` labels; raw values are not signed.
 - Provenance is declared by callers or launch defaults, not authenticated.
-- Feedback is append-only shadow evidence. It does not mutate memory, indexes,
-  recall results, or ranking behavior.
+- Feedback supports append-only votes, corrections, and retractions with one
+  current effective vote per signed retrieval subject. Caller-declared client
+  or session labels cannot create additional votes.
+- `receipt_hash` is the hash of the actual token;
+  `feedback_identity_digest` is a separate canonical subject identity.
+- Feedback remains shadow evidence. It does not mutate memory, indexes, recall
+  results, or ranking behavior.
 - Startup and task-time packets are compiled views over existing records.
 - Optional helper commands can render Task Brief reports around the bridge;
   Task Brief is a derived CLI/report view, not part of the core MCP surface.
@@ -60,7 +70,7 @@ Treat the printed path as `<venv-python>`. Shell-quote it on POSIX when needed;
 in Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.2.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```

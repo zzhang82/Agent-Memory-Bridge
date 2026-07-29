@@ -44,6 +44,8 @@ MEMORY_ROW_COLUMNS = (
     "is_learning_candidate",
     "lineage_status",
     "lineage_issues_json",
+    "content_hash",
+    "exact_content_hash",
     "created_at",
 )
 
@@ -118,6 +120,8 @@ class MemoryRow:
     is_learning_candidate: bool
     lineage_status: str
     lineage_issues: list[dict[str, Any]]
+    content_hash: str
+    exact_content_hash: str
     record_type: str | None
     status: str | None
     confidence: float | None
@@ -158,6 +162,8 @@ class MemoryRow:
             is_learning_candidate=bool(row["is_learning_candidate"]),
             lineage_status=str(row["lineage_status"] or "intact"),
             lineage_issues=_load_lineage_issues(row["lineage_issues_json"]),
+            content_hash=str(row["content_hash"]),
+            exact_content_hash=str(row["exact_content_hash"]),
             record_type=_optional_row_text(row, "metadata_record_type"),
             status=_optional_row_text(row, "metadata_status"),
             confidence=_optional_row_float(row, "metadata_confidence"),
