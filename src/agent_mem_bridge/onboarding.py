@@ -682,7 +682,7 @@ def _path_check_target(path: Path) -> Path:
 
 
 def _structured_payload(response: Any) -> dict[str, Any]:
-    payload = getattr(response, "structuredContent", None) or {}
+    payload = getattr(response, "structured_content", None) or getattr(response, "structuredContent", None) or {}
     if isinstance(payload, dict):
         return payload
     return {}

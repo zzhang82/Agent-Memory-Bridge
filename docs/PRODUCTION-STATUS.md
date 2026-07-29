@@ -1,15 +1,21 @@
 # Production Status
 
-Last updated: 2026-07-28 (America/New_York)
+Last updated: 2026-07-29 (America/New_York)
 
-This maintainer note describes the current `0.25.2` Evidence Integrity patch for Trustworthy Adaptive Retrieval, the inherited v0.24 exact-identity and recall-boundary work, the inherited v0.23.1 local-hardening work, the inherited v0.22 activation receipt behavior, the inherited v0.21 governed-change proof, and the validation snapshot used to support the release.
+This maintainer note describes the current `0.26.0` release: bounded MCP 2026-07-28 dual-era stdio compatibility, inheriting the v0.25.2 Evidence Integrity patch, the v0.24 exact-identity and recall-boundary work, the v0.23.1 local-hardening work, the v0.22 activation receipt behavior, and the v0.21 governed-change proof.
 
-## 0.25.2 Release Status
+## 0.26.0 Release Status
 
-- Package version: `0.25.2`
-- Release thesis: bind retrieval evidence to one SQLite snapshot and make feedback correction auditable without granting caller-declared provenance extra authority
-- MCP runtime behavior: the public surface retains exactly 13 tools; `recall` and `feedback` argument schemas expand
-- Baseline install: immutable `v0.25.2` archive in `.amb-venv`, using the derived venv interpreter
+- Package version: `0.26.0`
+- Release thesis: bounded MCP 2026-07-28 dual-era stdio compatibility, not Episode Ledger
+- MCP dependency: `mcp==2.0.0`
+- MCP runtime behavior: the public surface remains exactly 13 tools; no tools are added, removed, or renamed
+- Baseline install: immutable `v0.26.0` archive in `.amb-venv`, using the derived venv interpreter
+- Protocol compatibility: modern `server/discover` and legacy `initialize` are both proven through real spawned stdio
+- Modern result contract: modern MCP results include `resultType: "complete"`
+- Tool-list contract: `tools/list` returns exactly 13 public tools in deterministic order with `ttlMs: 0` and `cacheScope: "private"`
+- ClientInfo provenance contract: meaningful per-request `clientInfo` is caller-declared provenance; `source_client` precedence is explicit input, then meaningful MCP context, then environment default; generic `mcp` is ignored
+- Storage contract: schema remains v7; there is no database migration
 - Retrieval capability contract: retrieval reports the honest operating capability as `lexical`, `hashed_lexical`, or `semantic`; default hash embeddings remain `hashed_lexical`, while true semantic mode requires a declared semantic provider
 - Recall receipt contract: explicit non-empty `kind="memory"` text recall can return a short-lived HMAC receipt generated from the same SQLite read snapshot as the returned rows; it binds bridge instance, database epoch, namespace, query hash, retrieval contract, complete exposure set, memory ids/ranks, and exact content versions
 - Recall receipt boundary: receipt tokens are tamper-evident, not encrypted; they omit raw query/content, may carry only digests of optional caller-declared model/harness/chat-template labels, and do not authenticate caller identity or provenance
@@ -49,6 +55,7 @@ This maintainer note describes the current `0.25.2` Evidence Integrity patch for
 - Receipt boundary: declared provenance only; not identity proof, certification, distribution proof, or use proof
 - Public MCP surface: exactly `13` tools
 - Automatic writes: no auto durable writeback and no client config writes
+- Out-of-scope for 0.26: no HTTP, Tasks, Apps, OAuth/ACL, new tools, DB migration, Episode Ledger, reranking, or policy automation
 - Fixed governed-change proof report target: `0.21.0`
 - Governed-change manifest releases: `current_release = 0.20.0`, `target_release = 0.21.0`
 - Windows proof hashing: manifest bytes are normalized to LF before the fixed SHA256 check
@@ -97,10 +104,16 @@ This maintainer note describes the current `0.25.2` Evidence Integrity patch for
 32. database integrity/projection health, repair, consistent backup/restore, WAL checkpoint, size warnings, private managed-file permissions, and log rotation
 33. `local-single-user` and `hardened-local` operating profiles with an explicit cooperative-security boundary
 34. same-snapshot receipt-bound retrieval feedback with exact content versions, append-only correction/retraction history, one effective vote, and shadow-only ordering-neutral behavior
+35. MCP 2026-07-28 dual-era stdio compatibility with modern `server/discover`, legacy `initialize`, complete modern results, deterministic private `tools/list`, and caller-declared `clientInfo` provenance
 
-## Verified On 2026-07-28
+## Verified On 2026-07-29
 
-- isolated CPython 3.11 clean-room suite: `620 tests collected`; full run result: `620 passed`
+- isolated Windows CPython 3.11 clean-room suite: `622 tests collected`; all runnable tests passed; `3 platform-conditioned skips`; no failures
+- MCP dependency is `mcp==2.0.0`
+- v0.26 dual-era stdio tests verify modern `server/discover` and legacy `initialize` through real spawned stdio
+- modern result tests verify `resultType: "complete"` on modern results
+- `tools/list` tests verify exactly 13 public tools, deterministic order, `ttlMs: 0`, and `cacheScope: "private"`
+- clientInfo provenance tests verify precedence explicit `source_client` > meaningful MCP context > environment default, with generic `mcp` ignored
 - stdio verify now expects 13 tools and includes a `feedback_shadow_record` check
 - v0.25 retrieval capability tests verify the default `hashed_lexical` capability, explicit semantic-provider gating, hybrid semantic-arm skipping when no semantic provider is declared, and semantic availability only for a declared semantic command provider
 - v0.25.2 recall receipt tests verify one SQLite snapshot for returned rows and receipt evidence, complete exposure sets, exact content-version binding, retrieval-contract digests, optional caller-declared evidence-context digests, redaction of raw values, and rejection of tampered or stale evidence
@@ -262,6 +275,20 @@ This maintainer note describes the current `0.25.2` Evidence Integrity patch for
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
+## What 0.26.0 Actually Means
+
+- AMB uses `mcp==2.0.0`
+- modern MCP 2026-07-28 clients can use `server/discover` over local stdio
+- legacy initialize-based clients continue to work over local stdio
+- both protocol eras are proven through real spawned stdio, not only in-process mocks
+- modern results include `resultType: "complete"`
+- `tools/list` returns the same 13 public tools in deterministic order with `ttlMs: 0` and `cacheScope: "private"`
+- meaningful per-request `clientInfo` is caller-declared provenance, not authenticated identity
+- `source_client` precedence is explicit input, then meaningful MCP context, then environment default
+- generic `mcp` client names are ignored as provenance
+- schema remains v7 and no database migration is introduced
+- no HTTP, Tasks, Apps, OAuth/ACL, new tools, Episode Ledger, active reranking, or policy automation is added
+
 ## What 0.25.2 Actually Means
 
 - retrieval reports whether the active capability is `lexical`, `hashed_lexical`, or `semantic`
@@ -331,7 +358,7 @@ This maintainer note describes the current `0.25.2` Evidence Integrity patch for
 - the visual inventory is release hygiene, not semantic proof
 - native-size and README-width raster renders are a release gate for clipping,
   overlap, and crossed labels
-- the current validation snapshot is `620 tests collected`
+- that release kept its then-current validation snapshot unchanged
 
 ## What 0.22.0 Actually Means
 
@@ -399,7 +426,7 @@ The release still does **not** mean:
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.25.2
+## Pressure Points After 0.26.0
 
 The most important remaining gaps are:
 
@@ -417,7 +444,9 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.25.2` is the Evidence Integrity patch for Trustworthy Adaptive Retrieval. It preserves the 13-tool surface while expanding the `recall` and `feedback` argument schemas. Receipt-bearing recall now binds returned rows, the complete exposure set, exact content versions, and retrieval-contract evidence to one SQLite snapshot. Feedback gains append-only correction/retraction history, a single current effective vote, caller-declared provenance neutrality, and separate token-hash versus vote-identity fields under schema v7. Feedback remains shadow-only: it does not mutate memory, indexes, recall ordering, or ranking.
+`0.26.0` is a bounded MCP 2026-07-28 stdio compatibility release. It moves AMB to `mcp==2.0.0`, proves modern `server/discover` and legacy `initialize` through real spawned stdio, emits complete modern results, keeps deterministic private `tools/list`, and treats meaningful per-request `clientInfo` only as caller-declared provenance. The public surface remains exactly 13 tools and schema remains v7.
+
+`0.25.2` was the Evidence Integrity patch for Trustworthy Adaptive Retrieval. It preserved the 13-tool surface while expanding the `recall` and `feedback` argument schemas. Receipt-bearing recall binds returned rows, the complete exposure set, exact content versions, and retrieval-contract evidence to one SQLite snapshot. Feedback gained append-only correction/retraction history, a single current effective vote, caller-declared provenance neutrality, and separate token-hash versus vote-identity fields under schema v7. Feedback remains shadow-only: it does not mutate memory, indexes, recall ordering, or ranking.
 
 `0.25.1` was the cross-platform receipt-integrity patch. It rejected non-canonical base64url aliases and removed a Python 3.11 command-provider test race without changing the 13-tool surface or feedback authority boundary.
 
@@ -445,6 +474,7 @@ It now behaves like:
 - a first pass at applicable/compositional task memory
 - a bounded governed-change layer for deletion, lineage, current premises, and declared task domains
 - a platform-neutral stdio bridge with real install confidence
+- a bounded MCP 2026-07-28 dual-era stdio bridge
 - a lightweight coordination layer with measured claim/reclaim boundaries
 - an operator-facing review queue that keeps hidden/stale/quarantined memory work visible without making it authority
 - an operator-facing human workflow plan that makes each review decision explicit without becoming an auto-writer

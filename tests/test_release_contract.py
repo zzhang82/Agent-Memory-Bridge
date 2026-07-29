@@ -83,6 +83,17 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert v025_proof_check["actual_release"] == "0.21.0"
     assert v025_proof_check["actual_target_release"] == "0.21.0"
 
+    v026_root = create_v021_release_fixture(tmp_path / "v026", package_version="0.26.0")
+    v026_report = run_release_contract_check(v026_root, test_count_provider=lambda _: 146)
+    v026_checks = {check["name"]: check for check in v026_report["checks"]}
+    assert v026_report["ok"] is True
+    assert "v020_proof_version_matches_pyproject" not in v026_checks
+    v026_proof_check = v026_checks["v021_governed_change_proof_matches_release_gate"]
+    assert v026_proof_check["ok"] is True
+    assert v026_proof_check["package_version"] == "0.26.0"
+    assert v026_proof_check["actual_release"] == "0.21.0"
+    assert v026_proof_check["actual_target_release"] == "0.21.0"
+
     v022_report_path = v022_root / "benchmark" / "latest-v0.21-governed-change-report.json"
     v022_proof = json.loads(v022_report_path.read_text(encoding="utf-8"))
     v022_proof["summary"]["governed_failures"] = 1
@@ -931,60 +942,66 @@ def create_release_fixture(root: Path) -> Path:
     write_file(
         root / "src" / "agent_mem_bridge" / "server.py",
         """
-        from mcp.server.fastmcp import FastMCP
+        from mcp.server import MCPServer
 
-        mcp = FastMCP("agent-memory-bridge")
+        mcp = MCPServer(
+            name="agent-memory-bridge",
+            title="Agent Memory Bridge",
+            description="Synthetic release-contract fixture.",
+            version="0.9.0",
+            log_level="WARNING",
+        )
 
-        @mcp.tool()
-        def store():
+        @mcp.tool(structured_output=True)
+        def store() -> None:
             return None
 
-        @mcp.tool()
-        def recall():
+        @mcp.tool(structured_output=True)
+        def recall() -> None:
             return None
 
-        @mcp.tool()
-        def browse():
+        @mcp.tool(structured_output=True)
+        def browse() -> None:
             return None
 
-        @mcp.tool()
-        def stats():
+        @mcp.tool(structured_output=True)
+        def stats() -> None:
             return None
 
-        @mcp.tool()
-        def forget():
+        @mcp.tool(structured_output=True)
+        def forget() -> None:
             return None
 
-        @mcp.tool()
-        def feedback():
+        @mcp.tool(structured_output=True)
+        def feedback() -> None:
             return None
 
-        @mcp.tool()
-        def claim_signal():
+        @mcp.tool(structured_output=True)
+        def claim_signal() -> None:
             return None
 
-        @mcp.tool()
-        def extend_signal_lease():
+        @mcp.tool(structured_output=True)
+        def extend_signal_lease() -> None:
             return None
 
-        @mcp.tool()
-        def ack_signal():
+        @mcp.tool(structured_output=True)
+        def ack_signal() -> None:
             return None
 
-        @mcp.tool()
-        def promote():
+        @mcp.tool(structured_output=True)
+        def promote() -> None:
             return None
 
-        @mcp.tool()
-        def annotate():
+        @mcp.tool(structured_output=True)
+        def annotate() -> None:
             return None
 
-        @mcp.tool()
-        def revise():
+        @mcp.tool(structured_output=True)
+        def revise() -> None:
             return None
 
-        @mcp.tool()
-        def export():
+        @mcp.tool(structured_output=True)
+        def export() -> None:
             return None
         """,
     )

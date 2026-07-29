@@ -51,9 +51,9 @@ python ./scripts/check_onboarding_contract.py
   regression fixtures live in `benchmark`; operational entry points live in
   `scripts`.
 - `server.py` defines the public MCP surface. Keep the tool contract small and
-  explicit: `store`, `recall`, `browse`, `stats`, `forget`, `promote`,
-  `annotate`, `revise`, `export`, `claim_signal`, `extend_signal_lease`, and
-  `ack_signal`.
+  explicit: `store`, `recall`, `browse`, `stats`, `forget`, `feedback`,
+  `promote`, `annotate`, `revise`, `export`, `claim_signal`,
+  `extend_signal_lease`, and `ack_signal`.
 - `storage.py`, `repository.py`, and `schema.py` own durable record behavior.
   `signals.py` owns Signal lifecycle rules. `query.py` and index modules own
   retrieval and derived indexes.

@@ -1,8 +1,8 @@
 # Roadmap
 
-Last updated: 2026-07-28 (America/New_York)
+Last updated: 2026-07-29 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.25.2`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, and the v0.25 Trustworthy Adaptive Retrieval and Evidence Integrity releases. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.26.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, the v0.25 Trustworthy Adaptive Retrieval and Evidence Integrity releases, and bounded MCP 2026-07-28 stdio compatibility. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,9 +636,46 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.26.0 = MCP 2026-07-28 Stdio Compatibility
+
+Status: current release; 13 MCP tools retained, schema v7 retained, no
+Episode Ledger scope.
+
+### Thesis
+
+Keep AMB compatible with MCP 2026-07-28 stdio clients while preserving the
+legacy initialize path and the existing AMB product boundary.
+
+One sentence:
+
+`0.26.0 = mcp==2.0.0, modern server/discover plus legacy initialize over real spawned stdio, complete modern results, deterministic private tools/list, and caller-declared clientInfo provenance.`
+
+### Scope
+
+1. Upgrade the MCP SDK dependency to `mcp==2.0.0`.
+2. Support modern MCP 2026-07-28 `server/discover` over local stdio.
+3. Preserve the legacy `initialize` stdio flow.
+4. Return `resultType: "complete"` on modern results.
+5. Return exactly 13 public tools from `tools/list`, in deterministic order,
+   with `ttlMs: 0` and `cacheScope: "private"`.
+6. Treat meaningful per-request `clientInfo` as caller-declared provenance:
+   explicit `source_client` > meaningful MCP context > environment default;
+   generic `mcp` is ignored.
+7. Keep schema v7 and avoid any database migration.
+
+### Acceptance Gate
+
+- isolated Windows suite: `622 tests collected`; all runnable tests passed; `3 platform-conditioned skips`
+- modern `server/discover` and legacy `initialize` both pass through real spawned stdio
+- modern result shape includes `resultType: "complete"`
+- `tools/list` returns exactly 13 tools, deterministic order, `ttlMs: 0`, and `cacheScope: "private"`
+- clientInfo provenance precedence is explicit > meaningful context > environment, and generic `mcp` is ignored
+- no new MCP tools and no schema migration
+- no HTTP, Tasks, Apps, OAuth/ACL, Episode Ledger, reranking, or policy automation
+
 ## 0.25.2 = Evidence Integrity
 
-Status: current patch release; 13 MCP tools retained, with expanded `recall`
+Status: historical patch release; 13 MCP tools retained, with expanded `recall`
 and `feedback` argument schemas.
 
 ### Thesis
@@ -667,7 +704,7 @@ feedback-based reranking.
 
 ### Acceptance Gate
 
-- full isolated suite: `620 tests collected`, `620 passed`
+- historical full isolated suite completed without failures on its 620-test denominator
 - complete exposure and exact-version receipt tests pass
 - concurrent duplicate voting and stale idempotent replay tests pass
 - v5/v6 migration and injected v7 rollback tests pass

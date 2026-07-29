@@ -3,9 +3,18 @@ from __future__ import annotations
 import logging
 from typing import Annotated, Any, Literal, cast
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
+from mcp.server.mcpserver import Context
 from pydantic import Field
 
+from .mcp_boundary import (
+    SERVER_DESCRIPTION,
+    SERVER_NAME,
+    SERVER_TITLE,
+    context_source_client,
+    package_version,
+    with_context_source_client,
+)
 from .paths import (
     resolve_default_client_session_id,
     resolve_default_client_transport,
@@ -18,7 +27,13 @@ from .storage import MemoryStore
 mcp_logger = logging.getLogger("mcp.server.lowlevel.server")
 mcp_logger.setLevel(logging.WARNING)
 
-mcp = FastMCP("agent-memory-bridge", json_response=True)
+mcp = MCPServer(
+    name=SERVER_NAME,
+    title=SERVER_TITLE,
+    description=SERVER_DESCRIPTION,
+    version=package_version(),
+    log_level="WARNING",
+)
 bridge = MemoryStore.from_env()
 
 
@@ -147,6 +162,7 @@ def store(
             ),
         ),
     ] = None,
+    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Store one entry in the bridge for later retrieval or coordination.
 
@@ -162,7 +178,7 @@ def store(
     title = _optional_text(title)
     correlation_id = _optional_text(correlation_id)
     source_app = _optional_text(source_app)
-    source_client = _optional_text(source_client) or resolve_default_source_client()
+    source_client = _optional_text(source_client) or context_source_client(ctx) or resolve_default_source_client()
     source_model = _optional_text(source_model) or resolve_default_source_model()
     client_session_id = _optional_text(client_session_id) or resolve_default_client_session_id()
     client_workspace = _optional_text(client_workspace) or resolve_default_client_workspace()
@@ -244,6 +260,7 @@ def feedback(
             )
         ),
     ] = None,
+    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Record structured retrieval feedback for one recalled memory result.
 
@@ -252,7 +269,9 @@ def feedback(
     ranking behavior.
     """
     source_app = _provenance_text(provenance, "source_app")
-    source_client = _provenance_text(provenance, "source_client") or resolve_default_source_client()
+    source_client = (
+        _provenance_text(provenance, "source_client") or context_source_client(ctx) or resolve_default_source_client()
+    )
     source_model = _provenance_text(provenance, "source_model") or resolve_default_source_model()
     client_session_id = _provenance_text(provenance, "client_session_id") or resolve_default_client_session_id()
     client_workspace = _provenance_text(provenance, "client_workspace") or resolve_default_client_workspace()
@@ -668,6 +687,7 @@ def annotate(
         str | None,
         Field(description="Optional identity of the human or agent performing the explicit annotation."),
     ] = None,
+    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Explicitly enrich one durable memory without pretending the write was a new fact.
 
@@ -679,7 +699,7 @@ def annotate(
         memory_id=id,
         tags=tags,
         title=_optional_text(title),
-        provenance=cast("dict[str, str | None] | None", provenance),
+        provenance=with_context_source_client(cast("dict[str, str | None] | None", provenance), ctx),
         actor=_optional_text(actor),
     )
 
@@ -714,6 +734,7 @@ def revise(
         dict[str, str] | None,
         Field(description="Optional provenance overrides for the new revision."),
     ] = None,
+    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """Create a new durable memory that explicitly supersedes an older record.
 
@@ -727,7 +748,7 @@ def revise(
         tags=tags,
         actor=_optional_text(actor),
         reason=_optional_text(reason),
-        provenance=cast("dict[str, str | None] | None", provenance),
+        provenance=with_context_source_client(cast("dict[str, str | None] | None", provenance), ctx),
     )
 
 

@@ -258,9 +258,9 @@ async def run_stdio_smoke(project_root: Path, bridge_home: Path) -> dict[str, An
             )
 
     tool_names = [tool.name for tool in tools_response.tools]
-    first_payload = getattr(first, "structuredContent", None) or {}
-    second_payload = getattr(second, "structuredContent", None) or {}
-    recall_payload = getattr(recall, "structuredContent", None) or {}
+    first_payload = getattr(first, "structured_content", None) or getattr(first, "structuredContent", None) or {}
+    second_payload = getattr(second, "structured_content", None) or getattr(second, "structuredContent", None) or {}
+    recall_payload = getattr(recall, "structured_content", None) or getattr(recall, "structuredContent", None) or {}
     return {
         "ok": (
             "store" in tool_names

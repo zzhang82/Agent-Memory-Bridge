@@ -13,7 +13,7 @@
 
 Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 shared engineering memory。它补充 `AGENTS.md`、`CLAUDE.md` 和客户端原生 preference memory，而不是取代它们。SQLite/WAL 是 durable authority，FTS5 和可选本地 embeddings 则是 derived indexes；当前公开能力按 `lexical`、`hashed_lexical` 和声明式 `semantic` 边界表述。
 
-`0.25.2` 在不增加 MCP tools 的前提下强化 snapshot-bound retrieval evidence。带 receipt 的 recall 会从同一 SQLite snapshot 返回 rows，并签名完整 exposure set 与 exact content versions；feedback 增加 append-only correction/retraction events，只保留一个 current effective vote，同时继续保持 shadow-only。
+`0.26.0` 是 bounded MCP 2026-07-28 stdio compatibility release。AMB 使用 MCP Python SDK v2，并通过 real spawned stdio 证明 modern `server/discover` 和 legacy `initialize` 两条路径都可用。Public MCP surface 仍是 13 个 tools，schema 仍是 v7；retrieval feedback 行为继续保持 shadow-only。
 
 > Codex 是参考工作流，不是产品边界。AMB 使用本地 stdio MCP；客户端集成只按下方标注声明为 documented 或 locally verified。
 
@@ -88,7 +88,7 @@ issue report。在 POSIX shell 中按需对该 path 做 shell quoting；在 Wind
 PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.2.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.26.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -96,7 +96,7 @@ PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
 可选的 pinned GitHub smoke test 使用 `uvx`：
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.2 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.26.0 agent-memory-bridge verify
 ```
 
 ### 快速开始：Unified First-Run
@@ -283,13 +283,26 @@ operator review work 是 CLI report，不是 MCP tool：
 
 `review-queue` 会显示 staged candidates、review receipts、tombstones、stale records 和 quarantined claims。`review-workflow` 会把这些 queue items 转成明确的 human decision prompts 和 manual steps。`task-brief` 会把已有 task-memory assembly、review queue items 和 active signals 编译成 `Used`、`Ignored` 和 `Needs Review` 区块。`activation-receipt` 只读取同一 namespace 和 correlation id 下已有 rows，并输出 sanitized declared-provenance receipt。这些 CLI reports 不会自动 durable writeback。
 
+### MCP 2026-07-28 stdio compatibility
+
+AMB 0.26.0 同时支持 modern MCP 2026-07-28 `server/discover` 和 legacy
+`initialize`，都走本地 stdio。Compatibility proof 通过 real spawned stdio
+验证这两条路径。Modern results 包含 `resultType: "complete"`；`tools/list`
+按确定顺序返回不变的 13 个 public tools，并带 `ttlMs: 0` 和
+`cacheScope: "private"`。
+
+有意义的 per-request `clientInfo` 是 caller-declared provenance，不是
+authenticated identity。`source_client` precedence 是 explicit tool input，
+然后 meaningful MCP context，然后 environment default；generic SDK name
+例如 `mcp` 会被忽略。
+
 ### 静态 schema 客户端兼容性
 
 有些 MCP client 会为 tool 生成静态 input schema，因此在 `kind="memory"` 路径上也可能带上 signal-only fields：例如 `store` 里的 `ttl_seconds` 或 `expires_at`，以及 `recall`、`browse` 或 `export` 里的 `signal_status`。AMB 只会在 MCP transport 边界丢弃这些字段，不会把它们写入或用于查询 memory records；底层 memory store contract 仍然保持严格，durable memory 和 coordination signal 仍是两条独立 lane，真实的 signal lifecycle fields 仍只属于 `kind="signal"`。
 
 ## Proof Snapshot
 
-`0.25.2` 在保留 13 个 public MCP tools 的同时强化 signed retrieval evidence。`recall` argument schema 增加可选 caller-declared evidence-context labels，`feedback` schema 增加 append-only vote/correction/retraction fields。带 receipt 的 recall 把 returned rows、database epoch、完整 exposure set、exact content versions 和 signature 绑定到同一 SQLite snapshot。Semantic capability 是 configuration-declared，不是 runtime-verified。Feedback 继续保持 shadow-only，不是 reranker、memory editor、authentication layer、ACL system、ANN index、graph engine 或 automatic policy path。
+`0.26.0` 是 bounded MCP 2026-07-28 stdio compatibility release，同时保留 13 个 public MCP tools。AMB 使用 MCP Python SDK v2；modern `server/discover` 和 legacy `initialize` 都已通过 real spawned stdio 证明。Modern results 返回 `resultType: "complete"`，`tools/list` 使用 deterministic order、`ttlMs: 0` 和 `cacheScope: "private"`。Schema 仍是 v7。有意义的 per-request `clientInfo` 是 caller-declared provenance，precedence 是 explicit input > meaningful MCP context > environment defaults；generic `mcp` 会被忽略。
 
 | Track | Current signal |
 |---|---|
@@ -315,7 +328,10 @@ operator review work 是 CLI report，不是 MCP tool：
 | v0.21 governed change proof | 固定的本地 executable proof：`v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | 仅为 declared-provenance local receipt；要求两个不同的声明式 `source_client` labels 和 acked reader signal；`public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory：`examples/diagrams/visual-claims.json`；native-size 和 README-width raster render gate 要求无 clipping、overlap 或 crossed labels；hero PNG 标记为 conceptual，semantic validation not performed；SVG assets 带 title/desc metadata |
-| Test suite | isolated CPython 3.11 validation：`620 tests collected`、`620 passed`；v0.25.2 包含 snapshot、context、semantic-declaration、effective-feedback、migration、stdio、install 和 public-surface targeted regressions |
+| v0.26 stdio compatibility | MCP Python SDK v2；modern `server/discover` 和 legacy `initialize` 都通过 real spawned stdio 证明；modern results complete；`tools/list` 使用 deterministic order、`ttlMs: 0` 和 `cacheScope: "private"` |
+| Client provenance | meaningful per-request `clientInfo` 是 caller-declared provenance；precedence 是 explicit `source_client` > meaningful MCP context > environment default；generic `mcp` 被忽略 |
+| Inherited retrieval receipts and feedback | schema v7；same-snapshot complete exposure sets with exact content versions；可选 model/harness/chat-template digests；append-only vote/correction/retraction history with one effective vote；separate token hash and feedback identity digest |
+| Test suite | isolated Windows CPython 3.11 validation：`622 tests collected`；all runnable tests passed；`3 platform-conditioned skips`；v0.26.0 包含 dual-era stdio、clientInfo provenance、install、public-surface、receipt/feedback 和 migration regressions |
 
 <details>
 <summary>Release contract facts</summary>
@@ -447,7 +463,7 @@ v021_durable_live_writeback_count = 0
 
 ## 边界
 
-AMB 不是 graph database、通用 unlearning system、hosted memory platform、scheduler、worker runtime、distributed lock、exactly-once coordination system、packet API、active reranker、ANN/vector database、ACL 或 auth system、automatic policy engine、compliance certification、authenticated identity system，也不是从原始 transcript 自动 durable writeback 的通道。它是一个小而可检查的本地 bridge，用来保存可复用工程记忆和轻量协作状态。`forget` 仍然是显式 mutating operation；governed change 让它更保守、可审计，而不是自动执行。`feedback` 仍是 shadow evidence，不是 ranking、policy 或 memory mutation channel。
+AMB 不是 graph database、通用 unlearning system、hosted memory platform、HTTP MCP service、Tasks 或 Apps runtime、OAuth/ACL system、Episode Ledger、scheduler、worker runtime、distributed lock、exactly-once coordination system、packet API、active reranker、ANN/vector database、automatic policy engine、compliance certification、authenticated identity system，也不是从原始 transcript 自动 durable writeback 的通道。它是一个小而可检查的本地 bridge，用来保存可复用工程记忆和轻量协作状态。`forget` 仍然是显式 mutating operation；governed change 让它更保守、可审计，而不是自动执行。`feedback` 仍是 shadow evidence，不是 ranking、policy 或 memory mutation channel。
 
 替代方案和取舍见 [docs/COMPARISON.md](docs/COMPARISON.md)。
 
@@ -459,7 +475,7 @@ AMB 不是 graph database、通用 unlearning system、hosted memory platform、
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.25.2 announcement](docs/v0.25.2-announcement.md)
+- [v0.26.0 announcement](docs/v0.26.0-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

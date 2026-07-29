@@ -59,7 +59,7 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "client_workspace": "project:bridge",
                 },
             )
-            assert first.structuredContent["stored"] is True
+            assert first.structured_content["stored"] is True
 
             duplicate = await session.call_tool(
                 "store",
@@ -79,7 +79,7 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "ttl_seconds": 999,
                 },
             )
-            assert duplicate.structuredContent["stored"] is False
+            assert duplicate.structured_content["stored"] is False
 
             signal = await session.call_tool(
                 "store",
@@ -107,13 +107,13 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "actor": "cole",
                 },
             )
-            assert recall.structuredContent["count"] == 1
-            assert recall.structuredContent["items"][0]["source_app"] == "codex"
-            assert recall.structuredContent["items"][0]["source_client"] == "antigravity"
-            assert recall.structuredContent["items"][0]["source_model"] == "gpt-5.4"
-            assert recall.structuredContent["items"][0]["client_session_id"] == "codex-session-1"
-            assert recall.structuredContent["items"][0]["client_workspace"] == "project:bridge"
-            assert recall.structuredContent["items"][0]["client_transport"] == "stdio"
+            assert recall.structured_content["count"] == 1
+            assert recall.structured_content["items"][0]["source_app"] == "codex"
+            assert recall.structured_content["items"][0]["source_client"] == "antigravity"
+            assert recall.structured_content["items"][0]["source_model"] == "gpt-5.4"
+            assert recall.structured_content["items"][0]["client_session_id"] == "codex-session-1"
+            assert recall.structured_content["items"][0]["client_workspace"] == "project:bridge"
+            assert recall.structured_content["items"][0]["client_transport"] == "stdio"
 
             placeholder_recall = await session.call_tool(
                 "recall",
@@ -130,21 +130,21 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "since": "",
                 },
             )
-            assert placeholder_recall.structuredContent["count"] == 1
-            assert placeholder_recall.structuredContent["items"][0]["id"] == first.structuredContent["id"]
+            assert placeholder_recall.structured_content["count"] == 1
+            assert placeholder_recall.structured_content["items"][0]["id"] == first.structured_content["id"]
 
             polling = await session.call_tool(
                 "recall",
                 arguments={
                     "namespace": "bridge",
                     "kind": "signal",
-                    "since": duplicate.structuredContent["id"],
+                    "since": duplicate.structured_content["id"],
                     "limit": 5,
                 },
             )
-            assert polling.structuredContent["count"] == 1
-            assert polling.structuredContent["items"][0]["id"] == signal.structuredContent["id"]
-            assert polling.structuredContent["items"][0]["signal_status"] == "pending"
+            assert polling.structured_content["count"] == 1
+            assert polling.structured_content["items"][0]["id"] == signal.structured_content["id"]
+            assert polling.structured_content["items"][0]["signal_status"] == "pending"
 
             claimed = await session.call_tool(
                 "claim_signal",
@@ -152,61 +152,61 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "namespace": "bridge",
                     "consumer": "reviewer-a",
                     "lease_seconds": 120,
-                    "signal_id": signal.structuredContent["id"],
+                    "signal_id": signal.structured_content["id"],
                 },
             )
-            assert claimed.structuredContent["claimed"] is True
-            assert claimed.structuredContent["item"]["signal_status"] == "claimed"
+            assert claimed.structured_content["claimed"] is True
+            assert claimed.structured_content["item"]["signal_status"] == "claimed"
 
             extended = await session.call_tool(
                 "extend_signal_lease",
                 arguments={
-                    "id": signal.structuredContent["id"],
+                    "id": signal.structured_content["id"],
                     "consumer": "reviewer-a",
                     "lease_seconds": 120,
                 },
             )
-            assert extended.structuredContent["extended"] is True
-            assert extended.structuredContent["item"]["signal_status"] == "claimed"
+            assert extended.structured_content["extended"] is True
+            assert extended.structured_content["item"]["signal_status"] == "claimed"
 
             acked = await session.call_tool(
                 "ack_signal",
                 arguments={
-                    "id": signal.structuredContent["id"],
+                    "id": signal.structured_content["id"],
                     "consumer": "reviewer-a",
                 },
             )
-            assert acked.structuredContent["acked"] is True
-            assert acked.structuredContent["item"]["signal_status"] == "acked"
+            assert acked.structured_content["acked"] is True
+            assert acked.structured_content["item"]["signal_status"] == "acked"
 
             stats = await session.call_tool(
                 "stats",
                 arguments={"namespace": "bridge"},
             )
-            assert stats.structuredContent["total_count"] == 2
-            assert stats.structuredContent["kind_counts"]["memory"] == 1
-            assert stats.structuredContent["kind_counts"]["signal"] == 1
-            assert stats.structuredContent["signal_status_counts"]["acked"] == 1
+            assert stats.structured_content["total_count"] == 2
+            assert stats.structured_content["kind_counts"]["memory"] == 1
+            assert stats.structured_content["kind_counts"]["signal"] == 1
+            assert stats.structured_content["signal_status_counts"]["acked"] == 1
 
             browse = await session.call_tool(
                 "browse",
                 arguments={"namespace": "bridge", "kind": "signal", "signal_status": "acked", "limit": 5},
             )
-            assert browse.structuredContent["count"] == 1
-            assert browse.structuredContent["items"][0]["id"] == signal.structuredContent["id"]
+            assert browse.structured_content["count"] == 1
+            assert browse.structured_content["items"][0]["id"] == signal.structured_content["id"]
 
             memory_browse = await session.call_tool(
                 "browse",
                 arguments={"namespace": "bridge", "kind": "memory", "signal_status": "pending", "limit": 5},
             )
-            assert memory_browse.structuredContent["count"] == 1
-            assert memory_browse.structuredContent["items"][0]["id"] == first.structuredContent["id"]
+            assert memory_browse.structured_content["count"] == 1
+            assert memory_browse.structured_content["items"][0]["id"] == first.structured_content["id"]
 
             forgotten = await session.call_tool(
                 "forget",
-                arguments={"id": first.structuredContent["id"]},
+                arguments={"id": first.structured_content["id"]},
             )
-            assert forgotten.structuredContent["deleted"] is True
+            assert forgotten.structured_content["deleted"] is True
 
             after_forget = await session.call_tool(
                 "recall",
@@ -217,7 +217,7 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "kind": "memory",
                 },
             )
-            assert after_forget.structuredContent["count"] == 0
+            assert after_forget.structured_content["count"] == 0
 
             learn = await session.call_tool(
                 "store",
@@ -232,12 +232,12 @@ async def _exercise_server(tmp_path: Path) -> None:
 
             promoted = await session.call_tool(
                 "promote",
-                arguments={"id": learn.structuredContent["id"], "to_kind": "gotcha"},
+                arguments={"id": learn.structured_content["id"], "to_kind": "gotcha"},
             )
-            assert promoted.structuredContent["changed"] is True
-            assert promoted.structuredContent["record_type"] == "gotcha"
-            assert "kind:gotcha" in promoted.structuredContent["item"]["tags"]
-            assert "record_type: gotcha" in promoted.structuredContent["item"]["content"]
+            assert promoted.structured_content["changed"] is True
+            assert promoted.structured_content["record_type"] == "gotcha"
+            assert "kind:gotcha" in promoted.structured_content["item"]["tags"]
+            assert "record_type: gotcha" in promoted.structured_content["item"]["content"]
 
             exported = await session.call_tool(
                 "export",
@@ -249,8 +249,8 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "limit": 10,
                 },
             )
-            assert exported.structuredContent["count"] == 1
-            assert "# Memory Export: bridge" in exported.structuredContent["content"]
+            assert exported.structured_content["count"] == 1
+            assert "# Memory Export: bridge" in exported.structured_content["content"]
 
             memory_exported = await session.call_tool(
                 "export",
@@ -262,8 +262,8 @@ async def _exercise_server(tmp_path: Path) -> None:
                     "limit": 10,
                 },
             )
-            assert memory_exported.structuredContent["count"] == 1
-            assert "Use one shared DB." in memory_exported.structuredContent["content"]
+            assert memory_exported.structured_content["count"] == 1
+            assert "Use one shared DB." in memory_exported.structured_content["content"]
 
 
 def test_stdio_server_round_trip(tmp_path: Path) -> None:

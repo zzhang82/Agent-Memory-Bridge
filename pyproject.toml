@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-bridge"
-version = "0.25.2"
+version = "0.26.0"
 description = "Persistent engineering memory for coding agents over MCP"
 readme = "README.md"
 license = "MIT"
@@ -19,7 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "mcp==1.28.1",
+  "mcp==2.0.0",
 ]
 
 [project.urls]

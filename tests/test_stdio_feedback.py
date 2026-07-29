@@ -131,7 +131,7 @@ async def _exercise_feedback_tool(tmp_path: Path) -> None:
     assert retry_payload["duplicate"] is True
     assert retry_payload["feedback_id"] == first_payload["feedback_id"]
 
-    assert getattr(conflict, "isError", False) is True
+    assert getattr(conflict, "is_error", False) is True
     assert "conflicting plain feedback vote; submit a correction" in _response_text(conflict)
 
 
@@ -144,7 +144,7 @@ def _response_text(response: Any) -> str:
 
 
 def _structured_payload(response: Any) -> dict[str, Any]:
-    payload = getattr(response, "structuredContent", None) or {}
+    payload = getattr(response, "structured_content", None) or getattr(response, "structuredContent", None) or {}
     if isinstance(payload, dict):
         return payload
     return {}

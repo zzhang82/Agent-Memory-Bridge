@@ -670,7 +670,7 @@ def _loads_json(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def _structured_payload(response: Any) -> dict[str, Any]:
-    payload = getattr(response, "structuredContent", None) or {}
+    payload = getattr(response, "structured_content", None) or getattr(response, "structuredContent", None) or {}
     if isinstance(payload, dict):
         return payload
     return {}

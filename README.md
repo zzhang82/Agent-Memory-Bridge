@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.25.2` strengthens snapshot-bound retrieval evidence without adding MCP tools. Receipt-bearing recall signs the complete exposure set and exact content versions from the same SQLite snapshot as the returned rows; feedback adds append-only correction and retraction events with one current effective vote while remaining shadow-only.
+`0.26.0` is a bounded MCP 2026-07-28 stdio compatibility release. AMB uses MCP Python SDK v2 and proves both modern `server/discover` and legacy `initialize` flows through real spawned stdio. The public MCP surface remains exactly 13 tools, schema remains v7, and retrieval feedback behavior stays shadow-only.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -88,7 +88,7 @@ commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.25.2.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.26.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -96,7 +96,7 @@ In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.25.2 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.26.0 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -303,13 +303,26 @@ Operator review work is available as CLI reports, not MCP tools:
 
 `review-queue` shows staged candidates, review receipts, tombstones, stale records, and quarantined claims. `review-workflow` turns those queue items into explicit human decision prompts and manual steps. `task-brief` composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections. `activation-receipt` reads existing rows for one namespace and correlation id and emits a sanitized declared-provenance receipt. These reports perform no automatic durable writeback.
 
+### MCP 2026-07-28 stdio compatibility
+
+AMB 0.26.0 supports both modern MCP 2026-07-28 `server/discover` and legacy
+`initialize` over local stdio. The compatibility proof exercises both paths
+through real spawned stdio. Modern results include `resultType: "complete"`;
+`tools/list` returns the unchanged 13 public tools in deterministic order with
+`ttlMs: 0` and `cacheScope: "private"`.
+
+Meaningful per-request `clientInfo` is caller-declared provenance, not
+authenticated identity. `source_client` precedence is explicit tool input,
+then meaningful MCP context, then the environment default; generic SDK names
+such as `mcp` are ignored.
+
 ### Static-schema client compatibility
 
 Some MCP clients generate one static input schema per tool and may send signal-only fields on `kind="memory"` paths: for example `ttl_seconds` or `expires_at` on `store`, and `signal_status` on `recall`, `browse`, or `export`. AMB drops those fields at the MCP transport boundary before creating or querying memory records. The lower-level memory store contract stays strict: durable memory and coordination signals remain separate lanes, and real signal lifecycle fields still belong only to `kind="signal"` operations.
 
 ## Proof Snapshot
 
-`0.25.2` hardens signed retrieval evidence while retaining the 13 public MCP tools. The `recall` argument schema adds optional caller-declared evidence-context labels, and the `feedback` schema adds append-only vote/correction/retraction fields. Receipt-bearing recall binds the returned rows, database epoch, complete exposure set, exact content versions, and signature to one SQLite snapshot. Semantic capability remains configuration-declared, not runtime-verified. Feedback remains shadow-only and is not a reranker, memory editor, authentication layer, ACL system, ANN index, graph engine, or automatic policy path.
+`0.26.0` is a bounded MCP 2026-07-28 stdio compatibility release while retaining the 13 public MCP tools. AMB uses MCP Python SDK v2; modern `server/discover` and legacy `initialize` are both proven through real spawned stdio. Modern results return `resultType: "complete"`, and `tools/list` returns deterministic ordering with `ttlMs: 0` and `cacheScope: "private"`. Schema remains v7. Meaningful per-request `clientInfo` is caller-declared provenance with explicit input taking precedence over meaningful MCP context, then environment defaults; generic `mcp` is ignored.
 
 | Track | Current signal |
 |---|---|
@@ -330,8 +343,10 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| v0.25.2 retrieval receipts and feedback | schema v7; same-snapshot complete exposure sets with exact content versions; optional model/harness/chat-template digests; append-only vote/correction/retraction history with one effective vote; separate token hash and feedback identity digest |
-| Test suite | isolated CPython 3.11 validation: `620 tests collected`, `620 passed`; v0.25.2 includes snapshot, context, semantic-declaration, effective-feedback, migration, stdio, install, and public-surface regressions |
+| v0.26 stdio compatibility | MCP Python SDK v2; modern `server/discover` and legacy `initialize` both proven through real spawned stdio; modern results are complete; `tools/list` uses deterministic order, `ttlMs: 0`, and `cacheScope: "private"` |
+| Client provenance | meaningful per-request `clientInfo` is caller-declared provenance; precedence is explicit `source_client` > meaningful MCP context > environment default; generic `mcp` is ignored |
+| Inherited retrieval receipts and feedback | schema v7; same-snapshot complete exposure sets with exact content versions; optional model/harness/chat-template digests; append-only vote/correction/retraction history with one effective vote; separate token hash and feedback identity digest |
+| Test suite | isolated Windows CPython 3.11 validation: `622 tests collected`; all runnable tests passed; `3 platform-conditioned skips`; v0.26.0 includes dual-era stdio, clientInfo provenance, install, public-surface, receipt/feedback, and migration regressions |
 
 <details>
 <summary>Release contract facts</summary>
@@ -463,7 +478,7 @@ Full proof details are in [benchmark/README.md](benchmark/README.md).
 
 ## Boundaries
 
-AMB is not a graph database, general unlearning system, hosted memory platform, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, automatic policy engine, compliance certification, authenticated identity system, or unreviewed durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination. `forget` remains an explicit mutating operation; governed change makes that operation more conservative and auditable rather than automatic.
+AMB is not a graph database, general unlearning system, hosted memory platform, HTTP MCP service, Tasks or Apps runtime, OAuth/ACL system, Episode Ledger, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, reranker, automatic policy engine, compliance certification, authenticated identity system, or unreviewed durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination. `forget` remains an explicit mutating operation; governed change makes that operation more conservative and auditable rather than automatic.
 
 For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
@@ -475,7 +490,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.25.2 announcement](docs/v0.25.2-announcement.md)
+- [v0.26.0 announcement](docs/v0.26.0-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

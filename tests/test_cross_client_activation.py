@@ -408,7 +408,7 @@ async def _exercise_cross_client_stdio(
                     "source_model": "stdio-writer-model-secret",
                 },
             )
-            writer_id = str(writer.structuredContent["id"])
+            writer_id = str(writer.structured_content["id"])
 
     async with stdio_client(_stdio_server_params(store, source_client="client-b")) as (read, write):
         async with ClientSession(read, write) as client_b:
@@ -424,8 +424,8 @@ async def _exercise_cross_client_stdio(
                     "limit": 5,
                 },
             )
-            assert recalled.structuredContent["count"] == 1
-            observed_memory_id = str(recalled.structuredContent["items"][0]["id"])
+            assert recalled.structured_content["count"] == 1
+            observed_memory_id = str(recalled.structured_content["items"][0]["id"])
             assert observed_memory_id == writer_id
 
             reader = await client_b.call_tool(
@@ -448,9 +448,9 @@ async def _exercise_cross_client_stdio(
                     "source_model": "stdio-reader-model-secret",
                 },
             )
-            reader_id = str(reader.structuredContent["id"])
+            reader_id = str(reader.structured_content["id"])
             acked = await client_b.call_tool("ack_signal", arguments={"id": reader_id})
-            assert acked.structuredContent["acked"] is True
+            assert acked.structured_content["acked"] is True
 
     return writer_id, reader_id
 
