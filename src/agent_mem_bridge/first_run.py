@@ -10,6 +10,7 @@ from .client_config import (
     build_client_config_options,
     render_client_config,
 )
+from .mcp_boundary import package_version
 from .storage import MemoryStore
 from .task_brief import build_task_brief_report, render_task_brief_markdown
 
@@ -20,7 +21,8 @@ PYTHON_LAUNCHER_NOTE = (
     "Linux systems use `python3`; on Windows `py -3` may be appropriate. "
     "Generated Windows verification commands use PowerShell syntax."
 )
-GITHUB_ARCHIVE_URL = "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.26.0.zip"
+RELEASE_VERSION = package_version()
+GITHUB_ARCHIVE_URL = f"https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v{RELEASE_VERSION}.zip"
 VENV_INTERPRETER_COMMAND = (
     'python -c "import os; from pathlib import Path; '
     "print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())\""
@@ -87,7 +89,8 @@ def build_first_run_report(
             "github_install": baseline_install,
             "smoke_test": verify_commands[1],
             "optional_uv_smoke_test": (
-                "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.26.0 agent-memory-bridge verify"
+                "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge"
+                f"@v{RELEASE_VERSION} agent-memory-bridge verify"
             ),
         },
         "verify": verify_commands,

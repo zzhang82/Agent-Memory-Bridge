@@ -2,18 +2,18 @@
 
 Last updated: 2026-07-29 (America/New_York)
 
-This maintainer note describes the current `0.26.0` release: bounded MCP 2026-07-28 dual-era stdio compatibility, inheriting the v0.25.2 Evidence Integrity patch, the v0.24 exact-identity and recall-boundary work, the v0.23.1 local-hardening work, the v0.22 activation receipt behavior, and the v0.21 governed-change proof.
+This maintainer note describes the current `0.26.1` release: independently exercised MCP 2026-07-28 dual-era stdio interoperability, inheriting the v0.26.0 adapter, the v0.25.2 Evidence Integrity patch, the v0.24 exact-identity and recall-boundary work, the v0.23.1 local-hardening work, the v0.22 activation receipt behavior, and the v0.21 governed-change proof.
 
-## 0.26.0 Release Status
+## 0.26.1 Release Status
 
-- Package version: `0.26.0`
-- Release thesis: bounded MCP 2026-07-28 dual-era stdio compatibility, not Episode Ledger
+- Package version: `0.26.1`
+- Release thesis: protocol conformance and operator proof for bounded MCP 2026-07-28 dual-era stdio, not Episode Ledger
 - MCP dependency: `mcp==2.0.0`
 - MCP runtime behavior: the public surface remains exactly 13 tools; no tools are added, removed, or renamed
-- Baseline install: immutable `v0.26.0` archive in `.amb-venv`, using the derived venv interpreter
-- Protocol compatibility: modern `server/discover` and legacy `initialize` are both proven through real spawned stdio
+- Baseline install: immutable `v0.26.1` archive in `.amb-venv`, using the derived venv interpreter after publication
+- Protocol compatibility: raw JSON-RPC, Python MCP 1.28.1, Python MCP 2.0, and TypeScript MCP client 2.0.0 proofs
 - Modern result contract: modern MCP results include `resultType: "complete"`
-- Tool-list contract: `tools/list` returns exactly 13 public tools in deterministic order with `ttlMs: 0` and `cacheScope: "private"`
+- Cache and tool-list contract: discover is `300000/public`; `tools/list` returns exactly 13 public tools from the canonical order with `0/private`
 - ClientInfo provenance contract: meaningful per-request `clientInfo` is caller-declared provenance; `source_client` precedence is explicit input, then meaningful MCP context, then environment default; generic `mcp` is ignored
 - Storage contract: schema remains v7; there is no database migration
 - Retrieval capability contract: retrieval reports the honest operating capability as `lexical`, `hashed_lexical`, or `semantic`; default hash embeddings remain `hashed_lexical`, while true semantic mode requires a declared semantic provider
@@ -55,7 +55,7 @@ This maintainer note describes the current `0.26.0` release: bounded MCP 2026-07
 - Receipt boundary: declared provenance only; not identity proof, certification, distribution proof, or use proof
 - Public MCP surface: exactly `13` tools
 - Automatic writes: no auto durable writeback and no client config writes
-- Out-of-scope for 0.26: no HTTP, Tasks, Apps, OAuth/ACL, new tools, DB migration, Episode Ledger, reranking, or policy automation
+- Out-of-scope for 0.26.1: no HTTP, Tasks, Apps, OAuth/ACL, new tools, DB migration, Episode Ledger, reranking, or policy automation
 - Fixed governed-change proof report target: `0.21.0`
 - Governed-change manifest releases: `current_release = 0.20.0`, `target_release = 0.21.0`
 - Windows proof hashing: manifest bytes are normalized to LF before the fixed SHA256 check
@@ -104,15 +104,18 @@ This maintainer note describes the current `0.26.0` release: bounded MCP 2026-07
 32. database integrity/projection health, repair, consistent backup/restore, WAL checkpoint, size warnings, private managed-file permissions, and log rotation
 33. `local-single-user` and `hardened-local` operating profiles with an explicit cooperative-security boundary
 34. same-snapshot receipt-bound retrieval feedback with exact content versions, append-only correction/retraction history, one effective vote, and shadow-only ordering-neutral behavior
-35. MCP 2026-07-28 dual-era stdio compatibility with modern `server/discover`, legacy `initialize`, complete modern results, deterministic private `tools/list`, and caller-declared `clientInfo` provenance
+35. MCP 2026-07-28 dual-era stdio compatibility with raw-wire conformance, real old-client and TypeScript-client interoperability, explicit discover/list caching, dual-era operator probes, and caller-declared `clientInfo` provenance
 
 ## Verified On 2026-07-29
 
-- isolated Windows CPython 3.11 clean-room suite: `622 tests collected`; all runnable tests passed; `3 platform-conditioned skips`; no failures
+- current release denominator: `641 tests collected`
 - MCP dependency is `mcp==2.0.0`
-- v0.26 dual-era stdio tests verify modern `server/discover` and legacy `initialize` through real spawned stdio
-- modern result tests verify `resultType: "complete"` on modern results
-- `tools/list` tests verify exactly 13 public tools, deterministic order, `ttlMs: 0`, and `cacheScope: "private"`
+- raw-wire tests verify modern discover/list/call, legacy initialize/initialized/list/call, explicit unsupported-version errors, missing-envelope rejection, malformed-clientInfo rejection, and legacy modern-field absence
+- real `mcp==1.28.1` and official TypeScript MCP client 2.0.0 proofs run from independent client environments
+- modern result tests verify `resultType: "complete"` on the wire
+- discover tests verify `ttlMs: 300000` and `cacheScope: "public"`; `tools/list` verifies exactly 13 tools, canonical order, `ttlMs: 0`, and `cacheScope: "private"`
+- operator tests verify independent modern and legacy reports against disposable databases
+- reliability proof verifies 20 mixed-era processes retain 20 writes in one SQLite database and 100 connect/disconnect cycles complete without reported errors, remaining direct child processes, or temp artifacts
 - clientInfo provenance tests verify precedence explicit `source_client` > meaningful MCP context > environment default, with generic `mcp` ignored
 - stdio verify now expects 13 tools and includes a `feedback_shadow_record` check
 - v0.25 retrieval capability tests verify the default `hashed_lexical` capability, explicit semantic-provider gating, hybrid semantic-arm skipping when no semantic provider is declared, and semantic availability only for a declared semantic command provider
@@ -275,6 +278,19 @@ This maintainer note describes the current `0.26.0` release: bounded MCP 2026-07
 - `first-run` combines install, config snippet, verification steps, and Task Brief into one copy/paste report while keeping config writes manual
 - `doctor` and `verify` provide local install confidence without touching live bridge state
 
+## What 0.26.1 Actually Means
+
+- 0.26.0's dual-era adapter now has independent raw-wire and cross-SDK proof
+- Python MCP 1.28.1 legacy and TypeScript MCP client 2.0.0 modern paths complete representative business calls
+- unsupported modern versions return `-32022` with supported/requested data and do not fall back to initialize on the same modern connection
+- discover uses `ttlMs: 300000`, `cacheScope: "public"`; tools/list uses `ttlMs: 0`, `cacheScope: "private"`
+- public tool order comes from one canonical constant and remains exactly 13 tools
+- doctor and verify probe modern and legacy stdio independently with isolated stores
+- protocol observability is bounded and does not persist raw capabilities, baggage, or request identifiers
+- schema remains v7; no migration or Episode Ledger work is included
+- this is project interoperability evidence, not an official full-conformance or vendor-host certification claim
+- tag publication still requires a visible complete GitHub Actions green run on the tag commit
+
 ## What 0.26.0 Actually Means
 
 - AMB uses `mcp==2.0.0`
@@ -426,7 +442,7 @@ The release still does **not** mean:
 - that every MCP client is fully verified just because the generic stdio contract is stable
 - that distinct declared `source_client` labels are cryptographic or vendor-authenticated identity
 
-## Pressure Points After 0.26.0
+## Pressure Points After 0.26.1
 
 The most important remaining gaps are:
 
@@ -444,7 +460,9 @@ The most important remaining gaps are:
 
 ## Maintainer Read
 
-`0.26.0` is a bounded MCP 2026-07-28 stdio compatibility release. It moves AMB to `mcp==2.0.0`, proves modern `server/discover` and legacy `initialize` through real spawned stdio, emits complete modern results, keeps deterministic private `tools/list`, and treats meaningful per-request `clientInfo` only as caller-declared provenance. The public surface remains exactly 13 tools and schema remains v7.
+`0.26.1` is the protocol-conformance and operator-proof patch. It adds raw-wire error and field-shape evidence, independent Python MCP 1.28.1 and TypeScript MCP 2.0.0 clients, explicit discover/list cache contracts, dual-era operator probes, and compatibility-specific CI gates. It does not claim official full conformance or authenticated host identity. The public surface remains exactly 13 tools and schema remains v7.
+
+`0.26.0` was the bounded MCP 2026-07-28 stdio implementation release. It moved AMB to `mcp==2.0.0`, added modern `server/discover` while retaining legacy `initialize`, emitted complete modern results, kept deterministic private `tools/list`, and treated meaningful per-request `clientInfo` only as caller-declared provenance.
 
 `0.25.2` was the Evidence Integrity patch for Trustworthy Adaptive Retrieval. It preserved the 13-tool surface while expanding the `recall` and `feedback` argument schemas. Receipt-bearing recall binds returned rows, the complete exposure set, exact content versions, and retrieval-contract evidence to one SQLite snapshot. Feedback gained append-only correction/retraction history, a single current effective vote, caller-declared provenance neutrality, and separate token-hash versus vote-identity fields under schema v7. Feedback remains shadow-only: it does not mutate memory, indexes, recall ordering, or ranking.
 

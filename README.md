@@ -13,7 +13,7 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.26.0` is a bounded MCP 2026-07-28 stdio compatibility release. AMB uses MCP Python SDK v2 and proves both modern `server/discover` and legacy `initialize` flows through real spawned stdio. The public MCP surface remains exactly 13 tools, schema remains v7, and retrieval feedback behavior stays shadow-only.
+`0.26.1` is the protocol-conformance and operator-proof patch for the bounded MCP 2026-07-28 stdio adapter. It adds raw JSON-RPC proof, a real `mcp==1.28.1` legacy client, the official `@modelcontextprotocol/client@2.0.0`, dual-era `doctor`/`verify`, and explicit cache contracts. The public MCP surface remains exactly 13 tools, schema remains v7, and retrieval feedback stays shadow-only. This is independent interoperability evidence, not a claim of official full conformance or vendor-host certification.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -88,7 +88,7 @@ commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.26.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.26.1.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -96,7 +96,7 @@ In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 Optional pinned GitHub smoke test with `uvx`:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.26.0 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.26.1 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -305,11 +305,15 @@ Operator review work is available as CLI reports, not MCP tools:
 
 ### MCP 2026-07-28 stdio compatibility
 
-AMB 0.26.0 supports both modern MCP 2026-07-28 `server/discover` and legacy
-`initialize` over local stdio. The compatibility proof exercises both paths
-through real spawned stdio. Modern results include `resultType: "complete"`;
-`tools/list` returns the unchanged 13 public tools in deterministic order with
-`ttlMs: 0` and `cacheScope: "private"`.
+AMB 0.26.1 supports modern MCP 2026-07-28 `server/discover` and legacy
+`initialize` over local stdio. Proof now includes raw JSON-RPC frames, a real
+`mcp==1.28.1` client, `mcp==2.0.0`, and the official
+`@modelcontextprotocol/client@2.0.0`. Modern successful wire results include
+`resultType: "complete"`;
+`server/discover` uses `ttlMs: 300000` and `cacheScope: "public"`, while
+`tools/list` returns the canonical 13-tool order with `ttlMs: 0` and
+`cacheScope: "private"`. `doctor --include-stdio` and `verify` probe modern and
+legacy paths independently against isolated databases.
 
 Meaningful per-request `clientInfo` is caller-declared provenance, not
 authenticated identity. `source_client` precedence is explicit tool input,
@@ -322,7 +326,7 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.26.0` is a bounded MCP 2026-07-28 stdio compatibility release while retaining the 13 public MCP tools. AMB uses MCP Python SDK v2; modern `server/discover` and legacy `initialize` are both proven through real spawned stdio. Modern results return `resultType: "complete"`, and `tools/list` returns deterministic ordering with `ttlMs: 0` and `cacheScope: "private"`. Schema remains v7. Meaningful per-request `clientInfo` is caller-declared provenance with explicit input taking precedence over meaningful MCP context, then environment defaults; generic `mcp` is ignored.
+`0.26.1` upgrades the bounded dual-era implementation into independently exercised protocol interoperability. Raw-wire fixtures cover discover, initialize, list, call, malformed metadata, missing envelopes, and unsupported-version errors. Separate client environments prove `mcp==1.28.1` legacy operation, `mcp==2.0.0` modern operation, and official `@modelcontextprotocol/client@2.0.0` operation. Schema remains v7; the canonical 13-tool surface is unchanged; protocol metadata remains caller-declared and bounded; no raw capabilities or baggage becomes durable authority.
 
 | Track | Current signal |
 |---|---|
@@ -343,10 +347,10 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| v0.26 stdio compatibility | MCP Python SDK v2; modern `server/discover` and legacy `initialize` both proven through real spawned stdio; modern results are complete; `tools/list` uses deterministic order, `ttlMs: 0`, and `cacheScope: "private"` |
+| v0.26.1 protocol proof | raw JSON-RPC plus `mcp==1.28.1`, `mcp==2.0.0`, and `@modelcontextprotocol/client@2.0.0` interoperability; discover is `300000/public`; canonical `tools/list` is `0/private`; dual-era operator probes use isolated databases |
 | Client provenance | meaningful per-request `clientInfo` is caller-declared provenance; precedence is explicit `source_client` > meaningful MCP context > environment default; generic `mcp` is ignored |
 | Inherited retrieval receipts and feedback | schema v7; same-snapshot complete exposure sets with exact content versions; optional model/harness/chat-template digests; append-only vote/correction/retraction history with one effective vote; separate token hash and feedback identity digest |
-| Test suite | isolated Windows CPython 3.11 validation: `622 tests collected`; all runnable tests passed; `3 platform-conditioned skips`; v0.26.0 includes dual-era stdio, clientInfo provenance, install, public-surface, receipt/feedback, and migration regressions |
+| Test suite | `641 tests collected`; release gates include raw-wire negotiation, real old-client and TypeScript client jobs, dual-era operator checks, 20-process shared-SQLite proof, 100 connect/disconnect cycles, and inherited receipt/feedback/migration regressions |
 
 <details>
 <summary>Release contract facts</summary>
@@ -490,7 +494,7 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.26.0 announcement](docs/v0.26.0-announcement.md)
+- [v0.26.1 announcement](docs/v0.26.1-announcement.md)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

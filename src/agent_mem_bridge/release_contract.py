@@ -3,9 +3,11 @@ from __future__ import annotations
 import ast
 import binascii
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 import tomllib
 import xml.etree.ElementTree as ET
 import zlib
@@ -264,7 +266,7 @@ def build_version_check(pyproject_version: str, readme_paths: list[Path]) -> dic
     readmes: list[dict[str, Any]] = []
     ok = True
     for path in readme_paths:
-        versions = sorted(set(SEMVER_PATTERN.findall(path.read_text(encoding="utf-8"))))
+        versions = extract_release_versions(path.read_text(encoding="utf-8"))
         readmes.append({"path": str(path), "versions": versions})
         if not versions or versions != [pyproject_version]:
             ok = False
@@ -282,6 +284,15 @@ def build_version_check(pyproject_version: str, readme_paths: list[Path]) -> dic
         "readmes": readmes,
         "mismatches": mismatches,
     }
+
+
+def extract_release_versions(text: str) -> list[str]:
+    versions: set[str] = set()
+    for match in SEMVER_PATTERN.finditer(text):
+        if match.start() > 0 and text[match.start() - 1] in {"=", "@"}:
+            continue
+        versions.add(match.group(1))
+    return sorted(versions)
 
 
 def build_v020_proof_version_check(project_root: Path, pyproject_version: str) -> dict[str, Any]:
@@ -1391,13 +1402,24 @@ def is_mcp_tool_decorator(node: ast.expr) -> bool:
 
 
 def collect_test_count(project_root: Path) -> int:
-    completed = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "tests"],
-        cwd=project_root,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    with tempfile.TemporaryDirectory(prefix="amb-release-contract-") as temp_dir:
+        runtime_dir = Path(temp_dir)
+        env = dict(os.environ)
+        env.update(
+            {
+                "AGENT_MEMORY_BRIDGE_HOME": str(runtime_dir),
+                "AGENT_MEMORY_BRIDGE_DB_PATH": str(runtime_dir / "bridge.db"),
+                "AGENT_MEMORY_BRIDGE_LOG_DIR": str(runtime_dir / "logs"),
+            }
+        )
+        completed = subprocess.run(
+            [sys.executable, "-m", "pytest", "--collect-only", "-q", "tests"],
+            cwd=project_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
     match = re.search(r"(\d+)\s+tests collected", completed.stdout)
     if match is None:
         raise ValueError("Could not determine collected test count from pytest output.")

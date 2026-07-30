@@ -68,6 +68,7 @@ def test_v023_v024_v025_and_v026_release_docs_are_on_public_surface() -> None:
         Path("docs/v0.25.2-announcement.md"),
         Path("docs/MCP-2026-COMPATIBILITY.md"),
         Path("docs/v0.26.0-announcement.md"),
+        Path("docs/v0.26.1-announcement.md"),
     }.issubset(set(PUBLIC_DOC_PATHS))
 
 

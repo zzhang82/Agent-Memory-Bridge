@@ -54,6 +54,7 @@ PUBLIC_DOC_PATHS = (
     Path("docs/v0.25.2-announcement.md"),
     Path("docs/MCP-2026-COMPATIBILITY.md"),
     Path("docs/v0.26.0-announcement.md"),
+    Path("docs/v0.26.1-announcement.md"),
     Path("examples/README.md"),
     Path("examples/demo/before-after-gotcha.cast.md"),
     Path("examples/demo/README.md"),

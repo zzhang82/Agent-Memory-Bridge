@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 from pathlib import Path
 
 from agent_mem_bridge.cli import main
@@ -9,6 +10,11 @@ from agent_mem_bridge.onboarding import run_doctor
 from agent_mem_bridge.storage import MemoryStore
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _database_dump(db_path: Path) -> tuple[str, ...]:
+    with sqlite3.connect(db_path) as conn:
+        return tuple(sorted(conn.iterdump()))
 
 
 def _isolate_doctor_runtime(tmp_path: Path, monkeypatch) -> dict[str, Path]:
@@ -64,6 +70,25 @@ def test_cli_doctor_json_output(tmp_path: Path, monkeypatch, capsys) -> None:
     assert payload["log_dir"] == str(runtime["log_dir"])
     assert payload["config_path"] == str(runtime["config_path"])
     assert any(check["name"] == "sqlite_fts5" for check in payload["checks"])
+
+
+def test_run_doctor_reports_modern_and_legacy_stdio_independently(tmp_path: Path, monkeypatch) -> None:
+    runtime = _isolate_doctor_runtime(tmp_path, monkeypatch)
+    before = _database_dump(runtime["db_path"])
+
+    report = run_doctor(include_stdio=True, project_root=PROJECT_ROOT)
+
+    assert report["ok"] is True
+    checks = {check["name"]: check for check in report["checks"]}
+    assert checks["mcp_modern_stdio"]["status"] == "pass"
+    assert checks["mcp_modern_stdio"]["report"]["protocol_version"] == "2026-07-28"
+    assert checks["mcp_legacy_stdio"]["status"] == "pass"
+    assert checks["mcp_legacy_stdio"]["report"]["protocol_version"] == "2025-11-25"
+    assert checks["stdio_verify"]["status"] == "pass"
+    assert report["mcp_sdk_version"] == "2.0.0"
+    assert report["modern_stdio"]["protocol_version"] == "2026-07-28"
+    assert report["legacy_stdio"]["protocol_version"] == "2025-11-25"
+    assert _database_dump(runtime["db_path"]) == before
 
 
 def test_run_doctor_fails_for_claimed_signal_without_lease(tmp_path: Path, monkeypatch) -> None:

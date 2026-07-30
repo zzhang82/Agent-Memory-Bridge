@@ -15,28 +15,18 @@ from mcp.client.stdio import stdio_client
 from mcp.server import MCPServer
 from mcp.types import Implementation
 
+from agent_mem_bridge.mcp_boundary import (
+    DISCOVER_CACHE_HINT,
+    MCP_LEGACY_TEST_VERSION,
+    MCP_MODERN_VERSION,
+    PUBLIC_TOOL_ORDER,
+    TOOLS_LIST_CACHE_HINT,
+)
 from agent_mem_bridge.schema import CURRENT_SCHEMA_VERSION, schema_version
 from agent_mem_bridge.storage import MemoryStore
 
 ROOT = Path(__file__).resolve().parents[1]
-MODERN_PROTOCOL_VERSION = "2026-07-28"
-LEGACY_PROTOCOL_VERSION = "2025-11-25"
-PROOF_CLIENT = Implementation(name="amb-v026-proof", version="0.26")
-EXPECTED_TOOL_NAMES = [
-    "store",
-    "feedback",
-    "recall",
-    "browse",
-    "stats",
-    "forget",
-    "claim_signal",
-    "ack_signal",
-    "extend_signal_lease",
-    "promote",
-    "annotate",
-    "revise",
-    "export",
-]
+PROOF_CLIENT = Implementation(name="amb-v0261-proof", version="0.26.1")
 
 
 def _database_dump(db_path: Path) -> tuple[str, ...]:
@@ -74,18 +64,21 @@ async def _exercise_stdio_era(
         if mode == "auto":
             assert client.session.discover_result is not None
             assert client.session.discover_result.result_type == "complete"
-            assert MODERN_PROTOCOL_VERSION in client.session.discover_result.supported_versions
+            assert MCP_MODERN_VERSION in client.session.discover_result.supported_versions
+            assert client.session.discover_result.ttl_ms == DISCOVER_CACHE_HINT.ttl_ms
+            assert client.session.discover_result.cache_scope == DISCOVER_CACHE_HINT.scope
             assert client.session.initialize_result is None
         else:
             assert client.session.initialize_result is not None
-            assert client.session.initialize_result.protocol_version == LEGACY_PROTOCOL_VERSION
+            assert client.session.initialize_result.protocol_version == MCP_LEGACY_TEST_VERSION
             assert client.session.discover_result is None
 
-        tools_result = await client.list_tools(cache_mode="bypass")
-        assert tools_result.result_type == "complete"
-        assert tools_result.ttl_ms == 0
-        assert tools_result.cache_scope == "private"
-        assert [tool.name for tool in tools_result.tools] == EXPECTED_TOOL_NAMES
+        for _ in range(100):
+            tools_result = await client.list_tools(cache_mode="bypass")
+            assert tools_result.result_type == "complete"
+            assert tools_result.ttl_ms == TOOLS_LIST_CACHE_HINT.ttl_ms
+            assert tools_result.cache_scope == TOOLS_LIST_CACHE_HINT.scope
+            assert [tool.name for tool in tools_result.tools] == list(PUBLIC_TOOL_ORDER)
 
         stats_result = await client.call_tool("stats", {"namespace": "project:v026-proof"})
         assert stats_result.result_type == "complete"
@@ -110,7 +103,7 @@ def test_mcp_2_dual_era_surface_preserves_schema_and_durable_data(
     asyncio.run(
         _exercise_stdio_era(
             "auto",
-            MODERN_PROTOCOL_VERSION,
+            MCP_MODERN_VERSION,
             bridge_home=bridge_home,
             db_path=db_path,
         )
@@ -118,7 +111,7 @@ def test_mcp_2_dual_era_surface_preserves_schema_and_durable_data(
     asyncio.run(
         _exercise_stdio_era(
             "legacy",
-            LEGACY_PROTOCOL_VERSION,
+            MCP_LEGACY_TEST_VERSION,
             bridge_home=bridge_home,
             db_path=db_path,
         )
@@ -189,6 +182,18 @@ async def _exercise_modern_client_info(mcp_server: MCPServer) -> None:
         assert explicit_recalled.structured_content["count"] == 1
         assert explicit_recalled.structured_content["items"][0]["content"] == explicit_content
         assert explicit_recalled.structured_content["items"][0]["source_client"] == explicit_source_client
+
+        reserved_tag_attempt = await client.call_tool(
+            "annotate",
+            {
+                "id": context_stored.structured_content["id"],
+                "tags": ["reviewed:true"],
+                "actor": "caller-declared-client",
+            },
+        )
+        assert reserved_tag_attempt.is_error is True
+        error_text = "\n".join(str(getattr(item, "text", "")) for item in reserved_tag_attempt.content)
+        assert "reserved policy tags" in error_text
 
 
 def test_modern_client_info_reaches_provenance_when_exposed(

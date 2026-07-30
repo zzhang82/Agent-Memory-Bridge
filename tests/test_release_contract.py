@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_mem_bridge.release_contract import run_release_contract_check
+from agent_mem_bridge.release_contract import collect_test_count, run_release_contract_check
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -105,6 +105,50 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert failed_v022_report["ok"] is False
     assert failed_v022_proof_check["ok"] is False
     assert failed_v022_proof_check["mismatches"] == [{"field": "summary.governed_failures", "expected": 0, "actual": 1}]
+
+
+def test_release_version_check_ignores_package_qualified_sdk_versions(tmp_path: Path) -> None:
+    root = create_release_fixture(tmp_path)
+    for name in ("README.md", "README.zh-CN.md"):
+        path = root / name
+        path.write_text(
+            path.read_text(encoding="utf-8")
+            + "\nValidated with `mcp==1.28.1`, `mcp==2.0.0`, and "
+            + "`@modelcontextprotocol/client@2.0.0`.\n",
+            encoding="utf-8",
+        )
+
+    report = run_release_contract_check(root, test_count_provider=lambda _: 146)
+
+    assert report["ok"] is True
+
+    readme = root / "README.md"
+    readme.write_text(readme.read_text(encoding="utf-8") + "\nStale AMB version: 0.8.0.\n", encoding="utf-8")
+    report = run_release_contract_check(root, test_count_provider=lambda _: 146)
+    check = {check["name"]: check for check in report["checks"]}["pyproject_version_matches_readmes"]
+
+    assert check["ok"] is False
+    assert check["mismatches"][0]["actual_versions"] == ["0.8.0", "0.9.0"]
+
+
+def test_collect_test_count_uses_disposable_amb_runtime(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured.update(kwargs)
+        env = kwargs["env"]
+        assert isinstance(env, dict)
+        runtime_dir = Path(env["AGENT_MEMORY_BRIDGE_HOME"])
+        assert runtime_dir.exists()
+        assert Path(env["AGENT_MEMORY_BRIDGE_DB_PATH"]) == runtime_dir / "bridge.db"
+        assert Path(env["AGENT_MEMORY_BRIDGE_LOG_DIR"]) == runtime_dir / "logs"
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="639 tests collected\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assert collect_test_count(tmp_path) == 639
+    assert captured["cwd"] == tmp_path
+    assert not Path(captured["env"]["AGENT_MEMORY_BRIDGE_HOME"]).exists()  # type: ignore[index]
 
 
 def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) -> None:

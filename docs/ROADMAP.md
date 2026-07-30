@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-29 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.26.0`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, the v0.25 Trustworthy Adaptive Retrieval and Evidence Integrity releases, and bounded MCP 2026-07-28 stdio compatibility. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the shipped ladder through `0.26.1`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, the v0.25 Trustworthy Adaptive Retrieval and Evidence Integrity releases, and independently exercised MCP 2026-07-28 stdio interoperability. Treat it as a maintainer planning document, not as the public release contract.
 
 ## Shipped Ladder
 
@@ -636,9 +636,42 @@ agent-memory-bridge activation-receipt --namespace project:demo --correlation-id
 - no claim that external users adopted the bridge
 - no native-memory comparison unless it is separately scoped and evidenced
 
+## 0.26.1 = Protocol Conformance and Operator Proof
+
+Status: current patch release; 13 MCP tools retained, schema v7
+retained, no Episode Ledger scope.
+
+### Thesis
+
+Turn the 0.26.0 dual-era implementation from SDK self-consistency into
+independently exercised protocol interoperability and operator-visible proof.
+
+One sentence:
+
+`0.26.1 = raw-wire conformance, real Python MCP 1.28.1 and TypeScript MCP 2.0.0 clients, canonical cache/tool contracts, dual-era operator probes, and compatibility-specific CI gates.`
+
+### Acceptance Gate
+
+- raw JSON-RPC covers modern and legacy happy paths plus unsupported version,
+  missing envelope, malformed client info, and legacy modern-field absence
+- discover is `ttlMs: 300000`, `cacheScope: "public"`; tools/list is
+  `ttlMs: 0`, `cacheScope: "private"`
+- real Python MCP 1.28.1 initializes, lists, stores, and recalls against the
+  MCP 2.0 AMB server from a separate environment
+- official TypeScript MCP client 2.0.0 discovers, lists, stores, and recalls
+- `doctor` and `verify` report modern and legacy paths independently using
+  isolated stores
+- 20 mixed-era processes write to one SQLite database without loss or lock
+  error; 100 connect/disconnect cycles complete without reported leakage
+- `server.py`, `mcp_boundary.py`, and `stdio_probe.py` are in mypy and branch
+  coverage gates
+- tag publication remains blocked until the tag commit has a visible complete
+  GitHub Actions green run
+- documentation does not claim official full conformance without an official suite
+
 ## 0.26.0 = MCP 2026-07-28 Stdio Compatibility
 
-Status: current release; 13 MCP tools retained, schema v7 retained, no
+Status: historical implementation release; 13 MCP tools retained, schema v7 retained, no
 Episode Ledger scope.
 
 ### Thesis
@@ -672,6 +705,17 @@ One sentence:
 - clientInfo provenance precedence is explicit > meaningful context > environment, and generic `mcp` is ignored
 - no new MCP tools and no schema migration
 - no HTTP, Tasks, Apps, OAuth/ACL, Episode Ledger, reranking, or policy automation
+
+## 0.27.0 = Episode and Learning Ledger
+
+Status: planned only after the complete 0.26.1 protocol acceptance and release
+proof gate.
+
+The minimum design uses explicit server-minted episode handles and append-only
+events, artifacts, content hashes, verifier runs, model/harness/tool-schema
+digests, terminal states, idempotency, and replay. It must not persist raw chain
+of thought by default, automatically write ordinary memory, rerank retrieval, or
+train a model. Detailed schema and tool review remains separate from 0.26.1.
 
 ## 0.25.2 = Evidence Integrity
 

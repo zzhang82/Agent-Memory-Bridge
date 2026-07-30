@@ -2,9 +2,9 @@
 
 Last updated: 2026-07-29 (America/New_York)
 
-This is the compatibility denominator for AMB 0.26. It defines the smallest
-compatible runtime contract for the 0.26 implementation without widening the AMB
-product boundary.
+This is the compatibility denominator for AMB 0.26.1. It defines the smallest
+compatible runtime contract for the dual-era implementation without widening
+the AMB product boundary.
 
 This document is not a release note. Release metadata remains in
 `pyproject.toml`.
@@ -26,7 +26,7 @@ Official primary sources:
 
 ## Non-Goals
 
-AMB 0.26 compatibility work must explicitly exclude:
+AMB 0.26.1 compatibility work must explicitly exclude:
 
 - HTTP hosting or Streamable HTTP service exposure
 - MCP Tasks
@@ -70,7 +70,7 @@ The 13 public tools are:
 
 ## Dual-Era Stdio Contract
 
-AMB 0.26 should support both protocol eras over stdio:
+AMB 0.26.1 supports both protocol eras over stdio:
 
 - modern MCP 2026-07-28 clients using `server/discover` plus per-request
   `_meta`
@@ -84,8 +84,8 @@ request. AMB should return a `DiscoverResult` with:
 - `supportedVersions` including `2026-07-28`
 - `capabilities.tools`
 - `_meta["io.modelcontextprotocol/serverInfo"]`
-- SDK-defined `ttlMs`
-- `cacheScope: "public"` for SDK-defined discovery metadata
+- `ttlMs: 300000`
+- `cacheScope: "public"`
 
 Legacy clients that do not use `server/discover` must still be able to complete
 the existing initialize-based stdio flow. The legacy path must not require
@@ -106,7 +106,7 @@ For client-side compatibility probes, follow the official stdio fallback model:
 
 All modern MCP 2026-07-28 results emitted by AMB should include
 `resultType: "complete"` unless a future reviewed protocol feature intentionally
-adds another result type. AMB 0.26 must not implement multi-round-trip input,
+adds another result type. AMB 0.26.1 must not implement multi-round-trip input,
 Tasks, or `input_required` behavior.
 
 For `tools/list`, AMB must return:
@@ -119,19 +119,23 @@ For `tools/list`, AMB must return:
 - `ttlMs: 0`
 - `cacheScope: "private"`
 
-Because AMB 0.26 excludes OAuth and per-request ACLs, the tool list must not vary
+Because AMB 0.26.1 excludes OAuth and per-request ACLs, the tool list must not vary
 by connection, prior request side effects, or caller-declared metadata.
 
-Recommended canonical order for modern `tools/list` is the order in
-"Compatibility Baseline". Existing set-based checks may remain as safety nets, but
-the modern protocol path should make the emitted list order stable as an
-observable contract.
+The order in "Compatibility Baseline" is canonical. Runtime emission, tests,
+operator probes, and release documentation must agree with
+`mcp_boundary.PUBLIC_TOOL_ORDER`; a registration mismatch fails closed.
 
 ## Metadata Trust Boundary
 
 MCP 2026-07-28 moves protocol version, client information, and client
 capabilities into per-request `_meta`. AMB may use these fields for protocol-era
 handling and logging, but must not treat them as authenticated identity.
+
+Bounded observability may record client name, client version, protocol version,
+a hashed request identifier, a capabilities digest, and a valid trace ID. It
+must not log or persist raw capabilities, baggage, request IDs, tokens, or
+unbounded nested metadata.
 
 `_meta["io.modelcontextprotocol/clientInfo"]`, AMB `source_client`,
 `source_model`, `client_session_id`, `client_workspace`, `client_transport`,
@@ -156,7 +160,7 @@ For the broader boundary, keep
 
 ## Schema And Migration Posture
 
-AMB 0.26 MCP compatibility is a transport/protocol adaptation. It must not
+AMB 0.26.1 MCP compatibility is a transport/protocol adaptation. It must not
 change durable storage.
 
 - Keep `CURRENT_SCHEMA_VERSION = 7`.
@@ -189,30 +193,40 @@ Minimum rollback expectations:
 
 | Client era | AMB era | Expected path | Expected result |
 | --- | --- | --- | --- |
-| dual-era MCP 2026-07-28 stdio | AMB 0.26+ | `server/discover`, then per-request `_meta` | modern `resultType` responses; deterministic 13-tool list with `ttlMs: 0` and `cacheScope: "private"` |
+| Python MCP 2.0.0 | AMB 0.26.1 | `server/discover`, then per-request `_meta` | modern complete results; discover `300000/public`; deterministic 13-tool list `0/private` |
+| TypeScript MCP client 2.0.0 | AMB 0.26.1 | auto version negotiation | discover, list, store, and recall succeed over spawned stdio |
+| Python MCP 1.28.1 | AMB 0.26.1 | `initialize`, then `notifications/initialized` | initialize, list, store, and recall succeed from a separate client environment |
 | dual-era MCP 2026-07-28 stdio | AMB 0.25.x | `server/discover` fails or times out, then legacy fallback | existing initialize-based stdio path; no modern support claim |
-| initialize-based legacy stdio | AMB 0.26+ | `initialize`, then `notifications/initialized` | existing tool calls continue over the 13-tool surface |
 | initialize-based legacy stdio | AMB 0.25.x | existing path | existing behavior |
-| HTTP or hosted client | any AMB 0.26 denominator build | out of scope | no HTTP hosting, OAuth, or remote identity claim |
-| Apps or Tasks client | any AMB 0.26 denominator build | out of scope | no Apps, Tasks, `input_required`, or task handle contract |
+| HTTP or hosted client | any AMB 0.26.1 denominator build | out of scope | no HTTP hosting, OAuth, or remote identity claim |
+| Apps or Tasks client | any AMB 0.26.1 denominator build | out of scope | no Apps, Tasks, `input_required`, or task handle contract |
 
 ## Implementation Checklist
 
-Before code changes are accepted for AMB 0.26 compatibility:
+Before code changes are accepted for AMB 0.26.1 compatibility:
 
 - `server/discover` works before initialize on stdio.
 - Legacy initialize still works.
 - Modern requests accept protocol `_meta` without trusting it as identity.
 - Modern results include `resultType: "complete"`.
-- Modern `tools/list` includes `ttlMs: 0`, `cacheScope: "private"`, and
-  deterministic ordering.
+- Modern discover includes `ttlMs: 300000` and `cacheScope: "public"`.
+- Modern `tools/list` includes `ttlMs: 0`, `cacheScope: "private"`, and the
+  canonical ordering.
 - The emitted public tool set is exactly the 13 names listed above.
 - No new MCP tools are added.
 - `feedback` remains shadow-only and does not affect ranking or memory rows.
 - `CURRENT_SCHEMA_VERSION` remains 7.
 - No schema migration is introduced.
-- Tests cover modern discovery, legacy initialize, modern list shape, deterministic
-  list order, and unsupported-version behavior.
+- Raw-wire tests cover modern discovery/list/call, legacy
+  initialize/initialized/list/call, missing envelopes, malformed client info,
+  unsupported-version behavior, modern result fields, and legacy field
+  isolation.
+- Separate environments cover Python MCP 1.28.1 and Python MCP 2.0.0.
+- The official TypeScript MCP client 2.0.0 covers modern discover/list/call.
+- `doctor` and `verify` report both eras independently against isolated stores.
+- A 20-process shared-SQLite proof and 100 connect/disconnect cycles complete
+  without lock errors, remaining direct child processes, or temp-artifact
+  leakage.
 
 ## Validation Commands
 
@@ -220,7 +234,9 @@ Run these from the repository root after implementation:
 
 ```bash
 python -m agent_mem_bridge verify --json
-python -m pytest tests/test_stdio_integration.py tests/test_stdio_feedback.py tests/test_public_surface.py
+python -m agent_mem_bridge doctor --include-stdio --json
+python -m pytest tests/test_mcp_boundary.py tests/test_mcp_raw_wire.py tests/test_v026_dual_era.py
+python scripts/run_mcp_reliability_proof.py --writers 20 --cycles 100
 python ./scripts/check_public_surface.py
 python ./scripts/check_onboarding_contract.py
 python ./scripts/check_release_contract.py

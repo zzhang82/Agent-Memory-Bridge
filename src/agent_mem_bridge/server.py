@@ -5,12 +5,17 @@ from typing import Annotated, Any, Literal, cast
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
+from mcp.types import Tool as MCPTool
 from pydantic import Field
 
 from .mcp_boundary import (
+    MCP_CACHE_HINTS,
+    PUBLIC_TOOL_NAMES,
+    PUBLIC_TOOL_ORDER,
     SERVER_DESCRIPTION,
     SERVER_NAME,
     SERVER_TITLE,
+    ProtocolObservabilityMiddleware,
     context_source_client,
     package_version,
     with_context_source_client,
@@ -27,13 +32,29 @@ from .storage import MemoryStore
 mcp_logger = logging.getLogger("mcp.server.lowlevel.server")
 mcp_logger.setLevel(logging.WARNING)
 
-mcp = MCPServer(
+
+# MCP_BOUNDARY_COVERAGE_START
+class _ContractMCPServer(MCPServer):
+    async def list_tools(self) -> list[MCPTool]:
+        tools = await super().list_tools()
+        tools_by_name = {tool.name: tool for tool in tools}
+        if set(tools_by_name) != PUBLIC_TOOL_NAMES:
+            missing = sorted(PUBLIC_TOOL_NAMES - set(tools_by_name))
+            unexpected = sorted(set(tools_by_name) - PUBLIC_TOOL_NAMES)
+            raise RuntimeError(f"public MCP tool contract mismatch: missing={missing}, unexpected={unexpected}")
+        return [tools_by_name[name] for name in PUBLIC_TOOL_ORDER]
+
+
+mcp = _ContractMCPServer(
     name=SERVER_NAME,
     title=SERVER_TITLE,
     description=SERVER_DESCRIPTION,
     version=package_version(),
     log_level="WARNING",
+    cache_hints=MCP_CACHE_HINTS,
+    middleware=[ProtocolObservabilityMiddleware()],
 )
+# MCP_BOUNDARY_COVERAGE_END
 bridge = MemoryStore.from_env()
 
 

@@ -93,6 +93,9 @@ jobs:
           src/agent_mem_bridge/state_io.py
           src/agent_mem_bridge/command_provider.py
           src/agent_mem_bridge/database_maintenance.py
+          src/agent_mem_bridge/server.py
+          src/agent_mem_bridge/mcp_boundary.py
+          src/agent_mem_bridge/stdio_probe.py
 
       - name: Core branch coverage
         run: >
@@ -110,9 +113,28 @@ jobs:
           --cov=agent_mem_bridge.service_health
           --cov=agent_mem_bridge.record_projection
           --cov=agent_mem_bridge.poll_cursor
+          --cov=agent_mem_bridge.server
+          --cov=agent_mem_bridge.mcp_boundary
+          --cov=agent_mem_bridge.stdio_probe
           --cov-branch
           --cov-report=term-missing
           --cov-fail-under=80
+
+      - name: MCP boundary branch coverage
+        run: |
+          python -m pytest \
+            tests/test_mcp_boundary.py \
+            tests/test_stdio_probe.py \
+            tests/test_mcp_raw_wire.py \
+            tests/test_v026_dual_era.py \
+            tests/test_cli_verify.py \
+            tests/test_cli_doctor.py \
+            --cov=agent_mem_bridge.mcp_boundary \
+            --cov=agent_mem_bridge.server \
+            --cov=agent_mem_bridge.stdio_probe \
+            --cov-branch \
+            --cov-report=json:mcp-coverage.json
+          python scripts/check_mcp_boundary_coverage.py mcp-coverage.json
 
       - name: Audit dependencies
         run: pip-audit
@@ -129,3 +151,104 @@ jobs:
         run: |
           docker run --rm agent-memory-bridge:ci python -m agent_mem_bridge --version
           docker run --rm agent-memory-bridge:ci python -c "import os; assert os.getuid() == 10001"
+
+  legacy-sdk-compat:
+    name: Compatibility / Python MCP 1.28.1 client
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Build isolated server and legacy client environments
+        run: |
+          python -m venv "$RUNNER_TEMP/amb-server-venv"
+          "$RUNNER_TEMP/amb-server-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/amb-server-venv/bin/python" -m pip install .
+          python -m venv "$RUNNER_TEMP/amb-legacy-client-venv"
+          "$RUNNER_TEMP/amb-legacy-client-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/amb-legacy-client-venv/bin/python" -m pip install "mcp==1.28.1"
+
+      - name: Prove Python MCP 1.28.1 interoperability
+        run: >
+          "$RUNNER_TEMP/amb-legacy-client-venv/bin/python"
+          scripts/run_mcp_legacy_compat.py
+          --server-python "$RUNNER_TEMP/amb-server-venv/bin/python"
+          --project-root "$GITHUB_WORKSPACE"
+          --runtime-dir "$RUNNER_TEMP/amb-legacy-compat"
+
+  modern-protocol-compat:
+    name: Compatibility / Python MCP 2.0 raw wire and reliability
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install with dev extras
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Prove raw-wire and dual-era operator contracts
+        run: >
+          python -m pytest
+          tests/test_mcp_boundary.py
+          tests/test_mcp_raw_wire.py
+          tests/test_v026_dual_era.py
+          tests/test_cli_verify.py
+          tests/test_cli_doctor.py
+
+      - name: Prove concurrent writes and process cleanup
+        run: >
+          python scripts/run_mcp_reliability_proof.py
+          --project-root "$GITHUB_WORKSPACE"
+          --runtime-dir "$RUNNER_TEMP/amb-mcp-reliability"
+          --writers 20
+          --cycles 100
+
+  typescript-sdk-compat:
+    name: Compatibility / TypeScript MCP client 2.0.0
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install AMB server
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
+
+      - name: Install exact TypeScript MCP client
+        run: npm install --no-package-lock --no-save "@modelcontextprotocol/client@2.0.0"
+
+      - name: Prove TypeScript modern interoperability
+        run: >
+          node scripts/mcp_ts_compat.mjs
+          python
+          "$GITHUB_WORKSPACE"
+          "$RUNNER_TEMP/amb-typescript-compat"

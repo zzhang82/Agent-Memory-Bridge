@@ -1,14 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
-
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
 
 from .archive_snapshot import (
     build_default_live_manifest_path,
@@ -19,6 +14,7 @@ from .archive_snapshot import (
 from .index_health import inspect_indexes
 from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_bridge_log_dir, resolve_sessions_root
 from .profile_migration import build_profile_documents, compare_profile_migration_with_mode
+from .stdio_probe import run_dual_stdio_probe
 from .storage import MemoryStore
 from .watcher_health import run_watcher_health_check
 
@@ -200,81 +196,7 @@ def run_relation_metadata_smoke(bridge_home: Path) -> dict[str, Any]:
 
 
 async def run_stdio_smoke(project_root: Path, bridge_home: Path) -> dict[str, Any]:
-    runtime_dir = bridge_home / "healthcheck-runtime"
-    runtime_dir.mkdir(parents=True, exist_ok=True)
-    db_path = runtime_dir / "healthcheck-stdio.db"
-    log_dir = runtime_dir / "logs"
-    namespace = "healthcheck-stdio"
-    token = datetime.now(UTC).strftime("%Y%m%d%H%M%S%f")
-    content = f"Healthcheck stdio transport proof is working. token={token}"
-
-    server_params = StdioServerParameters(
-        command=sys.executable,
-        args=["-m", "agent_mem_bridge"],
-        cwd=str(project_root),
-        env={
-            **os.environ,
-            "AGENT_MEMORY_BRIDGE_DB_PATH": str(db_path),
-            "AGENT_MEMORY_BRIDGE_LOG_DIR": str(log_dir),
-        },
-    )
-
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            tools_response = await session.list_tools()
-
-            first = await session.call_tool(
-                "store",
-                arguments={
-                    "namespace": namespace,
-                    "content": content,
-                    "kind": "memory",
-                    "tags": ["health:stdio", "check:transport"],
-                    "session_id": "healthcheck-stdio",
-                    "actor": "healthcheck",
-                    "source_app": "healthcheck.py",
-                },
-            )
-            second = await session.call_tool(
-                "store",
-                arguments={
-                    "namespace": namespace,
-                    "content": content,
-                    "kind": "memory",
-                    "tags": ["health:stdio", "check:transport"],
-                    "session_id": "healthcheck-stdio",
-                    "actor": "healthcheck",
-                    "source_app": "healthcheck.py",
-                },
-            )
-            recall = await session.call_tool(
-                "recall",
-                arguments={
-                    "namespace": namespace,
-                    "query": "transport proof",
-                    "limit": 5,
-                },
-            )
-
-    tool_names = [tool.name for tool in tools_response.tools]
-    first_payload = getattr(first, "structured_content", None) or getattr(first, "structuredContent", None) or {}
-    second_payload = getattr(second, "structured_content", None) or getattr(second, "structuredContent", None) or {}
-    recall_payload = getattr(recall, "structured_content", None) or getattr(recall, "structuredContent", None) or {}
-    return {
-        "ok": (
-            "store" in tool_names
-            and "recall" in tool_names
-            and bool(first_payload.get("stored"))
-            and bool(second_payload.get("duplicate"))
-            and int(recall_payload.get("count", 0)) >= 1
-        ),
-        "tools": tool_names,
-        "first_store": first_payload,
-        "duplicate_store": second_payload,
-        "recall": recall_payload,
-        "db_path": str(db_path),
-    }
+    return await run_dual_stdio_probe(project_root, bridge_home / "healthcheck-runtime" / "stdio")
 
 
 def _extract_source_path(tags: list[str]) -> str | None:
