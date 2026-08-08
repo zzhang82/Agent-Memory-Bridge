@@ -689,6 +689,14 @@ def test_multiple_processes_converge_on_one_legacy_schema_upgrade(tmp_path: Path
 
     with sqlite3.connect(db_path) as upgraded:
         assert upgraded.execute("PRAGMA user_version").fetchone()[0] == CURRENT_SCHEMA_VERSION
+        assert upgraded.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0] == CURRENT_SCHEMA_VERSION
+        assert upgraded.execute("SELECT COUNT(*) FROM schema_migrations WHERE version = 8").fetchone()[0] == 1
+        assert (
+            upgraded.execute(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'run_events'"
+            ).fetchone()[0]
+            == 1
+        )
 
 
 def test_fts_startup_rebuild_is_concurrency_safe_smoke(tmp_path: Path) -> None:

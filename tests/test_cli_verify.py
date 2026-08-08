@@ -14,7 +14,7 @@ def test_run_verify_succeeds_with_isolated_runtime(tmp_path: Path) -> None:
 
     assert report["ok"] is True
     assert report["mcp_sdk_version"] == "2.0.0"
-    assert report["tool_count"] == 13
+    assert report["tool_count"] == 17
     check_names = {check["name"] for check in report["checks"]}
     assert check_names == {"mcp_modern_stdio", "mcp_legacy_stdio"}
     assert report["modern_stdio"]["protocol_version"] == "2026-07-28"
@@ -44,7 +44,7 @@ def test_cli_verify_json_output(tmp_path: Path, capsys) -> None:
     assert exit_code == 0
     payload = json.loads(captured.out)
     assert payload["ok"] is True
-    assert payload["tool_count"] == 13
+    assert payload["tool_count"] == 17
 
 
 def test_cli_verify_exits_nonzero_when_modern_probe_fails(
@@ -66,7 +66,7 @@ def test_cli_verify_exits_nonzero_when_modern_probe_fails(
                 "error": "isolated stdio protocol probe failed",
             },
             "legacy_stdio": {"ok": True, "protocol_version": "2025-11-25"},
-            "tool_count": 13,
+            "tool_count": 17,
         }
 
     monkeypatch.setattr("agent_mem_bridge.onboarding.run_dual_stdio_probe", failed_modern_probe)

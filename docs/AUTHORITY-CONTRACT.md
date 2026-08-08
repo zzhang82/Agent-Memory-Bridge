@@ -18,6 +18,9 @@ and signals.
 
 - Memory records, signal records, metadata, tags, namespaces, and relation fields
   are authoritative for runtime recall.
+- Run declarations, work-item declarations, structured events, outcomes,
+  artifact references, and memory-attribution links are authoritative episode
+  evidence.
 - Deleting or mutating database records changes what future agents can recover.
 - Export files, rendered views, and summaries do not override database records.
 
@@ -79,9 +82,12 @@ not change the count or content of `memories` rows.
 ### 5. Recall receipts and feedback
 
 Recall receipts are 15-minute proof artifacts for explicit durable memory text
-recall. They are emitted only for non-empty `kind = "memory"` recall responses
-and bind the bridge instance id, namespace, query hash, retrieval mode, database
-epoch, result memory ids and ranks, issue time, and expiry.
+recall. Eligible `kind = "memory"` text recall issues a signed receipt,
+including zero-result responses. A validated zero-result receipt may create only
+a metadata-only `memory_recalled` event with zero `run_memory_links`; it cannot
+create applied or rejected links or utility credit. Receipts bind the bridge
+instance id, namespace, query hash, retrieval mode, database epoch, result
+memory ids and ranks, issue time, and expiry.
 
 The receipt token is HMAC-signed, so it is tamper-evident. It is not encrypted
 and should be treated as sensitive metadata. A receipt is not durable authority,
@@ -97,6 +103,40 @@ It can help humans and future tooling review retrieval quality, but it does not
 mutate memory rows, indexes, belief records, recall output, ranking behavior, or
 promotion policy.
 
+### 6. Run and episode ledger
+
+The run ledger records what a task declared, what happened, what evidence was
+produced, how the run ended, and which exact memory versions were recalled or
+used.
+
+- `agent_runs` and `run_work_items` hold the declared run and task tree.
+- `run_events`, `run_outcomes`, `run_artifacts`, and `run_memory_links` hold
+  structured evidence. Events and outcomes are append-only; outcomes use an
+  append-only supersession chain for corrections.
+- Receipt tokens are not stored. Attribution keeps the verified receipt hash,
+  exact memory content version, exposure rank, and optional feedback link.
+- A source-linked applied or rejected record must select a prior same-run recalled
+  exposure. A manual exact-version reference is retained only as review-required
+  evidence and receives no shadow utility credit.
+- Shadow utility counts require the linked feedback to remain its current
+  effective head and the run to have a current outcome head. They remain derived
+  review evidence with a fixed score of zero.
+- `artifact_created` stores one server-minted version-1 artifact reference from
+  a strict event payload: digest, MIME type, URI, and bounded metadata only.
+  Large files, binaries, and caller-managed artifact identity or linkage stay
+  outside SQLite. `get_run` returns artifact references only for its returned
+  event page.
+- Raw chain-of-thought, transcript, analysis, and other hidden-reasoning fields
+  are outside the durable contract, including normalized case/separator variants.
+- The first outcome is allowed only after every declared work item has an
+  explicit terminal event (`completed`, `failed`, or `abandoned`). Corrections
+  supersede that valid outcome head without inventing work-item events.
+
+`run_state_projection`, `run_work_item_state_projection`, and
+`memory_utility_shadow` are derived views. They can be checked and rebuilt from
+authority rows. They do not change memory ranking, promotion, policy, prompts,
+or training data by themselves.
+
 ## What Can Be Regenerated
 
 These artifacts can be rebuilt from source records and code:
@@ -106,6 +146,7 @@ These artifacts can be rebuilt from source records and code:
 - exports and Markdown snapshots
 - dashboards, reports, and review queues
 - search indexes, semantic sidecars, and other derived caches
+- current run/work-item state and shadow memory-utility projections
 
 Regeneration should not require changing the public MCP tool surface.
 
@@ -159,8 +200,9 @@ not a separate public MCP contract.
 Agent Memory Bridge should not add `startup_packet` or `task_packet` MCP tools
 just to expose this behavior. Clients can use `store`, `recall`, `feedback`,
 `browse`, `stats`, `forget`, `promote`, `annotate`, `revise`, `export`,
-`claim_signal`, `extend_signal_lease`, and `ack_signal` while assembly logic
-improves behind that surface.
+`begin_run`, `record_run_event`, `get_run`, `complete_run`, `claim_signal`,
+`extend_signal_lease`, and `ack_signal` while assembly logic improves behind
+that surface.
 
 This keeps the public contract small:
 

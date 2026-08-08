@@ -198,7 +198,8 @@ class ConsolidationEngine:
                     client_workspace,
                     client_transport,
                     created_at
-                FROM memories
+                FROM memories m
+                JOIN memory_insertions i ON i.memory_id = m.id
                 WHERE namespace = ?
                   AND (tags_json LIKE ? OR tags_json LIKE ?)
                   AND (
@@ -206,7 +207,7 @@ class ConsolidationEngine:
                     OR source_app IS NULL
                     OR source_app != 'agent-memory-bridge-reflex'
                   )
-                ORDER BY created_at DESC
+                ORDER BY m.created_at DESC, i.sequence DESC
                 LIMIT ?
                 """,
                 (
@@ -755,11 +756,12 @@ class ConsolidationEngine:
             row = conn.execute(
                 """
                 SELECT id
-                FROM memories
+                FROM memories m
+                JOIN memory_insertions i ON i.memory_id = m.id
                 WHERE namespace = ?
                   AND tags_json LIKE ?
                   AND tags_json LIKE ?
-                ORDER BY created_at DESC
+                ORDER BY m.created_at DESC, i.sequence DESC
                 LIMIT 1
                 """,
                 (
@@ -794,12 +796,13 @@ class ConsolidationEngine:
                     client_workspace,
                     client_transport,
                     created_at
-                FROM memories
+                FROM memories m
+                JOIN memory_insertions i ON i.memory_id = m.id
                 WHERE namespace = ?
                   AND tags_json LIKE ?
                   AND tags_json LIKE ?
                   AND created_at >= ?
-                ORDER BY created_at DESC
+                ORDER BY m.created_at DESC, i.sequence DESC
                 LIMIT ?
                 """,
                 (
@@ -820,12 +823,13 @@ class ConsolidationEngine:
                     id,
                     content,
                     created_at
-                FROM memories
+                FROM memories m
+                JOIN memory_insertions i ON i.memory_id = m.id
                 WHERE namespace = ?
                   AND tags_json LIKE ?
                   AND tags_json LIKE ?
                   AND created_at >= ?
-                ORDER BY created_at DESC
+                ORDER BY m.created_at DESC, i.sequence DESC
                 LIMIT ?
                 """,
                 (

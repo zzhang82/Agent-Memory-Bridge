@@ -10,9 +10,43 @@ from pathlib import Path
 
 import pytest
 
-from agent_mem_bridge.release_contract import collect_test_count, run_release_contract_check
+from agent_mem_bridge.release_contract import (
+    V027_PUBLIC_TOOL_ORDER,
+    build_v027_episode_release_check,
+    collect_test_count,
+    load_server_tool_names,
+    run_release_contract_check,
+)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def test_load_server_tool_names_supports_factory_registration_manifest(tmp_path: Path) -> None:
+    server_path = tmp_path / "server.py"
+    server_path.write_text(
+        textwrap.dedent(
+            """
+            def store():
+                pass
+
+            def recall():
+                pass
+
+            _PUBLIC_TOOL_HANDLERS = (store, recall)
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    assert load_server_tool_names(server_path) == {"store", "recall"}
+
+
+def test_load_server_tool_names_rejects_malformed_factory_manifest(tmp_path: Path) -> None:
+    server_path = tmp_path / "server.py"
+    server_path.write_text("def store():\n    pass\n\n_PUBLIC_TOOL_HANDLERS = (store, missing)\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="only defined function names"):
+        load_server_tool_names(server_path)
 
 
 def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -> None:
@@ -107,7 +141,7 @@ def test_run_release_contract_check_passes_for_aligned_fixture(tmp_path: Path) -
     assert failed_v022_proof_check["mismatches"] == [{"field": "summary.governed_failures", "expected": 0, "actual": 1}]
 
 
-def test_release_version_check_ignores_package_qualified_sdk_versions(tmp_path: Path) -> None:
+def test_release_version_check_allows_historical_semver_references_but_requires_current_marker(tmp_path: Path) -> None:
     root = create_release_fixture(tmp_path)
     for name in ("README.md", "README.zh-CN.md"):
         path = root / name
@@ -123,7 +157,14 @@ def test_release_version_check_ignores_package_qualified_sdk_versions(tmp_path: 
     assert report["ok"] is True
 
     readme = root / "README.md"
-    readme.write_text(readme.read_text(encoding="utf-8") + "\nStale AMB version: 0.8.0.\n", encoding="utf-8")
+    readme.write_text(readme.read_text(encoding="utf-8") + "\nHistorical AMB version: 0.8.0.\n", encoding="utf-8")
+    report = run_release_contract_check(root, test_count_provider=lambda _: 146)
+    assert report["ok"] is True
+
+    readme.write_text(
+        readme.read_text(encoding="utf-8") + "\nCurrent source release: `0.8.0`\n",
+        encoding="utf-8",
+    )
     report = run_release_contract_check(root, test_count_provider=lambda _: 146)
     check = {check["name"]: check for check in report["checks"]}["pyproject_version_matches_readmes"]
 
@@ -151,6 +192,107 @@ def test_collect_test_count_uses_disposable_amb_runtime(monkeypatch: pytest.Monk
     assert not Path(captured["env"]["AGENT_MEMORY_BRIDGE_HOME"]).exists()  # type: ignore[index]
 
 
+def test_v027_episode_release_contract_checks_exact_surface_and_evidence(tmp_path: Path) -> None:
+    root = create_v027_episode_contract_fixture(tmp_path)
+
+    report = build_v027_episode_release_check(root, "0.27.0")
+
+    assert report["ok"] is True
+    assert report["schema_version"] == 8
+    assert tuple(report["public_tool_order"]) == V027_PUBLIC_TOOL_ORDER
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "needle", "replacement", "expected_field"),
+    [
+        (
+            "src/agent_mem_bridge/schema.py",
+            "CURRENT_SCHEMA_VERSION = 8",
+            "CURRENT_SCHEMA_VERSION = 9",
+            "schema.CURRENT_SCHEMA_VERSION",
+        ),
+        ("src/agent_mem_bridge/mcp_boundary.py", "'ack_signal')", "'wrong_tool')", "mcp_boundary.PUBLIC_TOOL_ORDER"),
+        (
+            "src/agent_mem_bridge/mcp_boundary.py",
+            "6349ee0220a30ed910846766e927a8e057a9e3fbcdbaa4e3857a2ca740f93577",
+            "0" * 64,
+            "mcp_boundary.PUBLIC_TOOL_SCHEMA_SHA256",
+        ),
+        ("src/agent_mem_bridge/server.py", "_PUBLIC_TOOL_HANDLERS =", "_REMOVED_HANDLERS =", "server.public_tool_set"),
+        (
+            "docs/CLOSED-LOOP-EPISODE.md",
+            "receipt-bound memory attribution",
+            "missing attribution",
+            "docs/CLOSED-LOOP-EPISODE.md",
+        ),
+        (
+            "docs/TRUST-BOUNDARY.md",
+            "durable episode authority",
+            "missing authority boundary",
+            "docs/TRUST-BOUNDARY.md",
+        ),
+        ("docs/RUN-CONSOLIDATION.md", "consolidate-runs --shadow", "consolidate-runs", "docs/RUN-CONSOLIDATION.md"),
+        (
+            "tests/test_run_memory_attribution.py",
+            "test_invalid_receipt_attribution_is_atomic_and_memory_events_require_it",
+            "missing_attribution_regression",
+            "tests/test_run_memory_attribution.py",
+        ),
+        (
+            "tests/test_run_consolidation.py",
+            "test_shadow_is_zero_write_and_deterministic_for_two_independent_supports",
+            "missing_shadow_regression",
+            "tests/test_run_consolidation.py",
+        ),
+        (
+            "tests/test_mcp_raw_wire.py",
+            "test_raw_wire_modern_and_legacy_memory_attribution_contracts",
+            "missing_raw_wire_regression",
+            "tests/test_mcp_raw_wire.py",
+        ),
+        (
+            "src/agent_mem_bridge/durable_data_policy.py",
+            "_RECEIPT_SHAPED_VALUE_RE",
+            "missing_receipt_policy",
+            "src/agent_mem_bridge/durable_data_policy.py",
+        ),
+        (
+            "tests/test_run_ledger.py",
+            "test_receipt_shaped_values_are_rejected_before_durable_run_writes",
+            "missing_receipt_regression",
+            "tests/test_run_ledger.py",
+        ),
+        (
+            "src/agent_mem_bridge/onboarding_contract.py",
+            "versioned_install_tool_surface_is_explicit",
+            "missing_install_regression",
+            "src/agent_mem_bridge/onboarding_contract.py",
+        ),
+        (
+            "README.md",
+            "current v0.27 overview intentionally omitted",
+            "examples/diagrams/amb-overview.svg",
+            "README.md.current_diagram_applicability",
+        ),
+    ],
+)
+def test_v027_episode_release_contract_fails_closed_when_required_evidence_drifts(
+    tmp_path: Path,
+    relative_path: str,
+    needle: str,
+    replacement: str,
+    expected_field: str,
+) -> None:
+    root = create_v027_episode_contract_fixture(tmp_path)
+    path = root / relative_path
+    path.write_text(path.read_text(encoding="utf-8").replace(needle, replacement, 1), encoding="utf-8")
+
+    report = build_v027_episode_release_check(root, "0.27.0")
+
+    assert report["ok"] is False
+    assert any(mismatch["field"] == expected_field for mismatch in report["mismatches"])
+
+
 def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) -> None:
     root = create_release_fixture(tmp_path)
 
@@ -162,7 +304,7 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
     readme = root / "README.md"
     readme.write_text(
         readme.read_text(encoding="utf-8")
-        .replace("`146 passed`", "`140 passed`")
+        .replace("Current source test collection: `146 tests`", "Current source test collection: `140 tests`")
         .replace("`classifier_exact_match_rate = 0.875`", "`classifier_exact_match_rate = 0.9`")
         .replace("`13` public MCP tools", "`11` public MCP tools"),
         encoding="utf-8",
@@ -655,6 +797,93 @@ def test_check_release_contract_script_exits_zero_for_aligned_fixture(tmp_path: 
 # pinned to the same values in the README, report JSON, and test_count_provider
 # so the contract check passes without touching the live codebase.
 # This count (146) is NOT required to match the live test count.
+def create_v027_episode_contract_fixture(root: Path) -> Path:
+    write_file(root / "src" / "agent_mem_bridge" / "schema.py", "CURRENT_SCHEMA_VERSION = 8\n")
+    write_file(
+        root / "src" / "agent_mem_bridge" / "mcp_boundary.py",
+        "PUBLIC_TOOL_ORDER = " + repr(V027_PUBLIC_TOOL_ORDER) + "\n"
+        "PUBLIC_TOOL_SCHEMA_SHA256 = "
+        '"6349ee0220a30ed910846766e927a8e057a9e3fbcdbaa4e3857a2ca740f93577"\n',
+    )
+    handler_definitions = "\n".join(f"def {name}():\n    pass\n" for name in V027_PUBLIC_TOOL_ORDER)
+    handler_names = ", ".join(V027_PUBLIC_TOOL_ORDER)
+    write_file(
+        root / "src" / "agent_mem_bridge" / "server.py",
+        handler_definitions + f"\n_PUBLIC_TOOL_HANDLERS = ({handler_names},)\n",
+    )
+    write_file(
+        root / "docs" / "CLOSED-LOOP-EPISODE.md",
+        "begin_run record_run_event get_run complete_run receipt-bound memory attribution "
+        "memory_utility_shadow durable episode authority downstream learning/consolidation "
+        "effects are shadow-only receipt-shaped values fileBody\n",
+    )
+    write_file(
+        root / "docs" / "TRUST-BOUNDARY.md",
+        "durable episode authority downstream learning/consolidation effects are "
+        "shadow-only receipt-shaped values fileBody\n",
+    )
+    write_file(
+        root / "docs" / "PRODUCTION-STATUS.md",
+        "durable episode authority downstream learning/consolidation effects are "
+        "shadow-only receipt-shaped values fileBody\n",
+    )
+    write_file(
+        root / "docs" / "v0.27.0-announcement.md",
+        "durable episode authority downstream learning/consolidation effects are "
+        "shadow-only receipt-shaped values fileBody\n",
+    )
+    write_file(
+        root / "docs" / "RUN-CONSOLIDATION.md",
+        "consolidate-runs --shadow does not write needs_review\n",
+    )
+    write_file(
+        root / "tests" / "test_run_memory_attribution.py",
+        "def test_memory_recalled_links_a_valid_receipt_without_persisting_the_token():\n    pass\n"
+        "def test_invalid_receipt_attribution_is_atomic_and_memory_events_require_it():\n    pass\n",
+    )
+    write_file(
+        root / "tests" / "test_run_consolidation.py",
+        "def test_shadow_is_zero_write_and_deterministic_for_two_independent_supports():\n    pass\n"
+        "def test_cli_requires_shadow_and_renders_json():\n    pass\n",
+    )
+    write_file(
+        root / "tests" / "test_mcp_raw_wire.py",
+        "def test_raw_wire_modern_and_legacy_contracts():\n    pass\n"
+        "def test_raw_wire_modern_and_legacy_memory_attribution_contracts():\n    pass\n"
+        "server/discover legacy_initialize\n",
+    )
+    write_file(
+        root / "src" / "agent_mem_bridge" / "durable_data_policy.py",
+        "_RECEIPT_SHAPED_VALUE_RE = None\ndef require_durable_text():\n    pass\n"
+        "def normalize_durable_key():\n    pass\n",
+    )
+    write_file(
+        root / "src" / "agent_mem_bridge" / "run_ledger.py",
+        'FORBIDDEN_ARTIFACT_CONTENT_FIELDS = {"file_body", "filebody"}\n'
+        "def normalize_durable_key():\n    pass\n"
+        "def _is_data_uri():\n    pass\n",
+    )
+    write_file(
+        root / "tests" / "test_run_ledger.py",
+        "def test_receipt_shaped_values_are_rejected_before_durable_run_writes():\n"
+        '    assert "fileBody"\n    assert "file/body"\n    assert "data:text/plain;base64"\n',
+    )
+    write_file(
+        root / "src" / "agent_mem_bridge" / "onboarding_contract.py",
+        'PINNED_INSTALL_VERSION = "0.27.0"\nRELEASE_INSTALL_GATE_NOTE = "gate"\n'
+        "def release_install_tool_count():\n    pass\nversioned_install_tool_surface_is_explicit = True\n",
+    )
+    write_file(
+        root / "tests" / "test_onboarding_contract.py",
+        'RELEASE_INSTALL_GATE_NOTE = "gate"\n'
+        "def test_release_install_tool_count_tracks_the_release_cut():\n    pass\n"
+        "def test_onboarding_contract_requires_source_checkout_wording_for_version_mismatch():\n    pass\n",
+    )
+    write_file(root / "README.md", "current v0.27 overview intentionally omitted\n")
+    write_file(root / "README.zh-CN.md", "current v0.27 overview intentionally omitted\n")
+    return root
+
+
 def create_release_fixture(root: Path) -> Path:
     write_file(
         root / "pyproject.toml",
@@ -667,13 +896,15 @@ def create_release_fixture(root: Path) -> Path:
     readme_text = """
         # Agent Memory Bridge
 
+        Current source release: `0.9.0`
+
         `0.9.0` makes memory more structured and more applicable.
 
         - `13` public MCP tools, with most sophistication staying behind the bridge
 
         ## Evidence
 
-        - `pytest` currently passes with `146 passed`
+        Current source test collection: `146 tests`
         - `question_count = 11`
         - `memory_expected_top1_accuracy = 1.0`
         - `memory_mrr = 1.0`
@@ -775,8 +1006,8 @@ def create_release_fixture(root: Path) -> Path:
         """
     write_file(root / "README.md", readme_text)
     write_file(root / "README.zh-CN.md", readme_text)
-    write_file(root / "docs" / "PRODUCTION-STATUS.md", "`pytest`: `146 passed`\n")
-    write_file(root / "docs" / "v0.9.0-announcement.md", "`pytest`: `146 passed`\n")
+    write_file(root / "docs" / "PRODUCTION-STATUS.md", "Current source test collection: `146 tests`\n")
+    write_file(root / "docs" / "v0.9.0-announcement.md", "Current source test collection: `146 tests`\n")
     write_file(
         root / "benchmark" / "latest-report.json",
         json.dumps(
@@ -1131,7 +1362,10 @@ v021_durable_live_writeback_count = 0
             readme.read_text(encoding="utf-8").replace("`0.9.0`", f"`{package_version}`") + v021_facts,
             encoding="utf-8",
         )
-    write_file(root / "docs" / f"v{package_version}-announcement.md", "`pytest`: `146 passed`\n")
+    write_file(
+        root / "docs" / f"v{package_version}-announcement.md",
+        "Current source test collection: `146 tests`\n",
+    )
     write_visual_claim_inventory(root, release=package_version)
     write_file(
         root / "benchmark" / "latest-v0.21-governed-change-report.json",

@@ -541,6 +541,14 @@ def resolve_watcher_enabled() -> bool:
     )
 
 
+def resolve_watcher_legacy_memory_mode() -> bool:
+    return _resolve_bool(
+        "AGENT_MEMORY_BRIDGE_WATCHER_LEGACY_MEMORY_MODE",
+        ("watcher", "legacy_memory_mode"),
+        False,
+    )
+
+
 def resolve_watcher_state_path() -> Path:
     return _resolve_path(
         "AGENT_MEMORY_BRIDGE_STATE_PATH",

@@ -1,8 +1,16 @@
 # Roadmap
 
-Last updated: 2026-07-29 (America/New_York)
+Last updated: 2026-08-08 (America/New_York)
 
-This maintainer note tracks the shipped ladder through `0.26.1`, including Task Brief reports, the limited first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt, the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary correctness patch, the v0.25 Trustworthy Adaptive Retrieval and Evidence Integrity releases, and independently exercised MCP 2026-07-28 stdio interoperability. Treat it as a maintainer planning document, not as the public release contract.
+This maintainer note tracks the release ladder through the `0.27.0`
+release-facing source surface, including Task Brief reports, the limited
+first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed
+20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt,
+the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary
+correctness patch, the v0.25 Trustworthy Adaptive Retrieval and Evidence
+Integrity releases, and independently exercised MCP 2026-07-28 stdio
+interoperability. This document does not assert a `0.27.0` tag, remote
+publication, or release-commit CI result.
 
 ## Shipped Ladder
 
@@ -708,14 +716,23 @@ One sentence:
 
 ## 0.27.0 = Episode and Learning Ledger
 
-Status: planned only after the complete 0.26.1 protocol acceptance and release
-proof gate.
+Status: release-facing source surface. This roadmap does not assert a tag,
+remote publication, or visible GitHub Actions release-commit run.
 
-The minimum design uses explicit server-minted episode handles and append-only
-events, artifacts, content hashes, verifier runs, model/harness/tool-schema
-digests, terminal states, idempotency, and replay. It must not persist raw chain
-of thought by default, automatically write ordinary memory, rerank retrieval, or
-train a model. Detailed schema and tool review remains separate from 0.26.1.
+The implemented minimum uses server-minted episode handles, schema-v8
+append-only run/work-item/event/artifact/outcome/memory-link authority,
+rebuildable projections, receipt-bound attribution, idempotency, and explicit
+completion outcomes. Four additive MCP tools—`begin_run`, `record_run_event`,
+`get_run`, and `complete_run`—raise the deterministic public surface to 17
+tools. `consolidate-runs --shadow` produces reviewable, evidence-bounded lesson
+candidates and has no normal-memory, ranking, or policy effect; `--stage` stays
+inside the hidden review lane.
+
+The release boundary remains deliberate: no MCP Tasks, raw chain-of-thought
+archive, automatic ordinary-memory writeback, retrieval reranking, prompt or
+policy modification, online training, hosted execution, or productivity claim.
+The AMH event-trigger reference proof is deterministic synthetic evidence only,
+not runtime outcome evidence.
 
 ## 0.25.2 = Evidence Integrity
 

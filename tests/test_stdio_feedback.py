@@ -41,7 +41,7 @@ async def _exercise_feedback_tool(tmp_path: Path) -> None:
             tools_response = await session.list_tools()
             tool_names = {tool.name for tool in tools_response.tools}
             assert tool_names == TOOL_NAMES
-            assert len(tool_names) == 13
+            assert len(tool_names) == 17
             assert "feedback" in tool_names
 
             stored = await session.call_tool(

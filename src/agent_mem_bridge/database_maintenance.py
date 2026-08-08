@@ -18,6 +18,12 @@ from .record_projection import (
     sync_record_projection,
 )
 from .repository import content_hash_for_content, delete_entry_in_transaction, exact_content_hash_for_content
+from .run_projection import (
+    inspect_memory_utility_shadow,
+    inspect_run_projections,
+    rebuild_memory_utility_shadow,
+    rebuild_run_projections,
+)
 from .schema import rotate_database_epoch
 from .service_lock import ServiceFileLock
 from .signals import SignalSnapshot, signal_validation_issues
@@ -120,6 +126,8 @@ def rebuild_database_projections(
             conn.execute("PRAGMA foreign_keys=ON")
             conn.execute("BEGIN IMMEDIATE")
             repaired_insertion_sequence_count = 0
+            run_projection_counts = {"run_count": 0, "work_item_count": 0}
+            memory_utility_shadow_counts = {"memory_version_count": 0}
             rotated_epoch: str | None = None
             try:
                 rows = conn.execute(
@@ -175,6 +183,8 @@ def rebuild_database_projections(
                         "INSERT INTO memories_fts(memory_id, title, content) VALUES (?, ?, ?)",
                         (row["id"], row["title"] or "", content),
                     )
+                run_projection_counts = rebuild_run_projections(conn)
+                memory_utility_shadow_counts = rebuild_memory_utility_shadow(conn)
                 if repaired_insertion_sequence_count:
                     rotated_epoch = rotate_database_epoch(conn)
                 conn.commit()
@@ -187,6 +197,9 @@ def rebuild_database_projections(
         "db_path": str(path),
         "rebuilt_count": len(rows),
         "repaired_insertion_sequence_count": repaired_insertion_sequence_count,
+        "run_projection_rebuilt_count": run_projection_counts["run_count"],
+        "work_item_projection_rebuilt_count": run_projection_counts["work_item_count"],
+        "memory_utility_shadow_rebuilt_count": memory_utility_shadow_counts["memory_version_count"],
         "database_epoch": rotated_epoch,
         "service_lock_path": str(lock_path),
         "health": health,
@@ -630,6 +643,14 @@ def _content_checks(conn: sqlite3.Connection, *, tables: set[str]) -> dict[str, 
         ).fetchall()
         for row in rows:
             _record_issue(counts, samples, "edge_target_state_mismatch", str(row["edge_id"]))
+
+    if int(conn.execute("PRAGMA user_version").fetchone()[0]) >= 8:
+        run_projection_health = inspect_run_projections(conn)
+        counts.update(run_projection_health["counts"])
+        samples.update(run_projection_health["samples"])
+        memory_utility_shadow_health = inspect_memory_utility_shadow(conn)
+        counts.update(memory_utility_shadow_health["counts"])
+        samples.update(memory_utility_shadow_health["samples"])
 
     total = sum(counts.values())
     return {"ok": total == 0, "counts": counts, "samples": samples}

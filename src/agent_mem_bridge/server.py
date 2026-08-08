@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal, cast
 
 from mcp.server import MCPServer
@@ -45,17 +48,40 @@ class _ContractMCPServer(MCPServer):
         return [tools_by_name[name] for name in PUBLIC_TOOL_ORDER]
 
 
-mcp = _ContractMCPServer(
-    name=SERVER_NAME,
-    title=SERVER_TITLE,
-    description=SERVER_DESCRIPTION,
-    version=package_version(),
-    log_level="WARNING",
-    cache_hints=MCP_CACHE_HINTS,
-    middleware=[ProtocolObservabilityMiddleware()],
-)
 # MCP_BOUNDARY_COVERAGE_END
-bridge = MemoryStore.from_env()
+
+
+@dataclass(frozen=True, slots=True)
+class ServerDependencies:
+    store: MemoryStore
+
+
+BridgeFactory = Callable[[], MemoryStore]
+
+# Backward-compatible direct-call injection seam for unit tests and local
+# embedders. Production MCP requests use the lifespan-owned dependency instead.
+bridge: MemoryStore | None = None
+
+
+def _default_bridge_factory() -> MemoryStore:
+    if bridge is not None:
+        return bridge
+    return MemoryStore.from_env()
+
+
+def _bridge_for(ctx: Context[ServerDependencies] | None) -> MemoryStore:
+    if ctx is not None:
+        try:
+            dependencies = ctx.request_context.lifespan_context
+        except (AttributeError, ValueError):
+            dependencies = None
+        if dependencies is not None:
+            if not isinstance(dependencies, ServerDependencies):
+                raise RuntimeError("MCP lifespan returned incompatible server dependencies")
+            return dependencies.store
+    if bridge is not None:
+        return bridge
+    raise RuntimeError("MemoryStore is unavailable outside an active MCP lifespan; inject one explicitly")
 
 
 def _optional_text(value: str | None) -> str | None:
@@ -73,7 +99,6 @@ def _provenance_text(provenance: dict[str, str] | None, key: str) -> str | None:
     return _optional_text(provenance.get(key))
 
 
-@mcp.tool(structured_output=True)
 def store(
     namespace: Annotated[
         str,
@@ -183,7 +208,7 @@ def store(
             ),
         ),
     ] = None,
-    ctx: Context | None = None,
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Store one entry in the bridge for later retrieval or coordination.
 
@@ -215,7 +240,7 @@ def store(
         expires_at = None
         ttl_seconds = None
 
-    return bridge.store(
+    return _bridge_for(ctx).store(
         namespace=namespace,
         content=content,
         kind=kind,
@@ -235,7 +260,6 @@ def store(
     )
 
 
-@mcp.tool(structured_output=True)
 def feedback(
     namespace: Annotated[
         str,
@@ -281,7 +305,7 @@ def feedback(
             )
         ),
     ] = None,
-    ctx: Context | None = None,
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Record structured retrieval feedback for one recalled memory result.
 
@@ -299,7 +323,7 @@ def feedback(
     client_transport = _provenance_text(provenance, "client_transport") or resolve_default_client_transport()
     actor = _provenance_text(provenance, "actor")
 
-    return bridge.feedback(
+    return _bridge_for(ctx).feedback(
         namespace=namespace,
         recall_receipt=recall_receipt,
         memory_id=memory_id,
@@ -318,7 +342,6 @@ def feedback(
     )
 
 
-@mcp.tool(structured_output=True)
 def recall(
     namespace: Annotated[
         str,
@@ -399,6 +422,7 @@ def recall(
             ),
         ),
     ] = None,
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Recall matching entries or poll for new signals from the bridge.
 
@@ -425,7 +449,7 @@ def recall(
     if kind == "memory":
         signal_status = None
 
-    return bridge.recall(
+    return _bridge_for(ctx).recall(
         namespace=namespace,
         query=query,
         limit=limit,
@@ -440,7 +464,6 @@ def recall(
     )
 
 
-@mcp.tool(structured_output=True)
 def browse(
     namespace: Annotated[
         str,
@@ -481,6 +504,7 @@ def browse(
             description="Maximum number of items to list. Smaller values keep browse output readable.",
         ),
     ] = 10,
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Browse recent items when you do not yet know what to search for.
 
@@ -491,7 +515,7 @@ def browse(
     if kind == "memory":
         signal_status = None
 
-    return bridge.browse(
+    return _bridge_for(ctx).browse(
         namespace=namespace,
         domain=domain,
         kind=kind,
@@ -500,12 +524,12 @@ def browse(
     )
 
 
-@mcp.tool(structured_output=True)
 def stats(
     namespace: Annotated[
         str,
         Field(description=("Namespace to summarize, such as `project:<workspace>`, `domain:<name>`, or `global`.")),
     ],
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Return a quick health summary for one namespace.
 
@@ -513,10 +537,9 @@ def stats(
     directly. It returns total item count, a kind breakdown, top domains, and the
     oldest and newest entry timestamps for the namespace.
     """
-    return bridge.stats(namespace=namespace)
+    return _bridge_for(ctx).stats(namespace=namespace)
 
 
-@mcp.tool(structured_output=True)
 def forget(
     id: Annotated[
         str,
@@ -527,6 +550,7 @@ def forget(
             )
         ),
     ],
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Delete one stored entry by id.
 
@@ -534,10 +558,9 @@ def forget(
     no longer exist. The response tells you whether anything was deleted and returns the
     removed item metadata when a match is found.
     """
-    return bridge.forget(memory_id=id)
+    return _bridge_for(ctx).forget(memory_id=id)
 
 
-@mcp.tool(structured_output=True)
 def claim_signal(
     namespace: Annotated[
         str,
@@ -577,6 +600,7 @@ def claim_signal(
             description="Optional workflow correlation id used to claim signals from one handoff thread.",
         ),
     ] = None,
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Claim one signal with a short lease for lightweight work coordination.
 
@@ -585,7 +609,7 @@ def claim_signal(
     namespace that matches the optional filters, with a small fairness bias inside
     the oldest pending window so one polling consumer does not keep winning by accident.
     """
-    return bridge.claim_signal(
+    return _bridge_for(ctx).claim_signal(
         namespace=namespace,
         consumer=consumer,
         lease_seconds=lease_seconds,
@@ -595,7 +619,6 @@ def claim_signal(
     )
 
 
-@mcp.tool(structured_output=True)
 def ack_signal(
     id: Annotated[
         str,
@@ -612,12 +635,12 @@ def ack_signal(
             ),
         ),
     ] = None,
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Acknowledge one claimed or pending signal so downstream polling can stop treating it as active work."""
-    return bridge.ack_signal(memory_id=id, consumer=consumer)
+    return _bridge_for(ctx).ack_signal(memory_id=id, consumer=consumer)
 
 
-@mcp.tool(structured_output=True)
 def extend_signal_lease(
     id: Annotated[
         str,
@@ -641,6 +664,7 @@ def extend_signal_lease(
             ),
         ),
     ],
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Extend the active lease on one claimed signal.
 
@@ -648,10 +672,9 @@ def extend_signal_lease(
     consumer can reclaim it. Expired leases cannot be extended; those signals must
     be reclaimed instead. Hard signal expiry still takes precedence over lease renewal.
     """
-    return bridge.extend_signal_lease(memory_id=id, consumer=consumer, lease_seconds=lease_seconds)
+    return _bridge_for(ctx).extend_signal_lease(memory_id=id, consumer=consumer, lease_seconds=lease_seconds)
 
 
-@mcp.tool(structured_output=True)
 def promote(
     id: Annotated[
         str,
@@ -671,6 +694,7 @@ def promote(
             )
         ),
     ],
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Manually promote one stored memory to a stronger durable record type.
 
@@ -678,10 +702,9 @@ def promote(
     domain note even if the reflex layer has not promoted it yet. Promotion keeps the
     same id and updates the stored title, tags, and structured content in place.
     """
-    return bridge.promote(memory_id=id, to_kind=to_kind)
+    return _bridge_for(ctx).promote(memory_id=id, to_kind=to_kind)
 
 
-@mcp.tool(structured_output=True)
 def annotate(
     id: Annotated[
         str,
@@ -708,7 +731,7 @@ def annotate(
         str | None,
         Field(description="Optional identity of the human or agent performing the explicit annotation."),
     ] = None,
-    ctx: Context | None = None,
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Explicitly enrich one durable memory without pretending the write was a new fact.
 
@@ -716,7 +739,7 @@ def annotate(
     remains unchanged; title/tag changes and additional provenance are written to an
     auditable annotation record.
     """
-    return bridge.annotate(
+    return _bridge_for(ctx).annotate(
         memory_id=id,
         tags=tags,
         title=_optional_text(title),
@@ -725,7 +748,6 @@ def annotate(
     )
 
 
-@mcp.tool(structured_output=True)
 def revise(
     id: Annotated[
         str,
@@ -755,14 +777,14 @@ def revise(
         dict[str, str] | None,
         Field(description="Optional provenance overrides for the new revision."),
     ] = None,
-    ctx: Context | None = None,
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Create a new durable memory that explicitly supersedes an older record.
 
     The predecessor remains available for audit. The bridge adds an exact `supersedes`
     edge and records the revision receipt instead of silently mutating content in place.
     """
-    return bridge.revise(
+    return _bridge_for(ctx).revise(
         memory_id=id,
         replacement_content=replacement_content,
         title=_optional_text(title),
@@ -773,7 +795,6 @@ def revise(
     )
 
 
-@mcp.tool(structured_output=True)
 def export(
     namespace: Annotated[
         str,
@@ -812,6 +833,7 @@ def export(
             description="Maximum number of entries to export in one call.",
         ),
     ] = 100,
+    ctx: Context[ServerDependencies] | None = None,
 ) -> dict[str, Any]:
     """Export bridge content into a readable or portable format.
 
@@ -822,7 +844,7 @@ def export(
     if kind == "memory":
         signal_status = None
 
-    return bridge.export(
+    return _bridge_for(ctx).export(
         namespace=namespace,
         format=format,
         query=query,
@@ -831,6 +853,383 @@ def export(
         tags_any=tags_any,
         limit=limit,
     )
+
+
+def begin_run(
+    workspace_key: Annotated[
+        str,
+        Field(
+            description=(
+                "Declared workspace scope for this run, such as `project:<workspace>`. "
+                "The server uses it to reject cross-workspace run access."
+            )
+        ),
+    ],
+    goal: Annotated[
+        str,
+        Field(description="Root goal for the run. Keep it bounded and outcome-oriented."),
+    ],
+    idempotency_key: Annotated[
+        str,
+        Field(
+            description=(
+                "Caller-generated retry key. The bridge stores only its SHA-256 digest and "
+                "returns the original server-minted run for an identical retry."
+            )
+        ),
+    ],
+    agent_id: Annotated[
+        str | None,
+        Field(
+            description="Optional declared agent or worker identifier. It is provenance, not authenticated identity."
+        ),
+    ] = None,
+    thread_id: Annotated[
+        str | None,
+        Field(description="Optional external thread or conversation identifier."),
+    ] = None,
+    model_digest: Annotated[
+        str | None,
+        Field(description="Optional lowercase SHA-256 digest of the model identity or configuration."),
+    ] = None,
+    harness_digest: Annotated[
+        str | None,
+        Field(description="Optional lowercase SHA-256 digest of the harness configuration."),
+    ] = None,
+    chat_template_digest: Annotated[
+        str | None,
+        Field(description="Optional lowercase SHA-256 digest of the chat template."),
+    ] = None,
+    tool_schema_digest: Annotated[
+        str | None,
+        Field(description="Optional lowercase SHA-256 digest of the tool schema used by the run."),
+    ] = None,
+    memory_scopes: Annotated[
+        list[str] | None,
+        Field(
+            max_length=32,
+            description="Optional declared memory scopes available to the run. These do not grant authorization.",
+        ),
+    ] = None,
+    budget: Annotated[
+        dict[str, Any] | None,
+        Field(description="Optional bounded JSON budget metadata, such as token or time limits."),
+    ] = None,
+    provenance: Annotated[
+        dict[str, str] | None,
+        Field(description="Optional bounded declared provenance for the run."),
+    ] = None,
+    ctx: Context[ServerDependencies] | None = None,
+) -> dict[str, Any]:
+    """Start one explicit, stateless run and return server-minted run/work-item IDs.
+
+    The bridge does not retain an implicit current run. Callers must pass the returned
+    handles to later event, read, and completion calls. Idempotent retries return the
+    same handles and reject conflicting payloads.
+    """
+    return _bridge_for(ctx).begin_run(
+        workspace_key=workspace_key,
+        goal=goal,
+        idempotency_key=idempotency_key,
+        agent_id=_optional_text(agent_id),
+        thread_id=_optional_text(thread_id),
+        model_digest=_optional_text(model_digest),
+        harness_digest=_optional_text(harness_digest),
+        chat_template_digest=_optional_text(chat_template_digest),
+        tool_schema_digest=_optional_text(tool_schema_digest),
+        memory_scopes=memory_scopes,
+        budget=budget,
+        provenance=with_context_source_client(cast("dict[str, str | None] | None", provenance), ctx),
+    )
+
+
+def record_run_event(
+    workspace_key: Annotated[
+        str,
+        Field(description="Declared workspace scope that owns the run."),
+    ],
+    run_id: Annotated[
+        str,
+        Field(description="Server-minted run identifier returned by `begin_run`."),
+    ],
+    event_type: Annotated[
+        Literal[
+            "plan_created",
+            "work_item_started",
+            "checkpoint",
+            "observation",
+            "hypothesis",
+            "hypothesis_confirmed",
+            "hypothesis_rejected",
+            "tool_result",
+            "test_failure",
+            "decision",
+            "blocker",
+            "memory_recalled",
+            "memory_applied",
+            "memory_rejected",
+            "artifact_created",
+            "compaction_boundary",
+            "work_item_completed",
+            "work_item_failed",
+            "work_item_abandoned",
+        ],
+        Field(description="Strict version-1 structured event type."),
+    ],
+    summary: Annotated[
+        str,
+        Field(description="Bounded factual event summary. Raw transcript or hidden reasoning is not allowed."),
+    ],
+    idempotency_key: Annotated[
+        str,
+        Field(description="Caller-generated retry key scoped to this run; only its SHA-256 digest is stored."),
+    ],
+    work_item_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Existing server-minted work-item identifier. Omit only for `work_item_started` "
+                "when creating a child work item."
+            )
+        ),
+    ] = None,
+    parent_work_item_id: Annotated[
+        str | None,
+        Field(description="Parent work-item identifier, used only when creating a child work item."),
+    ] = None,
+    work_item_goal: Annotated[
+        str | None,
+        Field(description="Goal for a new child work item, used only with `work_item_started`."),
+    ] = None,
+    owner_agent_id: Annotated[
+        str | None,
+        Field(description="Optional declared owner for a newly created child work item."),
+    ] = None,
+    payload: Annotated[
+        dict[str, Any] | None,
+        Field(description="Optional structured JSON payload, limited to 32 KiB. Raw reasoning fields are rejected."),
+    ] = None,
+    evidence: Annotated[
+        list[Any] | None,
+        Field(description="Optional structured evidence references, limited to 32 KiB."),
+    ] = None,
+    memory_attribution: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description=(
+                "Required receipt-bound or explicit manual memory attribution for memory_recalled, "
+                "memory_applied, and memory_rejected. Recall receipt tokens are validated but never persisted."
+            )
+        ),
+    ] = None,
+    agent_id: Annotated[
+        str | None,
+        Field(description="Optional declared agent responsible for the event."),
+    ] = None,
+    thread_id: Annotated[
+        str | None,
+        Field(description="Optional external thread or conversation identifier for the event."),
+    ] = None,
+    provenance: Annotated[
+        dict[str, str] | None,
+        Field(description="Optional bounded declared provenance for the event."),
+    ] = None,
+    ctx: Context[ServerDependencies] | None = None,
+) -> dict[str, Any]:
+    """Append one structured event to a run's durable authority ledger.
+
+    Sequence allocation, event persistence, child work-item creation, and projection
+    updates occur in one transaction. This tool never sets an implicit current run.
+    """
+    return _bridge_for(ctx).record_run_event(
+        workspace_key=workspace_key,
+        run_id=run_id,
+        event_type=event_type,
+        summary=summary,
+        idempotency_key=idempotency_key,
+        work_item_id=_optional_text(work_item_id),
+        parent_work_item_id=_optional_text(parent_work_item_id),
+        work_item_goal=_optional_text(work_item_goal),
+        owner_agent_id=_optional_text(owner_agent_id),
+        payload=payload,
+        evidence=evidence,
+        memory_attribution=memory_attribution,
+        agent_id=_optional_text(agent_id),
+        thread_id=_optional_text(thread_id),
+        provenance=with_context_source_client(cast("dict[str, str | None] | None", provenance), ctx),
+    )
+
+
+def get_run(
+    workspace_key: Annotated[
+        str,
+        Field(description="Declared workspace scope that owns the run."),
+    ],
+    run_id: Annotated[
+        str,
+        Field(description="Server-minted run identifier returned by `begin_run`."),
+    ],
+    since_sequence: Annotated[
+        int,
+        Field(ge=0, description="Return only events whose per-run sequence is greater than this value."),
+    ] = 0,
+    event_limit: Annotated[
+        int,
+        Field(ge=1, le=500, description="Maximum number of ordered events to return in this page."),
+    ] = 100,
+    ctx: Context[ServerDependencies] | None = None,
+) -> dict[str, Any]:
+    """Read current run/work-item projections plus append-only events for reconnect or compaction recovery."""
+    return _bridge_for(ctx).get_run(
+        workspace_key=workspace_key,
+        run_id=run_id,
+        since_sequence=since_sequence,
+        event_limit=event_limit,
+    )
+
+
+def complete_run(
+    workspace_key: Annotated[
+        str,
+        Field(description="Declared workspace scope that owns the run."),
+    ],
+    run_id: Annotated[
+        str,
+        Field(description="Server-minted run identifier returned by `begin_run`."),
+    ],
+    outcome: Annotated[
+        Literal[
+            "verified_success",
+            "partial_success",
+            "unverified",
+            "user_corrected",
+            "regression",
+            "failed",
+            "abandoned",
+        ],
+        Field(description="Declared outcome for this append-only outcome revision."),
+    ],
+    evaluator_type: Annotated[
+        Literal["agent", "deterministic_verifier", "human", "system"],
+        Field(description="Evidence source class. Agent self-report cannot establish verified success."),
+    ],
+    idempotency_key: Annotated[
+        str,
+        Field(description="Caller-generated retry key scoped to this run; only its SHA-256 digest is stored."),
+    ],
+    evidence: Annotated[
+        list[Any] | None,
+        Field(description="Structured outcome evidence, limited to 32 KiB."),
+    ] = None,
+    metrics: Annotated[
+        dict[str, Any] | None,
+        Field(description="Optional structured outcome metrics, limited to 32 KiB."),
+    ] = None,
+    evaluator_digest: Annotated[
+        str | None,
+        Field(description="Optional lowercase SHA-256 digest of the evaluator implementation or configuration."),
+    ] = None,
+    evaluator_version: Annotated[
+        str | None,
+        Field(description="Optional bounded evaluator version label."),
+    ] = None,
+    termination_reason: Annotated[
+        str | None,
+        Field(description="Optional bounded reason the run ended."),
+    ] = None,
+    supersedes_outcome_id: Annotated[
+        str | None,
+        Field(description="Current outcome head to supersede when recording a correction."),
+    ] = None,
+    regression_of_run_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Distinct same-workspace run with a current `verified_success` outcome; "
+                "required for a `regression` outcome."
+            )
+        ),
+    ] = None,
+    provenance: Annotated[
+        dict[str, str] | None,
+        Field(description="Optional bounded declared provenance for the outcome."),
+    ] = None,
+    ctx: Context[ServerDependencies] | None = None,
+) -> dict[str, Any]:
+    """Append or correct a run outcome without changing memory ranking or policy.
+
+    `verified_success` requires non-empty deterministic-verifier or human evidence.
+    Outcome corrections form an append-only supersession chain.
+    """
+    return _bridge_for(ctx).complete_run(
+        workspace_key=workspace_key,
+        run_id=run_id,
+        outcome=outcome,
+        evaluator_type=evaluator_type,
+        idempotency_key=idempotency_key,
+        evidence=evidence,
+        metrics=metrics,
+        evaluator_digest=_optional_text(evaluator_digest),
+        evaluator_version=_optional_text(evaluator_version),
+        termination_reason=_optional_text(termination_reason),
+        supersedes_outcome_id=_optional_text(supersedes_outcome_id),
+        regression_of_run_id=_optional_text(regression_of_run_id),
+        provenance=with_context_source_client(cast("dict[str, str | None] | None", provenance), ctx),
+    )
+
+
+_PUBLIC_TOOL_HANDLERS = (
+    store,
+    recall,
+    browse,
+    stats,
+    forget,
+    feedback,
+    promote,
+    annotate,
+    revise,
+    export,
+    begin_run,
+    record_run_event,
+    get_run,
+    complete_run,
+    claim_signal,
+    extend_signal_lease,
+    ack_signal,
+)
+
+
+def create_mcp_server(
+    *,
+    store: MemoryStore | None = None,
+    store_factory: BridgeFactory | None = None,
+) -> _ContractMCPServer:
+    """Build an MCP server whose durable dependency is opened inside lifespan."""
+
+    if store is not None and store_factory is not None:
+        raise ValueError("pass either store or store_factory, not both")
+    factory = store_factory or _default_bridge_factory
+
+    @asynccontextmanager
+    async def lifespan(_: MCPServer) -> AsyncIterator[ServerDependencies]:
+        yield ServerDependencies(store=store if store is not None else factory())
+
+    server = _ContractMCPServer(
+        name=SERVER_NAME,
+        title=SERVER_TITLE,
+        description=SERVER_DESCRIPTION,
+        version=package_version(),
+        log_level="WARNING",
+        lifespan=lifespan,
+        cache_hints=MCP_CACHE_HINTS,
+        middleware=[ProtocolObservabilityMiddleware()],
+    )
+    for handler in _PUBLIC_TOOL_HANDLERS:
+        server.tool(structured_output=True)(handler)
+    return server
+
+
+mcp = create_mcp_server()
 
 
 def main() -> None:

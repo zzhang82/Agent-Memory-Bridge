@@ -98,7 +98,7 @@ def test_mcp_2_dual_era_surface_preserves_schema_and_durable_data(
 
     before = _database_dump(db_path)
     with sqlite3.connect(db_path) as conn:
-        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 7
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 8
 
     asyncio.run(
         _exercise_stdio_era(
@@ -119,7 +119,97 @@ def test_mcp_2_dual_era_surface_preserves_schema_and_durable_data(
 
     assert _database_dump(db_path) == before
     with sqlite3.connect(db_path) as conn:
-        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 7
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 8
+
+
+async def _exercise_episode_tools(
+    mode: Literal["auto", "legacy"],
+    *,
+    bridge_home: Path,
+) -> None:
+    server_params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "agent_mem_bridge"],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            "AGENT_MEMORY_BRIDGE_HOME": str(bridge_home),
+            "AGENT_MEMORY_BRIDGE_DB_PATH": str(bridge_home / "bridge.db"),
+            "AGENT_MEMORY_BRIDGE_LOG_DIR": str(bridge_home / "logs"),
+        },
+    )
+    workspace_key = f"project:dual-era-episode-{mode}"
+    async with Client(stdio_client(server_params), mode=mode, client_info=PROOF_CLIENT) as client:
+        begun = await client.call_tool(
+            "begin_run",
+            {
+                "workspace_key": workspace_key,
+                "goal": f"Prove the {mode} episode flow.",
+                "idempotency_key": f"begin:{mode}",
+            },
+        )
+        assert begun.is_error is False
+        assert begun.structured_content is not None
+        run_id = begun.structured_content["run_id"]
+        work_item_id = begun.structured_content["root_work_item_id"]
+
+        event = await client.call_tool(
+            "record_run_event",
+            {
+                "workspace_key": workspace_key,
+                "run_id": run_id,
+                "work_item_id": work_item_id,
+                "event_type": "checkpoint",
+                "summary": f"The {mode} episode checkpoint passed.",
+                "idempotency_key": f"event:{mode}",
+            },
+        )
+        assert event.is_error is False
+        assert event.structured_content is not None
+        assert event.structured_content["sequence"] == 1
+
+        restored = await client.call_tool(
+            "get_run",
+            {"workspace_key": workspace_key, "run_id": run_id},
+        )
+        assert restored.is_error is False
+        assert restored.structured_content is not None
+        assert restored.structured_content["latest_sequence"] == 1
+
+        terminal_event = await client.call_tool(
+            "record_run_event",
+            {
+                "workspace_key": workspace_key,
+                "run_id": run_id,
+                "work_item_id": work_item_id,
+                "event_type": "work_item_completed",
+                "summary": f"The {mode} episode root work item completed.",
+                "idempotency_key": f"event:{mode}:completed",
+            },
+        )
+        assert terminal_event.is_error is False
+        assert terminal_event.structured_content is not None
+        assert terminal_event.structured_content["sequence"] == 2
+
+        completed = await client.call_tool(
+            "complete_run",
+            {
+                "workspace_key": workspace_key,
+                "run_id": run_id,
+                "outcome": "verified_success",
+                "evaluator_type": "deterministic_verifier",
+                "evidence": [{"kind": "dual-era-test", "mode": mode, "passed": True}],
+                "idempotency_key": f"outcome:{mode}",
+            },
+        )
+        assert completed.is_error is False
+        assert completed.structured_content is not None
+        assert completed.structured_content["outcome"] == "verified_success"
+
+
+def test_mcp_2_dual_era_clients_complete_episode_flow(tmp_path: Path) -> None:
+    asyncio.run(_exercise_episode_tools("auto", bridge_home=tmp_path / "modern-episode"))
+    asyncio.run(_exercise_episode_tools("legacy", bridge_home=tmp_path / "legacy-episode"))
 
 
 async def _exercise_modern_client_info(mcp_server: MCPServer) -> None:

@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from .paths import (
 )
 from .poll_cursor import encode_poll_cursor
 from .promotion import promote_entry
+from .provenance import normalize_provenance_mapping, normalize_provenance_value
 from .query import build_tag_filter, recall_candidates, recall_signal_poll_page
 from .relation_metadata import parse_relation_metadata
 from .repository import (
@@ -47,6 +49,7 @@ from .retrieval_feedback import (
     should_issue_recall_receipt,
 )
 from .revisions import annotate_entry, revise_entry
+from .run_ledger import begin_run_entry, complete_run_entry, get_run_entry, record_run_event_entry
 from .schema import database_epoch, init_db
 from .signals import (
     ack_signal_entry,
@@ -115,6 +118,126 @@ class MemoryStore:
             telemetry=Telemetry.from_env(),
         )
 
+    def begin_run(
+        self,
+        *,
+        workspace_key: str,
+        goal: str,
+        idempotency_key: str,
+        agent_id: str | None = None,
+        thread_id: str | None = None,
+        model_digest: str | None = None,
+        harness_digest: str | None = None,
+        chat_template_digest: str | None = None,
+        tool_schema_digest: str | None = None,
+        memory_scopes: list[str] | None = None,
+        budget: dict[str, Any] | None = None,
+        provenance: dict[str, str | None] | None = None,
+    ) -> dict[str, Any]:
+        return begin_run_entry(
+            self,
+            workspace_key=workspace_key,
+            goal=goal,
+            idempotency_key=idempotency_key,
+            agent_id=agent_id,
+            thread_id=thread_id,
+            model_digest=model_digest,
+            harness_digest=harness_digest,
+            chat_template_digest=chat_template_digest,
+            tool_schema_digest=tool_schema_digest,
+            memory_scopes=memory_scopes,
+            budget=budget,
+            provenance=provenance,
+        )
+
+    def record_run_event(
+        self,
+        *,
+        workspace_key: str,
+        run_id: str,
+        event_type: str,
+        summary: str,
+        idempotency_key: str,
+        work_item_id: str | None = None,
+        parent_work_item_id: str | None = None,
+        work_item_goal: str | None = None,
+        owner_agent_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+        evidence: list[Any] | None = None,
+        memory_attribution: dict[str, Any] | None = None,
+        agent_id: str | None = None,
+        thread_id: str | None = None,
+        provenance: dict[str, str | None] | None = None,
+    ) -> dict[str, Any]:
+        return record_run_event_entry(
+            self,
+            workspace_key=workspace_key,
+            run_id=run_id,
+            event_type=event_type,
+            summary=summary,
+            idempotency_key=idempotency_key,
+            work_item_id=work_item_id,
+            parent_work_item_id=parent_work_item_id,
+            work_item_goal=work_item_goal,
+            owner_agent_id=owner_agent_id,
+            payload=payload,
+            evidence=evidence,
+            memory_attribution=memory_attribution,
+            agent_id=agent_id,
+            thread_id=thread_id,
+            provenance=provenance,
+        )
+
+    def get_run(
+        self,
+        *,
+        workspace_key: str,
+        run_id: str,
+        since_sequence: int = 0,
+        event_limit: int = 100,
+    ) -> dict[str, Any]:
+        return get_run_entry(
+            self,
+            workspace_key=workspace_key,
+            run_id=run_id,
+            since_sequence=since_sequence,
+            event_limit=event_limit,
+        )
+
+    def complete_run(
+        self,
+        *,
+        workspace_key: str,
+        run_id: str,
+        outcome: str,
+        evaluator_type: str,
+        idempotency_key: str,
+        evidence: list[Any] | None = None,
+        metrics: dict[str, Any] | None = None,
+        evaluator_digest: str | None = None,
+        evaluator_version: str | None = None,
+        termination_reason: str | None = None,
+        supersedes_outcome_id: str | None = None,
+        regression_of_run_id: str | None = None,
+        provenance: dict[str, str | None] | None = None,
+    ) -> dict[str, Any]:
+        return complete_run_entry(
+            self,
+            workspace_key=workspace_key,
+            run_id=run_id,
+            outcome=outcome,
+            evaluator_type=evaluator_type,
+            idempotency_key=idempotency_key,
+            evidence=evidence,
+            metrics=metrics,
+            evaluator_digest=evaluator_digest,
+            evaluator_version=evaluator_version,
+            termination_reason=termination_reason,
+            supersedes_outcome_id=supersedes_outcome_id,
+            regression_of_run_id=regression_of_run_id,
+            provenance=provenance,
+        )
+
     def store(
         self,
         namespace: str,
@@ -136,16 +259,16 @@ class MemoryStore:
     ) -> dict[str, Any]:
         kind = kind.strip()
         tags = _optional_list(tags)
-        session_id = _optional_text(session_id)
-        actor = _optional_text(actor)
+        session_id = normalize_provenance_value("session_id", session_id)
+        actor = normalize_provenance_value("actor", actor)
         title = _optional_text(title)
-        correlation_id = _optional_text(correlation_id)
-        source_app = _optional_text(source_app)
-        source_client = _optional_text(source_client)
-        source_model = _optional_text(source_model)
-        client_session_id = _optional_text(client_session_id)
-        client_workspace = _optional_text(client_workspace)
-        client_transport = _optional_text(client_transport)
+        correlation_id = normalize_provenance_value("correlation_id", correlation_id)
+        source_app = normalize_provenance_value("source_app", source_app)
+        source_client = normalize_provenance_value("source_client", source_client)
+        source_model = normalize_provenance_value("source_model", source_model)
+        client_session_id = normalize_provenance_value("client_session_id", client_session_id)
+        client_workspace = normalize_provenance_value("client_workspace", client_workspace)
+        client_transport = normalize_provenance_value("client_transport", client_transport)
         expires_at = _optional_text(expires_at)
         if kind == "memory":
             if ttl_seconds is not None:
@@ -460,13 +583,13 @@ class MemoryStore:
         actor: str | None = None,
     ) -> dict[str, Any]:
         reason = _optional_text(reason)
-        source_app = _optional_text(source_app)
-        source_client = _optional_text(source_client)
-        source_model = _optional_text(source_model)
-        client_session_id = _optional_text(client_session_id)
-        client_workspace = _optional_text(client_workspace)
-        client_transport = _optional_text(client_transport)
-        actor = _optional_text(actor)
+        source_app = normalize_provenance_value("source_app", source_app)
+        source_client = normalize_provenance_value("source_client", source_client)
+        source_model = normalize_provenance_value("source_model", source_model)
+        client_session_id = normalize_provenance_value("client_session_id", client_session_id)
+        client_workspace = normalize_provenance_value("client_workspace", client_workspace)
+        client_transport = normalize_provenance_value("client_transport", client_transport)
+        actor = normalize_provenance_value("actor", actor)
         feedback_type_category = str(feedback_type).strip().lower()
         if feedback_type_category not in {"vote", "correction", "retraction"}:
             feedback_type_category = "invalid"
@@ -620,6 +743,7 @@ class MemoryStore:
             return payload
 
     def repair_signal(self, memory_id: str, *, reason: str, actor: str | None = None) -> dict[str, Any]:
+        actor = normalize_provenance_value("actor", actor)
         with self.telemetry.span(
             "amb.signal.repair",
             {"has_memory_id": bool(memory_id), "has_reason": bool(reason), "has_actor": bool(actor)},
@@ -661,13 +785,15 @@ class MemoryStore:
         provenance: dict[str, str | None] | None = None,
         actor: str | None = None,
     ) -> dict[str, Any]:
+        cleaned_provenance = normalize_provenance_mapping(provenance)
+        cleaned_actor = normalize_provenance_value("actor", actor)
         with self.telemetry.span(
             "amb.memory.annotate",
             {
                 "has_memory_id": bool(memory_id),
                 "tags_count": len(tags or []),
                 "has_title": bool(title),
-                "provenance_field_count": len(provenance or {}),
+                "provenance_field_count": len(cleaned_provenance or {}),
             },
         ) as span:
             payload = annotate_entry(
@@ -675,8 +801,8 @@ class MemoryStore:
                 memory_id,
                 tags=tags,
                 title=title,
-                provenance=provenance,
-                actor=actor,
+                provenance=(dict[str, str | None](cleaned_provenance) if cleaned_provenance is not None else None),
+                actor=cleaned_actor,
             )
             span.set_attribute("changed", payload.get("changed"))
             return payload
@@ -692,6 +818,8 @@ class MemoryStore:
         reason: str | None = None,
         provenance: dict[str, str | None] | None = None,
     ) -> dict[str, Any]:
+        cleaned_provenance = normalize_provenance_mapping(provenance)
+        cleaned_actor = normalize_provenance_value("actor", actor)
         with self.telemetry.span(
             "amb.memory.revise",
             {
@@ -707,9 +835,9 @@ class MemoryStore:
                 replacement_content=replacement_content,
                 title=title,
                 tags=tags,
-                actor=actor,
+                actor=cleaned_actor,
                 reason=reason,
-                provenance=provenance,
+                provenance=(dict[str, str | None](cleaned_provenance) if cleaned_provenance is not None else None),
             )
             span.set_attribute("revised", payload.get("revised"))
             return payload
@@ -843,10 +971,14 @@ class MemoryStore:
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, timeout=5.0)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA busy_timeout=5000")
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
+        try:
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA busy_timeout=5000")
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA foreign_keys=ON")
+        except BaseException:
+            conn.close()
+            raise
         return conn
 
     def database_epoch(self) -> str:
@@ -854,8 +986,15 @@ class MemoryStore:
             return database_epoch(conn)
 
     def _init_db(self) -> None:
-        with self._connect() as conn:
-            init_db(conn)
+        for attempt in range(3):
+            try:
+                with self._connect() as conn:
+                    init_db(conn)
+                return
+            except sqlite3.OperationalError as exc:
+                if "locked" not in str(exc).casefold() or attempt == 2:
+                    raise
+                time.sleep(0.05 * (attempt + 1))
 
     def _log(self, event_type: str, payload: dict[str, Any]) -> None:
         log_path = self.log_dir / f"{event_type}.log"

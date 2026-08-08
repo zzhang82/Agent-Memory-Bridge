@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from ._temporary_store import ScopedTemporaryMemoryStore
 from .belief_observation import BeliefObservationConfig, observe_belief_ladder
 from .consolidation import ConsolidationConfig, ConsolidationEngine
 from .storage import MemoryStore
@@ -70,8 +71,10 @@ def run_belief_review(
 
 def run_belief_review_case(sample: dict[str, Any]) -> dict[str, Any]:
     runtime_dir = Path(tempfile.mkdtemp(prefix="agent-memory-bridge-belief-review-"))
+    store: ScopedTemporaryMemoryStore | None = None
+    engine: ConsolidationEngine | None = None
     try:
-        store = MemoryStore(runtime_dir / "belief-review.db", log_dir=runtime_dir / "logs")
+        store = ScopedTemporaryMemoryStore(runtime_dir / "belief-review.db", log_dir=runtime_dir / "logs")
         target_domain = str(sample["target_domain"])
         target_claim = str(sample["target_claim"])
         config = _build_consolidation_config(runtime_dir, sample.get("config_overrides") or {})
@@ -118,7 +121,11 @@ def run_belief_review_case(sample: dict[str, Any]) -> dict[str, Any]:
             "match": actual == expected,
         }
     finally:
-        shutil.rmtree(runtime_dir, ignore_errors=True)
+        engine = None
+        if store is not None:
+            store.close()
+        store = None
+        shutil.rmtree(runtime_dir)
 
 
 def _build_consolidation_config(runtime_dir: Path, overrides: dict[str, Any]) -> ConsolidationConfig:

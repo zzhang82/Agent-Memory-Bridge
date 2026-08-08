@@ -7,6 +7,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+from ._temporary_store import ScopedTemporaryMemoryStore
 from .belief_replay import BeliefReplayConfig, run_belief_replay
 from .belief_review import DEFAULT_REVIEWED_SAMPLES_PATH, run_belief_review_case
 from .storage import MemoryStore
@@ -161,8 +162,9 @@ def render_activation_stress_text(report: dict[str, Any]) -> str:
 
 def _run_replay_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
     runtime_dir = Path(tempfile.mkdtemp(prefix="agent-memory-bridge-activation-stress-"))
+    source_store: ScopedTemporaryMemoryStore | None = None
     try:
-        source_store = MemoryStore(runtime_dir / "source.db", log_dir=runtime_dir / "logs")
+        source_store = ScopedTemporaryMemoryStore(runtime_dir / "source.db", log_dir=runtime_dir / "logs")
         for row in scenario.get("source_rows", []):
             _store_source_row(source_store, row=row)
 
@@ -209,7 +211,10 @@ def _run_replay_scenario(scenario: dict[str, Any]) -> dict[str, Any]:
             "failure_reasons": failure_reasons,
         }
     finally:
-        shutil.rmtree(runtime_dir, ignore_errors=True)
+        if source_store is not None:
+            source_store.close()
+        source_store = None
+        shutil.rmtree(runtime_dir)
 
 
 def _build_replay_config(*, source_row_count: int, config_data: dict[str, Any]) -> BeliefReplayConfig:

@@ -148,7 +148,7 @@ def test_fresh_schema_records_current_ledger_and_append_only_feedback_table() ->
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 7
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 8
     assert _ledger_rows(conn) == _declared_rows()
     _assert_receipt_bound_feedback_schema(conn)
 
@@ -322,7 +322,7 @@ def test_existing_v5_feedback_duplicates_upgrade_without_mutating_legacy_evidenc
             f"SELECT {legacy_columns} FROM retrieval_feedback ORDER BY feedback_id"  # noqa: S608
         ).fetchall()
     ]
-    assert schema_version(conn) == 7
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 8
     assert after == before
     assert conn.execute("SELECT COUNT(*) FROM retrieval_feedback").fetchone()[0] == 2
     assert [

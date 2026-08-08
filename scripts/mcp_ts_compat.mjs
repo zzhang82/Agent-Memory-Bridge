@@ -17,7 +17,7 @@ const boundarySource = fs.readFileSync(
 const orderBlock = boundarySource.match(/PUBLIC_TOOL_ORDER = \(([\s\S]*?)\n\)/);
 assert.ok(orderBlock, "PUBLIC_TOOL_ORDER must exist in mcp_boundary.py");
 const expectedTools = [...orderBlock[1].matchAll(/"([a-z_]+)"/g)].map((match) => match[1]);
-assert.equal(expectedTools.length, 13);
+assert.equal(expectedTools.length, 17);
 
 const resolvedRuntime = path.resolve(runtimeDir);
 const serverCommand =
@@ -79,6 +79,70 @@ try {
   assert.equal(recalled.isError, false);
   assert.ok(recalled.structuredContent.count >= 1);
 
+  const begun = await client.callTool({
+    name: "begin_run",
+    arguments: {
+      workspace_key: "project:typescript-sdk-v2-proof",
+      goal: "Prove TypeScript SDK access to the episode ledger.",
+      idempotency_key: "begin:typescript-sdk-v2-proof",
+    },
+  });
+  assert.equal(begun.isError, false);
+  assert.ok(begun.structuredContent.run_id.startsWith("run_"));
+  assert.ok(begun.structuredContent.root_work_item_id.startsWith("work_"));
+
+  const runEvent = await client.callTool({
+    name: "record_run_event",
+    arguments: {
+      workspace_key: "project:typescript-sdk-v2-proof",
+      run_id: begun.structuredContent.run_id,
+      work_item_id: begun.structuredContent.root_work_item_id,
+      event_type: "checkpoint",
+      summary: "TypeScript SDK episode checkpoint passed.",
+      idempotency_key: "event:typescript-sdk-v2-proof",
+    },
+  });
+  assert.equal(runEvent.isError, false);
+  assert.equal(runEvent.structuredContent.sequence, 1);
+
+  const restoredRun = await client.callTool({
+    name: "get_run",
+    arguments: {
+      workspace_key: "project:typescript-sdk-v2-proof",
+      run_id: begun.structuredContent.run_id,
+    },
+  });
+  assert.equal(restoredRun.isError, false);
+  assert.equal(restoredRun.structuredContent.latest_sequence, 1);
+
+  const terminalEvent = await client.callTool({
+    name: "record_run_event",
+    arguments: {
+      workspace_key: "project:typescript-sdk-v2-proof",
+      run_id: begun.structuredContent.run_id,
+      work_item_id: begun.structuredContent.root_work_item_id,
+      event_type: "work_item_completed",
+      summary: "TypeScript SDK root work item completed.",
+      idempotency_key: "event:typescript-sdk-v2-proof:completed",
+    },
+  });
+  assert.equal(terminalEvent.isError, false);
+  assert.equal(terminalEvent.structuredContent.sequence, 2);
+
+  const completedRun = await client.callTool({
+    name: "complete_run",
+    arguments: {
+      workspace_key: "project:typescript-sdk-v2-proof",
+      run_id: begun.structuredContent.run_id,
+      outcome: "verified_success",
+      evaluator_type: "deterministic_verifier",
+      evidence: [{ kind: "typescript-sdk-v2-proof", passed: true }],
+      idempotency_key: "outcome:typescript-sdk-v2-proof",
+    },
+  });
+  assert.equal(completedRun.isError, false);
+  assert.equal(completedRun.structuredContent.outcome, "verified_success");
+
   console.log(
     JSON.stringify(
       {
@@ -87,6 +151,7 @@ try {
         protocol_version: client.getNegotiatedProtocolVersion(),
         protocol_era: client.getProtocolEra(),
         tool_count: listed.tools.length,
+        episode_flow: true,
         discover_cache: { ttlMs: discover.ttlMs, cacheScope: discover.cacheScope },
       },
       null,

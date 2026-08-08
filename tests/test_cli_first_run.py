@@ -6,8 +6,13 @@ import shlex
 import sqlite3
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
+import agent_mem_bridge.first_run as first_run
 from agent_mem_bridge.cli import main
 from agent_mem_bridge.first_run import (
+    GITHUB_ARCHIVE_URL,
+    PINNED_INSTALL_VERSION,
+    RELEASE_INSTALL_GATE_NOTE,
+    RELEASE_VERSION,
     _render_python_module_command,
     build_first_run_report,
     render_first_run_markdown,
@@ -21,7 +26,7 @@ NAMESPACE = "project:first-run-test"
 EXPECTED_PUBLIC_TOOLS = TOOL_NAMES
 
 
-def test_first_run_report_renders_install_verify_and_task_brief_without_mutation(tmp_path: Path) -> None:
+def test_first_run_report_renders_install_verify_and_task_brief_without_mutation(tmp_path: Path, monkeypatch) -> None:
     store = _seed_store(tmp_path)
     before_counts = _table_counts(db_path=store.db_path)
     before_stats = store.stats(NAMESPACE)
@@ -54,7 +59,13 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert report["install"]["baseline"][0] == "python -m venv .amb-venv"
     assert ".absolute()" in report["install"]["baseline"][1]
     assert ".resolve()" not in report["install"]["baseline"][1]
-    assert "archive/refs/tags/v0.26.1.zip" in report["install"]["baseline"][2]
+    assert report["install"]["package_version"] == RELEASE_VERSION
+    assert report["install"]["release_install_version"] == PINNED_INSTALL_VERSION
+    assert RELEASE_VERSION == PINNED_INSTALL_VERSION
+    assert report["install"]["version_mismatch_note"] is None
+    assert report["install"]["release_install_gate_note"] == RELEASE_INSTALL_GATE_NOTE
+    assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in report["install"]["baseline"][2]
+    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" in report["install"]["baseline"][2]
     assert "<venv-python> -m pip install" in report["install"]["baseline"][2]
     assert report["install"]["github_install"] == report["install"]["baseline"]
     assert report["install"]["editable_install"][-1] == "<venv-python> -m pip install -e ."
@@ -64,20 +75,49 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     ]
     assert report["install"]["smoke_test"] == report["verify"][1]
     assert report["install"]["optional_uv_smoke_test"].startswith("uvx --from git+")
-    assert "Agent-Memory-Bridge@v0.26.1" in report["install"]["optional_uv_smoke_test"]
+    assert f"Agent-Memory-Bridge@v{PINNED_INSTALL_VERSION}" in report["install"]["optional_uv_smoke_test"]
+    assert f"Agent-Memory-Bridge@v{RELEASE_VERSION}" in report["install"]["optional_uv_smoke_test"]
 
     markdown = render_first_run_markdown(report)
     assert "## Install" in markdown
     assert "Linux systems use `python3`" in markdown
-    assert "archive/refs/tags/v0.26.1.zip" in markdown
+    assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in markdown
+    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" in markdown
     assert markdown.index("python -m venv .amb-venv") < markdown.index(".absolute()")
-    assert markdown.index(".absolute()") < markdown.index("<venv-python> -m pip install")
+    assert markdown.index(".absolute()") < markdown.index(f'<venv-python> -m pip install "{GITHUB_ARCHIVE_URL}"')
     assert "Editable install:" not in markdown
     assert "Optional `uvx` shortcut (requires `uv`)" in markdown
+    assert f"Version-pinned GitHub tag install (`v{PINNED_INSTALL_VERSION}`)" in markdown
+    assert RELEASE_INSTALL_GATE_NOTE in markdown
+    assert "Package/source candidate" not in markdown
+    assert "unpublished" not in markdown
     assert "## Verify" in markdown
     assert "Inspect the client's MCP status/tool visibility" in markdown
     assert "## First Task Brief" in markdown
     assert "write_mode: `manual_copy_only`" in markdown
+
+    monkeypatch.setattr(first_run, "RELEASE_VERSION", "0.28.0")
+    future_report = build_first_run_report(
+        store,
+        client="opencode",
+        namespace=NAMESPACE,
+        query="release handoff",
+        python_path=python_path,
+        cwd=Path("test-project"),
+        bridge_home=Path("bridge-home"),
+        config_path=Path("config.toml"),
+        example=False,
+    )
+    assert future_report["install"]["version_mismatch_note"] == (
+        "Package/source version 0.28.0 differs from pinned release-install version 0.27.0. "
+        "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
+    )
+    assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in future_report["install"]["baseline"][2]
+    assert "archive/refs/tags/v0.28.0.zip" not in future_report["install"]["baseline"][2]
+    assert (
+        "Package/source version 0.28.0 differs from pinned release-install version 0.27.0."
+        in render_first_run_markdown(future_report)
+    )
 
     posix_python = str(PurePosixPath("fixture path") / "python")
     posix_command = _render_python_module_command(posix_python, "verify", platform="posix")
@@ -126,7 +166,12 @@ def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch
     assert "Linux systems use `python3`" in payload["python_launcher_note"]
     assert payload["install"]["baseline"][0] == "python -m venv .amb-venv"
     assert ".absolute()" in payload["install"]["baseline"][1]
-    assert "archive/refs/tags/v0.26.1.zip" in payload["install"]["baseline"][2]
+    assert payload["install"]["package_version"] == RELEASE_VERSION
+    assert payload["install"]["release_install_version"] == PINNED_INSTALL_VERSION
+    assert payload["install"]["version_mismatch_note"] is None
+    assert payload["install"]["release_install_gate_note"] == RELEASE_INSTALL_GATE_NOTE
+    assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in payload["install"]["baseline"][2]
+    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" in payload["install"]["baseline"][2]
 
 
 def test_first_run_stays_cli_only_not_mcp_tool() -> None:

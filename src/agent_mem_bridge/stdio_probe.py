@@ -34,12 +34,12 @@ async def run_dual_stdio_probe(project_root: Path, runtime_dir: Path) -> dict[st
         _check(
             "mcp_modern_stdio",
             bool(modern.get("ok")),
-            "Modern server/discover, list, and 13-tool business flow completed.",
+            "Modern server/discover, list, and 17-tool business flow completed.",
         ),
         _check(
             "mcp_legacy_stdio",
             bool(legacy.get("ok")),
-            "Legacy initialize, list, and 13-tool business flow completed.",
+            "Legacy initialize, list, and 17-tool business flow completed.",
         ),
     ]
     return {
@@ -129,7 +129,7 @@ async def _run_era_probe(
             discovery_ok,
             "Used the expected protocol-era entry path.",
         ),
-        _check("tool_surface", list_contract_ok, "Listed the canonical 13-tool surface in contract order."),
+        _check("tool_surface", list_contract_ok, "Listed the canonical 17-tool surface in contract order."),
     ]
     if mode == "auto":
         checks.append(
@@ -269,6 +269,73 @@ async def _exercise_all_tools(client: Client, era_name: str, result_types: list[
         },
         result_types,
     )
+    run = await _call(
+        client,
+        "begin_run",
+        {
+            "workspace_key": namespace,
+            "goal": f"Verify the MCP {era_name} episode tool flow.",
+            "agent_id": "verify-worker",
+            "thread_id": f"verify-{era_name}",
+            "memory_scopes": ["project", "task"],
+            "idempotency_key": f"begin:{token}",
+        },
+        result_types,
+    )
+    run_id = str(run.get("run_id", ""))
+    root_work_item_id = str(run.get("root_work_item_id", ""))
+    run_event = await _call(
+        client,
+        "record_run_event",
+        {
+            "workspace_key": namespace,
+            "run_id": run_id,
+            "work_item_id": root_work_item_id,
+            "event_type": "checkpoint",
+            "summary": f"The MCP {era_name} episode checkpoint passed.",
+            "payload": {"check": "all-public-tools", "passed": True},
+            "idempotency_key": f"event:{token}",
+        },
+        result_types,
+    )
+    restored_run = await _call(
+        client,
+        "get_run",
+        {
+            "workspace_key": namespace,
+            "run_id": run_id,
+            "since_sequence": 0,
+        },
+        result_types,
+    )
+    terminal_event = await _call(
+        client,
+        "record_run_event",
+        {
+            "workspace_key": namespace,
+            "run_id": run_id,
+            "work_item_id": root_work_item_id,
+            "event_type": "work_item_completed",
+            "summary": f"The MCP {era_name} episode root work item completed.",
+            "idempotency_key": f"event:{token}:completed",
+        },
+        result_types,
+    )
+    completed_run = await _call(
+        client,
+        "complete_run",
+        {
+            "workspace_key": namespace,
+            "run_id": run_id,
+            "outcome": "verified_success",
+            "evaluator_type": "deterministic_verifier",
+            "evidence": [{"kind": "stdio_probe", "era": era_name, "passed": True}],
+            "metrics": {"public_tool_count": len(PUBLIC_TOOL_ORDER)},
+            "termination_reason": "operator probe completed",
+            "idempotency_key": f"outcome:{token}",
+        },
+        result_types,
+    )
     signal = await _call(
         client,
         "store",
@@ -320,6 +387,12 @@ async def _exercise_all_tools(client: Client, era_name: str, result_types: list[
         and bool(revised.get("successor_id"))
         and isinstance(exported.get("content"), str)
         and bool(exported.get("content"))
+        and run_id.startswith("run_")
+        and root_work_item_id.startswith("work_")
+        and run_event.get("sequence") == 1
+        and restored_run.get("latest_sequence") == 1
+        and terminal_event.get("sequence") == 2
+        and completed_run.get("outcome") == "verified_success"
         and bool(signal.get("stored"))
         and bool(claimed.get("claimed"))
         and bool(extended.get("extended"))
@@ -338,6 +411,11 @@ async def _exercise_all_tools(client: Client, era_name: str, result_types: list[
         "promoted": bool(promoted.get("changed")),
         "revised": bool(revised.get("successor_id")),
         "export_nonempty": isinstance(exported.get("content"), str) and bool(exported.get("content")),
+        "run_started": run_id.startswith("run_") and root_work_item_id.startswith("work_"),
+        "run_event_recorded": run_event.get("sequence") == 1,
+        "run_recovered": restored_run.get("latest_sequence") == 1,
+        "run_work_item_completed": terminal_event.get("sequence") == 2,
+        "run_completed": completed_run.get("outcome") == "verified_success",
         "signal_claimed": bool(claimed.get("claimed")),
         "signal_extended": bool(extended.get("extended")),
         "signal_acked": bool(acked.get("acked")),

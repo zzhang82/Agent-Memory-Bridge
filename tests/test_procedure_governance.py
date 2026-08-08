@@ -1,4 +1,3 @@
-import ast
 from pathlib import Path
 
 import pytest
@@ -6,6 +5,7 @@ import pytest
 from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.procedure_governance import parse_procedure_artifact
 from agent_mem_bridge.recall_first import recall_first
+from agent_mem_bridge.release_contract import load_server_tool_names
 from agent_mem_bridge.storage import MemoryStore
 from agent_mem_bridge.task_memory import assemble_task_memory
 
@@ -258,23 +258,4 @@ def test_recall_first_triggers_for_procedure_checklist_and_runbook_queries(
 
 def test_public_mcp_tool_surface_stays_unchanged_for_procedure_governance() -> None:
     server_path = Path(__file__).resolve().parents[1] / "src" / "agent_mem_bridge" / "server.py"
-    tree = ast.parse(server_path.read_text(encoding="utf-8"))
-
-    tool_names = {
-        node.name
-        for node in tree.body
-        if isinstance(node, ast.FunctionDef)
-        and any(_is_mcp_tool_decorator(decorator) for decorator in node.decorator_list)
-    }
-
-    assert tool_names == EXPECTED_PUBLIC_TOOLS
-
-
-def _is_mcp_tool_decorator(node: ast.expr) -> bool:
-    target = node.func if isinstance(node, ast.Call) else node
-    return (
-        isinstance(target, ast.Attribute)
-        and isinstance(target.value, ast.Name)
-        and target.value.id == "mcp"
-        and target.attr == "tool"
-    )
+    assert load_server_tool_names(server_path) == EXPECTED_PUBLIC_TOOLS

@@ -173,6 +173,7 @@ V023_PATCH_PATTERN = re.compile(r"0\.23\.\d+")
 V024_PATCH_PATTERN = re.compile(r"0\.24\.\d+")
 V025_PATCH_PATTERN = re.compile(r"0\.25\.\d+")
 V026_PATCH_PATTERN = re.compile(r"0\.26\.\d+")
+V027_PATCH_PATTERN = re.compile(r"0\.27\.\d+")
 V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V021_PATCH_PATTERN,
     V022_PATCH_PATTERN,
@@ -181,7 +182,38 @@ V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V025_PATCH_PATTERN,
     V026_PATCH_PATTERN,
 )
+V027_EPISODE_RELEASE = "0.27.0"
+V027_EPISODE_FOUNDATION_PATTERNS = (V027_PATCH_PATTERN,)
+V027_SCHEMA_VERSION = 8
+V027_PUBLIC_TOOL_ORDER = (
+    "store",
+    "recall",
+    "browse",
+    "stats",
+    "forget",
+    "feedback",
+    "promote",
+    "annotate",
+    "revise",
+    "export",
+    "begin_run",
+    "record_run_event",
+    "get_run",
+    "complete_run",
+    "claim_signal",
+    "extend_signal_lease",
+    "ack_signal",
+)
+V027_PUBLIC_TOOL_SCHEMA_SHA256 = "6349ee0220a30ed910846766e927a8e057a9e3fbcdbaa4e3857a2ca740f93577"
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
+CURRENT_RELEASE_IDENTITY_PATTERNS = (
+    re.compile(r"(?m)^Current source release:\s*`?v?(\d+\.\d+\.\d+)`?\s*$"),
+    re.compile(r"(?m)^当前源码发布版本：\s*`?v?(\d+\.\d+\.\d+)`?\s*$"),
+)
+CURRENT_TEST_COLLECTION_PATTERNS = (
+    re.compile(r"(?m)^Current source test collection:\s*`?(\d+) tests`?\s*$"),
+    re.compile(r"(?m)^当前源码测试收集数：\s*`?(\d+) tests`?\s*$"),
+)
 KV_PATTERN = re.compile(
     r"(?P<key>[A-Za-z_][A-Za-z0-9_]+)\s*=\s*(?P<value>true|false|\d+(?:\.\d+)?)",
     re.IGNORECASE,
@@ -266,7 +298,7 @@ def build_version_check(pyproject_version: str, readme_paths: list[Path]) -> dic
     readmes: list[dict[str, Any]] = []
     ok = True
     for path in readme_paths:
-        versions = extract_release_versions(path.read_text(encoding="utf-8"))
+        versions = extract_current_release_versions(path.read_text(encoding="utf-8"))
         readmes.append({"path": str(path), "versions": versions})
         if not versions or versions != [pyproject_version]:
             ok = False
@@ -292,6 +324,11 @@ def extract_release_versions(text: str) -> list[str]:
         if match.start() > 0 and text[match.start() - 1] in {"=", "@"}:
             continue
         versions.add(match.group(1))
+    return sorted(versions)
+
+
+def extract_current_release_versions(text: str) -> list[str]:
+    versions = {match.group(1) for pattern in CURRENT_RELEASE_IDENTITY_PATTERNS for match in pattern.finditer(text)}
     return sorted(versions)
 
 
@@ -354,6 +391,8 @@ def build_v020_proof_version_check(project_root: Path, pyproject_version: str) -
 
 
 def build_release_proof_check(project_root: Path, pyproject_version: str) -> dict[str, Any]:
+    if uses_v027_episode_foundation(pyproject_version):
+        return build_v027_episode_release_check(project_root, pyproject_version)
     if uses_v021_governed_change_foundation(pyproject_version):
         return build_v021_governed_change_proof_check(project_root, pyproject_version)
     return build_v020_proof_version_check(project_root, pyproject_version)
@@ -361,6 +400,168 @@ def build_release_proof_check(project_root: Path, pyproject_version: str) -> dic
 
 def uses_v021_governed_change_foundation(pyproject_version: str) -> bool:
     return any(pattern.fullmatch(pyproject_version) for pattern in V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS)
+
+
+def uses_v027_episode_foundation(pyproject_version: str) -> bool:
+    return any(pattern.fullmatch(pyproject_version) for pattern in V027_EPISODE_FOUNDATION_PATTERNS)
+
+
+def build_v027_episode_release_check(
+    project_root: Path,
+    pyproject_version: str,
+) -> dict[str, Any]:
+    """Check the v0.27 episode contract without turning historical evidence current."""
+
+    mismatches: list[dict[str, Any]] = []
+    schema_version = load_literal_module_constant(
+        project_root / "src" / "agent_mem_bridge" / "schema.py",
+        "CURRENT_SCHEMA_VERSION",
+    )
+    tool_order = load_literal_module_constant(
+        project_root / "src" / "agent_mem_bridge" / "mcp_boundary.py",
+        "PUBLIC_TOOL_ORDER",
+    )
+    tool_digest = load_literal_module_constant(
+        project_root / "src" / "agent_mem_bridge" / "mcp_boundary.py",
+        "PUBLIC_TOOL_SCHEMA_SHA256",
+    )
+    server_tools = load_server_tool_names(project_root / "src" / "agent_mem_bridge" / "server.py")
+    required_documents = {
+        "docs/CLOSED-LOOP-EPISODE.md": (
+            "begin_run",
+            "record_run_event",
+            "get_run",
+            "complete_run",
+            "receipt-bound memory attribution",
+            "memory_utility_shadow",
+            "durable episode authority",
+            "downstream learning/consolidation effects are shadow-only",
+            "receipt-shaped values",
+            "fileBody",
+        ),
+        "docs/TRUST-BOUNDARY.md": (
+            "durable episode authority",
+            "downstream learning/consolidation effects are shadow-only",
+            "receipt-shaped values",
+            "fileBody",
+        ),
+        "docs/PRODUCTION-STATUS.md": (
+            "durable episode authority",
+            "downstream learning/consolidation effects are shadow-only",
+            "receipt-shaped values",
+            "fileBody",
+        ),
+        "docs/v0.27.0-announcement.md": (
+            "durable episode authority",
+            "downstream learning/consolidation effects are shadow-only",
+            "receipt-shaped values",
+            "fileBody",
+        ),
+        "docs/RUN-CONSOLIDATION.md": (
+            "consolidate-runs --shadow",
+            "does not write",
+            "needs_review",
+        ),
+        "tests/test_run_memory_attribution.py": (
+            "test_memory_recalled_links_a_valid_receipt_without_persisting_the_token",
+            "test_invalid_receipt_attribution_is_atomic_and_memory_events_require_it",
+        ),
+        "tests/test_run_consolidation.py": (
+            "test_shadow_is_zero_write_and_deterministic_for_two_independent_supports",
+            "test_cli_requires_shadow_and_renders_json",
+        ),
+        "tests/test_mcp_raw_wire.py": (
+            "test_raw_wire_modern_and_legacy_contracts",
+            "test_raw_wire_modern_and_legacy_memory_attribution_contracts",
+            "server/discover",
+            "legacy_initialize",
+        ),
+        "src/agent_mem_bridge/durable_data_policy.py": (
+            "_RECEIPT_SHAPED_VALUE_RE",
+            "require_durable_text",
+            "normalize_durable_key",
+        ),
+        "src/agent_mem_bridge/run_ledger.py": (
+            '"file_body"',
+            '"filebody"',
+            "normalize_durable_key",
+            "_is_data_uri",
+        ),
+        "tests/test_run_ledger.py": (
+            "test_receipt_shaped_values_are_rejected_before_durable_run_writes",
+            '"fileBody"',
+            '"file/body"',
+            '"data:text/plain;base64',
+        ),
+        "src/agent_mem_bridge/onboarding_contract.py": (
+            "PINNED_INSTALL_VERSION",
+            "RELEASE_INSTALL_GATE_NOTE",
+            "release_install_tool_count",
+            "versioned_install_tool_surface_is_explicit",
+        ),
+        "tests/test_onboarding_contract.py": (
+            "test_release_install_tool_count_tracks_the_release_cut",
+            "test_onboarding_contract_requires_source_checkout_wording_for_version_mismatch",
+            "RELEASE_INSTALL_GATE_NOTE",
+        ),
+    }
+
+    required_values = (
+        ("pyproject.version", V027_EPISODE_RELEASE, pyproject_version),
+        ("schema.CURRENT_SCHEMA_VERSION", V027_SCHEMA_VERSION, schema_version),
+        (
+            "mcp_boundary.PUBLIC_TOOL_ORDER",
+            V027_PUBLIC_TOOL_ORDER,
+            tuple(tool_order) if isinstance(tool_order, tuple | list) else tool_order,
+        ),
+        ("mcp_boundary.PUBLIC_TOOL_SCHEMA_SHA256", V027_PUBLIC_TOOL_SCHEMA_SHA256, tool_digest),
+        ("server.public_tool_set", set(V027_PUBLIC_TOOL_ORDER), server_tools),
+    )
+    for field, expected, actual in required_values:
+        if actual != expected:
+            mismatches.append({"field": field, "expected": expected, "actual": actual})
+
+    for relative_path, markers in required_documents.items():
+        path = project_root / relative_path
+        if not path.exists():
+            mismatches.append({"field": relative_path, "expected": "present", "actual": "missing"})
+            continue
+        text = path.read_text(encoding="utf-8")
+        missing_markers = [marker for marker in markers if marker not in text]
+        if missing_markers:
+            mismatches.append(
+                {
+                    "field": relative_path,
+                    "expected": "required episode evidence markers",
+                    "actual": {"missing_markers": missing_markers},
+                }
+            )
+
+    for readme_name in README_NAMES:
+        path = project_root / readme_name
+        if not path.exists():
+            mismatches.append(
+                {"field": f"{readme_name}.current_diagram_applicability", "expected": "present", "actual": "missing"}
+            )
+            continue
+        if "examples/diagrams/amb-overview.svg" in path.read_text(encoding="utf-8"):
+            mismatches.append(
+                {
+                    "field": f"{readme_name}.current_diagram_applicability",
+                    "expected": "historical overview omitted from current presentation",
+                    "actual": "current overview reference present",
+                }
+            )
+
+    return {
+        "name": "v027_episode_release_contract",
+        "ok": not mismatches,
+        "package_version": pyproject_version,
+        "schema_version": schema_version,
+        "public_tool_order": tool_order,
+        "public_tool_schema_sha256": tool_digest,
+        "mismatches": mismatches,
+    }
 
 
 def build_v021_governed_change_proof_check(
@@ -505,7 +706,7 @@ def build_test_count_check(evidence_paths: list[Path], expected_test_count: int)
     mismatches: list[dict[str, Any]] = []
     ok = True
     for path in evidence_paths:
-        counts = extract_pass_counts(path.read_text(encoding="utf-8"))
+        counts = extract_current_test_counts(path.read_text(encoding="utf-8"))
         if not counts or any(count != expected_test_count for count in counts):
             ok = False
             mismatches.append(
@@ -863,7 +1064,7 @@ def validate_inventoried_svg(project_root: Path, asset_path: str) -> dict[str, A
         f"assets[{asset_path}].path",
     )
     display_path = project_root / asset_path
-    report = {
+    report: dict[str, Any] = {
         "path": str(display_path),
         "asset_path": asset_path,
         "asset_type": "svg",
@@ -918,7 +1119,7 @@ def validate_inventoried_png(project_root: Path, asset_path: str) -> dict[str, A
         f"assets[{asset_path}].path",
     )
     display_path = project_root / asset_path
-    report = {
+    report: dict[str, Any] = {
         "path": str(display_path),
         "asset_path": asset_path,
         "asset_type": "png",
@@ -1342,6 +1543,10 @@ def extract_pass_counts(text: str) -> list[int]:
     return [int(match) for match in TEST_COUNT_CLAIM_PATTERN.findall(text)]
 
 
+def extract_current_test_counts(text: str) -> list[int]:
+    return [int(match.group(1)) for pattern in CURRENT_TEST_COLLECTION_PATTERNS for match in pattern.finditer(text)]
+
+
 def extract_public_tool_counts(text: str) -> list[int]:
     return [int(match) for match in PUBLIC_TOOL_COUNT_PATTERN.findall(text)]
 
@@ -1382,13 +1587,43 @@ def slice_markdown_section(text: str, heading: str) -> str:
 
 def load_server_tool_names(path: Path) -> set[str]:
     module = ast.parse(path.read_text(encoding="utf-8"))
+    function_names = {node.name for node in module.body if isinstance(node, ast.FunctionDef)}
     tool_names: set[str] = set()
     for node in module.body:
-        if not isinstance(node, ast.FunctionDef):
-            continue
-        if any(is_mcp_tool_decorator(decorator) for decorator in node.decorator_list):
+        if isinstance(node, ast.FunctionDef) and any(
+            is_mcp_tool_decorator(decorator) for decorator in node.decorator_list
+        ):
             tool_names.add(node.name)
+            continue
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == "_PUBLIC_TOOL_HANDLERS" for target in node.targets):
+            continue
+        if not isinstance(node.value, ast.Tuple | ast.List):
+            raise ValueError("_PUBLIC_TOOL_HANDLERS must be a tuple or list of function names")
+        for item in node.value.elts:
+            if not isinstance(item, ast.Name) or item.id not in function_names:
+                raise ValueError("_PUBLIC_TOOL_HANDLERS must contain only defined function names")
+            tool_names.add(item.id)
     return tool_names
+
+
+def load_literal_module_constant(path: Path, name: str) -> object:
+    """Read one static top-level module constant without importing runtime code."""
+
+    module = ast.parse(path.read_text(encoding="utf-8"))
+    matches = [
+        node.value
+        for node in module.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == name for target in node.targets)
+    ]
+    if len(matches) != 1:
+        raise ValueError(f"{name} must have exactly one top-level assignment")
+    try:
+        return ast.literal_eval(matches[0])
+    except ValueError as exc:
+        raise ValueError(f"{name} must have a literal value") from exc
 
 
 def is_mcp_tool_decorator(node: ast.expr) -> bool:

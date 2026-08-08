@@ -1,7 +1,15 @@
+import shutil
+from itertools import count
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
+
+import agent_mem_bridge.belief_replay as belief_replay
+from agent_mem_bridge._temporary_store import ScopedTemporaryMemoryStore
 from agent_mem_bridge.belief_replay import (
     BeliefReplayConfig,
+    _load_source_rows,
     diff_belief_replay_reports,
     run_belief_replay,
 )
@@ -24,7 +32,7 @@ def _store_source_row(
     confidence: str = "observed",
     project: str = "project:mem-store",
     extra_tags: list[str] | None = None,
-) -> None:
+) -> str:
     lines = [
         f"record_type: {record_type}",
         f"claim: {claim}",
@@ -36,7 +44,7 @@ def _store_source_row(
     if fix:
         lines.append(f"fix: {fix}")
     lines.extend(["scope: global", f"confidence: {confidence}"])
-    store.store(
+    result = store.store(
         namespace="global",
         kind="memory",
         title=title,
@@ -47,9 +55,10 @@ def _store_source_row(
         correlation_id=correlation_id,
         source_app="agent-memory-bridge-reflex",
     )
+    return str(result["id"])
 
 
-def test_run_belief_replay_detects_candidate_belief_and_red_flag(tmp_path: Path) -> None:
+def test_run_belief_replay_detects_candidate_belief_and_red_flag(tmp_path: Path, monkeypatch) -> None:
     source_store = MemoryStore(tmp_path / "source.db", log_dir=tmp_path / "logs")
     _store_source_row(
         source_store,
@@ -110,16 +119,39 @@ def test_run_belief_replay_detects_candidate_belief_and_red_flag(tmp_path: Path)
         correlation_id="t5",
     )
 
+    runtime_dir = tmp_path / "belief-replay-runtime"
+    runtime_dir.mkdir()
+    stores: list[ScopedTemporaryMemoryStore] = []
+
+    def capture_store(*args: object, **kwargs: object) -> ScopedTemporaryMemoryStore:
+        store = ScopedTemporaryMemoryStore(*args, **kwargs)  # type: ignore[arg-type]
+        stores.append(store)
+        return store
+
+    def checked_rmtree(path: Path) -> None:
+        assert path == runtime_dir
+        assert stores[-1].open_connection_count == 0
+        shutil.rmtree(path)
+
+    monkeypatch.setattr(belief_replay, "ScopedTemporaryMemoryStore", capture_store)
+    monkeypatch.setattr(
+        belief_replay,
+        "tempfile",
+        SimpleNamespace(mkdtemp=lambda *, prefix: str(runtime_dir)),
+    )
+    monkeypatch.setattr(belief_replay, "shutil", SimpleNamespace(rmtree=checked_rmtree))
+
+    config = BeliefReplayConfig(
+        source_namespace="global",
+        target_namespace="global",
+        source_limit=20,
+        window_size=4,
+        belief_to_domain_note_ratio_red_flag=0.5,
+        stop_on_red_flag=True,
+    )
     report = run_belief_replay(
         source_store=source_store,
-        config=BeliefReplayConfig(
-            source_namespace="global",
-            target_namespace="global",
-            source_limit=20,
-            window_size=4,
-            belief_to_domain_note_ratio_red_flag=0.5,
-            stop_on_red_flag=True,
-        ),
+        config=config,
     )
 
     assert report["summary"]["source_row_count"] == 5
@@ -135,6 +167,119 @@ def test_run_belief_replay_detects_candidate_belief_and_red_flag(tmp_path: Path)
     assert report["windows"][1]["leaderboards"]["candidates"][0]["status"] == "promoted"
     assert report["windows"][1]["cohorts"]["by_domain"][0]["domain"] == "domain:retrieval"
     assert "belief-to-domain-note-ratio" in report["windows"][1]["red_flags"]
+    assert not runtime_dir.exists()
+
+    failed_runtime_dir = tmp_path / "belief-replay-cleanup-failure"
+    failed_runtime_dir.mkdir()
+
+    def failing_rmtree(path: Path) -> None:
+        assert path == failed_runtime_dir
+        assert stores[-1].open_connection_count == 0
+        raise OSError("simulated replay cleanup failure")
+
+    monkeypatch.setattr(
+        belief_replay,
+        "tempfile",
+        SimpleNamespace(mkdtemp=lambda *, prefix: str(failed_runtime_dir)),
+    )
+    monkeypatch.setattr(belief_replay, "shutil", SimpleNamespace(rmtree=failing_rmtree))
+    with pytest.raises(OSError, match="simulated replay cleanup failure"):
+        run_belief_replay(source_store=source_store, config=config)
+    assert failed_runtime_dir.exists()
+    shutil.rmtree(failed_runtime_dir)
+
+
+def test_belief_replay_equal_timestamps_use_insertion_order_and_are_stable(tmp_path: Path, monkeypatch) -> None:
+    source_store = MemoryStore(tmp_path / "source.db", log_dir=tmp_path / "logs")
+    rows = [
+        {
+            "title": "[[Learn]] bundle first",
+            "record_type": "learn",
+            "claim": "Load compact startup records before older operating manuals.",
+            "session_id": "r1",
+            "correlation_id": "t1",
+        },
+        {
+            "title": "[[Learn]] startup stays compact",
+            "record_type": "learn",
+            "claim": "Keep startup focused on core-policy, persona, soul, and project memory.",
+            "session_id": "r2",
+            "correlation_id": "t2",
+        },
+        {
+            "title": "[[Gotcha]] legacy docs outrank bundle",
+            "record_type": "gotcha",
+            "claim": "Old reference docs should not outrank the compact profile bundle.",
+            "trigger": "Startup retrieval reaches for legacy docs before checking record-tagged bundle rows.",
+            "symptom": "The agent leans on old structure even when the new bundle already covers the decision.",
+            "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+            "confidence": "validated",
+            "session_id": "r3",
+            "correlation_id": "t3",
+        },
+        {
+            "title": "[[Gotcha]] startup blob hides new layer",
+            "record_type": "gotcha",
+            "claim": "Legacy startup blobs should not displace compact record-tagged guidance.",
+            "trigger": "The system treats old operating docs as the first stop.",
+            "symptom": "Bundle-first startup never gets a clean chance to carry the decision.",
+            "fix": "Prefer record-tagged profile hits first, then use reference docs only as fallback.",
+            "confidence": "validated",
+            "session_id": "r4",
+            "correlation_id": "t4",
+        },
+        {
+            "title": "[[Learn]] fallback stays secondary",
+            "record_type": "learn",
+            "claim": "Keep old startup references as fallback instead of the default operating payload.",
+            "session_id": "r5",
+            "correlation_id": "t5",
+        },
+    ]
+    source_ids = [
+        _store_source_row(
+            source_store,
+            domain="domain:retrieval",
+            topic="topic:startup-protocol",
+            **row,
+        )
+        for row in rows
+    ]
+    same_timestamp = "2026-07-21T12:00:00+00:00"
+    backdated_timestamp = "2026-07-20T12:00:00+00:00"
+    with source_store._connect() as conn:
+        conn.execute(
+            "UPDATE memories SET created_at = ? WHERE id IN (?, ?, ?, ?, ?)",
+            (same_timestamp, *source_ids),
+        )
+        conn.commit()
+
+    config = BeliefReplayConfig(source_namespace="global", target_namespace="global", source_limit=20, window_size=4)
+    assert [str(row["id"]) for row in _load_source_rows(source_store, config=config)] == source_ids
+    with source_store._connect() as conn:
+        conn.execute("UPDATE memories SET created_at = ? WHERE id = ?", (backdated_timestamp, source_ids[-1]))
+        conn.commit()
+    assert [str(row["id"]) for row in _load_source_rows(source_store, config=config)] == [
+        source_ids[-1],
+        *source_ids[:-1],
+    ]
+    with source_store._connect() as conn:
+        conn.execute("UPDATE memories SET created_at = ? WHERE id = ?", (same_timestamp, source_ids[-1]))
+        conn.commit()
+
+    def replay_with_deterministic_ids() -> dict:
+        replay_ids = count()
+        monkeypatch.setattr(
+            MemoryStore,
+            "_new_id",
+            staticmethod(lambda: f"replay-{next(replay_ids):08d}"),
+        )
+        return run_belief_replay(source_store=source_store, config=config)
+
+    first_report = replay_with_deterministic_ids()
+    second_report = replay_with_deterministic_ids()
+    assert first_report == second_report
+    assert first_report["summary"]["first_belief_window"] == 2
 
 
 def test_run_belief_replay_respects_domain_filters(tmp_path: Path) -> None:

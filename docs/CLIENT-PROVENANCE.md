@@ -1,6 +1,6 @@
 # Client And Model Provenance
 
-Last updated: 2026-07-22 (America/New_York)
+Last updated: 2026-07-30 (America/New_York)
 
 ## Why This Exists
 
@@ -94,6 +94,21 @@ Current first-class provenance fields:
   - declared client-visible workspace root or project label when useful
 - `client_transport`
   - `stdio`, `http`, `sse`
+
+Declared provenance is bounded at the durable write boundary. Values are
+trimmed, empty placeholders become absent values, and overlong values are
+rejected instead of silently truncated:
+
+| Field | Maximum characters |
+| --- | ---: |
+| `actor`, `source_app`, `source_client`, `source_model` | 128 |
+| `session_id`, `correlation_id`, `client_session_id` | 256 |
+| `client_workspace` | 512 |
+| `client_transport` | 64 |
+
+The same limits apply to store, feedback, annotation, revision, and protocol
+`clientInfo.name` provenance paths. Log observability remains a separate bounded
+view and does not weaken durable-write validation.
 
 Optional later fields that are not part of the current public contract:
 

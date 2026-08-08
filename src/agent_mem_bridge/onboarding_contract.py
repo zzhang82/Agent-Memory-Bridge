@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .client_config import render_example_client_configs
+from .first_run import PINNED_INSTALL_VERSION, RELEASE_INSTALL_GATE_NOTE
 
 PUBLIC_ONBOARDING_FILES = (
     Path("INSTALL_FOR_AGENTS.md"),
@@ -25,6 +26,11 @@ PUBLIC_ONBOARDING_FILES = (
 )
 
 README_LINKS = ("docs/INTEGRATIONS.md",)
+VERSIONED_INSTALL_GUIDES = (
+    Path("INSTALL_FOR_AGENTS.md"),
+    Path("llms-install.md"),
+    Path("llms.txt"),
+)
 
 BLOCKED_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b[A-Za-z]:[\\/][^\s`\"']*", re.IGNORECASE), "Windows absolute path leaked."),
@@ -47,6 +53,7 @@ def run_onboarding_contract_check(root: Path) -> dict[str, Any]:
         _readme_links_check(project_root),
         _example_configs_check(),
         _onboarding_docs_leak_check(project_root),
+        _versioned_install_tool_surface_check(project_root),
     ]
     return {
         "ok": all(check["ok"] for check in checks),
@@ -152,4 +159,58 @@ def _onboarding_docs_leak_check(project_root: Path) -> dict[str, Any]:
         "name": "onboarding_docs_stay_placeholder_safe",
         "ok": not violations,
         "violations": violations,
+    }
+
+
+def release_install_tool_count(version: str) -> int:
+    """Return the public MCP surface size for a pinned release-install version."""
+
+    parts = version.split(".")
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        raise ValueError("release-install version must be a semantic version")
+    return 17 if tuple(int(part) for part in parts) >= (0, 27, 0) else 13
+
+
+def _versioned_install_tool_surface_check(project_root: Path) -> dict[str, Any]:
+    pyproject_path = project_root / "pyproject.toml"
+    if not pyproject_path.exists():
+        return {
+            "name": "versioned_install_tool_surface_is_explicit",
+            "ok": True,
+            "skipped": "pyproject.toml is absent",
+        }
+
+    release_install_tool_count_value = release_install_tool_count(PINNED_INSTALL_VERSION)
+    package_version = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))["project"]["version"]
+    source_tool_count = release_install_tool_count(str(package_version))
+    expected_markers = [
+        f"The pinned `v{PINNED_INSTALL_VERSION}` release-install route exposes "
+        f"`{release_install_tool_count_value}` public MCP tools at client registration.",
+        RELEASE_INSTALL_GATE_NOTE,
+    ]
+    if package_version != PINNED_INSTALL_VERSION:
+        expected_markers.append(
+            f"Source `{package_version}` differs from pinned release-install `{PINNED_INSTALL_VERSION}`; "
+            "use a source checkout until its exact-commit CI gate passes and its tag is created."
+        )
+
+    missing: list[dict[str, Any]] = []
+    for relative_path in VERSIONED_INSTALL_GUIDES:
+        path = project_root / relative_path
+        if not path.exists():
+            missing.append({"path": str(relative_path), "markers": expected_markers})
+            continue
+        text = " ".join(path.read_text(encoding="utf-8").split())
+        missing_markers = [marker for marker in expected_markers if marker not in text]
+        if missing_markers:
+            missing.append({"path": str(relative_path), "markers": missing_markers})
+
+    return {
+        "name": "versioned_install_tool_surface_is_explicit",
+        "ok": not missing,
+        "release_install_version": PINNED_INSTALL_VERSION,
+        "release_install_tool_count": release_install_tool_count_value,
+        "source_version": package_version,
+        "source_tool_count": source_tool_count,
+        "missing": missing,
     }

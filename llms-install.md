@@ -40,8 +40,10 @@ path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
+The pinned GitHub tag route is usable only after the exact-commit CI gate passes and the tag is created. Before that, use a source checkout with `<venv-python> -m pip install -e .`.
+
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.26.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -72,16 +74,18 @@ client before editing its config:
 The default config path in the generated fragment is optional for this baseline.
 If no such `config.toml` exists, `doctor` may warn and the baseline server can
 still run. Restart or reload the client, then use its own MCP status/tool view
-to confirm the server connects and exposes the documented 13-tool public
+to confirm the server connects and exposes the documented 17-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
+
+The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
 
 ## Optional `uvx` Shortcut
 
 If `uvx` is already installed, it can run the GitHub source directly:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.26.1 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.27.0 agent-memory-bridge verify
 ```
 
 Do not make this the only install instruction. `uv` is not a project baseline
@@ -107,6 +111,13 @@ receipt-bound result. One current effective vote is exposed per signed
 retrieval subject, and caller-declared client or session labels cannot create
 additional votes. Feedback remains shadow-only: it does not mutate memories,
 indexes, recall results, or ranking behavior.
+
+For explicit episode evidence in `v0.27.0`, use
+`begin_run(...)` to obtain server-minted run/work-item handles, then use
+`record_run_event(...)`, `get_run(...)`, and `complete_run(...)`. These calls
+create durable run, event, and outcome authority; only their downstream learning
+and consolidation effects are shadow-only, so they do not enable automatic
+reranking, policy changes, prompt changes, or memory promotion.
 
 Agent Memory Bridge is an additional MCP memory store. Do not claim that it
 replaces a client's built-in memory, instructions, rules, or project context.

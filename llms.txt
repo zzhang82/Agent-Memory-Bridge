@@ -16,7 +16,7 @@ Primary docs:
 - benchmark/README.md - benchmark and proof snapshots
 - SECURITY.md - local-first security model and reporting
 
-Stable public MCP tools:
+The pinned `v0.27.0` release-install route exposes these public MCP tools:
 
 - store
 - recall
@@ -28,9 +28,15 @@ Stable public MCP tools:
 - annotate
 - revise
 - export
+- begin_run
+- record_run_event
+- get_run
+- complete_run
 - claim_signal
 - extend_signal_lease
 - ack_signal
+
+The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
 
 Important boundaries:
 
@@ -55,6 +61,9 @@ Important boundaries:
   `feedback_identity_digest` is a separate canonical subject identity.
 - Feedback remains shadow evidence. It does not mutate memory, indexes, recall
   results, or ranking behavior.
+- Run events and outcomes use explicit server-minted handles and are durable
+  authority. Only downstream learning and consolidation effects remain
+  shadow-only; they do not change normal recall ordering, policy, or prompts.
 - Startup and task-time packets are compiled views over existing records.
 - Optional helper commands can render Task Brief reports around the bridge;
   Task Brief is a derived CLI/report view, not part of the core MCP surface.
@@ -69,8 +78,10 @@ python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scr
 Treat the printed path as `<venv-python>`. Shell-quote it on POSIX when needed;
 in Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
+The pinned GitHub tag route is usable only after the exact-commit CI gate passes and the tag is created. Before that, use a source checkout with `<venv-python> -m pip install -e .`.
+
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.26.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```

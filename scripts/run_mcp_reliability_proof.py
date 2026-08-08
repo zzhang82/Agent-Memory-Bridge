@@ -14,10 +14,15 @@ from mcp.client import Client
 from mcp.client.stdio import stdio_client
 from mcp.types import Implementation
 
-from agent_mem_bridge.mcp_boundary import MCP_LEGACY_TEST_VERSION, MCP_MODERN_VERSION, PUBLIC_TOOL_ORDER
+from agent_mem_bridge.mcp_boundary import (
+    MCP_LEGACY_TEST_VERSION,
+    MCP_MODERN_VERSION,
+    PUBLIC_TOOL_ORDER,
+    package_version,
+)
 from agent_mem_bridge.storage import MemoryStore
 
-PROOF_CLIENT = Implementation(name="amb-mcp-reliability-proof", version="0.26.1")
+PROOF_CLIENT = Implementation(name="amb-mcp-reliability-proof", version=package_version())
 
 
 def _direct_child_process_ids() -> list[int] | None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from .provenance import PROVENANCE_FIELDS, normalize_provenance_mapping
 from .record_projection import sync_record_projection
 from .repository import (
     HIDDEN_REVIEW_LANE_TAGS,
@@ -16,17 +17,6 @@ from .repository import (
 )
 from .structured_record import parse_structured_content
 
-PROVENANCE_FIELDS = (
-    "session_id",
-    "actor",
-    "correlation_id",
-    "source_app",
-    "source_client",
-    "source_model",
-    "client_session_id",
-    "client_workspace",
-    "client_transport",
-)
 RESERVED_POLICY_TAG_PREFIXES = (
     "candidate_status:",
     "confidence:",
@@ -61,11 +51,7 @@ def annotate_entry(
     if reserved_tags:
         raise ValueError(f"annotate cannot add reserved policy tags: {', '.join(reserved_tags)}")
     cleaned_title = title.strip() if title and title.strip() else None
-    cleaned_provenance = {
-        field: str(value).strip()
-        for field, value in (provenance or {}).items()
-        if field in PROVENANCE_FIELDS and value is not None and str(value).strip()
-    }
+    cleaned_provenance = normalize_provenance_mapping(provenance) or {}
     if not requested_tags and cleaned_title is None and not cleaned_provenance:
         raise ValueError("annotate requires tags, title, or provenance")
 
@@ -189,11 +175,7 @@ def revise_entry(
     structured = parse_structured_content(cleaned_content)
     if cleaned_id not in structured.values("supersedes"):
         cleaned_content = f"{cleaned_content}\nsupersedes: {cleaned_id}"
-    requested_provenance = {
-        field: str(value).strip()
-        for field, value in (provenance or {}).items()
-        if field in PROVENANCE_FIELDS and value is not None and str(value).strip()
-    }
+    requested_provenance = normalize_provenance_mapping(provenance) or {}
     with store._connect() as conn:
         conn.execute("BEGIN IMMEDIATE")
         try:

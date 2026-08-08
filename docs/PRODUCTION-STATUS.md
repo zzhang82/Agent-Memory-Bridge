@@ -1,8 +1,81 @@
 # Production Status
 
-Last updated: 2026-07-29 (America/New_York)
+Last updated: 2026-08-08 (America/New_York)
 
-This maintainer note describes the current `0.26.1` release: independently exercised MCP 2026-07-28 dual-era stdio interoperability, inheriting the v0.26.0 adapter, the v0.25.2 Evidence Integrity patch, the v0.24 exact-identity and recall-boundary work, the v0.23.1 local-hardening work, the v0.22 activation receipt behavior, and the v0.21 governed-change proof.
+This maintainer note preserves historical releases and records the current
+v0.27.0 release-facing source surface. It does not assert a Git tag, remote
+publication, or GitHub Actions result.
+
+Current source release: `0.27.0`
+
+Current source test collection: `743 tests`
+
+## Current 0.27.0 Release Surface
+
+Run, event, outcome, artifact, and link rows are durable episode authority; projections and downstream learning/consolidation effects are shadow-only.
+
+- Durable schema: v8; run, event, outcome, artifact, and link rows are durable
+  episode authority, while projections and downstream learning/consolidation
+  effects are shadow-only
+- Public MCP surface: exactly 17 tools; the four additive tools are `begin_run`, `record_run_event`, `get_run`, and `complete_run`
+- Run state: all run/work-item IDs are server-minted; callers must pass explicit workspace and handles; no connection owns an implicit current run
+- Event ledger: strict versioned event types, transactional per-run sequencing,
+  SHA-256-only idempotency storage, 32 KiB payload/evidence limits,
+  raw-reasoning/transcript rejection, and receipt-shaped-value rejection before
+  durable SQLite persistence
+- Artifact boundary: a server-minted artifact ID is linked to caller-declared,
+  validated digest, MIME, URI, and reference metadata; inline-body keys `body`,
+  `file_body`, and `fileBody` are rejected recursively
+- Outcome boundary: append-only correction chains; `verified_success` requires
+  deterministic-verifier or human evidence; only downstream learning and
+  consolidation effects are shadow-only
+- Compatibility: an independent local Linux/Python 3.12
+  project-interoperability run exercised AMB 0.27.0 on `mcp==2.0.0`. A separate
+  `mcp==1.28.1` legacy client listed the exact 17-tool surface and completed
+  `store`, `recall`, `begin_run`, `record_run_event`, `get_run`, and
+  `complete_run`; the modern MCP/raw-wire/operator target passed 32 pytest items, including
+  receipt attribution and atomic invalid-receipt rejection; and the official
+  `@modelcontextprotocol/client@2.0.0` completed the modern exact-17-tool,
+  cache, and episode flow.
+- Explicit non-goals: no MCP Tasks, automatic reranking, automatic prompt/policy mutation, raw chain-of-thought persistence, or automatic lesson promotion
+
+The sections below retain historical release denominators where explicitly labeled `0.26.1`.
+
+## 0.27.0 Release Surface
+
+- Package/current source identity: `0.27.0`; no tag, remote publication, or
+  visible GitHub Actions green run is asserted here
+- Durable schema: v8, migrated transactionally from v7; run/work-item/event,
+  artifact, outcome, and memory-link rows are append-only authority and their
+  projections can be checked and rebuilt; downstream learning/consolidation
+  effects are shadow-only
+- Public MCP surface: exactly 17 tools in canonical order, with schema digest
+  `6349ee0220a30ed910846766e927a8e057a9e3fbcdbaa4e3857a2ca740f93577`; the
+  additive tools are `begin_run`, `record_run_event`, `get_run`, and
+  `complete_run`
+- Statelessness: the server mints run/work-item handles; every later call
+  supplies workspace plus explicit handles, so reconnect and interleaving do
+  not rely on a current connection state
+- Attribution: `memory_recalled`, `memory_applied`, and `memory_rejected` are
+  receipt-bound or explicitly review-required. AMB rejects receipt-shaped values
+  before durable SQLite persistence and does not echo them in validation errors;
+  external client and process logging are outside this guarantee
+- Outcomes and credit: append-only outcomes and feedback links are durable
+  authority; `memory_utility_shadow` is rebuildable review evidence. Their
+  downstream learning and consolidation effects do not change ranking, policy,
+  prompts, memory authority, or promotion
+- Consolidation: `consolidate-runs --shadow` is read-only by default; `--stage`
+  can only create hidden review candidates and cannot promote a lesson
+- Compatibility: the independent local Linux/Python 3.12
+  project-interoperability run covered the 17-tool modern/legacy surface,
+  receipt attribution, atomic invalid-receipt rejection, separate
+  `mcp==1.28.1` legacy flow, and official
+  `@modelcontextprotocol/client@2.0.0` modern flow. It is not GitHub CI,
+  official conformance, host certification, Windows proof, tag, publication, or
+  productivity evidence.
+- Non-goals: no MCP Tasks, hosted execution, automatic reranking, automatic
+  policy/prompt changes, raw chain-of-thought storage, online training, or
+  runtime-productivity claim
 
 ## 0.26.1 Release Status
 
@@ -60,7 +133,8 @@ This maintainer note describes the current `0.26.1` release: independently exerc
 - Governed-change manifest releases: `current_release = 0.20.0`, `target_release = 0.21.0`
 - Windows proof hashing: manifest bytes are normalized to LF before the fixed SHA256 check
 - Current README hero asset: `examples/diagrams/v0.22-shared-memory-hero.png` (conceptual visual only)
-- Current overview asset: `examples/diagrams/amb-overview.svg` in the README "How It Works" section
+- Historical overview asset: `examples/diagrams/amb-overview.svg` is not shown
+  in the current README "How It Works" sections
 - Current receipt visuals: `examples/diagrams/v0.22-cross-client-activation.svg` and `examples/diagrams/v0.22-receipt-anatomy.svg`
 - Machine visual inventory: `examples/diagrams/visual-claims.json`; the release contract treats it as hygiene, not semantic proof
 - Visual render gate: native-size and README-width raster renders must show no clipping, overlap, or crossed labels before visuals support a release story
@@ -70,7 +144,7 @@ This maintainer note describes the current `0.26.1` release: independently exerc
 
 `agent-memory-bridge` now has these cooperating layers:
 
-1. stdio MCP server for `store`, `recall`, `browse`, `stats`, `forget`, `feedback`, `promote`, `annotate`, `revise`, `claim_signal`, `extend_signal_lease`, `ack_signal`, and `export`
+1. stdio MCP server for `store`, `recall`, `browse`, `stats`, `forget`, `feedback`, `promote`, `annotate`, `revise`, `export`, `begin_run`, `record_run_event`, `get_run`, `complete_run`, `claim_signal`, `extend_signal_lease`, and `ack_signal`
 2. shared SQLite/WAL durable storage with typed metadata, normalized tags/relations, FTS5 lexical, and optional embedding sidecar indexes
 3. optional checkpoint/closeout capture helpers around the core bridge, disabled by default in the always-on service
 4. optional reflex promotion into machine-first durable artifacts, disabled by default in the always-on service
@@ -94,7 +168,7 @@ This maintainer note describes the current `0.26.1` release: independently exerc
 22. a Cross-Client Activation Receipt CLI/report that reads existing writer memory and reader signal rows for one namespace and correlation id, hashes sensitive identifiers, and performs no durable or config writes
 23. embedding maintenance that batches provider work outside SQLite write transactions and revalidates content hashes before derived-vector writes
 24. one shared service-lane boundary with exception isolation, failure counters, capped backoff, and tolerant atomic state replacement
-25. an ordered transactional schema migration spine recorded as SQLite schema version `7`
+25. an ordered transactional schema migration spine recorded as SQLite schema version `8`, including append-only episode authority and rebuildable run projections
 26. a classifier suggestion boundary that promotes only validated `domain:` and `topic:` tags and keeps shadow-mode output non-authoritative
 27. monotonic insertion-sequence cursors for reflex and consolidation with legacy `since_id` state compatibility
 28. one cross-platform local service lock with meaningful one-shot exit status, heartbeat state, and slow-lane timing
@@ -104,25 +178,40 @@ This maintainer note describes the current `0.26.1` release: independently exerc
 32. database integrity/projection health, repair, consistent backup/restore, WAL checkpoint, size warnings, private managed-file permissions, and log rotation
 33. `local-single-user` and `hardened-local` operating profiles with an explicit cooperative-security boundary
 34. same-snapshot receipt-bound retrieval feedback with exact content versions, append-only correction/retraction history, one effective vote, and shadow-only ordering-neutral behavior
-35. MCP 2026-07-28 dual-era stdio compatibility with raw-wire conformance, real old-client and TypeScript-client interoperability, explicit discover/list caching, dual-era operator probes, and caller-declared `clientInfo` provenance
+35. MCP 2026-07-28 dual-era stdio compatibility with current 17-tool raw-wire
+    conformance, explicit discover/list caching, dual-era operator probes, and
+    caller-declared `clientInfo` provenance; an independent local Linux/Python
+    3.12 run also exercised separate legacy Python and official TypeScript
+    client flows
+36. explicit stateless run/work-item lifecycle with append-only structured events, outcome correction chains, reconnect pagination, and shadow-only learning evidence
 
-## Verified On 2026-07-29
+## Verified On 2026-08-08
 
-- current release denominator: `641 tests collected`
+- current branch denominator: `743 tests collected`
 - MCP dependency is `mcp==2.0.0`
-- raw-wire tests verify modern discover/list/call, legacy initialize/initialized/list/call, explicit unsupported-version errors, missing-envelope rejection, malformed-clientInfo rejection, and legacy modern-field absence
-- real `mcp==1.28.1` and official TypeScript MCP client 2.0.0 proofs run from independent client environments
+- the independent local Linux/Python 3.12 run used AMB 0.27.0 on `mcp==2.0.0`:
+  the modern MCP/raw-wire/operator target passed 32 pytest items, including receipt attribution
+  and atomic invalid-receipt rejection; a separate `mcp==1.28.1` legacy client
+  listed the exact 17 tools and completed `store`, `recall`, `begin_run`,
+  `record_run_event`, `get_run`, and `complete_run`; and the official
+  `@modelcontextprotocol/client@2.0.0` completed the modern exact-17-tool,
+  cache, and episode flow
 - modern result tests verify `resultType: "complete"` on the wire
-- discover tests verify `ttlMs: 300000` and `cacheScope: "public"`; `tools/list` verifies exactly 13 tools, canonical order, `ttlMs: 0`, and `cacheScope: "private"`
+- discover tests verify `ttlMs: 300000` and `cacheScope: "public"`; `tools/list` verifies exactly 17 tools, canonical order, `ttlMs: 0`, and `cacheScope: "private"`
 - operator tests verify independent modern and legacy reports against disposable databases
-- reliability proof verifies 20 mixed-era processes retain 20 writes in one SQLite database and 100 connect/disconnect cycles complete without reported errors, remaining direct child processes, or temp artifacts
+- a separate reliability proof retained 20 writes across 20 writers and
+  completed 100 connect/disconnect cycles without reported errors, remaining
+  direct child processes, or temporary artifacts
 - clientInfo provenance tests verify precedence explicit `source_client` > meaningful MCP context > environment default, with generic `mcp` ignored
-- stdio verify now expects 13 tools and includes a `feedback_shadow_record` check
+- stdio verify now exercises all 17 tools in separate modern and legacy databases, including one complete explicit run lifecycle and a `feedback_shadow_record` check
+- this current 0.27 interoperability evidence is local Linux/Python 3.12
+  project evidence only, not GitHub CI, official conformance, host certification,
+  Windows proof, tag, publication, or productivity evidence
 - v0.25 retrieval capability tests verify the default `hashed_lexical` capability, explicit semantic-provider gating, hybrid semantic-arm skipping when no semantic provider is declared, and semantic availability only for a declared semantic command provider
 - v0.25.2 recall receipt tests verify one SQLite snapshot for returned rows and receipt evidence, complete exposure sets, exact content-version binding, retrieval-contract digests, optional caller-declared evidence-context digests, redaction of raw values, and rejection of tampered or stale evidence
 - v0.25.2 feedback tests verify append-only vote/correction/retraction chains, one current effective vote, stale replay semantics, caller-declared provenance neutrality, concurrent duplicate collapse, separate token and vote-identity hashes, no memory/index/ranking mutation, and redacted logs/telemetry
 - stdio feedback integration covers startup tool-surface visibility, successful feedback, duplicate retry, conflict rejection, and redacted structured responses
-- schema migration tests verify SQLite schema version `7`, append-only `retrieval_feedback`, unique idempotency and supersession constraints, legacy v0-v6 upgrades, v5 duplicate preservation, rollback on injected v5/v7 failures, and fail-closed handling for unsupported legacy feedback tables
+- schema migration tests verify SQLite schema version `8`, append-only retrieval/run evidence, unique idempotency and supersession constraints, legacy v0-v7 upgrades, v5 duplicate preservation, rollback on injected v5/v7/v8 failures, and fail-closed handling for unsupported legacy feedback tables
 - the integrated embedding, service, state, schema, command-provider, maintenance, revision, and storage regressions are part of the full suite
 - scheduled maintenance and rebuild tests verify batched provider execution outside write transactions plus content-hash revalidation before vector writes
 - semantic and hybrid recall tests verify no candidate embedding backfill or recall-time writes, degraded completeness reporting for cold/stale indexes, and typed provider-failure lexical degradation
@@ -132,7 +221,7 @@ This maintainer note describes the current `0.26.1` release: independently exerc
 - service regressions verify lock metadata, residual-file reacquisition, real spawned-process contention, one-shot lane-failure exit `1`, and lock-conflict exit `3`
 - doctor and repair regressions verify malformed claimed Signal state is detected and can be repaired explicitly
 - shared state-I/O tests cover malformed JSON, atomic replacement, unique temporary files, and preservation of the previous valid state when replacement fails
-- schema tests cover ordered version `7` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
+- schema tests cover ordered version `8` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
 - Chinese/Han hash-semantic tests cover character and bigram tokenization; no Chinese FTS support is claimed
 - 10,000-Signal polling acceptance with `limit=100`: exact insertion order, 10,000 unique ids, zero missing, zero unexpected, 100 pages
 - eight independent `spawn` processes claiming one exact Signal: one stored winner and no lock error in the local Linux run; the same test is part of the normal cross-platform CI matrix

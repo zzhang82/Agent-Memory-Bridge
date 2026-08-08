@@ -22,7 +22,12 @@ PYTHON_LAUNCHER_NOTE = (
     "Generated Windows verification commands use PowerShell syntax."
 )
 RELEASE_VERSION = package_version()
-GITHUB_ARCHIVE_URL = f"https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v{RELEASE_VERSION}.zip"
+PINNED_INSTALL_VERSION = "0.27.0"
+GITHUB_ARCHIVE_URL = f"https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip"
+RELEASE_INSTALL_GATE_NOTE = (
+    "The pinned GitHub tag route is usable only after the exact-commit CI gate passes and the tag is created. "
+    "Before that, use a source checkout with `<venv-python> -m pip install -e .`."
+)
 VENV_INTERPRETER_COMMAND = (
     'python -c "import os; from pathlib import Path; '
     "print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())\""
@@ -62,6 +67,13 @@ def build_first_run_report(
         _render_python_module_command(options.command, "doctor"),
         _render_python_module_command(options.command, "verify"),
     ]
+    version_mismatch_note = None
+    if RELEASE_VERSION != PINNED_INSTALL_VERSION:
+        version_mismatch_note = (
+            f"Package/source version {RELEASE_VERSION} differs from pinned release-install version "
+            f"{PINNED_INSTALL_VERSION}. Continue to use a source checkout until its exact-commit CI gate "
+            "passes and its tag is created."
+        )
     return {
         "schema": FIRST_RUN_SCHEMA,
         "client": rendered.client,
@@ -80,6 +92,10 @@ def build_first_run_report(
             "task_brief_is_read_only": True,
         },
         "install": {
+            "package_version": RELEASE_VERSION,
+            "release_install_version": PINNED_INSTALL_VERSION,
+            "release_install_gate_note": RELEASE_INSTALL_GATE_NOTE,
+            "version_mismatch_note": version_mismatch_note,
             "baseline": baseline_install,
             "editable_install": [
                 "python -m venv .amb-venv",
@@ -90,7 +106,7 @@ def build_first_run_report(
             "smoke_test": verify_commands[1],
             "optional_uv_smoke_test": (
                 "uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge"
-                f"@v{RELEASE_VERSION} agent-memory-bridge verify"
+                f"@v{PINNED_INSTALL_VERSION} agent-memory-bridge verify"
             ),
         },
         "verify": verify_commands,
@@ -124,7 +140,9 @@ def render_first_run_markdown(report: dict[str, Any]) -> str:
         "",
         report["python_launcher_note"],
         "",
-        "Pinned GitHub source install in an isolated venv:",
+        (f"Version-pinned GitHub tag install (`v{report['install']['release_install_version']}`) in an isolated venv:"),
+        "",
+        report["install"]["release_install_gate_note"],
         "",
         "```bash",
         *report["install"]["baseline"],
@@ -161,6 +179,10 @@ def render_first_run_markdown(report: dict[str, Any]) -> str:
         "",
         render_task_brief_markdown(task_brief),
     ]
+    version_mismatch_note = report["install"]["version_mismatch_note"]
+    if version_mismatch_note is not None:
+        client_config_index = lines.index("## Client Config")
+        lines[client_config_index:client_config_index] = [version_mismatch_note, ""]
     return "\n".join(lines)
 
 

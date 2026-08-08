@@ -94,6 +94,10 @@ log_dir = "watcher-logs"
 idle_seconds = 60
 checkpoint_seconds = 300
 checkpoint_min_messages = 2
+# Temporary compatibility switch. Keep false to record metadata-only rollout
+# lifecycle rows in the run ledger; true restores the legacy summary memories
+# and session notes workflow.
+legacy_memory_mode = false
 
 [reflex]
 # Conservative default: automatic summaries are not promoted into visible

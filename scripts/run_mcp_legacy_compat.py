@@ -73,6 +73,59 @@ async def run_legacy_compat(server_python: Path, project_root: Path, runtime_dir
                 },
             )
             recalled_payload = _payload(recalled)
+            begun = await session.call_tool(
+                "begin_run",
+                arguments={
+                    "workspace_key": "project:python-sdk-1x-proof",
+                    "goal": "Prove legacy SDK access to the episode ledger.",
+                    "idempotency_key": "begin:python-sdk-1x-proof",
+                },
+            )
+            begun_payload = _payload(begun)
+            run_event = await session.call_tool(
+                "record_run_event",
+                arguments={
+                    "workspace_key": "project:python-sdk-1x-proof",
+                    "run_id": begun_payload["run_id"],
+                    "work_item_id": begun_payload["root_work_item_id"],
+                    "event_type": "checkpoint",
+                    "summary": "Legacy SDK episode checkpoint passed.",
+                    "idempotency_key": "event:python-sdk-1x-proof",
+                },
+            )
+            event_payload = _payload(run_event)
+            restored = await session.call_tool(
+                "get_run",
+                arguments={
+                    "workspace_key": "project:python-sdk-1x-proof",
+                    "run_id": begun_payload["run_id"],
+                },
+            )
+            restored_payload = _payload(restored)
+            terminal_event = await session.call_tool(
+                "record_run_event",
+                arguments={
+                    "workspace_key": "project:python-sdk-1x-proof",
+                    "run_id": begun_payload["run_id"],
+                    "work_item_id": begun_payload["root_work_item_id"],
+                    "event_type": "work_item_completed",
+                    "summary": "Legacy SDK root work item completed.",
+                    "idempotency_key": "event:python-sdk-1x-proof:completed",
+                },
+            )
+            terminal_event_payload = _payload(terminal_event)
+            completed = await session.call_tool(
+                "complete_run",
+                arguments={
+                    "workspace_key": "project:python-sdk-1x-proof",
+                    "run_id": begun_payload["run_id"],
+                    "outcome": "verified_success",
+                    "evaluator_type": "deterministic_verifier",
+                    "evidence": [{"kind": "python-sdk-1x-proof", "passed": True}],
+                    "idempotency_key": "outcome:python-sdk-1x-proof",
+                },
+            )
+            completed_payload = _payload(completed)
 
     sdk_version = importlib.metadata.version("mcp")
     expected_tools = _canonical_tool_order(project_root)
@@ -83,6 +136,11 @@ async def run_legacy_compat(server_python: Path, project_root: Path, runtime_dir
         "tool_surface": tool_names == expected_tools,
         "store": bool(stored_payload.get("stored")),
         "recall": int(recalled_payload.get("count", 0)) >= 1,
+        "begin_run": str(begun_payload.get("run_id", "")).startswith("run_"),
+        "record_run_event": event_payload.get("sequence") == 1,
+        "get_run": restored_payload.get("latest_sequence") == 1,
+        "work_item_completed": terminal_event_payload.get("sequence") == 2,
+        "complete_run": completed_payload.get("outcome") == "verified_success",
     }
     return {
         "ok": all(checks.values()),

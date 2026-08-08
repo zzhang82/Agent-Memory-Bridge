@@ -332,6 +332,17 @@ explicitly want Codex rollout-log checkpoints. AMB-native learning candidates,
 signals, governance triggers, and embedding maintenance do not require the
 watcher.
 
+When enabled, the watcher records metadata-only rollout lifecycle rows in the
+explicit run ledger by default. It does not store rollout message bodies, create
+session notes, or create normal memory rows. `watcher.legacy_memory_mode = true`
+is a temporary compatibility switch that restores the earlier auto-summary
+memory and note workflow for operators who deliberately need it.
+
+Watcher state is a local cache, not episode authority. Switching to episode mode
+safely replays or migrates older watcher entries through ledger idempotency; the
+metadata-only no-rollout-path boundary is scoped to run tables rather than local
+watcher state.
+
 The service holds `bridge-home/service.lock` for the lifetime of the process.
 The file contains operator metadata, while the OS-level lock is the actual
 ownership boundary; a leftover unlocked metadata file does not block restart.

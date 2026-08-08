@@ -175,6 +175,66 @@ def build_session_seen_payload(summary: RolloutSummary) -> dict[str, Any]:
     }
 
 
+def build_watcher_episode_begin_request(
+    summary: RolloutSummary,
+    *,
+    workspace_key: str | None = None,
+) -> dict[str, Any]:
+    """Build the stable, metadata-only run request for one observed rollout."""
+
+    resolved_workspace_key = workspace_key or _watcher_workspace_key(summary)
+    thread_id = _watcher_thread_id(summary)
+    return {
+        "workspace_key": resolved_workspace_key,
+        "goal": "Observe a Codex rollout lifecycle using metadata-only watcher evidence.",
+        "idempotency_key": f"watcher:begin:{resolved_workspace_key}:{thread_id}",
+        "agent_id": "codex-session-watcher",
+        "thread_id": thread_id,
+        "provenance": _watcher_episode_provenance(thread_id),
+    }
+
+
+def build_watcher_episode_checkpoint_request(
+    summary: RolloutSummary,
+    fingerprint: str,
+    *,
+    workspace_key: str | None = None,
+) -> dict[str, Any]:
+    """Build one active-rollout checkpoint without retaining message bodies."""
+
+    resolved_workspace_key = workspace_key or _watcher_workspace_key(summary)
+    thread_id = _watcher_thread_id(summary)
+    return {
+        "event_type": "checkpoint",
+        "summary": "Observed an eligible active Codex rollout checkpoint from metadata only.",
+        "idempotency_key": f"watcher:checkpoint:{resolved_workspace_key}:{thread_id}:{fingerprint}",
+        "payload": _watcher_episode_metadata(summary, resolved_workspace_key, fingerprint),
+        "agent_id": "codex-session-watcher",
+        "thread_id": thread_id,
+        "provenance": _watcher_episode_provenance(thread_id),
+    }
+
+
+def build_watcher_episode_closeout_request(
+    summary: RolloutSummary,
+    fingerprint: str,
+    *,
+    workspace_key: str | None = None,
+) -> dict[str, Any]:
+    """Build one idle completion request without retaining message bodies."""
+
+    resolved_workspace_key = workspace_key or _watcher_workspace_key(summary)
+    thread_id = _watcher_thread_id(summary)
+    return {
+        "outcome": "unverified",
+        "evaluator_type": "system",
+        "idempotency_key": f"watcher:closeout:{resolved_workspace_key}:{thread_id}:{fingerprint}",
+        "metrics": {"rollout": _watcher_episode_metadata(summary, resolved_workspace_key, fingerprint)},
+        "termination_reason": "rollout_idle",
+        "provenance": _watcher_episode_provenance(thread_id),
+    }
+
+
 def has_checkpoint_signal(summary: RolloutSummary) -> bool:
     recent_messages = [*summary.user_messages[-3:], *summary.assistant_messages[-3:]]
     if len(recent_messages) >= 4:
@@ -354,6 +414,55 @@ def _workspace_name_from_cwd(cwd: str) -> str:
     if not normalized:
         return "workspace"
     return normalized.rsplit("/", 1)[-1] or "workspace"
+
+
+def _watcher_workspace_name(summary: RolloutSummary) -> str:
+    return _bounded_watcher_label(_workspace_name_from_cwd(summary.cwd), default="workspace", max_chars=200)
+
+
+def _watcher_workspace_key(summary: RolloutSummary) -> str:
+    return f"project:{_watcher_workspace_name(summary)}"
+
+
+def _watcher_thread_id(summary: RolloutSummary) -> str:
+    return _bounded_watcher_label(summary.thread_id, default="unknown-thread", max_chars=256)
+
+
+def _watcher_episode_provenance(thread_id: str) -> dict[str, str]:
+    return {
+        "actor": "codex-session-watcher",
+        "source_app": "codex-session-watcher",
+        "source_client": "codex",
+        "client_session_id": thread_id,
+        "client_transport": "local-file-watcher",
+    }
+
+
+def _watcher_episode_metadata(
+    summary: RolloutSummary,
+    workspace_key: str,
+    fingerprint: str,
+) -> dict[str, Any]:
+    user_count = len(summary.user_messages)
+    assistant_count = len(summary.assistant_messages)
+    workspace_basename = workspace_key.partition(":")[2] or _watcher_workspace_name(summary)
+    return {
+        "workspace_basename": workspace_basename,
+        "workspace_key": workspace_key,
+        "thread_id": _watcher_thread_id(summary),
+        "source": _bounded_watcher_label(summary.source, default="codex", max_chars=128),
+        "fingerprint": _bounded_watcher_label(fingerprint, default="unknown", max_chars=128),
+        "last_updated": _bounded_watcher_label(summary.last_updated, default="unknown", max_chars=128),
+        "session_timestamp": _bounded_watcher_label(summary.session_timestamp, default="unknown", max_chars=128),
+        "user_count": user_count,
+        "assistant_count": assistant_count,
+        "total_count": user_count + assistant_count,
+    }
+
+
+def _bounded_watcher_label(value: object | None, *, default: str, max_chars: int) -> str:
+    cleaned = str(value or "").strip()
+    return cleaned[:max_chars] if cleaned else default
 
 
 def extract_message_text(payload: dict[str, Any]) -> str:

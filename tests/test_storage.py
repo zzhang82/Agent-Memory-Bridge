@@ -7,6 +7,7 @@ from agent_mem_bridge import query as query_module
 from agent_mem_bridge import storage as storage_module
 from agent_mem_bridge.lineage import parse_lineage
 from agent_mem_bridge.poll_cursor import decode_poll_cursor
+from agent_mem_bridge.provenance import PROVENANCE_LENGTH_LIMITS
 from agent_mem_bridge.schema import rotate_database_epoch
 from agent_mem_bridge.signals import fair_claim_offset
 from agent_mem_bridge.storage import MemoryStore
@@ -60,6 +61,54 @@ def test_store_and_recall_round_trip(tmp_path: Path) -> None:
     assert recall["items"][0]["client_session_id"] == "client-session-1"
     assert recall["items"][0]["client_workspace"] == "project:agent-memory-bridge"
     assert recall["items"][0]["client_transport"] == "stdio"
+
+
+@pytest.mark.parametrize(("field", "limit"), sorted(PROVENANCE_LENGTH_LIMITS.items()))
+def test_store_rejects_oversized_declared_provenance(tmp_path: Path, field: str, limit: int) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    kwargs = {field: "x" * (limit + 1)}
+
+    with pytest.raises(ValueError, match=rf"{field} must be at most {limit} characters"):
+        store.store(namespace="bridge", content=f"Oversized provenance field {field}.", **kwargs)
+
+    assert store.stats("bridge")["total_count"] == 0
+
+
+def test_provenance_limits_accept_exact_boundary_and_cover_audited_mutations(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="bridge",
+        content="Exact provenance limits remain accepted.",
+        actor="a" * PROVENANCE_LENGTH_LIMITS["actor"],
+        source_client="c" * PROVENANCE_LENGTH_LIMITS["source_client"],
+        client_workspace="w" * PROVENANCE_LENGTH_LIMITS["client_workspace"],
+    )
+
+    with pytest.raises(ValueError, match="source_model must be at most 128 characters"):
+        store.annotate(
+            str(created["id"]),
+            provenance={"source_model": "m" * 129},
+        )
+    with pytest.raises(ValueError, match="actor must be at most 128 characters"):
+        store.revise(
+            str(created["id"]),
+            replacement_content="Revised provenance limit proof.",
+            actor="a" * 129,
+        )
+    with pytest.raises(ValueError, match="source_app must be at most 128 characters"):
+        store.feedback(
+            namespace="bridge",
+            recall_receipt="invalid-but-not-reached",
+            memory_id=str(created["id"]),
+            result_rank=1,
+            outcome="helpful",
+            source_app="s" * 129,
+        )
+
+    with store._connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM memory_annotations").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM memory_revisions").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM retrieval_feedback").fetchone()[0] == 0
 
 
 def test_store_and_recall_relation_metadata_and_validity_window(tmp_path: Path) -> None:

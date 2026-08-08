@@ -33,9 +33,10 @@ state, telemetry files, and benchmark outputs are also local files when those
 features are enabled.
 
 The bridge does not require a hosted service for normal MCP use. Network access is
-not part of the core `store`, `recall`, `browse`, `stats`, `forget`, `promote`,
-`annotate`, `revise`, `export`, `claim_signal`, `extend_signal_lease`, or
-`ack_signal` contract.
+not part of the core `store`, `recall`, `browse`, `stats`, `forget`, `feedback`,
+`promote`, `annotate`, `revise`, `export`, `begin_run`, `record_run_event`,
+`get_run`, `complete_run`, `claim_signal`, `extend_signal_lease`, or `ack_signal`
+contract.
 
 ## What AMB Stores Locally
 
@@ -44,6 +45,9 @@ Depending on which features you enable, AMB may store:
 - memory records, signal records, titles, namespaces, tags, and structured content
 - provenance metadata such as source client, source model, session id, workspace
   label, transport label, actor, correlation id, and timestamps
+- bounded run goals, work-item declarations, structured event summaries and
+  payloads, outcome evidence, artifact digests and references, and receipt-hash
+  memory attribution
 - SQLite FTS indexes derived from memory content
 - optional embedding sidecar rows derived from memory content
 - local operational logs, watcher state, reflex state, and service state
@@ -54,6 +58,11 @@ Treat the bridge database as sensitive project memory. Do not store secrets,
 credentials, access tokens, private keys, customer data, regulated data, or
 personal data unless you have intentionally decided that your local storage,
 backup, retention, and access controls are appropriate for that data.
+
+The run ledger rejects top-level raw chain-of-thought and transcript payloads.
+It stores structured summaries, evidence references, and artifact metadata; it
+does not store artifact binaries. Opaque reasoning-state references may be added
+later, but raw hidden reasoning is outside the durable memory contract.
 
 Provenance fields and tags can help you find and review records, but they are
 not an access-control boundary.

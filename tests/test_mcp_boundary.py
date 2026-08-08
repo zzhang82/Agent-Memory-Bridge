@@ -3,11 +3,15 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from mcp.client import Client
 from mcp.server import MCPServer
 
 from agent_mem_bridge import mcp_boundary
@@ -56,7 +60,7 @@ def test_protocol_contract_constants_are_single_source() -> None:
     assert MCP_MODERN_VERSION == "2026-07-28"
     assert MCP_LEGACY_TEST_VERSION == "2025-11-25"
     assert PUBLIC_TOOL_NAMES == frozenset(PUBLIC_TOOL_ORDER)
-    assert len(PUBLIC_TOOL_ORDER) == 13
+    assert len(PUBLIC_TOOL_ORDER) == 17
     assert MCP_CACHE_HINTS == {
         "server/discover": DISCOVER_CACHE_HINT,
         "tools/list": TOOLS_LIST_CACHE_HINT,
@@ -71,12 +75,13 @@ def test_protocol_contract_constants_are_single_source() -> None:
 def test_protocol_documentation_matches_cache_and_tool_order_contract() -> None:
     root = Path(__file__).resolve().parents[1]
     compatibility = (root / "docs" / "MCP-2026-COMPATIBILITY.md").read_text(encoding="utf-8")
+    episode_contract = (root / "docs" / "CLOSED-LOOP-EPISODE.md").read_text(encoding="utf-8")
     readmes = [
         (root / "README.md").read_text(encoding="utf-8"),
         (root / "README.zh-CN.md").read_text(encoding="utf-8"),
     ]
 
-    positions = [compatibility.index(f"{index}. `{name}`") for index, name in enumerate(PUBLIC_TOOL_ORDER, start=1)]
+    positions = [episode_contract.index(f"{index}. `{name}`") for index, name in enumerate(PUBLIC_TOOL_ORDER, start=1)]
     assert positions == sorted(positions)
     assert "`ttlMs: 300000`" in compatibility
     assert '`cacheScope: "public"`' in compatibility
@@ -85,7 +90,7 @@ def test_protocol_documentation_matches_cache_and_tool_order_contract() -> None:
     for readme in readmes:
         assert "300000/public" in readme
         assert "0/private" in readme
-    release_text = compatibility + "\n" + "\n".join(readmes)
+    release_text = compatibility + "\n" + episode_contract + "\n" + "\n".join(readmes)
     release_text += (root / "docs" / "v0.26.1-announcement.md").read_text(encoding="utf-8")
     assert "fully conformant" not in release_text.casefold()
 
@@ -105,6 +110,11 @@ def test_context_source_client_keeps_existing_precedence_rules() -> None:
         "source_client": "codex",
     }
     assert with_context_source_client({"actor": "reviewer"}, _context(client_name="mcp")) == {"actor": "reviewer"}
+
+
+def test_context_source_client_rejects_oversized_declared_name() -> None:
+    with pytest.raises(ValueError, match="source_client must be at most 128 characters"):
+        context_source_client(_context(client_name="c" * 129))
 
 
 def test_context_observability_is_bounded_and_never_returns_raw_metadata() -> None:
@@ -262,11 +272,168 @@ def test_server_tool_contract_fails_closed_on_registration_mismatch(tmp_path, mo
         asyncio.run(mcp.list_tools())
 
 
-def test_package_version_falls_back_to_pyproject(monkeypatch) -> None:
-    def missing_distribution(_: str) -> str:
-        raise mcp_boundary.PackageNotFoundError
+def test_server_import_does_not_open_default_store(tmp_path: Path) -> None:
+    bridge_home = tmp_path / "import-only-home"
+    env = {
+        **os.environ,
+        "AGENT_MEMORY_BRIDGE_HOME": str(bridge_home),
+        "AGENT_MEMORY_BRIDGE_DB_PATH": str(bridge_home / "bridge.db"),
+        "AGENT_MEMORY_BRIDGE_LOG_DIR": str(bridge_home / "logs"),
+    }
 
-    monkeypatch.setattr(mcp_boundary, "version", missing_distribution)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from pathlib import Path; "
+                "import agent_mem_bridge.server as server; "
+                "assert server.bridge is None; "
+                f"assert not Path({str(bridge_home)!r}).exists()"
+            ),
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_server_factory_opens_injected_dependency_only_inside_lifespan(tmp_path: Path) -> None:
+    from agent_mem_bridge.server import create_mcp_server
+    from agent_mem_bridge.storage import MemoryStore
+
+    store = MemoryStore(tmp_path / "factory.db", log_dir=tmp_path / "logs")
+    factory_calls = 0
+
+    def store_factory() -> MemoryStore:
+        nonlocal factory_calls
+        factory_calls += 1
+        return store
+
+    server = create_mcp_server(store_factory=store_factory)
+    assert factory_calls == 0
+
+    async def exercise() -> None:
+        async with Client(server) as client:
+            assert factory_calls == 1
+            result = await client.call_tool("stats", {"namespace": "project:factory-proof"})
+            assert result.is_error is False
+            assert result.structured_content is not None
+            assert result.structured_content["total_count"] == 0
+        assert factory_calls == 1
+
+    asyncio.run(exercise())
+
+
+def test_run_tools_expose_one_stateless_closed_loop(tmp_path: Path) -> None:
+    from agent_mem_bridge.server import create_mcp_server
+    from agent_mem_bridge.storage import MemoryStore
+
+    server = create_mcp_server(store=MemoryStore(tmp_path / "run-tools.db", log_dir=tmp_path / "logs"))
+
+    async def exercise() -> None:
+        async with Client(server) as client:
+            started = await client.call_tool(
+                "begin_run",
+                {
+                    "workspace_key": "project:mcp-run-tools",
+                    "goal": "Exercise one explicit MCP episode.",
+                    "idempotency_key": "begin:mcp-run-tools",
+                },
+            )
+            assert started.is_error is False
+            assert started.structured_content is not None
+            run_id = started.structured_content["run_id"]
+            work_item_id = started.structured_content["root_work_item_id"]
+
+            event = await client.call_tool(
+                "record_run_event",
+                {
+                    "workspace_key": "project:mcp-run-tools",
+                    "run_id": run_id,
+                    "work_item_id": work_item_id,
+                    "event_type": "checkpoint",
+                    "summary": "The MCP episode tool path is live.",
+                    "payload": {"check": "public-tool-path", "passed": True},
+                    "idempotency_key": "event:mcp-run-tools",
+                },
+            )
+            assert event.is_error is False
+            assert event.structured_content is not None
+            assert event.structured_content["sequence"] == 1
+
+            restored = await client.call_tool(
+                "get_run",
+                {
+                    "workspace_key": "project:mcp-run-tools",
+                    "run_id": run_id,
+                    "since_sequence": 0,
+                },
+            )
+            assert restored.is_error is False
+            assert restored.structured_content is not None
+            assert restored.structured_content["run"]["status"] == "active"
+            assert restored.structured_content["events"][0]["event_type"] == "checkpoint"
+
+            terminal_event = await client.call_tool(
+                "record_run_event",
+                {
+                    "workspace_key": "project:mcp-run-tools",
+                    "run_id": run_id,
+                    "work_item_id": work_item_id,
+                    "event_type": "work_item_completed",
+                    "summary": "The MCP episode root work item completed.",
+                    "idempotency_key": "event:mcp-run-tools:completed",
+                },
+            )
+            assert terminal_event.is_error is False
+            assert terminal_event.structured_content is not None
+            assert terminal_event.structured_content["sequence"] == 2
+
+            completed = await client.call_tool(
+                "complete_run",
+                {
+                    "workspace_key": "project:mcp-run-tools",
+                    "run_id": run_id,
+                    "outcome": "verified_success",
+                    "evaluator_type": "human",
+                    "evidence": [{"kind": "review", "reference": "mcp-boundary-test"}],
+                    "idempotency_key": "outcome:mcp-run-tools",
+                },
+            )
+            assert completed.is_error is False
+            assert completed.structured_content is not None
+            assert completed.structured_content["outcome"] == "verified_success"
+
+            final = await client.call_tool(
+                "get_run",
+                {"workspace_key": "project:mcp-run-tools", "run_id": run_id},
+            )
+            assert final.structured_content is not None
+            assert final.structured_content["run"]["status"] == "completed"
+            assert final.structured_content["outcome"]["outcome_id"] == completed.structured_content["outcome_id"]
+
+    asyncio.run(exercise())
+
+
+def test_server_factory_rejects_ambiguous_dependency_injection(tmp_path: Path) -> None:
+    from agent_mem_bridge.server import create_mcp_server
+    from agent_mem_bridge.storage import MemoryStore
+
+    store = MemoryStore(tmp_path / "factory.db", log_dir=tmp_path / "logs")
+    with pytest.raises(ValueError, match="either store or store_factory"):
+        create_mcp_server(store=store, store_factory=lambda: store)
+
+
+def test_package_version_prefers_pyproject_over_stale_distribution(monkeypatch) -> None:
+    def stale_distribution(_: str) -> str:
+        return "0.26.0"
+
+    monkeypatch.setattr(mcp_boundary, "version", stale_distribution)
 
     root = Path(__file__).resolve().parents[1]
     expected = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]

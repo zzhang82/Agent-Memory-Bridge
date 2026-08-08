@@ -292,3 +292,47 @@ def test_render_belief_observation_text_includes_key_metrics(tmp_path: Path) -> 
     assert "Candidate Leaderboard" in rendered
     assert "contradiction_reason_counts" in rendered
     assert "Keep startup compact and explicit." in rendered
+
+
+def test_observation_equal_timestamp_uses_later_insertion_for_latest_candidate(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    first = _store_ladder_record(
+        store,
+        title="[[Belief Candidate]] first",
+        record_type="belief-candidate",
+        domain="domain:retrieval",
+        claim="First candidate state.",
+        support_count=4,
+        distinct_session_count=3,
+        contradiction_count=0,
+        confidence="strong-candidate",
+        status="candidate",
+        claim_hash="shared-hash",
+        boundary_hash="shared-boundary",
+    )
+    _store_ladder_record(
+        store,
+        title="[[Belief Candidate]] later",
+        record_type="belief-candidate",
+        domain="domain:retrieval",
+        claim="Later candidate state.",
+        support_count=4,
+        distinct_session_count=3,
+        contradiction_count=0,
+        confidence="strong-candidate",
+        status="candidate",
+        claim_hash="shared-hash",
+        boundary_hash="shared-boundary",
+        supersedes=first,
+    )
+    with store._connect() as conn:
+        conn.execute("UPDATE memories SET created_at = ?", (datetime.now(UTC).isoformat(),))
+        conn.commit()
+
+    report = observe_belief_ladder(
+        store,
+        BeliefObservationConfig(namespace="global", actor="bridge-consolidation", top_n=5),
+    )
+
+    assert report["leaderboards"]["candidates"][0]["claim"] == "Later candidate state."
+    assert report["summary"]["supersede_rate"] == 1.0

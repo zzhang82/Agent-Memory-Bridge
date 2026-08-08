@@ -13,7 +13,15 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-`0.26.1` is the protocol-conformance and operator-proof patch for the bounded MCP 2026-07-28 stdio adapter. It adds raw JSON-RPC proof, a real `mcp==1.28.1` legacy client, the official `@modelcontextprotocol/client@2.0.0`, dual-era `doctor`/`verify`, and explicit cache contracts. The public MCP surface remains exactly 13 tools, schema remains v7, and retrieval feedback stays shadow-only. This is independent interoperability evidence, not a claim of official full conformance or vendor-host certification.
+Current source release: `0.27.0`
+
+This source release delivers a closed-loop episode ledger. It migrates
+durable state to schema v8 and adds four explicit run tools while preserving the
+dual-era MCP stdio contract. Run, event, and outcome records are durable
+authority; only downstream learning and consolidation effects remain
+shadow-only. It does not add MCP Tasks, automatic reranking, raw
+chain-of-thought storage, automatic policy changes, or a productivity claim.
+Earlier `0.26.1` 13-tool/schema-v7 interoperability evidence remains historical.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -45,17 +53,14 @@ AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectab
 - Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
 - Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
 - Retrieval feedback: callers can append a receipt-bound vote, correction, or retraction while AMB exposes at most one current effective vote without changing ranking or memory.
+- Episode ledger: callers can create explicit server-minted runs/work items, append structured events, recover state after reconnect or compaction, and record evidence-backed outcomes without changing ranking or policy.
 - Evidence context: recall can sign bounded SHA-256 digests for optional caller-declared `model`, `harness`, and `chat_template` labels without including raw values or treating them as authenticated identity.
 - Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and targeted receipt/feedback regressions.
 
 ## How It Works
 
-<p align="center">
-  <img src="examples/diagrams/amb-overview.svg" alt="Agent Memory Bridge architecture: generic MCP-compatible coding agents use a small grouped tool surface backed by SQLite/WAL authority, derived indexes, governed change, and no-auto-writeback context and reports; proof gates remain outside runtime." width="760">
-</p>
-
-AMB keeps the runtime path small: MCP-compatible coding agents call 13 public
-MCP tools; SQLite/WAL remains the durable authority; FTS5 and optional local
+AMB keeps the runtime path small: MCP-compatible coding agents call 17 public
+MCP tools, including four explicit episode tools; SQLite/WAL remains the durable authority; FTS5 and optional local
 embeddings are derived indexes; governed context and CLI reports are rendered
 without automatic durable writeback. Release checks, benchmarks, and the visual
 claim inventory stay outside that runtime path.
@@ -87,16 +92,20 @@ Treat the printed value as `<venv-python>`. Keep that resolved local path out of
 commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
+The pinned GitHub tag route is usable only after the exact-commit CI gate passes
+and the tag is created. Before that, use a source checkout with
+`<venv-python> -m pip install -e .`.
+
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.26.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
 
-Optional pinned GitHub smoke test with `uvx`:
+After the same gate passes, an optional pinned GitHub smoke test with `uvx` is:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.26.1 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.27.0 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -239,7 +248,7 @@ Status labels are intentionally narrow.
 
 ## MCP Tools
 
-The bridge exposes `13` public MCP tools:
+The bridge exposes `17` public MCP tools:
 
 | Tool | Lane | Boundary |
 |---|---|---|
@@ -252,15 +261,20 @@ The bridge exposes `13` public MCP tools:
 | `promote` | governed mutation | Review-only path into durable authority. |
 | `annotate` | metadata mutation | Adds non-policy tags and provenance without rewriting content. |
 | `revise` | governed mutation | Creates a successor plus supersession receipt in one transaction. |
+| `export` | inspection | Sanitized export over existing records. |
+| `begin_run` | episode authority | Mints an explicit run and root work-item handle; there is no implicit current run. |
+| `record_run_event` | episode authority | Appends a bounded structured event with transactional per-run sequencing. |
+| `get_run` | episode inspection | Reads current projections, ordered events, and the current outcome head for recovery. |
+| `complete_run` | outcome evidence | Appends or corrects an evidence-bound outcome; downstream learning/consolidation effects remain shadow-only. |
 | `claim_signal` | signal lifecycle | Claims one pending or expired Signal for a local consumer. |
 | `extend_signal_lease` | signal lifecycle | Extends the current owner lease. |
 | `ack_signal` | signal lifecycle | Acknowledges with owner checks for active claims. |
-| `export` | inspection | Sanitized export over existing records. |
 
 Same tools by group:
 
 - `store`, `recall`, `browse`, `stats`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`, `export`
+- `begin_run`, `record_run_event`, `get_run`, `complete_run`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
 `annotate` adds non-policy tags and provenance without rewriting the original
@@ -283,7 +297,7 @@ client and session labels cannot create additional votes for the same signed
 retrieval subject. `receipt_hash` remains the hash of the actual token;
 `feedback_identity_digest` is a separate canonical subject identity.
 
-The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, human review workflows, and activation receipts. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, `review_workflow`, or `activation_receipt` MCP tools, and no rerank, auth, ACL, ANN, graph, or auto-policy interface.
+The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, human review workflows, and activation receipts. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, `review_workflow`, or `activation_receipt` MCP tools, and no MCP Tasks, rerank, auth, ACL, ANN, graph, or auto-policy interface.
 
 For normal service use, log capture helpers, promotion helpers, and strong consolidation are disabled by default. During each cycle, every enabled lane has its own exception boundary: one lane failure is reported with a failure count and bounded retry delay without stopping its siblings. The lanes still execute sequentially, so a slow call can delay later lanes; lane duration and slow-lane warnings make that delay visible. Watcher, reflex, consolidation, governance, and embedding scheduler state use tolerant atomic JSON and reset when a restored database has a different epoch. The service writes `service-health.json`, holds a local bridge-home singleton lock, exits `1` from `service --once` when any enabled lane fails, and exits `3` when another service owns the lock. Use `--allow-multiple-services` only when duplicate processing is deliberate.
 
@@ -305,15 +319,25 @@ Operator review work is available as CLI reports, not MCP tools:
 
 ### MCP 2026-07-28 stdio compatibility
 
-AMB 0.26.1 supports modern MCP 2026-07-28 `server/discover` and legacy
-`initialize` over local stdio. Proof now includes raw JSON-RPC frames, a real
-`mcp==1.28.1` client, `mcp==2.0.0`, and the official
-`@modelcontextprotocol/client@2.0.0`. Modern successful wire results include
-`resultType: "complete"`;
-`server/discover` uses `ttlMs: 300000` and `cacheScope: "public"`, while
-`tools/list` returns the canonical 13-tool order with `ttlMs: 0` and
-`cacheScope: "private"`. `doctor --include-stdio` and `verify` probe modern and
-legacy paths independently against isolated databases.
+AMB 0.27.0 supports modern MCP 2026-07-28 `server/discover` and legacy
+`initialize` over local stdio. An independent local Linux/Python 3.12
+project-interoperability run exercised AMB 0.27.0 on `mcp==2.0.0`: a separate
+`mcp==1.28.1` legacy client listed the exact canonical 17 tools and completed
+`store`, `recall`, `begin_run`, `record_run_event`, `get_run`, and
+`complete_run`; the modern MCP/raw-wire/operator target passed 32 pytest items, including
+receipt attribution and atomic invalid-receipt rejection; and the official
+`@modelcontextprotocol/client@2.0.0` completed the modern exact-17-tool,
+cache, and episode flow. Modern successful wire results contain
+`resultType: "complete"`; `server/discover` uses `ttlMs: 300000` /
+`cacheScope: "public"`; the current canonical surface is deterministic and
+`tools/list` remains `ttlMs: 0` / `cacheScope: "private"`.
+
+This is local Linux/Python 3.12 project-interoperability evidence only, not a
+GitHub CI result, official conformance, host certification, Windows proof, tag,
+publication, or productivity result.
+
+The compact cache contract is `300000/public` for discover and `0/private` for
+the tool list.
 
 Meaningful per-request `clientInfo` is caller-declared provenance, not
 authenticated identity. `source_client` precedence is explicit tool input,
@@ -326,7 +350,16 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.26.1` upgrades the bounded dual-era implementation into independently exercised protocol interoperability. Raw-wire fixtures cover discover, initialize, list, call, malformed metadata, missing envelopes, and unsupported-version errors. Separate client environments prove `mcp==1.28.1` legacy operation, `mcp==2.0.0` modern operation, and official `@modelcontextprotocol/client@2.0.0` operation. Schema remains v7; the canonical 13-tool surface is unchanged; protocol metadata remains caller-declared and bounded; no raw capabilities or baggage becomes durable authority.
+`0.27.0` adds an explicit episode ledger: server-minted run/work-item handles,
+append-only events and outcomes, receipt-bound memory attribution, rebuildable
+state projections, and a shadow-only run consolidator. Its 17-tool surface is
+frozen by `mcp_boundary.PUBLIC_TOOL_ORDER` with schema digest
+`6349ee0220a30ed910846766e927a8e057a9e3fbcdbaa4e3857a2ca740f93577`.
+A separate reliability proof retained 20 writes across 20 writers and completed
+100 connect/disconnect cycles without reported errors, remaining direct child
+processes, or temporary artifacts. These are local Linux/Python 3.12
+project-interoperability checks, not GitHub CI, official conformance, host
+certification, Windows proof, tag, publication, or productivity evidence.
 
 | Track | Current signal |
 |---|---|
@@ -347,10 +380,12 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| v0.26.1 protocol proof | raw JSON-RPC plus `mcp==1.28.1`, `mcp==2.0.0`, and `@modelcontextprotocol/client@2.0.0` interoperability; discover is `300000/public`; canonical `tools/list` is `0/private`; dual-era operator probes use isolated databases |
+| v0.27 episode ledger | schema v8; server-minted run/work-item handles; append-only event/outcome authority; receipt-bound attribution; canonical 17-tool schema digest; shadow-only consolidation |
 | Client provenance | meaningful per-request `clientInfo` is caller-declared provenance; precedence is explicit `source_client` > meaningful MCP context > environment default; generic `mcp` is ignored |
 | Inherited retrieval receipts and feedback | schema v7; same-snapshot complete exposure sets with exact content versions; optional model/harness/chat-template digests; append-only vote/correction/retraction history with one effective vote; separate token hash and feedback identity digest |
-| Test suite | `641 tests collected`; release gates include raw-wire negotiation, real old-client and TypeScript client jobs, dual-era operator checks, 20-process shared-SQLite proof, 100 connect/disconnect cycles, and inherited receipt/feedback/migration regressions |
+| Test suite | Current source test collection is recorded below; release gates include raw-wire negotiation, real old-client and TypeScript client jobs, dual-era operator checks, 20-process shared-SQLite proof, 100 connect/disconnect cycles, and inherited receipt/feedback/migration regressions |
+
+Current source test collection: `743 tests`
 
 <details>
 <summary>Release contract facts</summary>
@@ -482,7 +517,7 @@ Full proof details are in [benchmark/README.md](benchmark/README.md).
 
 ## Boundaries
 
-AMB is not a graph database, general unlearning system, hosted memory platform, HTTP MCP service, Tasks or Apps runtime, OAuth/ACL system, Episode Ledger, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, reranker, automatic policy engine, compliance certification, authenticated identity system, or unreviewed durable writeback path from raw transcripts. It is a small local bridge for reusable engineering memory and lightweight coordination. `forget` remains an explicit mutating operation; governed change makes that operation more conservative and auditable rather than automatic.
+AMB is not a graph database, general unlearning system, hosted memory platform, HTTP MCP service, Tasks or Apps runtime, OAuth/ACL system, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, reranker, automatic policy engine, compliance certification, authenticated identity system, or unreviewed durable writeback path from raw transcripts. Its episode ledger is evidence authority, not an autonomous task runtime. `forget` remains an explicit mutating operation; governed change makes that operation more conservative and auditable rather than automatic.
 
 For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 
@@ -494,7 +529,8 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.26.1 announcement](docs/v0.26.1-announcement.md)
+- [v0.27.0 announcement](docs/v0.27.0-announcement.md)
+- [v0.26.1 announcement](docs/v0.26.1-announcement.md) (historical)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)
 - [Context assembly](docs/CONTEXT-ASSEMBLY.md)
 - [Memory taxonomy](docs/MEMORY-TAXONOMY.md)

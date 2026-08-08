@@ -41,6 +41,10 @@ async def _exercise_server(tmp_path: Path) -> None:
                 "annotate",
                 "revise",
                 "export",
+                "begin_run",
+                "record_run_event",
+                "get_run",
+                "complete_run",
             }
 
             first = await session.call_tool(

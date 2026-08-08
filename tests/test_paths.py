@@ -31,6 +31,7 @@ from agent_mem_bridge.paths import (
     resolve_telemetry_mode,
     resolve_telemetry_service_name,
     resolve_watcher_enabled,
+    resolve_watcher_legacy_memory_mode,
 )
 
 
@@ -201,6 +202,25 @@ def test_service_automation_defaults_to_conservative_disabled(tmp_path: Path, mo
 
     assert resolve_watcher_enabled() is False
     assert resolve_reflex_enabled() is False
+
+
+def test_watcher_legacy_memory_mode_resolves_config_and_environment(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text("[watcher]\nlegacy_memory_mode = true\n", encoding="utf-8")
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_CONFIG", str(config_path))
+    monkeypatch.delenv("AGENT_MEMORY_BRIDGE_WATCHER_LEGACY_MEMORY_MODE", raising=False)
+
+    assert resolve_watcher_legacy_memory_mode() is True
+
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_WATCHER_LEGACY_MEMORY_MODE", "false")
+    assert resolve_watcher_legacy_memory_mode() is False
+
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_WATCHER_LEGACY_MEMORY_MODE", "true")
+    assert resolve_watcher_legacy_memory_mode() is True
+
+    config_path.write_text("[watcher]\n", encoding="utf-8")
+    monkeypatch.delenv("AGENT_MEMORY_BRIDGE_WATCHER_LEGACY_MEMORY_MODE", raising=False)
+    assert resolve_watcher_legacy_memory_mode() is False
 
 
 def test_profile_source_root_defaults_to_neutral_config_path(tmp_path: Path, monkeypatch) -> None:

@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import time
+import tomllib
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -31,6 +32,7 @@ from .paths import (
     resolve_service_slow_lane_seconds,
     resolve_sessions_root,
     resolve_watcher_enabled,
+    resolve_watcher_legacy_memory_mode,
     resolve_watcher_log_dir,
     resolve_watcher_notes_root,
     resolve_watcher_state_path,
@@ -227,6 +229,7 @@ def _run_service_with_home(
             idle_seconds=resolve_idle_seconds(),
             checkpoint_seconds=resolve_checkpoint_seconds(),
             checkpoint_min_messages=resolve_checkpoint_min_messages(),
+            legacy_memory_mode=resolve_watcher_legacy_memory_mode(),
         )
     )
     reflex = ReflexEngine(
@@ -308,6 +311,10 @@ def main() -> None:
 
 
 def _package_version() -> str:
+    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    if pyproject_path.exists():
+        with pyproject_path.open("rb") as handle:
+            return str(tomllib.load(handle)["project"]["version"])
     try:
         return version("agent-memory-bridge")
     except PackageNotFoundError:

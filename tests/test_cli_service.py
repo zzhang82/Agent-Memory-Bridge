@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import json
 import multiprocessing
+import runpy
+import tomllib
 from pathlib import Path
 
 import pytest
 
 from agent_mem_bridge import service as service_module
+from agent_mem_bridge import service_lock as service_lock_module
 from agent_mem_bridge.cli import main
 from agent_mem_bridge.service_health import ServiceHealthWriter
 from agent_mem_bridge.service_lock import ServiceFileLock, ServiceLockConflict
@@ -56,8 +59,55 @@ def test_cli_service_without_once_preserves_loop_mode(monkeypatch) -> None:
     assert calls == [(False, False)]
 
 
-def test_service_health_marks_backoff_cycle_degraded(tmp_path: Path) -> None:
-    writer = ServiceHealthWriter(tmp_path / "service-health.json", version="test")
+def test_watch_codex_sessions_script_uses_watcher_resolvers(monkeypatch, capsys, tmp_path: Path) -> None:
+    module = runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts" / "watch_codex_sessions.py"))
+    watcher_configs: list[object] = []
+
+    class FakeWatcher:
+        def __init__(self, config) -> None:
+            watcher_configs.append(config)
+
+        def run_once(self) -> dict[str, object]:
+            return {"processed_count": 0, "processed": []}
+
+    main = module["main"]
+    assert callable(main)
+    resolver_values = {
+        "resolve_bridge_db_path": tmp_path / "bridge.db",
+        "resolve_bridge_home": tmp_path / "runtime",
+        "resolve_checkpoint_min_messages": 7,
+        "resolve_checkpoint_seconds": 19,
+        "resolve_idle_seconds": 11,
+        "resolve_poll_seconds": 3.0,
+        "resolve_sessions_root": tmp_path / "sessions",
+        "resolve_watcher_legacy_memory_mode": True,
+        "resolve_watcher_log_dir": tmp_path / "watcher-logs",
+        "resolve_watcher_notes_root": tmp_path / "notes",
+        "resolve_watcher_state_path": tmp_path / "runtime" / "watcher-state.json",
+    }
+    for name, value in resolver_values.items():
+        monkeypatch.setitem(main.__globals__, name, lambda value=value: value)
+    monkeypatch.setitem(main.__globals__, "CodexSessionWatcher", FakeWatcher)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_RUN_ONCE", "1")
+
+    main()
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["processed_count"] == 0
+    config = watcher_configs[0]
+    assert config.sessions_root == tmp_path / "sessions"
+    assert config.idle_seconds == 11
+    assert config.checkpoint_seconds == 19
+    assert config.checkpoint_min_messages == 7
+    assert config.legacy_memory_mode is True
+
+
+def test_service_health_marks_backoff_cycle_degraded(monkeypatch, tmp_path: Path) -> None:
+    expected_version = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]["version"]
+    monkeypatch.setattr(service_module, "version", lambda _: "0.26.0")
+    writer = ServiceHealthWriter(tmp_path / "service-health.json", version=service_module._package_version())
     result = {
         "embedding": {
             "status": "backoff",
@@ -69,6 +119,7 @@ def test_service_health_marks_backoff_cycle_degraded(tmp_path: Path) -> None:
     writer.cycle_completed(result)
     health = json.loads((tmp_path / "service-health.json").read_text(encoding="utf-8"))
 
+    assert health["version"] == expected_version
     assert health["status"] == "degraded"
     assert health["failed_lane_count"] == 0
     assert health["backoff_lane_count"] == 1
@@ -173,10 +224,11 @@ def test_cli_index_rebuild_refuses_when_service_lock_is_held_by_process(
 
 def test_service_once_respects_disabled_watcher_and_reflex(monkeypatch, capsys, tmp_path: Path) -> None:
     calls: list[str] = []
+    watcher_configs: list[object] = []
 
     class FakeWatcher:
         def __init__(self, config) -> None:
-            pass
+            watcher_configs.append(config)
 
         def run_once(self) -> dict[str, object]:
             calls.append("watcher")
@@ -213,6 +265,7 @@ def test_service_once_respects_disabled_watcher_and_reflex(monkeypatch, capsys, 
     monkeypatch.setattr(service_module, "GovernanceTriggerEngine", FakeGovernance)
     monkeypatch.setattr(service_module, "run_embedding_sidecar_maintenance", lambda store: {"processed_count": 0})
     monkeypatch.setattr(service_module, "resolve_watcher_enabled", lambda: False)
+    monkeypatch.setattr(service_module, "resolve_watcher_legacy_memory_mode", lambda: True)
     monkeypatch.setattr(service_module, "resolve_reflex_enabled", lambda: False)
     monkeypatch.setattr(service_module, "resolve_bridge_home", lambda: tmp_path)
     monkeypatch.setattr(service_module, "resolve_bridge_db_path", lambda: __import__("pathlib").Path("bridge.db"))
@@ -244,6 +297,7 @@ def test_service_once_respects_disabled_watcher_and_reflex(monkeypatch, capsys, 
     assert calls == ["consolidation", "governance"]
     assert payload["watcher"]["enabled"] is False
     assert payload["reflex"]["enabled"] is False
+    assert watcher_configs[0].legacy_memory_mode is True
     assert health["status"] == "ok"
     assert health["last_cycle_started_at"]
     assert health["last_cycle_completed_at"]
@@ -427,7 +481,11 @@ def test_service_lane_does_not_swallow_process_control_exceptions(interrupt: Bas
         lane.run(now=0.0, base_backoff_seconds=1.0)
 
 
-def test_service_file_lock_excludes_second_holder_and_allows_reacquire(tmp_path: Path) -> None:
+def test_service_file_lock_excludes_second_holder_and_allows_reacquire(monkeypatch, tmp_path: Path) -> None:
+    expected_version = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]["version"]
+    monkeypatch.setattr(service_lock_module, "version", lambda _: "0.26.0")
     lock_path = tmp_path / "service.lock"
 
     with ServiceFileLock(lock_path):
@@ -435,7 +493,7 @@ def test_service_file_lock_excludes_second_holder_and_allows_reacquire(tmp_path:
         assert metadata["pid"]
         assert metadata["started_at"]
         assert metadata["hostname"]
-        assert metadata["version"]
+        assert metadata["version"] == expected_version
         with pytest.raises(ServiceLockConflict) as exc_info:
             ServiceFileLock(lock_path).acquire()
         assert exc_info.value.metadata["pid"] == metadata["pid"]
@@ -443,6 +501,10 @@ def test_service_file_lock_excludes_second_holder_and_allows_reacquire(tmp_path:
     assert lock_path.is_file()
     with ServiceFileLock(lock_path):
         pass
+
+    monkeypatch.setattr(service_lock_module.Path, "exists", lambda _: False)
+    monkeypatch.setattr(service_lock_module, "version", lambda _: "0.25.2")
+    assert service_lock_module._lock_metadata()["version"] == "0.25.2"
 
 
 def test_service_file_lock_excludes_another_process(tmp_path: Path) -> None:

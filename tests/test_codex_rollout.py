@@ -1,7 +1,14 @@
 import json
 from pathlib import Path
 
-from agent_mem_bridge.codex_rollout import build_checkpoint_payload, build_closeout_payload, parse_rollout_file
+from agent_mem_bridge.codex_rollout import (
+    build_checkpoint_payload,
+    build_closeout_payload,
+    build_watcher_episode_begin_request,
+    build_watcher_episode_checkpoint_request,
+    build_watcher_episode_closeout_request,
+    parse_rollout_file,
+)
 
 
 def test_parse_rollout_and_build_payload(tmp_path: Path) -> None:
@@ -67,6 +74,65 @@ def test_build_payload_normalizes_windows_cwd_on_any_runner(tmp_path: Path) -> N
     payload = build_closeout_payload(parse_rollout_file(rollout))
 
     assert payload["namespace"] == "project:mem-store"
+
+
+def test_watcher_episode_builders_keep_only_bounded_rollout_metadata(tmp_path: Path) -> None:
+    rollout = tmp_path / "rollout-2026-04-04T13-17-22-019d597f-d23c-7391-9214-4c5b847d13ce.jsonl"
+    user_message = "DISTINCTIVE_USER_BODY must not be retained."
+    assistant_message = "DISTINCTIVE_ASSISTANT_BODY must not be retained."
+    rollout.write_text(
+        "\n".join(
+            json.dumps(line)
+            for line in [
+                {
+                    "timestamp": "2026-04-04T17:18:07.854Z",
+                    "type": "session_meta",
+                    "payload": {
+                        "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
+                        "timestamp": "2026-04-04T17:17:22.372Z",
+                        "cwd": "C:\\workspaces\\demo\\mem-store",
+                        "originator": "Codex Desktop",
+                    },
+                },
+                {
+                    "timestamp": "2026-04-04T17:18:07.856Z",
+                    "type": "event_msg",
+                    "payload": {"type": "user_message", "message": user_message},
+                },
+                {
+                    "timestamp": "2026-04-04T17:18:11.235Z",
+                    "type": "response_item",
+                    "payload": {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": assistant_message}],
+                    },
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    summary = parse_rollout_file(rollout)
+    begin = build_watcher_episode_begin_request(summary)
+    checkpoint = build_watcher_episode_checkpoint_request(summary, "123:456")
+    closeout = build_watcher_episode_closeout_request(summary, "123:456")
+
+    assert begin["workspace_key"] == "project:mem-store"
+    assert begin["idempotency_key"] == "watcher:begin:project:mem-store:019d597f-d23c-7391-9214-4c5b847d13ce"
+    assert checkpoint["idempotency_key"].endswith(":019d597f-d23c-7391-9214-4c5b847d13ce:123:456")
+    assert checkpoint["payload"]["total_count"] == 2
+    assert closeout["metrics"]["rollout"]["source"] == "Codex Desktop"
+    serialized = json.dumps({"begin": begin, "checkpoint": checkpoint, "closeout": closeout})
+    for forbidden in (
+        user_message,
+        assistant_message,
+        str(rollout),
+        "C:\\workspaces\\demo\\mem-store",
+        "transcript",
+        "messages",
+    ):
+        assert forbidden not in serialized
 
 
 def test_parse_rollout_keeps_subagent_thread_and_parent_lineage(tmp_path: Path) -> None:

@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from ._temporary_store import ScopedTemporaryMemoryStore
 from .belief_observation import BeliefObservationConfig, observe_belief_ladder
 from .consolidation import ConsolidationConfig, ConsolidationEngine
 from .paths import resolve_consolidation_actor, resolve_profile_namespace
@@ -54,8 +55,10 @@ def run_belief_replay(
     _validate_belief_replay_config(config)
     source_rows = _load_source_rows(source_store, config=config)
     runtime_dir = Path(tempfile.mkdtemp(prefix="agent-memory-bridge-belief-replay-"))
+    replay_store: ScopedTemporaryMemoryStore | None = None
+    engine: ConsolidationEngine | None = None
     try:
-        replay_store = MemoryStore(runtime_dir / "belief-replay.db", log_dir=runtime_dir / "logs")
+        replay_store = ScopedTemporaryMemoryStore(runtime_dir / "belief-replay.db", log_dir=runtime_dir / "logs")
         engine = ConsolidationEngine(
             store=replay_store,
             config=ConsolidationConfig(
@@ -164,7 +167,11 @@ def run_belief_replay(
             "windows": windows,
         }
     finally:
-        shutil.rmtree(runtime_dir, ignore_errors=True)
+        engine = None
+        if replay_store is not None:
+            replay_store.close()
+        replay_store = None
+        shutil.rmtree(runtime_dir)
 
 
 def diff_belief_replay_reports(
@@ -268,31 +275,32 @@ def _load_source_rows(source_store: MemoryStore, *, config: BeliefReplayConfig) 
             client_workspace,
             client_transport,
             created_at
-        FROM memories
-        WHERE namespace = ?
-          AND (tags_json LIKE ? OR tags_json LIKE ?)
+        FROM memories m
+        JOIN memory_insertions i ON i.memory_id = m.id
+        WHERE m.namespace = ?
+          AND (m.tags_json LIKE ? OR m.tags_json LIKE ?)
     """
     if config.since_days is not None:
         cutoff = (datetime.now(UTC) - timedelta(days=config.since_days)).isoformat()
-        sql += " AND created_at >= ?"
+        sql += " AND m.created_at >= ?"
         params.append(cutoff)
     for domain_tag in config.domain_tags:
-        sql += " AND tags_json LIKE ?"
+        sql += " AND m.tags_json LIKE ?"
         params.append(f'%"{domain_tag}"%')
     for project_tag in config.project_tags:
-        sql += " AND tags_json LIKE ?"
+        sql += " AND m.tags_json LIKE ?"
         params.append(f'%"{project_tag}"%')
     if config.session_null_only:
-        sql += " AND session_id IS NULL"
+        sql += " AND m.session_id IS NULL"
     if config.session_ids:
         placeholders = ", ".join("?" for _ in config.session_ids)
-        sql += f" AND session_id IN ({placeholders})"
+        sql += f" AND m.session_id IN ({placeholders})"
         params.extend(config.session_ids)
     if config.correlation_ids:
         placeholders = ", ".join("?" for _ in config.correlation_ids)
-        sql += f" AND correlation_id IN ({placeholders})"
+        sql += f" AND m.correlation_id IN ({placeholders})"
         params.extend(config.correlation_ids)
-    sql += " ORDER BY created_at ASC LIMIT ?"
+    sql += " ORDER BY m.created_at ASC, i.sequence ASC LIMIT ?"
     params.append(config.source_limit)
     with source_store._connect() as conn:
         return conn.execute(sql, params).fetchall()

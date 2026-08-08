@@ -246,11 +246,12 @@ def _load_rows(store: MemoryStore, *, namespace: str, actor: str, tag: str) -> l
                 content,
                 tags_json,
                 created_at
-            FROM memories
+            FROM memories m
+            JOIN memory_insertions i ON i.memory_id = m.id
             WHERE namespace = ?
               AND actor = ?
               AND tags_json LIKE ?
-            ORDER BY created_at DESC
+            ORDER BY m.created_at DESC, i.sequence DESC
             """,
             (namespace, actor, f'%"{tag}"%'),
         ).fetchall()

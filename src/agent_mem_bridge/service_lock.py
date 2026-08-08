@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import socket
+import sys
+import tomllib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
@@ -86,7 +88,7 @@ def _ensure_lockable_file(handle: BinaryIO) -> None:
 
 def _lock_nonblocking(handle: BinaryIO) -> None:
     handle.seek(0)
-    if os.name == "nt":
+    if sys.platform == "win32":
         import msvcrt
 
         handle.seek(WINDOWS_LOCK_OFFSET)
@@ -100,7 +102,7 @@ def _lock_nonblocking(handle: BinaryIO) -> None:
 
 def _unlock(handle: BinaryIO) -> None:
     handle.seek(0)
-    if os.name == "nt":
+    if sys.platform == "win32":
         import msvcrt
 
         handle.seek(WINDOWS_LOCK_OFFSET)
@@ -113,10 +115,15 @@ def _unlock(handle: BinaryIO) -> None:
 
 
 def _lock_metadata() -> dict[str, Any]:
-    try:
-        package_version = version("agent-memory-bridge")
-    except PackageNotFoundError:
-        package_version = "0.0.0"
+    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    if pyproject_path.exists():
+        with pyproject_path.open("rb") as handle:
+            package_version = str(tomllib.load(handle)["project"]["version"])
+    else:
+        try:
+            package_version = version("agent-memory-bridge")
+        except PackageNotFoundError:
+            package_version = "0.0.0"
     return {
         "pid": os.getpid(),
         "started_at": datetime.now(UTC).isoformat(),

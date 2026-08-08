@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from agent_mem_bridge.consolidation import ConsolidationConfig, ConsolidationEngine
@@ -1213,6 +1214,56 @@ def test_consolidation_migrates_legacy_since_id_without_skipping_same_timestamp_
     assert result["since_id"] == second["id"]
     assert state["last_insertion_sequence"] == second_sequence
     assert "last_rowid" not in state
+
+
+def test_consolidation_equal_timestamp_queries_prefer_later_insertion(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    engine = ConsolidationEngine(store, ConsolidationConfig(state_path=tmp_path / "consolidation-state.json"))
+    source_first = store.store(
+        namespace="global",
+        kind="memory",
+        title="first source",
+        content="record_type: learn\nclaim: first\nscope: global\nconfidence: observed",
+        tags=["kind:learn", "domain:test"],
+    )
+    source_second = store.store(
+        namespace="global",
+        kind="memory",
+        title="second source",
+        content="record_type: learn\nclaim: second\nscope: global\nconfidence: observed",
+        tags=["kind:learn", "domain:test"],
+    )
+    candidate_first = store.store(
+        namespace="global",
+        kind="memory",
+        title="first candidate",
+        content="record_type: belief-candidate\nclaim: first\nscope: global",
+        tags=["kind:belief-candidate", "domain:test"],
+    )
+    candidate_second = store.store(
+        namespace="global",
+        kind="memory",
+        title="second candidate",
+        content=f"record_type: belief-candidate\nclaim: second\nsupersedes: {candidate_first['id']}\nscope: global",
+        tags=["kind:belief-candidate", "domain:test"],
+    )
+    timestamp = datetime.now(UTC).isoformat()
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE memories SET created_at = ? WHERE id IN (?, ?, ?, ?)",
+            (timestamp, source_first["id"], source_second["id"], candidate_first["id"], candidate_second["id"]),
+        )
+        conn.commit()
+
+    assert [str(row["id"]) for row in engine._load_recent_source_rows(10)] == [
+        source_second["id"],
+        source_first["id"],
+    ]
+    assert engine._latest_belief_candidate_id("domain:test") == candidate_second["id"]
+    assert [str(row["id"]) for row in engine._load_recent_belief_candidate_rows("domain:test")] == [
+        candidate_second["id"],
+        candidate_first["id"],
+    ]
 
 
 def test_consolidation_resets_insertion_cursor_when_database_epoch_changes(tmp_path: Path) -> None:

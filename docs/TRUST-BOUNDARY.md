@@ -16,6 +16,7 @@ remote access control.
 - short-lived HMAC recall receipts for binding explicit memory-recall results to
   feedback
 - append-only retrieval feedback records that remain shadow-only evidence
+- append-only run events and outcomes, with rebuildable current-state projections
 
 ## What AMB Does Not Provide
 
@@ -26,6 +27,10 @@ remote access control.
 - distributed locking or exactly-once coordination across machines
 - encrypted recall receipt tokens; they are tamper-evident, not confidential
 - ranking, memory mutation, or policy changes from retrieval feedback
+- ranking, policy, prompt, or memory promotion changes from run outcomes or
+  memory attribution
+- durable raw chain-of-thought, transcript archives, or artifact binaries in the
+  run ledger
 - compliance certification or regulated-data handling guarantees
 
 ## Local Operating Profiles
@@ -82,6 +87,32 @@ memory result. It is append-only, receipt-bound, and shadow-only.
 Feedback does not rewrite memories, rebuild indexes, promote or suppress
 records, change recall results, or train ranking behavior. Use it as audit and
 review evidence, not as an automatic policy or learning path.
+
+## Run And Episode Evidence
+
+Schema v8 adds durable run declarations, work items, structured events, outcome
+chains, artifact references, and receipt-bound memory links. Event and outcome
+rows are append-only. Current run and work-item state is a materialized
+projection that can be checked and rebuilt from those authority rows.
+
+Run, event, outcome, artifact, and link rows are durable episode authority;
+projections and downstream learning/consolidation effects are shadow-only.
+
+An artifact row has a server-minted artifact ID linked to caller-declared,
+validated digest, MIME, URI, and reference metadata alongside its producing
+event. Artifact metadata rejects inline-body keys `body`, `file_body`, and
+`fileBody` recursively, alongside the existing content/binary keys. Ingestion
+also rejects hidden-reasoning field names recursively, including normalized
+case/separator variants, before data reaches SQLite. `complete_run` never
+coerces unfinished work items: the first outcome requires each explicit item to
+already be terminal.
+
+The durable episode rows do not change recall ordering, promote memory, edit
+policy, rewrite prompts, or train a model. AMB rejects receipt-shaped values
+before durable SQLite persistence and does not echo them in validation errors.
+External client and process logging are outside this guarantee. Caller-provided
+agent, thread, workspace, evaluator, and provenance labels remain declared
+metadata.
 
 ## Exports Are Sensitive
 

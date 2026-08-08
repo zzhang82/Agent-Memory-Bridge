@@ -10,7 +10,7 @@ from .embedding_index import ensure_embedding_schema
 from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CURRENT_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = 8
 LEGACY_V5_RETRIEVAL_FEEDBACK_COLUMNS = (
     "feedback_id",
     "idempotency_key",
@@ -141,6 +141,10 @@ def _migrate_to_v7(conn: sqlite3.Connection) -> None:
     _ensure_retrieval_feedback_identity_schema(conn)
 
 
+def _migrate_to_v8(conn: sqlite3.Connection) -> None:
+    _ensure_episode_schema(conn)
+
+
 MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     SchemaMigration(
         1,
@@ -184,6 +188,12 @@ MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], No
         "cc4074acb0aee9f77eae265f3b9940b337737918e9c8d6e31f6ad702e202aa98",
         _migrate_to_v7,
     ),
+    SchemaMigration(
+        8,
+        "v8_closed_loop_episode_authority",
+        "398d0a43a418375fa46e54ad645825515c1151470315a6cd94432269b2e5f386",
+        _migrate_to_v8,
+    ),
 )
 
 
@@ -195,6 +205,7 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
     _ensure_retrieval_feedback_schema(conn)
     _ensure_retrieval_feedback_effective_vote_schema(conn)
     _ensure_retrieval_feedback_identity_schema(conn)
+    _ensure_episode_schema(conn)
     backfill_record_projections(conn, only_missing=True)
 
 
@@ -1119,6 +1130,720 @@ def _ensure_retrieval_feedback_identity_schema(conn: sqlite3.Connection) -> None
             ORDER BY head.feedback_id DESC
             LIMIT 1
         )
+        """
+    )
+
+
+def _ensure_episode_schema(conn: sqlite3.Connection) -> None:
+    _ensure_episode_authority_tables(conn)
+    _ensure_episode_authority_indexes(conn)
+    _ensure_episode_authority_triggers(conn)
+    _ensure_episode_projection_tables(conn)
+
+
+def _ensure_episode_authority_tables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS agent_runs (
+            run_id TEXT PRIMARY KEY
+                CHECK (
+                    length(run_id) = 36
+                    AND substr(run_id, 1, 4) = 'run_'
+                    AND substr(run_id, 5) NOT GLOB '*[^0-9a-f]*'
+                ),
+            workspace_key TEXT NOT NULL
+                CHECK (length(trim(workspace_key)) > 0 AND length(workspace_key) <= 512),
+            root_goal TEXT NOT NULL
+                CHECK (
+                    length(trim(root_goal)) > 0
+                    AND length(CAST(root_goal AS BLOB)) <= 8192
+                ),
+            model_digest TEXT
+                CHECK (
+                    model_digest IS NULL
+                    OR (
+                        length(model_digest) = 64
+                        AND model_digest = lower(model_digest)
+                        AND model_digest NOT GLOB '*[^0-9a-f]*'
+                    )
+                ),
+            harness_digest TEXT
+                CHECK (
+                    harness_digest IS NULL
+                    OR (
+                        length(harness_digest) = 64
+                        AND harness_digest = lower(harness_digest)
+                        AND harness_digest NOT GLOB '*[^0-9a-f]*'
+                    )
+                ),
+            chat_template_digest TEXT
+                CHECK (
+                    chat_template_digest IS NULL
+                    OR (
+                        length(chat_template_digest) = 64
+                        AND chat_template_digest = lower(chat_template_digest)
+                        AND chat_template_digest NOT GLOB '*[^0-9a-f]*'
+                    )
+                ),
+            tool_schema_digest TEXT
+                CHECK (
+                    tool_schema_digest IS NULL
+                    OR (
+                        length(tool_schema_digest) = 64
+                        AND tool_schema_digest = lower(tool_schema_digest)
+                        AND tool_schema_digest NOT GLOB '*[^0-9a-f]*'
+                    )
+                ),
+            agent_id TEXT CHECK (agent_id IS NULL OR (length(trim(agent_id)) > 0 AND length(agent_id) <= 128)),
+            thread_id TEXT CHECK (thread_id IS NULL OR (length(trim(thread_id)) > 0 AND length(thread_id) <= 256)),
+            memory_scopes_json TEXT NOT NULL DEFAULT '[]'
+                CHECK (
+                    json_valid(memory_scopes_json)
+                    AND json_type(memory_scopes_json) = 'array'
+                    AND length(CAST(memory_scopes_json AS BLOB)) <= 4096
+                ),
+            budget_json TEXT NOT NULL DEFAULT '{}'
+                CHECK (
+                    json_valid(budget_json)
+                    AND json_type(budget_json) = 'object'
+                    AND length(CAST(budget_json AS BLOB)) <= 8192
+                ),
+            idempotency_key_digest TEXT NOT NULL
+                CHECK (
+                    length(idempotency_key_digest) = 64
+                    AND idempotency_key_digest = lower(idempotency_key_digest)
+                    AND idempotency_key_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            request_digest TEXT NOT NULL
+                CHECK (
+                    length(request_digest) = 64
+                    AND request_digest = lower(request_digest)
+                    AND request_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            actor TEXT CHECK (actor IS NULL OR (length(trim(actor)) > 0 AND length(actor) <= 128)),
+            source_app TEXT
+                CHECK (source_app IS NULL OR (length(trim(source_app)) > 0 AND length(source_app) <= 128)),
+            source_client TEXT
+                CHECK (source_client IS NULL OR (length(trim(source_client)) > 0 AND length(source_client) <= 128)),
+            source_model TEXT
+                CHECK (source_model IS NULL OR (length(trim(source_model)) > 0 AND length(source_model) <= 128)),
+            client_session_id TEXT
+                CHECK (
+                    client_session_id IS NULL
+                    OR (length(trim(client_session_id)) > 0 AND length(client_session_id) <= 256)
+                ),
+            client_workspace TEXT
+                CHECK (
+                    client_workspace IS NULL
+                    OR (length(trim(client_workspace)) > 0 AND length(client_workspace) <= 512)
+                ),
+            client_transport TEXT
+                CHECK (
+                    client_transport IS NULL
+                    OR (length(trim(client_transport)) > 0 AND length(client_transport) <= 64)
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            UNIQUE (workspace_key, idempotency_key_digest)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_work_items (
+            work_item_id TEXT PRIMARY KEY
+                CHECK (
+                    length(work_item_id) = 37
+                    AND substr(work_item_id, 1, 5) = 'work_'
+                    AND substr(work_item_id, 6) NOT GLOB '*[^0-9a-f]*'
+                ),
+            run_id TEXT NOT NULL,
+            parent_work_item_id TEXT,
+            goal TEXT NOT NULL
+                CHECK (length(trim(goal)) > 0 AND length(CAST(goal AS BLOB)) <= 8192),
+            owner_agent_id TEXT
+                CHECK (
+                    owner_agent_id IS NULL
+                    OR (length(trim(owner_agent_id)) > 0 AND length(owner_agent_id) <= 128)
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            UNIQUE (run_id, work_item_id),
+            FOREIGN KEY (run_id) REFERENCES agent_runs (run_id) ON DELETE RESTRICT,
+            FOREIGN KEY (run_id, parent_work_item_id)
+                REFERENCES run_work_items (run_id, work_item_id) ON DELETE RESTRICT,
+            CHECK (parent_work_item_id IS NULL OR parent_work_item_id != work_item_id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_events (
+            event_id TEXT PRIMARY KEY
+                CHECK (
+                    length(event_id) = 36
+                    AND substr(event_id, 1, 4) = 'evt_'
+                    AND substr(event_id, 5) NOT GLOB '*[^0-9a-f]*'
+                ),
+            run_id TEXT NOT NULL,
+            work_item_id TEXT NOT NULL,
+            sequence INTEGER NOT NULL CHECK (sequence > 0),
+            event_type TEXT NOT NULL
+                CHECK (
+                    event_type IN (
+                        'plan_created',
+                        'work_item_started',
+                        'checkpoint',
+                        'observation',
+                        'hypothesis',
+                        'hypothesis_confirmed',
+                        'hypothesis_rejected',
+                        'tool_result',
+                        'test_failure',
+                        'decision',
+                        'blocker',
+                        'memory_recalled',
+                        'memory_applied',
+                        'memory_rejected',
+                        'artifact_created',
+                        'compaction_boundary',
+                        'work_item_completed',
+                        'work_item_failed',
+                        'work_item_abandoned'
+                    )
+                ),
+            event_schema_version INTEGER NOT NULL DEFAULT 1 CHECK (event_schema_version = 1),
+            summary TEXT NOT NULL
+                CHECK (
+                    length(trim(summary)) > 0
+                    AND length(CAST(summary AS BLOB)) <= 4096
+                ),
+            payload_json TEXT NOT NULL DEFAULT '{}'
+                CHECK (
+                    json_valid(payload_json)
+                    AND json_type(payload_json) = 'object'
+                    AND length(CAST(payload_json AS BLOB)) <= 32768
+                    AND json_type(payload_json, '$.raw_cot') IS NULL
+                    AND json_type(payload_json, '$.chain_of_thought') IS NULL
+                    AND json_type(payload_json, '$.transcript') IS NULL
+                    AND json_type(payload_json, '$.messages') IS NULL
+                ),
+            evidence_json TEXT NOT NULL DEFAULT '[]'
+                CHECK (
+                    json_valid(evidence_json)
+                    AND json_type(evidence_json) = 'array'
+                    AND length(CAST(evidence_json AS BLOB)) <= 32768
+                ),
+            idempotency_key_digest TEXT NOT NULL
+                CHECK (
+                    length(idempotency_key_digest) = 64
+                    AND idempotency_key_digest = lower(idempotency_key_digest)
+                    AND idempotency_key_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            request_digest TEXT NOT NULL
+                CHECK (
+                    length(request_digest) = 64
+                    AND request_digest = lower(request_digest)
+                    AND request_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            agent_id TEXT CHECK (agent_id IS NULL OR (length(trim(agent_id)) > 0 AND length(agent_id) <= 128)),
+            thread_id TEXT CHECK (thread_id IS NULL OR (length(trim(thread_id)) > 0 AND length(thread_id) <= 256)),
+            actor TEXT CHECK (actor IS NULL OR (length(trim(actor)) > 0 AND length(actor) <= 128)),
+            source_app TEXT
+                CHECK (source_app IS NULL OR (length(trim(source_app)) > 0 AND length(source_app) <= 128)),
+            source_client TEXT
+                CHECK (source_client IS NULL OR (length(trim(source_client)) > 0 AND length(source_client) <= 128)),
+            source_model TEXT
+                CHECK (source_model IS NULL OR (length(trim(source_model)) > 0 AND length(source_model) <= 128)),
+            client_session_id TEXT
+                CHECK (
+                    client_session_id IS NULL
+                    OR (length(trim(client_session_id)) > 0 AND length(client_session_id) <= 256)
+                ),
+            client_workspace TEXT
+                CHECK (
+                    client_workspace IS NULL
+                    OR (length(trim(client_workspace)) > 0 AND length(client_workspace) <= 512)
+                ),
+            client_transport TEXT
+                CHECK (
+                    client_transport IS NULL
+                    OR (length(trim(client_transport)) > 0 AND length(client_transport) <= 64)
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            UNIQUE (run_id, event_id),
+            UNIQUE (run_id, sequence),
+            UNIQUE (run_id, idempotency_key_digest),
+            FOREIGN KEY (run_id) REFERENCES agent_runs (run_id) ON DELETE RESTRICT,
+            FOREIGN KEY (run_id, work_item_id)
+                REFERENCES run_work_items (run_id, work_item_id) ON DELETE RESTRICT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_artifacts (
+            artifact_id TEXT NOT NULL
+                CHECK (
+                    length(artifact_id) = 41
+                    AND substr(artifact_id, 1, 9) = 'artifact_'
+                    AND substr(artifact_id, 10) NOT GLOB '*[^0-9a-f]*'
+                ),
+            artifact_version INTEGER NOT NULL CHECK (artifact_version > 0),
+            run_id TEXT NOT NULL,
+            work_item_id TEXT NOT NULL,
+            producing_event_id TEXT NOT NULL,
+            digest TEXT NOT NULL
+                CHECK (
+                    length(digest) = 64
+                    AND digest = lower(digest)
+                    AND digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            mime_type TEXT NOT NULL
+                CHECK (length(trim(mime_type)) > 0 AND length(mime_type) <= 255),
+            uri TEXT NOT NULL
+                CHECK (length(trim(uri)) > 0 AND length(CAST(uri AS BLOB)) <= 2048),
+            metadata_json TEXT NOT NULL DEFAULT '{}'
+                CHECK (
+                    json_valid(metadata_json)
+                    AND json_type(metadata_json) = 'object'
+                    AND length(CAST(metadata_json AS BLOB)) <= 8192
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            PRIMARY KEY (artifact_id, artifact_version),
+            FOREIGN KEY (run_id) REFERENCES agent_runs (run_id) ON DELETE RESTRICT,
+            FOREIGN KEY (run_id, work_item_id)
+                REFERENCES run_work_items (run_id, work_item_id) ON DELETE RESTRICT,
+            FOREIGN KEY (run_id, producing_event_id)
+                REFERENCES run_events (run_id, event_id) ON DELETE RESTRICT
+        ) WITHOUT ROWID
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_outcomes (
+            outcome_id TEXT PRIMARY KEY
+                CHECK (
+                    length(outcome_id) = 40
+                    AND substr(outcome_id, 1, 8) = 'outcome_'
+                    AND substr(outcome_id, 9) NOT GLOB '*[^0-9a-f]*'
+                ),
+            run_id TEXT NOT NULL,
+            outcome_type TEXT NOT NULL
+                CHECK (
+                    outcome_type IN (
+                        'verified_success',
+                        'partial_success',
+                        'unverified',
+                        'user_corrected',
+                        'regression',
+                        'failed',
+                        'abandoned'
+                    )
+                ),
+            evaluator_type TEXT NOT NULL
+                CHECK (evaluator_type IN ('agent', 'deterministic_verifier', 'human', 'system')),
+            evaluator_digest TEXT
+                CHECK (
+                    evaluator_digest IS NULL
+                    OR (
+                        length(evaluator_digest) = 64
+                        AND evaluator_digest = lower(evaluator_digest)
+                        AND evaluator_digest NOT GLOB '*[^0-9a-f]*'
+                    )
+                ),
+            evaluator_version TEXT
+                CHECK (
+                    evaluator_version IS NULL
+                    OR (length(trim(evaluator_version)) > 0 AND length(evaluator_version) <= 128)
+                ),
+            evidence_json TEXT NOT NULL DEFAULT '[]'
+                CHECK (
+                    json_valid(evidence_json)
+                    AND json_type(evidence_json) = 'array'
+                    AND length(CAST(evidence_json AS BLOB)) <= 32768
+                ),
+            metrics_json TEXT NOT NULL DEFAULT '{}'
+                CHECK (
+                    json_valid(metrics_json)
+                    AND json_type(metrics_json) = 'object'
+                    AND length(CAST(metrics_json AS BLOB)) <= 32768
+                ),
+            supersedes_outcome_id TEXT,
+            regression_of_run_id TEXT,
+            termination_reason TEXT
+                CHECK (
+                    termination_reason IS NULL
+                    OR (length(trim(termination_reason)) > 0 AND length(CAST(termination_reason AS BLOB)) <= 1024)
+                ),
+            idempotency_key_digest TEXT NOT NULL
+                CHECK (
+                    length(idempotency_key_digest) = 64
+                    AND idempotency_key_digest = lower(idempotency_key_digest)
+                    AND idempotency_key_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            request_digest TEXT NOT NULL
+                CHECK (
+                    length(request_digest) = 64
+                    AND request_digest = lower(request_digest)
+                    AND request_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            actor TEXT CHECK (actor IS NULL OR (length(trim(actor)) > 0 AND length(actor) <= 128)),
+            source_app TEXT
+                CHECK (source_app IS NULL OR (length(trim(source_app)) > 0 AND length(source_app) <= 128)),
+            source_client TEXT
+                CHECK (source_client IS NULL OR (length(trim(source_client)) > 0 AND length(source_client) <= 128)),
+            source_model TEXT
+                CHECK (source_model IS NULL OR (length(trim(source_model)) > 0 AND length(source_model) <= 128)),
+            client_session_id TEXT
+                CHECK (
+                    client_session_id IS NULL
+                    OR (length(trim(client_session_id)) > 0 AND length(client_session_id) <= 256)
+                ),
+            client_workspace TEXT
+                CHECK (
+                    client_workspace IS NULL
+                    OR (length(trim(client_workspace)) > 0 AND length(client_workspace) <= 512)
+                ),
+            client_transport TEXT
+                CHECK (
+                    client_transport IS NULL
+                    OR (length(trim(client_transport)) > 0 AND length(client_transport) <= 64)
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            UNIQUE (run_id, outcome_id),
+            UNIQUE (run_id, idempotency_key_digest),
+            FOREIGN KEY (run_id) REFERENCES agent_runs (run_id) ON DELETE RESTRICT,
+            FOREIGN KEY (supersedes_outcome_id) REFERENCES run_outcomes (outcome_id) ON DELETE RESTRICT,
+            FOREIGN KEY (regression_of_run_id) REFERENCES agent_runs (run_id) ON DELETE RESTRICT,
+            CHECK (
+                outcome_type != 'verified_success'
+                OR (
+                    evaluator_type IN ('deterministic_verifier', 'human')
+                    AND json_array_length(evidence_json) > 0
+                )
+            ),
+            CHECK (outcome_type != 'regression' OR regression_of_run_id IS NOT NULL)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_memory_links (
+            link_id TEXT PRIMARY KEY
+                CHECK (
+                    length(link_id) = 37
+                    AND substr(link_id, 1, 5) = 'link_'
+                    AND substr(link_id, 6) NOT GLOB '*[^0-9a-f]*'
+                ),
+            run_id TEXT NOT NULL,
+            work_item_id TEXT NOT NULL,
+            event_id TEXT,
+            outcome_id TEXT,
+            memory_id TEXT NOT NULL CHECK (length(trim(memory_id)) > 0 AND length(memory_id) <= 256),
+            exact_content_version TEXT NOT NULL
+                CHECK (
+                    length(exact_content_version) = 64
+                    AND exact_content_version = lower(exact_content_version)
+                    AND exact_content_version NOT GLOB '*[^0-9a-f]*'
+                ),
+            receipt_hash TEXT
+                CHECK (
+                    receipt_hash IS NULL
+                    OR (
+                        length(receipt_hash) = 64
+                        AND receipt_hash = lower(receipt_hash)
+                        AND receipt_hash NOT GLOB '*[^0-9a-f]*'
+                    )
+                ),
+            exposure_rank INTEGER CHECK (exposure_rank IS NULL OR exposure_rank > 0),
+            feedback_id INTEGER CHECK (feedback_id IS NULL OR feedback_id > 0),
+            relation TEXT NOT NULL
+                CHECK (relation IN ('recalled', 'applied', 'rejected', 'contradicted')),
+            review_required INTEGER NOT NULL DEFAULT 0 CHECK (review_required IN (0, 1)),
+            idempotency_key_digest TEXT NOT NULL
+                CHECK (
+                    length(idempotency_key_digest) = 64
+                    AND idempotency_key_digest = lower(idempotency_key_digest)
+                    AND idempotency_key_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            request_digest TEXT NOT NULL
+                CHECK (
+                    length(request_digest) = 64
+                    AND request_digest = lower(request_digest)
+                    AND request_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            UNIQUE (run_id, idempotency_key_digest),
+            FOREIGN KEY (run_id) REFERENCES agent_runs (run_id) ON DELETE RESTRICT,
+            FOREIGN KEY (run_id, work_item_id)
+                REFERENCES run_work_items (run_id, work_item_id) ON DELETE RESTRICT,
+            FOREIGN KEY (run_id, event_id) REFERENCES run_events (run_id, event_id) ON DELETE RESTRICT,
+            FOREIGN KEY (run_id, outcome_id) REFERENCES run_outcomes (run_id, outcome_id) ON DELETE RESTRICT,
+            FOREIGN KEY (feedback_id) REFERENCES retrieval_feedback (feedback_id) ON DELETE RESTRICT,
+            CHECK (
+                (receipt_hash IS NULL AND exposure_rank IS NULL)
+                OR (receipt_hash IS NOT NULL AND exposure_rank IS NOT NULL)
+            ),
+            CHECK (relation != 'recalled' OR receipt_hash IS NOT NULL),
+            CHECK (receipt_hash IS NOT NULL OR review_required = 1)
+        )
+        """
+    )
+
+
+def _ensure_episode_authority_indexes(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_agent_runs_workspace_created
+        ON agent_runs (workspace_key, created_at, run_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_run_work_items_single_root
+        ON run_work_items (run_id)
+        WHERE parent_work_item_id IS NULL
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_run_work_items_parent
+        ON run_work_items (run_id, parent_work_item_id, created_at, work_item_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_run_events_type_sequence
+        ON run_events (run_id, event_type, sequence)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_run_artifacts_event
+        ON run_artifacts (run_id, producing_event_id, artifact_id, artifact_version)
+        """
+    )
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_run_outcomes_single_root
+        ON run_outcomes (run_id)
+        WHERE supersedes_outcome_id IS NULL
+        """
+    )
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_run_outcomes_supersedes
+        ON run_outcomes (supersedes_outcome_id)
+        WHERE supersedes_outcome_id IS NOT NULL
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_run_outcomes_run_created
+        ON run_outcomes (run_id, created_at, outcome_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_run_memory_links_memory
+        ON run_memory_links (memory_id, exact_content_version, created_at, link_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_run_memory_links_run_relation
+        ON run_memory_links (run_id, relation, created_at, link_id)
+        """
+    )
+
+
+def _ensure_episode_authority_triggers(conn: sqlite3.Connection) -> None:
+    for trigger_name in (
+        "prevent_run_events_update",
+        "prevent_run_events_delete",
+        "prevent_run_outcomes_update",
+        "prevent_run_outcomes_delete",
+        "prevent_run_artifacts_update",
+        "prevent_run_artifacts_delete",
+        "prevent_run_memory_links_update",
+        "prevent_run_memory_links_delete",
+        "prevent_run_work_item_identity_update",
+        "validate_run_outcome_insert",
+    ):
+        conn.execute(f"DROP TRIGGER IF EXISTS {quote_identifier(trigger_name)}")
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_events_update
+        BEFORE UPDATE ON run_events
+        BEGIN
+            SELECT RAISE(ABORT, 'run_events is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_events_delete
+        BEFORE DELETE ON run_events
+        BEGIN
+            SELECT RAISE(ABORT, 'run_events is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_outcomes_update
+        BEFORE UPDATE ON run_outcomes
+        BEGIN
+            SELECT RAISE(ABORT, 'run_outcomes is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_outcomes_delete
+        BEFORE DELETE ON run_outcomes
+        BEGIN
+            SELECT RAISE(ABORT, 'run_outcomes is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_artifacts_update
+        BEFORE UPDATE ON run_artifacts
+        BEGIN
+            SELECT RAISE(ABORT, 'run_artifacts is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_artifacts_delete
+        BEFORE DELETE ON run_artifacts
+        BEGIN
+            SELECT RAISE(ABORT, 'run_artifacts is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_memory_links_update
+        BEFORE UPDATE ON run_memory_links
+        BEGIN
+            SELECT RAISE(ABORT, 'run_memory_links is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_memory_links_delete
+        BEFORE DELETE ON run_memory_links
+        BEGIN
+            SELECT RAISE(ABORT, 'run_memory_links is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_work_item_identity_update
+        BEFORE UPDATE OF work_item_id, run_id, parent_work_item_id ON run_work_items
+        BEGIN
+            SELECT RAISE(ABORT, 'run work-item identity and parent are immutable');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER validate_run_outcome_insert
+        BEFORE INSERT ON run_outcomes
+        BEGIN
+            SELECT CASE
+                WHEN NEW.supersedes_outcome_id IS NOT NULL
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM run_outcomes parent
+                        WHERE parent.outcome_id = NEW.supersedes_outcome_id
+                          AND parent.run_id = NEW.run_id
+                    )
+                THEN RAISE(ABORT, 'superseded outcome must belong to the same run')
+            END;
+            SELECT CASE
+                WHEN NEW.supersedes_outcome_id IS NOT NULL
+                    AND EXISTS (
+                        SELECT 1
+                        FROM run_outcomes child
+                        WHERE child.supersedes_outcome_id = NEW.supersedes_outcome_id
+                    )
+                THEN RAISE(ABORT, 'outcome correction must supersede the current head')
+            END;
+        END
+        """
+    )
+
+
+def _ensure_episode_projection_tables(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_state_projection (
+            run_id TEXT PRIMARY KEY,
+            status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'failed', 'abandoned')),
+            last_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_sequence >= 0),
+            unresolved_blocker_count INTEGER NOT NULL DEFAULT 0 CHECK (unresolved_blocker_count >= 0),
+            active_work_item_count INTEGER NOT NULL DEFAULT 0 CHECK (active_work_item_count >= 0),
+            outcome_id TEXT,
+            ended_at TEXT CHECK (ended_at IS NULL OR julianday(ended_at) IS NOT NULL),
+            termination_reason TEXT
+                CHECK (
+                    termination_reason IS NULL
+                    OR (length(trim(termination_reason)) > 0 AND length(CAST(termination_reason AS BLOB)) <= 1024)
+                ),
+            projection_version INTEGER NOT NULL DEFAULT 1 CHECK (projection_version = 1),
+            rebuilt_at TEXT NOT NULL CHECK (julianday(rebuilt_at) IS NOT NULL),
+            FOREIGN KEY (run_id) REFERENCES agent_runs (run_id) ON DELETE CASCADE,
+            FOREIGN KEY (run_id, outcome_id) REFERENCES run_outcomes (run_id, outcome_id) ON DELETE RESTRICT
+        ) WITHOUT ROWID
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_work_item_state_projection (
+            work_item_id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            status TEXT NOT NULL
+                CHECK (status IN ('pending', 'active', 'blocked', 'completed', 'failed', 'abandoned')),
+            last_sequence INTEGER NOT NULL DEFAULT 0 CHECK (last_sequence >= 0),
+            started_at TEXT CHECK (started_at IS NULL OR julianday(started_at) IS NOT NULL),
+            ended_at TEXT CHECK (ended_at IS NULL OR julianday(ended_at) IS NOT NULL),
+            last_summary TEXT
+                CHECK (last_summary IS NULL OR length(CAST(last_summary AS BLOB)) <= 4096),
+            projection_version INTEGER NOT NULL DEFAULT 1 CHECK (projection_version = 1),
+            rebuilt_at TEXT NOT NULL CHECK (julianday(rebuilt_at) IS NOT NULL),
+            UNIQUE (run_id, work_item_id),
+            FOREIGN KEY (run_id, work_item_id)
+                REFERENCES run_work_items (run_id, work_item_id) ON DELETE CASCADE
+        ) WITHOUT ROWID
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS memory_utility_shadow (
+            memory_id TEXT NOT NULL CHECK (length(trim(memory_id)) > 0 AND length(memory_id) <= 256),
+            exact_content_version TEXT NOT NULL
+                CHECK (
+                    length(exact_content_version) = 64
+                    AND exact_content_version = lower(exact_content_version)
+                    AND exact_content_version NOT GLOB '*[^0-9a-f]*'
+                ),
+            helpful_count INTEGER NOT NULL DEFAULT 0 CHECK (helpful_count >= 0),
+            misleading_count INTEGER NOT NULL DEFAULT 0 CHECK (misleading_count >= 0),
+            outdated_count INTEGER NOT NULL DEFAULT 0 CHECK (outdated_count >= 0),
+            not_used_count INTEGER NOT NULL DEFAULT 0 CHECK (not_used_count >= 0),
+            supporting_run_count INTEGER NOT NULL DEFAULT 0 CHECK (supporting_run_count >= 0),
+            contradicting_run_count INTEGER NOT NULL DEFAULT 0 CHECK (contradicting_run_count >= 0),
+            shadow_score REAL NOT NULL DEFAULT 0.0,
+            projection_version INTEGER NOT NULL DEFAULT 1 CHECK (projection_version = 1),
+            computed_at TEXT NOT NULL CHECK (julianday(computed_at) IS NOT NULL),
+            PRIMARY KEY (memory_id, exact_content_version)
+        ) WITHOUT ROWID
         """
     )
 

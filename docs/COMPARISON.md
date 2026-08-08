@@ -128,11 +128,18 @@ Agent Memory Bridge keeps the public MCP contract small on purpose:
 - `browse`
 - `stats`
 - `forget`
+- `feedback`
 - `promote`
+- `annotate`
+- `revise`
+- `export`
+- `begin_run`
+- `record_run_event`
+- `get_run`
+- `complete_run`
 - `claim_signal`
 - `extend_signal_lease`
 - `ack_signal`
-- `export`
 
 The richer behavior sits behind that bridge:
 

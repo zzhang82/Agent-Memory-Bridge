@@ -37,6 +37,8 @@ PUBLIC_DOC_PATHS = (
     Path("docs/PROMOTION-RULES.md"),
     Path("docs/RELEASE-COMMUNICATIONS.md"),
     Path("docs/TRUST-BOUNDARY.md"),
+    Path("docs/CLOSED-LOOP-EPISODE.md"),
+    Path("docs/RUN-CONSOLIDATION.md"),
     Path("docs/v0.20-clean-room-proof.md"),
     Path("docs/v0.20.0-announcement.md"),
     Path("docs/v0.21.0-announcement.md"),
@@ -55,6 +57,7 @@ PUBLIC_DOC_PATHS = (
     Path("docs/MCP-2026-COMPATIBILITY.md"),
     Path("docs/v0.26.0-announcement.md"),
     Path("docs/v0.26.1-announcement.md"),
+    Path("docs/v0.27.0-announcement.md"),
     Path("examples/README.md"),
     Path("examples/demo/before-after-gotcha.cast.md"),
     Path("examples/demo/README.md"),
@@ -132,7 +135,7 @@ PUBLIC_CORE_NOTES = (
     "authority contract and adversarial memory-governance fixtures",
     "public docs such as comparison, configuration, provenance, memory taxonomy, and promotion rules",
     "examples and demo assets that are already sanitized",
-    "released runtime behind the 13 MCP tools",
+    "current runtime behind the 17 MCP tools",
 )
 
 PRIVATE_LAB_NOTES = (

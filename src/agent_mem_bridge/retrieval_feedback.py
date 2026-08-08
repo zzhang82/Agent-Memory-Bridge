@@ -7,6 +7,7 @@ import hmac
 import json
 import secrets
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -416,6 +417,95 @@ def validate_recall_receipt(
         "payload": payload,
         "receipt_hash": recall_receipt_hash(recall_receipt),
         "feedback_identity_digest": canonical_feedback_identity_digest(payload),
+    }
+
+
+def validate_recall_receipt_exposures(
+    store: Any,
+    *,
+    conn: sqlite3.Connection,
+    recall_receipt: str,
+    namespace: str,
+    selections: Sequence[tuple[str, int]],
+) -> dict[str, Any]:
+    """Validate a bounded receipt selection against one caller-owned transaction.
+
+    The signed receipt base is decoded once. Each selected exposure is then matched
+    to the signed result and current exact memory identity through ``conn`` so an
+    event and its links can be committed atomically by the caller.
+    """
+
+    resolved_secret = getattr(store, "recall_receipt_secret", None)
+    if resolved_secret is None:
+        raise ValueError("recall receipt secret is required")
+    payload = decode_recall_receipt(recall_receipt, secret=resolved_secret)
+    if payload.get("schema") != RECALL_RECEIPT_SCHEMA:
+        raise ValueError("invalid recall receipt: schema mismatch")
+    if payload.get("bridge_instance_id") != resolved_secret.bridge_instance_id:
+        raise ValueError("invalid recall receipt: bridge instance mismatch")
+    if payload.get("namespace") != namespace:
+        raise ValueError("invalid recall receipt: namespace mismatch")
+    _validate_retrieval_contract(payload)
+    _validate_evidence_context(payload)
+
+    issued_at = _parse_receipt_time(payload.get("issued_at"), "issued_at")
+    expires_at = _parse_receipt_time(payload.get("expires_at"), "expires_at")
+    if expires_at <= datetime.now(UTC):
+        raise ValueError("invalid recall receipt: expired")
+    if expires_at < issued_at:
+        raise ValueError("invalid recall receipt: expiry precedes issue time")
+
+    results = payload.get("results")
+    exposure_set = payload.get("exposure_set")
+    if not isinstance(results, list) or not isinstance(exposure_set, list) or len(exposure_set) != len(results):
+        raise ValueError("invalid recall receipt: incomplete exposure set")
+    _validate_exposure_set(results, exposure_set)
+    exposures = {
+        (str(exposure["memory_id"]), int(exposure["rank"])): exposure
+        for exposure in exposure_set
+        if isinstance(exposure, dict)
+    }
+    result_members = {
+        (str(result["memory_id"]), int(result["rank"]))
+        for result in results
+        if isinstance(result, dict) and isinstance(result.get("rank"), int)
+    }
+    if len(exposures) != len(results) or len(result_members) != len(results):
+        raise ValueError("invalid recall receipt: incomplete exposure set")
+
+    active_epoch = read_database_epoch(conn)
+    if payload.get("database_epoch") != active_epoch:
+        raise ValueError("invalid recall receipt: database epoch mismatch")
+    validated_items: list[dict[str, Any]] = []
+    for memory_id, result_rank in selections:
+        key = (memory_id, result_rank)
+        if key not in result_members or key not in exposures:
+            raise ValueError("invalid recall receipt: memory id and rank mismatch")
+        exposure = exposures[key]
+        exact_content_version = _required_exact_content_hash(exposure.get("exact_content_hash"))
+        row = conn.execute(
+            """
+            SELECT exact_content_hash
+            FROM memories
+            WHERE id = ? AND namespace = ? AND kind = 'memory'
+            LIMIT 1
+            """,
+            (memory_id, namespace),
+        ).fetchone()
+        if row is None or not hmac.compare_digest(str(row["exact_content_hash"]), exact_content_version):
+            raise ValueError("invalid recall receipt: memory content hash mismatch")
+        validated_items.append(
+            {
+                "memory_id": memory_id,
+                "result_rank": result_rank,
+                "exact_content_version": exact_content_version,
+            }
+        )
+    return {
+        "payload": payload,
+        "receipt_hash": recall_receipt_hash(recall_receipt),
+        "feedback_identity_digest": canonical_feedback_identity_digest(payload),
+        "items": validated_items,
     }
 
 

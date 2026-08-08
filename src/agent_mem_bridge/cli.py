@@ -26,6 +26,11 @@ from .onboarding import render_report, render_verify_success_message, run_doctor
 from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_bridge_log_dir, resolve_config_path
 from .review_queue import build_review_queue_report, render_review_queue_markdown
 from .review_workflow import build_review_workflow_report, render_review_workflow_markdown
+from .run_consolidation import (
+    build_run_consolidation_report,
+    render_run_consolidation_markdown,
+    stage_run_consolidation_report,
+)
 from .service_lock import ServiceFileLock, ServiceLockConflict
 from .storage import MemoryStore
 from .task_brief import build_task_brief_report, render_task_brief_markdown
@@ -86,6 +91,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_wal_checkpoint(namespace)
     if namespace.command == "signal-cleanup":
         return _run_signal_cleanup(namespace)
+    if namespace.command == "consolidate-runs":
+        return _run_consolidate_runs(namespace)
 
     parser.print_help()
     return 2
@@ -375,6 +382,25 @@ def _build_parser() -> argparse.ArgumentParser:
     cleanup_parser.add_argument("--limit", type=int, default=1_000)
     cleanup_parser.add_argument("--apply", action="store_true", help="Delete matching Signals; default is dry-run.")
     cleanup_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+
+    run_consolidation_parser = subparsers.add_parser(
+        "consolidate-runs",
+        help="Read completed run evidence and emit shadow-only lesson candidates.",
+    )
+    run_consolidation_parser.add_argument("--shadow", action="store_true", help="Required safety acknowledgement.")
+    run_consolidation_parser.add_argument("--workspace-key", required=True, help="Workspace key to inspect.")
+    run_consolidation_parser.add_argument("--limit", type=int, default=100, help="Runs to scan (1..500).")
+    run_consolidation_parser.add_argument(
+        "--stage",
+        action="store_true",
+        help="Stage eligible results only in the hidden learning-candidate review lane.",
+    )
+    run_consolidation_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
     return parser
 
 
@@ -664,6 +690,49 @@ def _run_signal_cleanup(namespace: argparse.Namespace) -> int:
         print(f"deleted_count={report['deleted_count']}")
         print(f"applied={str(bool(report['applied'])).lower()}")
     return 0
+
+
+def _run_consolidate_runs(namespace: argparse.Namespace) -> int:
+    if namespace.stage and not namespace.shadow:
+        print("agent-memory-bridge: --stage requires --shadow", file=sys.stderr)
+        return 2
+    if not namespace.shadow:
+        print("agent-memory-bridge: consolidate-runs requires --shadow", file=sys.stderr)
+        return 2
+    try:
+        connection = _open_existing_database_read_only(resolve_bridge_db_path())
+        try:
+            report = build_run_consolidation_report(
+                None,
+                workspace_key=namespace.workspace_key,
+                limit=namespace.limit,
+                connection=connection,
+            )
+        finally:
+            connection.close()
+        if namespace.stage:
+            stage_run_consolidation_report(MemoryStore.from_env(), report)
+    except (OSError, RuntimeError, ValueError, sqlite3.Error) as exc:
+        print(f"agent-memory-bridge: run consolidation failed: {exc}", file=sys.stderr)
+        return 2
+    if namespace.format == "json":
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_run_consolidation_markdown(report))
+    return 0
+
+
+def _open_existing_database_read_only(db_path: Path) -> sqlite3.Connection:
+    if not db_path.is_file():
+        raise FileNotFoundError(f"run consolidation requires an existing database: {db_path}")
+    connection = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True)
+    try:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA query_only=ON")
+    except BaseException:
+        connection.close()
+        raise
+    return connection
 
 
 def _print_maintenance_report(report: dict[str, object], *, as_json: bool) -> None:

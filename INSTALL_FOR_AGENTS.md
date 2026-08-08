@@ -14,11 +14,16 @@ For the shortest GitHub-source procedure, start with
 Agent Memory Bridge is a local-first stdio MCP server for reusable engineering
 memory and lightweight coordination.
 
-The public MCP surface is intentionally small:
+The `v0.27.0` MCP surface is intentionally small:
 
 - `store`, `recall`, `browse`, `stats`, `export`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`
+- `begin_run`, `record_run_event`, `get_run`, `complete_run`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
+
+The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
+
+The pinned GitHub tag route is usable only after the exact-commit CI gate passes and the tag is created. Before that, use a source checkout with `<venv-python> -m pip install -e .`.
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
@@ -27,6 +32,11 @@ content versions from one SQLite snapshot. Retrieval feedback supports
 append-only votes, corrections, and retractions while exposing at most one
 current effective vote per receipt-bound subject. It remains shadow-only and
 does not change memory records, recall results, or ranking behavior.
+
+Run tools create explicit server-minted handles and append bounded episode
+evidence. Run, event, outcome, and receipt-bound memory-attribution records are
+durable authority; only downstream learning and consolidation effects remain
+shadow-only, so they do not change normal recall ordering, policy, or prompts.
 
 ## Ask Before You Configure
 
@@ -53,8 +63,9 @@ user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
    python -m venv .amb-venv
    ```
 
-3. Derive the venv interpreter as described in `llms-install.md`, then install
-   with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.26.1.zip"`.
+3. After the exact-commit CI gate passes and the tag is created, derive the
+   venv interpreter as described in `llms-install.md`, then install the pinned
+   `v0.27.0` source archive with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:
@@ -75,7 +86,8 @@ user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
    AMB stdio runtime. Neither proves the client loaded its config.
 8. If the client already has a running MCP server process, ask the human to
    restart that client, then use its MCP status/tool view to confirm the server
-   registration and tool visibility. This is the client registration gate.
+   registration and its 17-tool public surface. This is the client registration
+   gate for the `v0.27.0` route.
 
 The custom `config.toml` path emitted by the renderer is optional for this
 baseline. If its default path has no file, `doctor` may warn and the baseline
