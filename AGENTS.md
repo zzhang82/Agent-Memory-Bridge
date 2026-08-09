@@ -32,7 +32,7 @@ ruff format --check src tests scripts
   process APIs during local analysis:
 
 ```bash
-mypy src/agent_mem_bridge/schema.py src/agent_mem_bridge/storage.py src/agent_mem_bridge/provenance.py src/agent_mem_bridge/repository.py src/agent_mem_bridge/signals.py src/agent_mem_bridge/query.py src/agent_mem_bridge/state_io.py src/agent_mem_bridge/command_provider.py src/agent_mem_bridge/database_maintenance.py src/agent_mem_bridge/release_contract.py src/agent_mem_bridge/run_ledger.py src/agent_mem_bridge/run_projection.py src/agent_mem_bridge/run_consolidation.py src/agent_mem_bridge/server.py src/agent_mem_bridge/mcp_boundary.py src/agent_mem_bridge/stdio_probe.py
+mypy src/agent_mem_bridge/schema.py src/agent_mem_bridge/storage.py src/agent_mem_bridge/provenance.py src/agent_mem_bridge/repository.py src/agent_mem_bridge/signals.py src/agent_mem_bridge/query.py src/agent_mem_bridge/state_io.py src/agent_mem_bridge/command_provider.py src/agent_mem_bridge/database_maintenance.py src/agent_mem_bridge/release_contract.py src/agent_mem_bridge/run_ledger.py src/agent_mem_bridge/run_outcome_authority.py src/agent_mem_bridge/run_projection.py src/agent_mem_bridge/run_consolidation.py src/agent_mem_bridge/server.py src/agent_mem_bridge/mcp_boundary.py src/agent_mem_bridge/stdio_probe.py
 ```
 
 - For release-facing or public-surface changes, also run:

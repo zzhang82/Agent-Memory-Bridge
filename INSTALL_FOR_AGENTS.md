@@ -14,14 +14,14 @@ For the shortest GitHub-source procedure, start with
 Agent Memory Bridge is a local-first stdio MCP server for reusable engineering
 memory and lightweight coordination.
 
-The `v0.27.0` MCP surface is intentionally small:
+The `v0.27.1` MCP surface is intentionally small:
 
 - `store`, `recall`, `browse`, `stats`, `export`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`
 - `begin_run`, `record_run_event`, `get_run`, `complete_run`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
+The pinned `v0.27.1` release-install route exposes `17` public MCP tools at client registration.
 
 The pinned GitHub tag route is usable only after the exact-commit CI gate passes and the tag is created. Before that, use a source checkout with `<venv-python> -m pip install -e .`.
 
@@ -34,9 +34,17 @@ current effective vote per receipt-bound subject. It remains shadow-only and
 does not change memory records, recall results, or ranking behavior.
 
 Run tools create explicit server-minted handles and append bounded episode
-evidence. Run, event, outcome, and receipt-bound memory-attribution records are
-durable authority; only downstream learning and consolidation effects remain
+evidence. Schema v9 preserves episode authority while adding terminal timestamps
+for recovery. Work-item transitions are explicit, terminal items cannot reopen,
+and event callers may supply expected sequence/status compare-and-swap
+preconditions. Run, event, outcome, and receipt-bound memory-attribution records
+are durable authority; only downstream learning and consolidation effects remain
 shadow-only, so they do not change normal recall ordering, policy, or prompts.
+`get_run` returns one coherent snapshot with projection-health metadata; writes
+fail closed when a run projection is drifted. Existing v1 `verified_success`
+outcomes remain readable as `legacy_declared` but do not authorize regression
+targets, consolidation support, or utility supporting-run credit. Governed-v2
+receipts are deferred to 0.27.2.
 
 ## Ask Before You Configure
 
@@ -65,7 +73,7 @@ user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
 
 3. After the exact-commit CI gate passes and the tag is created, derive the
    venv interpreter as described in `llms-install.md`, then install the pinned
-   `v0.27.0` source archive with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"`.
+   `v0.27.1` source archive with `<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.1.zip"`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:
@@ -87,7 +95,7 @@ user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
 8. If the client already has a running MCP server process, ask the human to
    restart that client, then use its MCP status/tool view to confirm the server
    registration and its 17-tool public surface. This is the client registration
-   gate for the `v0.27.0` route.
+   gate for the `v0.27.1` route.
 
 The custom `config.toml` path emitted by the renderer is optional for this
 baseline. If its default path has no file, `doctor` may warn and the baseline

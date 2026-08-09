@@ -16,7 +16,7 @@ Primary docs:
 - benchmark/README.md - benchmark and proof snapshots
 - SECURITY.md - local-first security model and reporting
 
-The pinned `v0.27.0` release-install route exposes these public MCP tools:
+The pinned `v0.27.1` release-install route exposes these public MCP tools:
 
 - store
 - recall
@@ -36,7 +36,7 @@ The pinned `v0.27.0` release-install route exposes these public MCP tools:
 - extend_signal_lease
 - ack_signal
 
-The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
+The pinned `v0.27.1` release-install route exposes `17` public MCP tools at client registration.
 
 Important boundaries:
 
@@ -62,8 +62,14 @@ Important boundaries:
 - Feedback remains shadow evidence. It does not mutate memory, indexes, recall
   results, or ranking behavior.
 - Run events and outcomes use explicit server-minted handles and are durable
-  authority. Only downstream learning and consolidation effects remain
-  shadow-only; they do not change normal recall ordering, policy, or prompts.
+  authority. Schema v9 adds recovery timestamps, explicit work-item FSM
+  enforcement, optional event CAS preconditions, and one-snapshot `get_run`
+  metadata. Projection drift makes writes fail closed. Existing v1
+  `verified_success` is readable as `legacy_declared`, but cannot authorize
+  regression targets, consolidation support, or utility supporting-run credit.
+  Only downstream learning and consolidation effects remain shadow-only; they do
+  not change normal recall ordering, policy, or prompts. Governed-v2 receipts
+  are deferred to 0.27.2.
 - Startup and task-time packets are compiled views over existing records.
 - Optional helper commands can render Task Brief reports around the bridge;
   Task Brief is a derived CLI/report view, not part of the core MCP surface.
@@ -81,7 +87,7 @@ in Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 The pinned GitHub tag route is usable only after the exact-commit CI gate passes and the tag is created. Before that, use a source checkout with `<venv-python> -m pip install -e .`.
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.1.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```

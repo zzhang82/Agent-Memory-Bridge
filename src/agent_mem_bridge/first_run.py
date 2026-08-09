@@ -22,7 +22,7 @@ PYTHON_LAUNCHER_NOTE = (
     "Generated Windows verification commands use PowerShell syntax."
 )
 RELEASE_VERSION = package_version()
-PINNED_INSTALL_VERSION = "0.27.0"
+PINNED_INSTALL_VERSION = "0.27.1"
 GITHUB_ARCHIVE_URL = f"https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip"
 RELEASE_INSTALL_GATE_NOTE = (
     "The pinned GitHub tag route is usable only after the exact-commit CI gate passes and the tag is created. "

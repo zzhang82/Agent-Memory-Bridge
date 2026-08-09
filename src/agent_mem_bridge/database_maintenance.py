@@ -24,7 +24,7 @@ from .run_projection import (
     rebuild_memory_utility_shadow,
     rebuild_run_projections,
 )
-from .schema import rotate_database_epoch
+from .schema import CURRENT_SCHEMA_VERSION, init_db, rotate_database_epoch, schema_version
 from .service_lock import ServiceFileLock
 from .signals import SignalSnapshot, signal_validation_issues
 
@@ -124,6 +124,8 @@ def rebuild_database_projections(
         with closing(sqlite3.connect(path, timeout=5.0)) as conn:
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA foreign_keys=ON")
+            if schema_version(conn) != CURRENT_SCHEMA_VERSION:
+                init_db(conn)
             conn.execute("BEGIN IMMEDIATE")
             repaired_insertion_sequence_count = 0
             run_projection_counts = {"run_count": 0, "work_item_count": 0}

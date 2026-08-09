@@ -109,13 +109,13 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
         example=False,
     )
     assert future_report["install"]["version_mismatch_note"] == (
-        "Package/source version 0.28.0 differs from pinned release-install version 0.27.0. "
+        "Package/source version 0.28.0 differs from pinned release-install version 0.27.1. "
         "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
     )
     assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in future_report["install"]["baseline"][2]
     assert "archive/refs/tags/v0.28.0.zip" not in future_report["install"]["baseline"][2]
     assert (
-        "Package/source version 0.28.0 differs from pinned release-install version 0.27.0."
+        "Package/source version 0.28.0 differs from pinned release-install version 0.27.1."
         in render_first_run_markdown(future_report)
     )
 

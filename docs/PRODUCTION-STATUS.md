@@ -2,44 +2,61 @@
 
 Last updated: 2026-08-08 (America/New_York)
 
-This maintainer note preserves historical releases and records the current
-v0.27.0 release-facing source surface. It does not assert a Git tag, remote
-publication, or GitHub Actions result.
+This maintainer note records the current `0.27.1` release-facing source
+surface and preserves historical releases below. It does not assert a Git tag,
+remote publication, or GitHub Actions result.
 
-Current source release: `0.27.0`
+Current source release: `0.27.1`
 
-Current source test collection: `743 tests`
+Current source test collection: `767 tests`
 
-## Current 0.27.0 Release Surface
+## Current 0.27.1 Release Surface
 
-Run, event, outcome, artifact, and link rows are durable episode authority; projections and downstream learning/consolidation effects are shadow-only.
+Run, event, outcome, artifact, and link rows are durable episode authority;
+projections and downstream learning/consolidation effects are shadow-only.
 
-- Durable schema: v8; run, event, outcome, artifact, and link rows are durable
-  episode authority, while projections and downstream learning/consolidation
-  effects are shadow-only
-- Public MCP surface: exactly 17 tools; the four additive tools are `begin_run`, `record_run_event`, `get_run`, and `complete_run`
-- Run state: all run/work-item IDs are server-minted; callers must pass explicit workspace and handles; no connection owns an implicit current run
-- Event ledger: strict versioned event types, transactional per-run sequencing,
-  SHA-256-only idempotency storage, 32 KiB payload/evidence limits,
-  raw-reasoning/transcript rejection, and receipt-shaped-value rejection before
-  durable SQLite persistence
+- Durable schema: v9, migrated from v8 with `terminal_at` and
+  `current_outcome_updated_at` backfilled without changing episode authority
+- Public MCP surface: exactly 17 tools; the four run tools are `begin_run`,
+  `record_run_event`, `get_run`, and `complete_run`
+- Schema digest: `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`
+- Run state: all run/work-item IDs are server-minted; callers pass explicit
+  workspace and handles; no connection owns an implicit current run
+- Work-item authority: explicit FSM transitions; version-1
+  `work_item_started` resumes blocked work, terminal work items cannot reopen,
+  and new children require an active parent
+- Event authority: strict versioned event types, transactional per-run
+  sequencing, optional expected sequence/status compare-and-swap preconditions,
+  SHA-256-only idempotency storage, bounded payload/evidence, raw-reasoning and
+  transcript rejection, and receipt-shaped values rejected before durable
+  SQLite persistence
 - Artifact boundary: a server-minted artifact ID is linked to caller-declared,
   validated digest, MIME, URI, and reference metadata; inline-body keys `body`,
   `file_body`, and `fileBody` are rejected recursively
-- Outcome boundary: append-only correction chains; `verified_success` requires
-  deterministic-verifier or human evidence; only downstream learning and
-  consolidation effects are shadow-only
-- Compatibility: an independent local Linux/Python 3.12
-  project-interoperability run exercised AMB 0.27.0 on `mcp==2.0.0`. A separate
-  `mcp==1.28.1` legacy client listed the exact 17-tool surface and completed
-  `store`, `recall`, `begin_run`, `record_run_event`, `get_run`, and
-  `complete_run`; the modern MCP/raw-wire/operator target passed 32 pytest items, including
-  receipt attribution and atomic invalid-receipt rejection; and the official
-  `@modelcontextprotocol/client@2.0.0` completed the modern exact-17-tool,
-  cache, and episode flow.
-- Explicit non-goals: no MCP Tasks, automatic reranking, automatic prompt/policy mutation, raw chain-of-thought persistence, or automatic lesson promotion
+- Recovery read boundary: `get_run` uses one SQLite read transaction, derives
+  authority state, and returns `snapshot_epoch`, `snapshot_last_sequence`,
+  `projection_health`, and `degraded`; writes fail closed while a run projection
+  is drifted
+- Outcome boundary: append-only correction chains preserve the original
+  `terminal_at`; v1 `verified_success` remains readable as `legacy_declared`,
+  but is not strong verification and cannot authorize regression targets,
+  consolidation support, or utility supporting-run credit;
+  the public completion path accepts `regression_of_run_id` only for a
+  `regression` outcome, while DB-level inverse enforcement is deferred to
+  schema v10 in 0.27.2
+- Future boundary: governed-v2 receipts are deferred to 0.27.2; utility and
+  consolidation effects remain shadow-only
+- Consolidation: `consolidate-runs --shadow` is read-only by default; `--stage`
+  can only create hidden `needs_review` candidates and cannot promote a lesson
+- Compatibility: the independently exercised 0.27.0 Linux/Python 3.12
+  interoperability run remains historical; current source keeps the same
+  deterministic 17-tool modern/legacy surface
+- Explicit non-goals: no MCP Tasks, automatic reranking, automatic
+  prompt/policy mutation, raw chain-of-thought persistence, or automatic lesson
+  promotion
 
-The sections below retain historical release denominators where explicitly labeled `0.26.1`.
+The sections below retain historical release denominators where explicitly
+labeled.
 
 ## 0.27.0 Release Surface
 
@@ -168,7 +185,7 @@ The sections below retain historical release denominators where explicitly label
 22. a Cross-Client Activation Receipt CLI/report that reads existing writer memory and reader signal rows for one namespace and correlation id, hashes sensitive identifiers, and performs no durable or config writes
 23. embedding maintenance that batches provider work outside SQLite write transactions and revalidates content hashes before derived-vector writes
 24. one shared service-lane boundary with exception isolation, failure counters, capped backoff, and tolerant atomic state replacement
-25. an ordered transactional schema migration spine recorded as SQLite schema version `8`, including append-only episode authority and rebuildable run projections
+25. an ordered transactional schema migration spine recorded as SQLite schema version `9`, including append-only episode authority, recovery timestamps, and rebuildable run projections
 26. a classifier suggestion boundary that promotes only validated `domain:` and `topic:` tags and keeps shadow-mode output non-authoritative
 27. monotonic insertion-sequence cursors for reflex and consolidation with legacy `since_id` state compatibility
 28. one cross-platform local service lock with meaningful one-shot exit status, heartbeat state, and slow-lane timing
@@ -187,31 +204,39 @@ The sections below retain historical release denominators where explicitly label
 
 ## Verified On 2026-08-08
 
-- current branch denominator: `743 tests collected`
+- current branch denominator: `767 tests collected`
 - MCP dependency is `mcp==2.0.0`
-- the independent local Linux/Python 3.12 run used AMB 0.27.0 on `mcp==2.0.0`:
-  the modern MCP/raw-wire/operator target passed 32 pytest items, including receipt attribution
-  and atomic invalid-receipt rejection; a separate `mcp==1.28.1` legacy client
-  listed the exact 17 tools and completed `store`, `recall`, `begin_run`,
-  `record_run_event`, `get_run`, and `complete_run`; and the official
-  `@modelcontextprotocol/client@2.0.0` completed the modern exact-17-tool,
-  cache, and episode flow
+- the independently exercised local Linux/Python 3.12 interoperability run
+  for the prior 0.27.0 source remains historical; current 0.27.1 source keeps
+  its exact 17-tool modern/legacy contract
 - modern result tests verify `resultType: "complete"` on the wire
 - discover tests verify `ttlMs: 300000` and `cacheScope: "public"`; `tools/list` verifies exactly 17 tools, canonical order, `ttlMs: 0`, and `cacheScope: "private"`
 - operator tests verify independent modern and legacy reports against disposable databases
-- a separate reliability proof retained 20 writes across 20 writers and
+- a separate historical reliability proof retained 20 writes across 20 writers and
   completed 100 connect/disconnect cycles without reported errors, remaining
   direct child processes, or temporary artifacts
 - clientInfo provenance tests verify precedence explicit `source_client` > meaningful MCP context > environment default, with generic `mcp` ignored
 - stdio verify now exercises all 17 tools in separate modern and legacy databases, including one complete explicit run lifecycle and a `feedback_shadow_record` check
-- this current 0.27 interoperability evidence is local Linux/Python 3.12
+- the historical 0.27 interoperability evidence is local Linux/Python 3.12
   project evidence only, not GitHub CI, official conformance, host certification,
   Windows proof, tag, publication, or productivity evidence
 - v0.25 retrieval capability tests verify the default `hashed_lexical` capability, explicit semantic-provider gating, hybrid semantic-arm skipping when no semantic provider is declared, and semantic availability only for a declared semantic command provider
 - v0.25.2 recall receipt tests verify one SQLite snapshot for returned rows and receipt evidence, complete exposure sets, exact content-version binding, retrieval-contract digests, optional caller-declared evidence-context digests, redaction of raw values, and rejection of tampered or stale evidence
 - v0.25.2 feedback tests verify append-only vote/correction/retraction chains, one current effective vote, stale replay semantics, caller-declared provenance neutrality, concurrent duplicate collapse, separate token and vote-identity hashes, no memory/index/ranking mutation, and redacted logs/telemetry
 - stdio feedback integration covers startup tool-surface visibility, successful feedback, duplicate retry, conflict rejection, and redacted structured responses
-- schema migration tests verify SQLite schema version `8`, append-only retrieval/run evidence, unique idempotency and supersession constraints, legacy v0-v7 upgrades, v5 duplicate preservation, rollback on injected v5/v7/v8 failures, and fail-closed handling for unsupported legacy feedback tables
+- schema migration tests verify SQLite schema version `9`, authority-preserving
+  v8-to-v9 terminal-time backfill, append-only retrieval/run evidence, unique
+  idempotency and supersession constraints, legacy v0-v8 upgrades, v5 duplicate
+  preservation, rollback on injected v5/v7/v8/v9 failures, and fail-closed
+  handling for unsupported legacy feedback tables
+- episode recovery tests verify terminal work-item reopen rejection, optional
+  event compare-and-swap preconditions, one-snapshot `get_run` metadata,
+  authority-derived state during projection drift, fail-closed writes, and
+  preservation of `terminal_at` across outcome correction
+- outcome authority tests verify v1 `verified_success` remains readable as
+  `legacy_declared` but cannot authorize regression targets, consolidation
+  support, or utility supporting-run credit; governed-v2 receipts remain
+  deferred
 - the integrated embedding, service, state, schema, command-provider, maintenance, revision, and storage regressions are part of the full suite
 - scheduled maintenance and rebuild tests verify batched provider execution outside write transactions plus content-hash revalidation before vector writes
 - semantic and hybrid recall tests verify no candidate embedding backfill or recall-time writes, degraded completeness reporting for cold/stale indexes, and typed provider-failure lexical degradation
@@ -221,7 +246,10 @@ The sections below retain historical release denominators where explicitly label
 - service regressions verify lock metadata, residual-file reacquisition, real spawned-process contention, one-shot lane-failure exit `1`, and lock-conflict exit `3`
 - doctor and repair regressions verify malformed claimed Signal state is detected and can be repaired explicitly
 - shared state-I/O tests cover malformed JSON, atomic replacement, unique temporary files, and preservation of the previous valid state when replacement fails
-- schema tests cover ordered version `8` migration, DDL/version rollback, rejection of too-new databases, missing-step fail-closed behavior, representative legacy layouts, and four-process convergence on one upgrade
+- schema tests cover ordered version `9` migration, authority-preserving v8-to-v9
+  terminal-time backfill, DDL/version rollback, rejection of too-new databases,
+  missing-step fail-closed behavior, representative legacy layouts, and
+  four-process convergence on one upgrade
 - Chinese/Han hash-semantic tests cover character and bigram tokenization; no Chinese FTS support is claimed
 - 10,000-Signal polling acceptance with `limit=100`: exact insertion order, 10,000 unique ids, zero missing, zero unexpected, 100 pages
 - eight independent `spawn` processes claiming one exact Signal: one stored winner and no lock error in the local Linux run; the same test is part of the normal cross-platform CI matrix

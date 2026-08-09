@@ -13,12 +13,18 @@ from typing import Any
 from .durable_data_policy import normalize_durable_key, require_durable_structured_data, require_durable_text
 from .provenance import normalize_provenance_mapping
 from .retrieval_feedback import recall_receipt_hash, validate_recall_receipt_exposures
+from .run_outcome_authority import is_strong_verified_outcome, outcome_authority_class
 from .run_projection import (
+    WORK_ITEM_STATUSES,
     apply_run_event_projection,
     apply_run_outcome_projection,
+    derive_run_authority_state,
     initialize_run_projections,
     initialize_work_item_projection,
+    inspect_run_projection,
+    validate_work_item_transition,
 )
+from .schema import database_epoch as read_database_epoch
 
 RUN_EVENT_TYPES = frozenset(
     {
@@ -238,6 +244,8 @@ def record_run_event_entry(
     event_type: str,
     summary: str,
     idempotency_key: str,
+    expected_last_sequence: int | None = None,
+    expected_work_item_status: str | None = None,
     work_item_id: str | None = None,
     parent_work_item_id: str | None = None,
     work_item_goal: str | None = None,
@@ -255,7 +263,11 @@ def record_run_event_entry(
     if cleaned_event_type not in RUN_EVENT_TYPES:
         raise ValueError(f"unsupported run event type: {cleaned_event_type or '<empty>'}")
     cleaned_summary = _bounded_text("summary", summary, max_bytes=4096)
+    cleaned_expected_sequence = _optional_nonnegative_int("expected_last_sequence", expected_last_sequence)
+    cleaned_expected_status = _optional_work_item_status(expected_work_item_status)
     cleaned_work_item_id = _optional_bounded_text("work_item_id", work_item_id, max_chars=64)
+    if cleaned_expected_status is not None and cleaned_work_item_id is None:
+        raise ValueError("expected_work_item_status requires an existing work_item_id")
     cleaned_parent_id = _optional_bounded_text("parent_work_item_id", parent_work_item_id, max_chars=64)
     cleaned_goal = _optional_bounded_text("work_item_goal", work_item_goal, max_bytes=8192)
     cleaned_owner = _optional_bounded_text("owner_agent_id", owner_agent_id, max_chars=128)
@@ -274,6 +286,8 @@ def record_run_event_entry(
             "run_id": cleaned_run_id,
             "event_type": cleaned_event_type,
             "summary": cleaned_summary,
+            "expected_last_sequence": cleaned_expected_sequence,
+            "expected_work_item_status": cleaned_expected_status,
             "work_item_id": cleaned_work_item_id,
             "parent_work_item_id": cleaned_parent_id,
             "work_item_goal": cleaned_goal,
@@ -308,14 +322,17 @@ def record_run_event_entry(
                     created_work_item=cleaned_event_type == "work_item_started" and cleaned_work_item_id is None,
                     artifact=_artifact_for_event(conn, run_id=cleaned_run_id, event_id=str(existing["event_id"])),
                 )
-            state = conn.execute(
-                "SELECT status FROM run_state_projection WHERE run_id = ?",
-                (cleaned_run_id,),
-            ).fetchone()
-            if state is None:
-                raise RuntimeError("run projection is missing")
-            if str(state["status"]) != "active":
+            authority = derive_run_authority_state(conn, run_id=cleaned_run_id)
+            projection_health = inspect_run_projection(conn, run_id=cleaned_run_id)
+            _require_healthy_run_projection(projection_health)
+            run_state = authority["run"]
+            if str(run_state["status"]) != "active":
                 raise ValueError("completed or abandoned runs cannot accept new events")
+            actual_sequence = int(run_state["last_sequence"])
+            if cleaned_expected_sequence is not None and cleaned_expected_sequence != actual_sequence:
+                raise ValueError(
+                    f"run sequence conflict: expected {cleaned_expected_sequence}, actual {actual_sequence}"
+                )
 
             created_work_item = False
             effective_work_item_id = cleaned_work_item_id
@@ -326,6 +343,13 @@ def record_run_event_entry(
                         "work_item_started without work_item_id requires parent_work_item_id and work_item_goal"
                     )
                 _require_work_item(conn, run_id=cleaned_run_id, work_item_id=cleaned_parent_id)
+                parent_state = authority["work_items_by_id"].get(cleaned_parent_id)
+                if parent_state is None:
+                    raise RuntimeError("parent work item is missing from authority state")
+                parent_status = str(parent_state["status"])
+                if parent_status != "active":
+                    raise ValueError(f"new work item requires an active parent; actual status is {parent_status}")
+                validate_work_item_transition("pending", cleaned_event_type)
                 effective_work_item_id = _new_id("work_")
                 conn.execute(
                     """
@@ -356,6 +380,15 @@ def record_run_event_entry(
                 if cleaned_parent_id is not None or cleaned_goal is not None:
                     raise ValueError("parent_work_item_id and work_item_goal are only valid when creating a work item")
                 _require_work_item(conn, run_id=cleaned_run_id, work_item_id=effective_work_item_id)
+                work_state = authority["work_items_by_id"].get(effective_work_item_id)
+                if work_state is None:
+                    raise RuntimeError("work item is missing from authority state")
+                actual_status = str(work_state["status"])
+                if cleaned_expected_status is not None and cleaned_expected_status != actual_status:
+                    raise ValueError(
+                        f"work-item status conflict: expected {cleaned_expected_status}, actual {actual_status}"
+                    )
+                validate_work_item_transition(actual_status, cleaned_event_type)
 
             resolved_memory_links = _resolve_memory_attribution(
                 conn,
@@ -474,68 +507,78 @@ def get_run_entry(
     if event_limit < 1 or event_limit > 500:
         raise ValueError("event_limit must be between 1 and 500")
     with store._connect() as conn:
-        run_row = _require_run(conn, workspace_key=cleaned_workspace, run_id=cleaned_run_id)
-        state = conn.execute(
-            "SELECT * FROM run_state_projection WHERE run_id = ?",
-            (cleaned_run_id,),
-        ).fetchone()
-        if state is None:
-            raise RuntimeError("run projection is missing")
-        work_items = conn.execute(
-            """
-            SELECT item.*, state.status, state.last_sequence, state.started_at,
-                   state.ended_at, state.last_summary
-            FROM run_work_items item
-            JOIN run_work_item_state_projection state
-              ON state.run_id = item.run_id AND state.work_item_id = item.work_item_id
-            WHERE item.run_id = ?
-            ORDER BY item.created_at, item.work_item_id
-            """,
-            (cleaned_run_id,),
-        ).fetchall()
-        event_rows = conn.execute(
-            """
-            SELECT event_id, work_item_id, sequence, event_type,
-                   event_schema_version, summary, payload_json, evidence_json,
-                   agent_id, thread_id, actor, source_app, source_client,
-                   source_model, client_session_id, client_workspace,
-                   client_transport, created_at
-            FROM run_events
-            WHERE run_id = ? AND sequence > ?
-            ORDER BY sequence
-            LIMIT ?
-            """,
-            (cleaned_run_id, since_sequence, event_limit + 1),
-        ).fetchall()
-        has_more = len(event_rows) > event_limit
-        visible_events = event_rows[:event_limit]
-        artifacts = _artifacts_for_events(
-            conn,
-            run_id=cleaned_run_id,
-            event_ids=[str(row["event_id"]) for row in visible_events],
-        )
-        outcome = conn.execute(
-            """
-            SELECT outcome.*
-            FROM run_outcomes outcome
-            LEFT JOIN run_outcomes child ON child.supersedes_outcome_id = outcome.outcome_id
-            WHERE outcome.run_id = ? AND child.outcome_id IS NULL
-            """,
-            (cleaned_run_id,),
-        ).fetchone()
-        latest_sequence = int(state["last_sequence"])
-        next_sequence = int(visible_events[-1]["sequence"]) if visible_events else since_sequence
-        return {
-            "run": _run_payload(run_row, state),
-            "work_items": [_work_item_payload(row) for row in work_items],
-            "events": [_event_payload(row) for row in visible_events],
-            "artifacts": artifacts,
-            "outcome": _outcome_payload(outcome) if outcome is not None else None,
-            "since_sequence": since_sequence,
-            "next_sequence": next_sequence,
-            "latest_sequence": latest_sequence,
-            "has_more": has_more,
-        }
+        conn.execute("BEGIN")
+        try:
+            snapshot_epoch = read_database_epoch(conn)
+            run_row = _require_run(conn, workspace_key=cleaned_workspace, run_id=cleaned_run_id)
+            authority = derive_run_authority_state(conn, run_id=cleaned_run_id)
+            projection_health = inspect_run_projection(conn, run_id=cleaned_run_id)
+            authority_work_items = authority["work_items_by_id"]
+            work_item_rows = conn.execute(
+                """
+                SELECT *
+                FROM run_work_items
+                WHERE run_id = ?
+                ORDER BY created_at, work_item_id
+                """,
+                (cleaned_run_id,),
+            ).fetchall()
+            work_items = [
+                _work_item_payload({**dict(row), **authority_work_items[str(row["work_item_id"])]})
+                for row in work_item_rows
+            ]
+            event_rows = conn.execute(
+                """
+                SELECT event_id, work_item_id, sequence, event_type,
+                       event_schema_version, summary, payload_json, evidence_json,
+                       agent_id, thread_id, actor, source_app, source_client,
+                       source_model, client_session_id, client_workspace,
+                       client_transport, created_at
+                FROM run_events
+                WHERE run_id = ? AND sequence > ?
+                ORDER BY sequence
+                LIMIT ?
+                """,
+                (cleaned_run_id, since_sequence, event_limit + 1),
+            ).fetchall()
+            has_more = len(event_rows) > event_limit
+            visible_events = event_rows[:event_limit]
+            artifacts = _artifacts_for_events(
+                conn,
+                run_id=cleaned_run_id,
+                event_ids=[str(row["event_id"]) for row in visible_events],
+            )
+            outcome = conn.execute(
+                """
+                SELECT outcome.*
+                FROM run_outcomes outcome
+                LEFT JOIN run_outcomes child ON child.supersedes_outcome_id = outcome.outcome_id
+                WHERE outcome.run_id = ? AND child.outcome_id IS NULL
+                """,
+                (cleaned_run_id,),
+            ).fetchone()
+            latest_sequence = int(authority["run"]["last_sequence"])
+            next_sequence = int(visible_events[-1]["sequence"]) if visible_events else since_sequence
+            response = {
+                "run": _run_payload(run_row, authority["run"]),
+                "work_items": work_items,
+                "events": [_event_payload(row) for row in visible_events],
+                "artifacts": artifacts,
+                "outcome": _outcome_payload(outcome) if outcome is not None else None,
+                "since_sequence": since_sequence,
+                "next_sequence": next_sequence,
+                "latest_sequence": latest_sequence,
+                "has_more": has_more,
+                "snapshot_epoch": snapshot_epoch,
+                "snapshot_last_sequence": latest_sequence,
+                "projection_health": projection_health,
+                "degraded": not bool(projection_health["ok"]),
+            }
+            conn.commit()
+            return response
+        except BaseException:
+            conn.rollback()
+            raise
 
 
 def complete_run_entry(
@@ -576,6 +619,8 @@ def complete_run_entry(
     cleaned_regression_run = _optional_bounded_text("regression_of_run_id", regression_of_run_id, max_chars=64)
     if cleaned_outcome == "regression" and cleaned_regression_run is None:
         raise ValueError("regression outcome requires regression_of_run_id")
+    if cleaned_outcome != "regression" and cleaned_regression_run is not None:
+        raise ValueError("regression_of_run_id is only valid for a regression outcome")
     cleaned_provenance = normalize_provenance_mapping(provenance) or {}
     idempotency_digest = _idempotency_digest(idempotency_key)
     request_digest = _request_digest(
@@ -610,25 +655,20 @@ def complete_run_entry(
                 _require_matching_request(existing, request_digest, subject="complete_run")
                 conn.commit()
                 return {**_outcome_payload(existing), "idempotent_replay": True}
-            current_head = conn.execute(
-                """
-                SELECT outcome.outcome_id
-                FROM run_outcomes outcome
-                LEFT JOIN run_outcomes child ON child.supersedes_outcome_id = outcome.outcome_id
-                WHERE outcome.run_id = ? AND child.outcome_id IS NULL
-                """,
-                (cleaned_run_id,),
-            ).fetchone()
-            if current_head is None and cleaned_supersedes is not None:
+            authority = derive_run_authority_state(conn, run_id=cleaned_run_id)
+            projection_health = inspect_run_projection(conn, run_id=cleaned_run_id)
+            _require_healthy_run_projection(projection_health)
+            current_outcome_id = authority["run"]["outcome_id"]
+            if current_outcome_id is None and cleaned_supersedes is not None:
                 raise ValueError("supersedes_outcome_id is invalid because the run has no outcome")
-            if current_head is not None and cleaned_supersedes != str(current_head["outcome_id"]):
+            if current_outcome_id is not None and cleaned_supersedes != str(current_outcome_id):
                 raise ValueError("run already has an outcome; corrections must supersede the current head")
-            if current_head is None:
-                _require_terminal_work_items(conn, run_id=cleaned_run_id)
+            if current_outcome_id is None:
+                _require_terminal_work_items(authority["work_items"])
             if cleaned_regression_run is not None:
                 regression_row = conn.execute(
                     """
-                    SELECT 1
+                    SELECT outcome.*
                     FROM agent_runs target
                     JOIN run_outcomes outcome ON outcome.run_id = target.run_id
                     LEFT JOIN run_outcomes correction ON correction.supersedes_outcome_id = outcome.outcome_id
@@ -636,12 +676,14 @@ def complete_run_entry(
                       AND target.workspace_key = ?
                       AND target.run_id != ?
                       AND correction.outcome_id IS NULL
-                      AND outcome.outcome_type = 'verified_success'
                     """,
                     (cleaned_regression_run, cleaned_workspace, cleaned_run_id),
                 ).fetchone()
-                if regression_row is None:
-                    raise ValueError("regression_of_run_id does not exist")
+                if regression_row is None or not is_strong_verified_outcome(regression_row):
+                    raise ValueError(
+                        "regression_of_run_id must reference a distinct current strong verified outcome "
+                        "in the declared workspace"
+                    )
             outcome_id = _new_id("outcome_")
             created_at = store._utc_now()
             conn.execute(
@@ -705,16 +747,14 @@ def _begin_run_response(conn: sqlite3.Connection, run_id: str, *, idempotent_rep
         """,
         (run_id,),
     ).fetchone()
-    state = conn.execute(
-        "SELECT status, last_sequence FROM run_state_projection WHERE run_id = ?", (run_id,)
-    ).fetchone()
-    if root is None or state is None:
+    authority = derive_run_authority_state(conn, run_id=run_id)
+    if root is None:
         raise RuntimeError("run initialization is incomplete")
     return {
         "run_id": run_id,
         "root_work_item_id": str(root["work_item_id"]),
-        "status": str(state["status"]),
-        "initial_sequence": int(state["last_sequence"]),
+        "status": str(authority["run"]["status"]),
+        "initial_sequence": int(authority["run"]["last_sequence"]),
         "idempotent_replay": idempotent_replay,
     }
 
@@ -739,19 +779,23 @@ def _require_work_item(conn: sqlite3.Connection, *, run_id: str, work_item_id: s
     return row
 
 
-def _require_terminal_work_items(conn: sqlite3.Connection, *, run_id: str) -> None:
-    active_rows = conn.execute(
-        """
-        SELECT work_item_id, status
-        FROM run_work_item_state_projection
-        WHERE run_id = ? AND status NOT IN ('completed', 'failed', 'abandoned')
-        ORDER BY work_item_id
-        """,
-        (run_id,),
-    ).fetchall()
+def _require_terminal_work_items(work_items: Sequence[Mapping[str, Any]]) -> None:
+    active_rows = [row for row in work_items if str(row["status"]) not in TERMINAL_WORK_ITEM_STATUSES]
     if active_rows:
         states = ", ".join(f"{row['work_item_id']}={row['status']}" for row in active_rows)
         raise ValueError(f"first run outcome requires terminal work items; remaining: {states}")
+
+
+def _require_healthy_run_projection(projection_health: Mapping[str, Any]) -> None:
+    if bool(projection_health.get("ok")):
+        return
+    counts = projection_health.get("counts")
+    details = "unknown"
+    if isinstance(counts, Mapping):
+        nonzero = [f"{key}={value}" for key, value in counts.items() if int(value) > 0]
+        if nonzero:
+            details = ", ".join(nonzero)
+    raise RuntimeError(f"run projection health is degraded; write refused ({details})")
 
 
 def _require_matching_request(row: sqlite3.Row, request_digest: str, *, subject: str) -> None:
@@ -781,7 +825,7 @@ def _event_response(
     return response
 
 
-def _run_payload(run: sqlite3.Row, state: sqlite3.Row) -> dict[str, Any]:
+def _run_payload(run: sqlite3.Row, state: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "run_id": str(run["run_id"]),
         "workspace_key": str(run["workspace_key"]),
@@ -797,6 +841,8 @@ def _run_payload(run: sqlite3.Row, state: sqlite3.Row) -> dict[str, Any]:
         "budget": json.loads(str(run["budget_json"])),
         "created_at": str(run["created_at"]),
         "ended_at": state["ended_at"],
+        "terminal_at": state["terminal_at"],
+        "current_outcome_updated_at": state["current_outcome_updated_at"],
         "termination_reason": state["termination_reason"],
         "last_sequence": int(state["last_sequence"]),
         "unresolved_blocker_count": int(state["unresolved_blocker_count"]),
@@ -804,7 +850,7 @@ def _run_payload(run: sqlite3.Row, state: sqlite3.Row) -> dict[str, Any]:
     }
 
 
-def _work_item_payload(row: sqlite3.Row) -> dict[str, Any]:
+def _work_item_payload(row: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "work_item_id": str(row["work_item_id"]),
         "run_id": str(row["run_id"]),
@@ -1002,7 +1048,7 @@ def _artifact_payload(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def _outcome_payload(row: sqlite3.Row) -> dict[str, Any]:
-    return {
+    payload = {
         "outcome_id": str(row["outcome_id"]),
         "run_id": str(row["run_id"]),
         "outcome": str(row["outcome_type"]),
@@ -1016,6 +1062,9 @@ def _outcome_payload(row: sqlite3.Row) -> dict[str, Any]:
         "termination_reason": row["termination_reason"],
         "created_at": str(row["created_at"]),
     }
+    payload["authority_class"] = outcome_authority_class(row)
+    payload["strong_verified"] = is_strong_verified_outcome(row)
+    return payload
 
 
 def _normalize_memory_attribution(
@@ -1533,6 +1582,23 @@ def _optional_digest(name: str, value: str | None) -> str | None:
         return None
     if not HEX_DIGEST_RE.fullmatch(cleaned):
         raise ValueError(f"{name} must be a lowercase SHA-256 digest")
+    return cleaned
+
+
+def _optional_nonnegative_int(name: str, value: int | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
+    return value
+
+
+def _optional_work_item_status(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    if cleaned not in WORK_ITEM_STATUSES:
+        raise ValueError(f"unsupported expected work-item status: {cleaned or '<empty>'}")
     return cleaned
 
 

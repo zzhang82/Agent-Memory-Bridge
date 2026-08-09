@@ -182,9 +182,9 @@ V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V025_PATCH_PATTERN,
     V026_PATCH_PATTERN,
 )
-V027_EPISODE_RELEASE = "0.27.0"
+V027_EPISODE_RELEASE = "0.27.1"
 V027_EPISODE_FOUNDATION_PATTERNS = (V027_PATCH_PATTERN,)
-V027_SCHEMA_VERSION = 8
+V027_SCHEMA_VERSION = 9
 V027_PUBLIC_TOOL_ORDER = (
     "store",
     "recall",
@@ -204,7 +204,7 @@ V027_PUBLIC_TOOL_ORDER = (
     "extend_signal_lease",
     "ack_signal",
 )
-V027_PUBLIC_TOOL_SCHEMA_SHA256 = "6349ee0220a30ed910846766e927a8e057a9e3fbcdbaa4e3857a2ca740f93577"
+V027_PUBLIC_TOOL_SCHEMA_SHA256 = "a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a"
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 CURRENT_RELEASE_IDENTITY_PATTERNS = (
     re.compile(r"(?m)^Current source release:\s*`?v?(\d+\.\d+\.\d+)`?\s*$"),
@@ -451,11 +451,14 @@ def build_v027_episode_release_check(
             "receipt-shaped values",
             "fileBody",
         ),
-        "docs/v0.27.0-announcement.md": (
+        "docs/v0.27.1-announcement.md": (
             "durable episode authority",
             "downstream learning/consolidation effects are shadow-only",
             "receipt-shaped values",
             "fileBody",
+            "legacy_declared",
+            "terminal_at",
+            "snapshot_epoch",
         ),
         "docs/RUN-CONSOLIDATION.md": (
             "consolidate-runs --shadow",
@@ -467,8 +470,17 @@ def build_v027_episode_release_check(
             "test_invalid_receipt_attribution_is_atomic_and_memory_events_require_it",
         ),
         "tests/test_run_consolidation.py": (
-            "test_shadow_is_zero_write_and_deterministic_for_two_independent_supports",
+            "test_shadow_is_zero_write_and_legacy_declared_supports_stay_ineligible",
             "test_cli_requires_shadow_and_renders_json",
+        ),
+        "src/agent_mem_bridge/run_outcome_authority.py": (
+            "is_strong_verified_outcome",
+            "legacy_declared",
+            "governed-v2",
+        ),
+        "tests/test_v027_episode_schema.py": (
+            "test_v8_to_v9_backfills_terminal_times_without_mutating_episode_authority",
+            "test_injected_v9_failure_rolls_back_ddl_data_ledger_and_user_version",
         ),
         "tests/test_mcp_raw_wire.py": (
             "test_raw_wire_modern_and_legacy_contracts",
@@ -489,6 +501,11 @@ def build_v027_episode_release_check(
         ),
         "tests/test_run_ledger.py": (
             "test_receipt_shaped_values_are_rejected_before_durable_run_writes",
+            "test_work_item_fsm_rejections_are_atomic_and_terminal_items_cannot_reopen",
+            "test_two_processes_competing_on_the_same_terminal_cas_allow_exactly_one_writer",
+            "test_projection_drift_blocks_writes_but_get_run_returns_authority_snapshot",
+            "test_get_run_uses_one_snapshot_during_a_concurrent_append",
+            "test_legacy_declared_verified_success_is_readable_but_not_regression_authority",
             '"fileBody"',
             '"file/body"',
             '"data:text/plain;base64',

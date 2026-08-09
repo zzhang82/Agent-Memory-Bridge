@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import sqlite3
-from concurrent.futures import ThreadPoolExecutor
+import threading
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from multiprocessing import get_context
 from pathlib import Path
 
 import pytest
 
 from agent_mem_bridge import run_ledger
-from agent_mem_bridge.run_projection import inspect_run_projections, rebuild_run_projections
+from agent_mem_bridge.run_projection import (
+    inspect_run_projections,
+    rebuild_run_projections,
+    validate_work_item_transition,
+)
 from agent_mem_bridge.storage import MemoryStore
 
 
@@ -24,6 +30,30 @@ def _complete_root_work_item(store: MemoryStore, run: dict[str, object], key: st
         summary="The root work item completed.",
         idempotency_key=f"event:root-completed:{key}",
     )
+
+
+def _cas_terminal_process(
+    db_path: str,
+    log_dir: str,
+    run_id: str,
+    work_item_id: str,
+    suffix: str,
+) -> tuple[str, str]:
+    store = MemoryStore(Path(db_path), log_dir=Path(log_dir))
+    try:
+        result = store.record_run_event(
+            workspace_key="project:bridge",
+            run_id=run_id,
+            work_item_id=work_item_id,
+            event_type="work_item_completed",
+            summary=f"CAS terminal writer {suffix}.",
+            expected_last_sequence=0,
+            expected_work_item_status="active",
+            idempotency_key=f"event:cas-process:{suffix}",
+        )
+    except (RuntimeError, ValueError) as error:
+        return "conflict", str(error)
+    return "ok", str(result["sequence"])
 
 
 def test_run_lifecycle_is_server_minted_stateless_and_idempotent(tmp_path: Path) -> None:
@@ -92,6 +122,10 @@ def test_run_lifecycle_is_server_minted_stateless_and_idempotent(tmp_path: Path)
     assert restored["run"]["last_sequence"] == 1
     assert restored["run"]["memory_scopes"] == ["project", "task"]
     assert restored["events"][0]["event_id"] == event["event_id"]
+    assert restored["snapshot_epoch"] == store.database_epoch()
+    assert restored["snapshot_last_sequence"] == restored["latest_sequence"] == 1
+    assert restored["projection_health"]["ok"] is True
+    assert restored["degraded"] is False
 
 
 def test_work_item_creation_and_sequence_pagination_are_explicit(tmp_path: Path) -> None:
@@ -162,6 +196,367 @@ def test_work_item_creation_and_sequence_pagination_are_explicit(tmp_path: Path)
     assert child_state["status"] == "active"
 
 
+@pytest.mark.parametrize(
+    ("status", "event_type"),
+    [
+        ("pending", "blocker"),
+        ("pending", "work_item_completed"),
+        ("pending", "work_item_failed"),
+        ("blocked", "work_item_completed"),
+        ("completed", "work_item_started"),
+        ("failed", "work_item_completed"),
+        ("abandoned", "blocker"),
+    ],
+)
+def test_work_item_transition_matrix_rejects_illegal_edges(status: str, event_type: str) -> None:
+    with pytest.raises(ValueError):
+        validate_work_item_transition(status, event_type)
+
+
+def test_work_item_fsm_rejections_are_atomic_and_terminal_items_cannot_reopen(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    started = store.begin_run(
+        workspace_key="project:bridge",
+        goal="Enforce the work-item state machine.",
+        idempotency_key="begin:fsm",
+    )
+    blocked = store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=started["run_id"],
+        work_item_id=started["root_work_item_id"],
+        event_type="blocker",
+        summary="A blocking condition is active.",
+        idempotency_key="event:fsm:blocked",
+    )
+    assert blocked["sequence"] == 1
+
+    def snapshot() -> tuple[int, tuple[object, ...]]:
+        with store._connect() as conn:
+            count = int(conn.execute("SELECT COUNT(*) FROM run_events").fetchone()[0])
+            state = conn.execute(
+                """
+                SELECT status, last_sequence, ended_at, last_summary
+                FROM run_work_item_state_projection
+                WHERE work_item_id = ?
+                """,
+                (started["root_work_item_id"],),
+            ).fetchone()
+        assert state is not None
+        return count, tuple(state)
+
+    before_blocked_completion = snapshot()
+    with pytest.raises(ValueError, match="requires active status; actual status is blocked"):
+        store.record_run_event(
+            workspace_key="project:bridge",
+            run_id=started["run_id"],
+            work_item_id=started["root_work_item_id"],
+            event_type="work_item_completed",
+            summary="Blocked work cannot complete directly.",
+            idempotency_key="event:fsm:blocked-complete",
+        )
+    assert snapshot() == before_blocked_completion
+
+    resumed = store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=started["run_id"],
+        work_item_id=started["root_work_item_id"],
+        event_type="work_item_started",
+        summary="Resume the blocked v1 work item explicitly.",
+        idempotency_key="event:fsm:resumed",
+    )
+    assert resumed["sequence"] == 2
+    assert snapshot()[1][0] == "active"
+
+    failed = store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=started["run_id"],
+        work_item_id=started["root_work_item_id"],
+        event_type="work_item_failed",
+        summary="The resumed work item failed terminally.",
+        idempotency_key="event:fsm:failed",
+    )
+    assert failed["sequence"] == 3
+    before_reopen = snapshot()
+    with pytest.raises(ValueError, match="terminal work item cannot accept work_item_started"):
+        store.record_run_event(
+            workspace_key="project:bridge",
+            run_id=started["run_id"],
+            work_item_id=started["root_work_item_id"],
+            event_type="work_item_started",
+            summary="A terminal work item must not reopen.",
+            idempotency_key="event:fsm:reopen",
+        )
+    assert snapshot() == before_reopen
+
+
+@pytest.mark.parametrize(
+    ("parent_status", "parent_event"),
+    [
+        ("blocked", "blocker"),
+        ("completed", "work_item_completed"),
+        ("failed", "work_item_failed"),
+        ("abandoned", "work_item_abandoned"),
+    ],
+)
+def test_new_child_requires_an_active_parent_and_rejects_atomically(
+    tmp_path: Path,
+    parent_status: str,
+    parent_event: str,
+) -> None:
+    store = _store(tmp_path)
+    started = store.begin_run(
+        workspace_key="project:bridge",
+        goal="Keep work-item hierarchy lifecycle-consistent.",
+        idempotency_key=f"begin:parent-state:{parent_status}",
+    )
+    store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=started["run_id"],
+        work_item_id=started["root_work_item_id"],
+        event_type=parent_event,
+        summary=f"Move the parent to {parent_status}.",
+        idempotency_key=f"event:parent-state:{parent_status}",
+    )
+
+    def counts() -> tuple[int, int]:
+        with store._connect() as conn:
+            event_count = int(
+                conn.execute("SELECT COUNT(*) FROM run_events WHERE run_id = ?", (started["run_id"],)).fetchone()[0]
+            )
+            work_item_count = int(
+                conn.execute("SELECT COUNT(*) FROM run_work_items WHERE run_id = ?", (started["run_id"],)).fetchone()[0]
+            )
+        return event_count, work_item_count
+
+    before = counts()
+    with pytest.raises(ValueError, match=rf"new work item requires an active parent; actual status is {parent_status}"):
+        store.record_run_event(
+            workspace_key="project:bridge",
+            run_id=started["run_id"],
+            event_type="work_item_started",
+            summary="A non-active parent must not gain a new child.",
+            parent_work_item_id=started["root_work_item_id"],
+            work_item_goal="This child must not be created.",
+            idempotency_key=f"event:child-rejected:{parent_status}",
+        )
+    assert counts() == before
+    restored = store.get_run(workspace_key="project:bridge", run_id=started["run_id"])
+    assert len(restored["work_items"]) == 1
+    assert restored["work_items"][0]["status"] == parent_status
+
+
+def test_event_compare_and_swap_conflicts_report_actual_state_without_writes(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    started = store.begin_run(
+        workspace_key="project:bridge",
+        goal="Reject stale event writers atomically.",
+        idempotency_key="begin:cas",
+    )
+    first = store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=started["run_id"],
+        work_item_id=started["root_work_item_id"],
+        event_type="checkpoint",
+        summary="Establish sequence one.",
+        expected_last_sequence=0,
+        expected_work_item_status="active",
+        idempotency_key="event:cas:first",
+    )
+    assert first["sequence"] == 1
+
+    def snapshot() -> tuple[int, tuple[object, ...], tuple[object, ...]]:
+        with store._connect() as conn:
+            count = int(conn.execute("SELECT COUNT(*) FROM run_events").fetchone()[0])
+            run_state = conn.execute(
+                "SELECT status, last_sequence FROM run_state_projection WHERE run_id = ?",
+                (started["run_id"],),
+            ).fetchone()
+            item_state = conn.execute(
+                "SELECT status, last_sequence FROM run_work_item_state_projection WHERE work_item_id = ?",
+                (started["root_work_item_id"],),
+            ).fetchone()
+        assert run_state is not None and item_state is not None
+        return count, tuple(run_state), tuple(item_state)
+
+    before = snapshot()
+    with pytest.raises(ValueError, match=r"run sequence conflict: expected 0, actual 1"):
+        store.record_run_event(
+            workspace_key="project:bridge",
+            run_id=started["run_id"],
+            work_item_id=started["root_work_item_id"],
+            event_type="decision",
+            summary="This writer observed a stale sequence.",
+            expected_last_sequence=0,
+            expected_work_item_status="active",
+            idempotency_key="event:cas:stale-sequence",
+        )
+    assert snapshot() == before
+    with pytest.raises(ValueError, match=r"work-item status conflict: expected blocked, actual active"):
+        store.record_run_event(
+            workspace_key="project:bridge",
+            run_id=started["run_id"],
+            work_item_id=started["root_work_item_id"],
+            event_type="decision",
+            summary="This writer observed a stale status.",
+            expected_last_sequence=1,
+            expected_work_item_status="blocked",
+            idempotency_key="event:cas:stale-status",
+        )
+    assert snapshot() == before
+
+    accepted = store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=started["run_id"],
+        work_item_id=started["root_work_item_id"],
+        event_type="decision",
+        summary="The current preconditions match.",
+        expected_last_sequence=1,
+        expected_work_item_status="active",
+        idempotency_key="event:cas:accepted",
+    )
+    assert accepted["sequence"] == 2
+    replay = store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=started["run_id"],
+        work_item_id=started["root_work_item_id"],
+        event_type="decision",
+        summary="The current preconditions match.",
+        expected_last_sequence=1,
+        expected_work_item_status="active",
+        idempotency_key="event:cas:accepted",
+    )
+    assert replay == {**accepted, "idempotent_replay": True}
+
+
+def test_two_processes_competing_on_the_same_terminal_cas_allow_exactly_one_writer(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    started = store.begin_run(
+        workspace_key="project:bridge",
+        goal="Prove process-level terminal compare-and-swap.",
+        idempotency_key="begin:process-cas",
+    )
+    context = get_context("spawn")
+    with ProcessPoolExecutor(max_workers=2, mp_context=context) as executor:
+        futures = [
+            executor.submit(
+                _cas_terminal_process,
+                str(store.db_path),
+                str(store.log_dir),
+                str(started["run_id"]),
+                str(started["root_work_item_id"]),
+                suffix,
+            )
+            for suffix in ("one", "two")
+        ]
+        results = [future.result(timeout=30) for future in futures]
+
+    assert [status for status, _ in results].count("ok") == 1
+    assert [status for status, _ in results].count("conflict") == 1
+    conflict = next(message for status, message in results if status == "conflict")
+    assert "run sequence conflict: expected 0, actual 1" in conflict
+    restored = store.get_run(workspace_key="project:bridge", run_id=started["run_id"])
+    assert restored["latest_sequence"] == 1
+    assert restored["work_items"][0]["status"] == "completed"
+
+
+def test_projection_drift_blocks_writes_but_get_run_returns_authority_snapshot(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    started = store.begin_run(
+        workspace_key="project:bridge",
+        goal="Recover from a degraded derived projection.",
+        idempotency_key="begin:projection-drift",
+    )
+    with store._connect() as conn:
+        conn.execute(
+            "UPDATE run_state_projection SET last_sequence = 99 WHERE run_id = ?",
+            (started["run_id"],),
+        )
+
+    degraded = store.get_run(workspace_key="project:bridge", run_id=started["run_id"])
+    assert degraded["degraded"] is True
+    assert degraded["run"]["status"] == "active"
+    assert degraded["run"]["last_sequence"] == 0
+    assert degraded["snapshot_last_sequence"] == degraded["latest_sequence"] == 0
+    assert degraded["projection_health"]["counts"]["stale_run_state_projection_count"] == 1
+    with store._connect() as conn:
+        before = int(conn.execute("SELECT COUNT(*) FROM run_events").fetchone()[0])
+    with pytest.raises(RuntimeError, match="run projection health is degraded; write refused"):
+        store.record_run_event(
+            workspace_key="project:bridge",
+            run_id=started["run_id"],
+            work_item_id=started["root_work_item_id"],
+            event_type="checkpoint",
+            summary="A degraded projection must fail closed.",
+            idempotency_key="event:projection-drift:rejected",
+        )
+    with store._connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM run_events").fetchone()[0] == before
+        rebuild_run_projections(conn)
+
+    repaired = store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=started["run_id"],
+        work_item_id=started["root_work_item_id"],
+        event_type="checkpoint",
+        summary="The repaired projection accepts a new append.",
+        idempotency_key="event:projection-drift:repaired",
+    )
+    assert repaired["sequence"] == 1
+
+
+def test_get_run_uses_one_snapshot_during_a_concurrent_append(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _store(tmp_path)
+    started = store.begin_run(
+        workspace_key="project:bridge",
+        goal="Read one coherent recovery snapshot.",
+        idempotency_key="begin:snapshot",
+    )
+    reader_ready = threading.Event()
+    release_reader = threading.Event()
+    original_derive = run_ledger.derive_run_authority_state
+
+    def paused_derive(conn: sqlite3.Connection, *, run_id: str) -> dict[str, object]:
+        authority = original_derive(conn, run_id=run_id)
+        if threading.current_thread().name.startswith("snapshot-reader"):
+            reader_ready.set()
+            if not release_reader.wait(timeout=10):
+                raise TimeoutError("snapshot reader was not released")
+        return authority
+
+    monkeypatch.setattr(run_ledger, "derive_run_authority_state", paused_derive)
+    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="snapshot-reader") as executor:
+        future = executor.submit(
+            store.get_run,
+            workspace_key="project:bridge",
+            run_id=started["run_id"],
+        )
+        assert reader_ready.wait(timeout=10)
+        try:
+            appended = store.record_run_event(
+                workspace_key="project:bridge",
+                run_id=started["run_id"],
+                work_item_id=started["root_work_item_id"],
+                event_type="checkpoint",
+                summary="Commit while the reader holds its snapshot.",
+                idempotency_key="event:snapshot:concurrent",
+            )
+            assert appended["sequence"] == 1
+        finally:
+            release_reader.set()
+        snapshot = future.result(timeout=10)
+
+    assert snapshot["snapshot_last_sequence"] == snapshot["latest_sequence"] == 0
+    assert snapshot["run"]["last_sequence"] == 0
+    assert snapshot["events"] == []
+    assert snapshot["projection_health"]["ok"] is True
+    fresh = store.get_run(workspace_key="project:bridge", run_id=started["run_id"])
+    assert fresh["snapshot_last_sequence"] == fresh["latest_sequence"] == 1
+    assert [event["sequence"] for event in fresh["events"]] == [1]
+
+
 def test_completion_evidence_corrections_and_workspace_isolation(tmp_path: Path) -> None:
     store = _store(tmp_path)
     started = store.begin_run(
@@ -218,7 +613,37 @@ def test_completion_evidence_corrections_and_workspace_isolation(tmp_path: Path)
         store.get_run(workspace_key="project:other", run_id=started["run_id"])
 
 
-def test_regression_target_must_be_distinct_current_verified_success_in_workspace(tmp_path: Path) -> None:
+def test_regression_target_is_rejected_for_non_regression_outcomes_atomically(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    source = store.begin_run(
+        workspace_key="project:bridge",
+        goal="Reject an inverse-inconsistent regression target.",
+        idempotency_key="begin:non-regression-target:source",
+    )
+    target = store.begin_run(
+        workspace_key="project:bridge",
+        goal="Provide a distinct target handle.",
+        idempotency_key="begin:non-regression-target:target",
+    )
+    _complete_root_work_item(store, source, "non-regression-target")
+    with store._connect() as conn:
+        before = int(conn.execute("SELECT COUNT(*) FROM run_outcomes").fetchone()[0])
+
+    with pytest.raises(ValueError, match="regression_of_run_id is only valid for a regression outcome"):
+        store.complete_run(
+            workspace_key="project:bridge",
+            run_id=source["run_id"],
+            outcome="unverified",
+            evaluator_type="agent",
+            regression_of_run_id=target["run_id"],
+            idempotency_key="outcome:non-regression-target",
+        )
+
+    with store._connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM run_outcomes").fetchone()[0] == before
+
+
+def test_legacy_declared_verified_success_is_readable_but_not_regression_authority(tmp_path: Path) -> None:
     store = _store(tmp_path)
 
     def begin(workspace_key: str, label: str) -> dict[str, object]:
@@ -276,7 +701,7 @@ def test_regression_target_must_be_distinct_current_verified_success_in_workspac
         if source_run is None:
             _complete_root_work_item(store, source, f"rejected-{label}")
         before = state_snapshot(source_run_id)
-        with pytest.raises(ValueError, match="regression_of_run_id does not exist"):
+        with pytest.raises(ValueError, match="current strong verified outcome"):
             store.complete_run(
                 workspace_key="project:bridge",
                 run_id=source_run_id,
@@ -290,17 +715,21 @@ def test_regression_target_must_be_distinct_current_verified_success_in_workspac
 
     verified_target = begin("project:bridge", "verified-target")
     verified_outcome = complete_verified(verified_target, "verified-target")
+    assert verified_outcome["authority_class"] == "legacy_declared"
+    assert verified_outcome["strong_verified"] is False
+    verified_readback = store.get_run(
+        workspace_key="project:bridge",
+        run_id=str(verified_target["run_id"]),
+    )
+    assert verified_readback["outcome"]["authority_class"] == "legacy_declared"
+    assert verified_readback["outcome"]["strong_verified"] is False
     regressing_run = begin("project:bridge", "same-workspace")
     _complete_root_work_item(store, regressing_run, "same-workspace")
-    same_workspace = store.complete_run(
-        workspace_key="project:bridge",
-        run_id=str(regressing_run["run_id"]),
-        outcome="regression",
-        evaluator_type="agent",
-        regression_of_run_id=str(verified_target["run_id"]),
-        idempotency_key="outcome:same-workspace-regression",
+    assert_rejected(
+        str(verified_target["run_id"]),
+        "same-workspace-declared",
+        source_run=regressing_run,
     )
-    assert same_workspace["regression_of_run_id"] == verified_target["run_id"]
 
     assert_rejected(
         str(verified_target["run_id"]),
@@ -855,12 +1284,19 @@ def test_first_outcome_requires_terminal_root_and_children_and_rebuilds_consiste
     )
     restored = store.get_run(workspace_key="project:bridge", run_id=started["run_id"])
     assert restored["outcome"]["outcome_id"] == correction["outcome_id"]
+    assert restored["run"]["terminal_at"] == initial["created_at"]
+    assert restored["run"]["ended_at"] == initial["created_at"]
+    assert restored["run"]["current_outcome_updated_at"] == correction["created_at"]
     statuses = {item["work_item_id"]: item["status"] for item in restored["work_items"]}
     assert statuses == {started["root_work_item_id"]: "completed", child["work_item_id"]: "failed"}
     with store._connect() as conn:
         assert inspect_run_projections(conn)["ok"] is True
         rebuild_run_projections(conn)
         assert inspect_run_projections(conn)["ok"] is True
+    rebuilt = store.get_run(workspace_key="project:bridge", run_id=started["run_id"])
+    assert rebuilt["run"]["terminal_at"] == initial["created_at"]
+    assert rebuilt["run"]["ended_at"] == initial["created_at"]
+    assert rebuilt["run"]["current_outcome_updated_at"] == correction["created_at"]
 
 
 def test_twenty_concurrent_writers_append_one_thousand_monotonic_events(tmp_path: Path) -> None:

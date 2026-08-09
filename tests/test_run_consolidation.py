@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -13,7 +14,9 @@ from agent_mem_bridge.run_consolidation import (
     _parse_evidence_payload,
     build_run_consolidation_report,
     render_run_consolidation_markdown,
+    stage_run_consolidation_report,
 )
+from agent_mem_bridge.run_projection import apply_run_outcome_projection
 from agent_mem_bridge.storage import MemoryStore
 
 
@@ -111,16 +114,75 @@ def _run_with_outcome_only(
         summary="Complete the root work item before recording the outcome.",
         idempotency_key=f"event:outcome-only:{suffix}:completed",
     )
-    completed = store.complete_run(
-        workspace_key="project:bridge",
-        run_id=str(begun["run_id"]),
-        outcome=outcome,
-        evaluator_type=evaluator_type,
-        evidence=outcome_evidence if outcome_evidence is not None else [f"test:outcome-only:{suffix}"],
-        regression_of_run_id=regression_of_run_id,
-        idempotency_key=f"outcome:outcome-only:{suffix}",
-    )
+    evidence = outcome_evidence if outcome_evidence is not None else [f"test:outcome-only:{suffix}"]
+    if outcome == "regression":
+        # Schema-v8/v1 regression rows remain readable contradiction evidence, but
+        # 0.27.1 no longer allows callers to create them against declared success.
+        completed = _insert_legacy_regression_outcome(
+            store,
+            run_id=str(begun["run_id"]),
+            target_run_id=str(regression_of_run_id),
+            suffix=suffix,
+            evidence=evidence,
+        )
+    else:
+        completed = store.complete_run(
+            workspace_key="project:bridge",
+            run_id=str(begun["run_id"]),
+            outcome=outcome,
+            evaluator_type=evaluator_type,
+            evidence=evidence,
+            regression_of_run_id=regression_of_run_id,
+            idempotency_key=f"outcome:outcome-only:{suffix}",
+        )
     return {**begun, **{f"outcome_{key}": value for key, value in completed.items()}}
+
+
+def _insert_legacy_regression_outcome(
+    store: MemoryStore,
+    *,
+    run_id: str,
+    target_run_id: str,
+    suffix: str,
+    evidence: list[object],
+) -> dict[str, object]:
+    outcome_id = f"outcome_{hashlib.sha256(f'outcome:{suffix}'.encode()).hexdigest()[:32]}"
+    idempotency_digest = hashlib.sha256(f"idempotency:{suffix}".encode()).hexdigest()
+    request_digest = hashlib.sha256(f"request:{suffix}".encode()).hexdigest()
+    created_at = store._utc_now()
+    with store._connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO run_outcomes (
+                outcome_id, run_id, outcome_type, evaluator_type, evidence_json,
+                metrics_json, regression_of_run_id, idempotency_key_digest,
+                request_digest, created_at
+            ) VALUES (?, ?, 'regression', 'agent', ?, '{}', ?, ?, ?, ?)
+            """,
+            (
+                outcome_id,
+                run_id,
+                json.dumps(evidence),
+                target_run_id,
+                idempotency_digest,
+                request_digest,
+                created_at,
+            ),
+        )
+        apply_run_outcome_projection(
+            conn,
+            run_id=run_id,
+            outcome_id=outcome_id,
+            outcome_type="regression",
+            termination_reason=None,
+            created_at=created_at,
+        )
+    return {
+        "outcome_id": outcome_id,
+        "run_id": run_id,
+        "outcome": "regression",
+        "regression_of_run_id": target_run_id,
+    }
 
 
 def _counts(store: MemoryStore) -> dict[str, int]:
@@ -137,7 +199,7 @@ def _database_dump(path: Path) -> tuple[str, ...]:
         connection.close()
 
 
-def test_shadow_is_zero_write_and_deterministic_for_two_independent_supports(tmp_path: Path) -> None:
+def test_shadow_is_zero_write_and_legacy_declared_supports_stay_ineligible(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _run_with_decision(store, "one")
     _run_with_decision(store, "two")
@@ -149,12 +211,15 @@ def test_shadow_is_zero_write_and_deterministic_for_two_independent_supports(tmp
     assert _counts(store) == before
     assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
     assert first["schema"] == "amb.run-consolidation-shadow.v1"
-    assert first["eligible_candidate_count"] == 1
+    assert first["eligible_candidate_count"] == 0
     candidate = first["candidates"][0]
-    assert candidate["eligible"] is True
-    assert candidate["confidence_label"] == "corroborated"
-    assert candidate["independence_count"] == 2
-    assert candidate["supporting_episode_ids"] == sorted(candidate["supporting_episode_ids"])
+    assert candidate["eligible"] is False
+    assert candidate["confidence_label"] == "provisional"
+    assert candidate["independence_count"] == 0
+    assert candidate["supporting_episode_ids"] == []
+    assert len(candidate["neutral_episode_ids"]) == 2
+    assert {episode["outcome_authority_class"] for episode in candidate["episodes"]} == {"legacy_declared"}
+    assert not any(episode["strong_verified"] for episode in candidate["episodes"])
     assert "generated_at" not in candidate
     assert "Run the deterministic proof" in render_run_consolidation_markdown(first)
 
@@ -167,7 +232,7 @@ def test_dependent_runs_do_not_qualify_on_shared_thread_session_or_evidence(tmp_
 
     candidate = report["candidates"][0]
     assert candidate["eligible"] is False
-    assert candidate["independence_count"] == 1
+    assert candidate["independence_count"] == 0
 
 
 def test_payload_privacy_unknown_fields_and_watcher_closeout_are_excluded(tmp_path: Path) -> None:
@@ -210,7 +275,7 @@ def test_procedure_uses_parser_and_never_marks_candidate_validated(tmp_path: Pat
     assert procedure["governance"]["missing_minimum_fields"] == []
 
 
-def test_verifier_to_human_outcome_chain_is_reviewed_and_eligible(tmp_path: Path) -> None:
+def test_legacy_verifier_to_human_chain_remains_declared_and_ineligible(tmp_path: Path) -> None:
     store = _store(tmp_path)
     begun = store.begin_run(
         workspace_key="project:bridge",
@@ -255,18 +320,27 @@ def test_verifier_to_human_outcome_chain_is_reviewed_and_eligible(tmp_path: Path
     )
 
     candidate = build_run_consolidation_report(store, workspace_key="project:bridge")["candidates"][0]
-    assert candidate["eligible"] is True
-    assert candidate["eligibility_reason"] == "verifier_to_human_outcome_chain"
-    assert candidate["confidence_label"] == "reviewed"
+    assert candidate["eligible"] is False
+    assert candidate["eligibility_reason"] == "insufficient_independent_support"
+    assert candidate["confidence_label"] == "provisional"
+    assert candidate["episodes"][0]["outcome_authority_class"] == "legacy_declared"
+    assert candidate["episodes"][0]["strong_verified"] is False
 
 
-def test_stage_only_uses_hidden_review_lane_and_retries_dedupe(tmp_path: Path) -> None:
+def test_legacy_declared_candidates_do_not_stage_and_explicit_stage_stays_hidden(tmp_path: Path) -> None:
     store = _store(tmp_path)
     _run_with_decision(store, "one")
     _run_with_decision(store, "two")
 
-    staged = build_run_consolidation_report(store, workspace_key="project:bridge", stage=True)
-    retried = build_run_consolidation_report(store, workspace_key="project:bridge", stage=True)
+    declared = build_run_consolidation_report(store, workspace_key="project:bridge", stage=True)
+    assert declared["write_counts"] == {"stored": 0, "duplicate": 0, "error": 0}
+
+    staged_report = build_run_consolidation_report(store, workspace_key="project:bridge")
+    staged_report["candidates"][0]["eligible"] = True
+    staged = stage_run_consolidation_report(store, staged_report)
+    retried_report = build_run_consolidation_report(store, workspace_key="project:bridge")
+    retried_report["candidates"][0]["eligible"] = True
+    retried = stage_run_consolidation_report(store, retried_report)
 
     assert staged["write_counts"] == {"stored": 1, "duplicate": 0, "error": 0}
     assert retried["write_counts"] == {"stored": 0, "duplicate": 1, "error": 0}
@@ -295,9 +369,7 @@ def test_structured_outcome_evidence_is_hashed_not_reported_or_staged_raw(tmp_pa
         for ref in report["candidates"][0]["episodes"][0]["outcome_evidence_refs"]
     )
     with store._connect() as conn:
-        content = str(conn.execute("SELECT content FROM memories").fetchone()[0])
-    assert "private" not in content
-    assert "not-for-report" not in content
+        assert conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0] == 0
 
 
 @pytest.mark.parametrize(
@@ -333,7 +405,7 @@ def test_empty_failure_evidence_is_neutral_not_a_contradiction(tmp_path: Path) -
 
     candidate = build_run_consolidation_report(store, workspace_key="project:bridge")["candidates"][0]
     assert candidate["contradicting_episode_ids"] == []
-    assert candidate["confidence_label"] == "corroborated"
+    assert candidate["confidence_label"] == "provisional"
 
 
 def test_evidence_backed_contradiction_blocks_eligibility_and_staging(tmp_path: Path) -> None:
@@ -431,8 +503,9 @@ def test_superseded_inbound_regression_does_not_block_current_support(tmp_path: 
     report = build_run_consolidation_report(store, workspace_key="project:bridge", limit=3)
     candidate = report["candidates"][0]
 
-    assert candidate["eligible"] is True
+    assert candidate["eligible"] is False
     assert candidate["contradicting_episode_ids"] == []
+    assert candidate["eligibility_reason"] == "insufficient_independent_support"
 
 
 def test_incomplete_bounded_scan_is_ineligible_and_stages_nothing(tmp_path: Path) -> None:
@@ -498,8 +571,8 @@ def test_candidate_key_changes_with_episode_set_and_pair_search_is_not_greedy(tm
     _run_with_decision(store, "three", thread_id="thread:three", session_id="session:one")
     first = build_run_consolidation_report(store, workspace_key="project:bridge")["candidates"][0]
 
-    assert first["eligible"] is True
-    assert first["independence_count"] >= 2
+    assert first["eligible"] is False
+    assert first["independence_count"] == 0
     _run_with_decision(store, "four")
     second = build_run_consolidation_report(store, workspace_key="project:bridge")["candidates"][0]
     assert first["candidate_key"] != second["candidate_key"]
@@ -514,7 +587,7 @@ def test_cli_requires_shadow_and_renders_json(monkeypatch, tmp_path: Path, capsy
     assert main(["consolidate-runs", "--workspace-key", "project:bridge"]) == 2
     assert "requires --shadow" in capsys.readouterr().err
     assert main(["consolidate-runs", "--shadow", "--workspace-key", "project:bridge", "--format", "json"]) == 0
-    assert json.loads(capsys.readouterr().out)["eligible_candidate_count"] == 1
+    assert json.loads(capsys.readouterr().out)["eligible_candidate_count"] == 0
 
 
 def test_cli_shadow_uses_existing_read_only_database_and_changes_nothing(monkeypatch, tmp_path: Path, capsys) -> None:
@@ -532,4 +605,4 @@ def test_cli_shadow_uses_existing_read_only_database_and_changes_nothing(monkeyp
 
     assert _database_dump(store.db_path) == before
     assert sorted(path.name for path in store.log_dir.iterdir()) == log_files_before
-    assert json.loads(capsys.readouterr().out)["eligible_candidate_count"] == 1
+    assert json.loads(capsys.readouterr().out)["eligible_candidate_count"] == 0

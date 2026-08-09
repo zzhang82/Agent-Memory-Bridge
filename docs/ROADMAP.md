@@ -2,14 +2,15 @@
 
 Last updated: 2026-08-08 (America/New_York)
 
-This maintainer note tracks the release ladder through the `0.27.0`
-release-facing source surface, including Task Brief reports, the limited
+This maintainer note tracks the release ladder through the `0.27.1`
+release-facing source surface and the planned `0.27.2`, `0.27.3`, `0.28.0`,
+and `0.29.0` follow-ons, including Task Brief reports, the limited
 first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed
 20-case v0.21 governed-change proof, the v0.22 cross-client activation receipt,
 the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary
 correctness patch, the v0.25 Trustworthy Adaptive Retrieval and Evidence
 Integrity releases, and independently exercised MCP 2026-07-28 stdio
-interoperability. This document does not assert a `0.27.0` tag, remote
+interoperability. This document does not assert a `0.27.1` tag, remote
 publication, or release-commit CI result.
 
 ## Shipped Ladder
@@ -733,6 +734,73 @@ archive, automatic ordinary-memory writeback, retrieval reranking, prompt or
 policy modification, online training, hosted execution, or productivity claim.
 The AMH event-trigger reference proof is deterministic synthetic evidence only,
 not runtime outcome evidence.
+
+## 0.27.1 = Episode Authority & Recovery Integrity
+
+Status: current local release candidate; no tag, remote publication, or release-
+commit CI result is asserted here.
+
+The implemented patch keeps the 17-tool episode ledger and makes recovery state
+explicit. Schema v9 adds `terminal_at` and `current_outcome_updated_at` through
+an authority-preserving v8-to-v9 migration. Work-item transitions use an
+explicit FSM and reject terminal reopen. `record_run_event` accepts optional
+`expected_last_sequence` and `expected_work_item_status` compare-and-swap
+preconditions. `get_run` uses one read transaction, derives authority state,
+and returns `snapshot_epoch`, `snapshot_last_sequence`, `projection_health`, and
+`degraded`; mutating writes fail closed while a run projection is drifted.
+Outcome correction preserves the original terminal time.
+
+v1 `verified_success` remains readable as `legacy_declared`, but it is not
+strong verification and cannot authorize regression targets, consolidation
+support, or utility supporting-run credit. Governed-v2 receipts are deferred to
+0.27.2. Utility and consolidation remain shadow-only. The 17-tool schema digest
+is `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`.
+
+## 0.27.2 = Governed-v2 & Watcher Continuity
+
+Status: planned follow-on; not part of the 0.27.1 release candidate.
+
+This release is reserved for server-governed-v2 verification receipts and the
+continuity rules needed when watcher or reconnect state crosses episode
+boundaries. It must define how receipts are minted, retained, and checked
+without treating caller-declared labels as authenticated identity. It must also
+keep watcher continuity separate from durable episode authority and preserve
+fail-closed behavior on incomplete or contradictory evidence.
+
+No 0.27.2 behavior is implied by the current v1-readable `legacy_declared`
+outcome path.
+
+## 0.27.3 = Credit, Consolidation & Authority Closure
+
+Status: planned follow-on; depends on governed-v2 evidence from 0.27.2.
+
+This release is reserved for any future utility credit, consolidation support,
+and authority-closure rules. It must keep derived utility and lesson candidates
+reviewable, prevent shadow projections from becoming durable authority, and
+preserve contradiction and regression boundaries. It must not turn
+`consolidate-runs` into automatic durable writeback or change recall ranking
+without a separately measured and governed contract.
+
+## 0.28.0 = Evaluated Episodes
+
+Status: planned major feature release after authority closure.
+
+This release is reserved for evaluated episode workflows: explicit evaluator
+inputs, bounded comparison of episode evidence, and reader-facing reports that
+separate observation from strong verification. It must retain the 17-tool
+surface unless a reviewed contract change proves a new tool necessary, and it
+must not claim verified learning, productivity uplift, or host certification
+from synthetic or local-only evidence.
+
+## 0.29.0 = Comparative Learning
+
+Status: planned research-facing release after evaluated episodes.
+
+This release is reserved for comparative learning analyses grounded in
+reviewable episode evidence. Any score, comparison, or lesson must remain
+derived until a human-governed promotion path accepts it. It must distinguish
+comparative evidence from authenticated identity, online training, automatic
+reranking, or a general productivity claim.
 
 ## 0.25.2 = Evidence Integrity
 

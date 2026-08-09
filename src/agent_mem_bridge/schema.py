@@ -10,7 +10,7 @@ from .embedding_index import ensure_embedding_schema
 from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CURRENT_SCHEMA_VERSION = 8
+CURRENT_SCHEMA_VERSION = 9
 LEGACY_V5_RETRIEVAL_FEEDBACK_COLUMNS = (
     "feedback_id",
     "idempotency_key",
@@ -145,6 +145,10 @@ def _migrate_to_v8(conn: sqlite3.Connection) -> None:
     _ensure_episode_schema(conn)
 
 
+def _migrate_to_v9(conn: sqlite3.Connection) -> None:
+    _ensure_episode_recovery_integrity_schema(conn)
+
+
 MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     SchemaMigration(
         1,
@@ -194,6 +198,12 @@ MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], No
         "398d0a43a418375fa46e54ad645825515c1151470315a6cd94432269b2e5f386",
         _migrate_to_v8,
     ),
+    SchemaMigration(
+        9,
+        "v9_episode_recovery_integrity",
+        "c4cf1d0179cc5ee0243fc4bb88b8eaf0148f5f1c3c94d4055cef0e98331d04d1",
+        _migrate_to_v9,
+    ),
 )
 
 
@@ -206,6 +216,7 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
     _ensure_retrieval_feedback_effective_vote_schema(conn)
     _ensure_retrieval_feedback_identity_schema(conn)
     _ensure_episode_schema(conn)
+    _ensure_episode_recovery_integrity_schema(conn)
     backfill_record_projections(conn, only_missing=True)
 
 
@@ -1844,6 +1855,65 @@ def _ensure_episode_projection_tables(conn: sqlite3.Connection) -> None:
             computed_at TEXT NOT NULL CHECK (julianday(computed_at) IS NOT NULL),
             PRIMARY KEY (memory_id, exact_content_version)
         ) WITHOUT ROWID
+        """
+    )
+
+
+def _ensure_episode_recovery_integrity_schema(conn: sqlite3.Connection) -> None:
+    ensure_column(
+        conn,
+        "run_state_projection",
+        "terminal_at",
+        """
+        ALTER TABLE run_state_projection
+        ADD COLUMN terminal_at TEXT
+            CHECK (terminal_at IS NULL OR julianday(terminal_at) IS NOT NULL)
+        """,
+    )
+    ensure_column(
+        conn,
+        "run_state_projection",
+        "current_outcome_updated_at",
+        """
+        ALTER TABLE run_state_projection
+        ADD COLUMN current_outcome_updated_at TEXT
+            CHECK (
+                current_outcome_updated_at IS NULL
+                OR julianday(current_outcome_updated_at) IS NOT NULL
+            )
+        """,
+    )
+    conn.execute(
+        """
+        UPDATE run_state_projection AS projection
+        SET terminal_at = (
+                SELECT root_outcome.created_at
+                FROM run_outcomes AS root_outcome
+                WHERE root_outcome.run_id = projection.run_id
+                  AND root_outcome.supersedes_outcome_id IS NULL
+                ORDER BY root_outcome.created_at, root_outcome.outcome_id
+                LIMIT 1
+            ),
+            ended_at = (
+                SELECT root_outcome.created_at
+                FROM run_outcomes AS root_outcome
+                WHERE root_outcome.run_id = projection.run_id
+                  AND root_outcome.supersedes_outcome_id IS NULL
+                ORDER BY root_outcome.created_at, root_outcome.outcome_id
+                LIMIT 1
+            ),
+            current_outcome_updated_at = (
+                SELECT head_outcome.created_at
+                FROM run_outcomes AS head_outcome
+                WHERE head_outcome.run_id = projection.run_id
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM run_outcomes AS child_outcome
+                      WHERE child_outcome.supersedes_outcome_id = head_outcome.outcome_id
+                  )
+                ORDER BY head_outcome.created_at DESC, head_outcome.outcome_id DESC
+                LIMIT 1
+            )
         """
     )
 

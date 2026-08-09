@@ -18,13 +18,20 @@ SECOND_RUN_ID = "run_" + ("2" * 32)
 WORK_ITEM_ID = "work_" + ("3" * 32)
 SECOND_WORK_ITEM_ID = "work_" + ("4" * 32)
 EVENT_ID = "evt_" + ("5" * 32)
+SECOND_EVENT_ID = "evt_" + ("a" * 32)
 OUTCOME_ID = "outcome_" + ("6" * 32)
+SECOND_OUTCOME_ID = "outcome_" + ("9" * 32)
 ARTIFACT_ID = "artifact_" + ("7" * 32)
 LINK_ID = "link_" + ("8" * 32)
 CREATED_AT = "2026-07-30T12:00:00+00:00"
+ROOT_OUTCOME_AT = CREATED_AT
+CURRENT_OUTCOME_AT = "2026-07-30T12:10:00+00:00"
+LEGACY_ENDED_AT = "2026-07-30T12:07:00+00:00"
 DIGEST_A = "a" * 64
 DIGEST_B = "b" * 64
 DIGEST_C = "c" * 64
+DIGEST_D = "d" * 64
+DIGEST_E = "e" * 64
 
 EPISODE_TABLES = {
     "agent_runs",
@@ -37,6 +44,15 @@ EPISODE_TABLES = {
     "run_work_item_state_projection",
     "memory_utility_shadow",
 }
+
+EPISODE_AUTHORITY_TABLES = (
+    "agent_runs",
+    "run_work_items",
+    "run_events",
+    "run_artifacts",
+    "run_outcomes",
+    "run_memory_links",
+)
 
 
 def _connect() -> sqlite3.Connection:
@@ -56,6 +72,17 @@ def _apply_schema_version(conn: sqlite3.Connection, target_version: int) -> None
 
 def _table_names(conn: sqlite3.Connection) -> set[str]:
     return {str(row["name"]) for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()}
+
+
+def _table_column_names(conn: sqlite3.Connection, table: str) -> tuple[str, ...]:
+    return tuple(str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table})").fetchall())
+
+
+def _episode_authority_rows(conn: sqlite3.Connection) -> dict[str, list[tuple[object, ...]]]:
+    return {
+        table: [tuple(row) for row in conn.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()]
+        for table in EPISODE_AUTHORITY_TABLES
+    }
 
 
 def _insert_legacy_v7_evidence(conn: sqlite3.Connection) -> None:
@@ -173,7 +200,100 @@ def _insert_episode_authority(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def test_v7_to_v8_migration_preserves_existing_memory_and_feedback_authority() -> None:
+def _insert_outcome_correction(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        INSERT INTO run_outcomes (
+            outcome_id, run_id, outcome_type, evaluator_type, evidence_json,
+            metrics_json, supersedes_outcome_id, idempotency_key_digest,
+            request_digest, created_at
+        ) VALUES (?, ?, 'partial_success', 'agent', '[]', '{}', ?, ?, ?, ?)
+        """,
+        (SECOND_OUTCOME_ID, RUN_ID, OUTCOME_ID, DIGEST_D, DIGEST_E, CURRENT_OUTCOME_AT),
+    )
+    conn.commit()
+
+
+def _insert_v8_run_state_projection(conn: sqlite3.Connection, *, outcome_id: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO run_state_projection (
+            run_id, status, last_sequence, unresolved_blocker_count,
+            active_work_item_count, outcome_id, ended_at, termination_reason,
+            projection_version, rebuilt_at
+        ) VALUES (?, 'completed', 1, 0, 0, ?, ?, NULL, 1, ?)
+        """,
+        (RUN_ID, outcome_id, LEGACY_ENDED_AT, CREATED_AT),
+    )
+    conn.commit()
+
+
+def _insert_v8_blocked_resume_history(conn: sqlite3.Connection) -> None:
+    blocked_at = "2026-07-30T12:01:00+00:00"
+    resumed_at = "2026-07-30T12:02:00+00:00"
+    _insert_run_and_root_work_item(conn)
+    conn.executemany(
+        """
+        INSERT INTO run_events (
+            event_id, run_id, work_item_id, sequence, event_type, summary,
+            payload_json, evidence_json, idempotency_key_digest,
+            request_digest, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, '{}', '[]', ?, ?, ?)
+        """,
+        (
+            (
+                EVENT_ID,
+                RUN_ID,
+                WORK_ITEM_ID,
+                1,
+                "blocker",
+                "A v8 blocker paused the work item.",
+                DIGEST_A,
+                DIGEST_B,
+                blocked_at,
+            ),
+            (
+                SECOND_EVENT_ID,
+                RUN_ID,
+                WORK_ITEM_ID,
+                2,
+                "work_item_started",
+                "A second v8 start event resumed the work item.",
+                DIGEST_D,
+                DIGEST_E,
+                resumed_at,
+            ),
+        ),
+    )
+    conn.execute(
+        """
+        INSERT INTO run_state_projection (
+            run_id, status, last_sequence, unresolved_blocker_count,
+            active_work_item_count, outcome_id, ended_at, termination_reason,
+            projection_version, rebuilt_at
+        ) VALUES (?, 'active', 2, 0, 1, NULL, NULL, NULL, 1, ?)
+        """,
+        (RUN_ID, resumed_at),
+    )
+    conn.execute(
+        """
+        INSERT INTO run_work_item_state_projection (
+            work_item_id, run_id, status, last_sequence, started_at, ended_at,
+            last_summary, projection_version, rebuilt_at
+        ) VALUES (?, ?, 'active', 2, ?, NULL, ?, 1, ?)
+        """,
+        (
+            WORK_ITEM_ID,
+            RUN_ID,
+            CREATED_AT,
+            "A second v8 start event resumed the work item.",
+            resumed_at,
+        ),
+    )
+    conn.commit()
+
+
+def test_v7_to_v9_migration_preserves_existing_memory_and_feedback_authority() -> None:
     conn = _connect()
     _apply_schema_version(conn, 7)
     _insert_legacy_v7_evidence(conn)
@@ -182,7 +302,7 @@ def test_v7_to_v8_migration_preserves_existing_memory_and_feedback_authority() -
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 8
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
     assert EPISODE_TABLES <= _table_names(conn)
     assert tuple(conn.execute("SELECT * FROM memories WHERE id = 'legacy-memory'").fetchone()) == memory_before
     assert tuple(conn.execute("SELECT * FROM retrieval_feedback WHERE feedback_id = 1").fetchone()) == feedback_before
@@ -229,6 +349,130 @@ def test_injected_v8_failure_rolls_back_ddl_data_ledger_and_user_version(
     assert tuple(conn.execute("SELECT * FROM memories WHERE id = 'legacy-memory'").fetchone()) == memory_before
     assert tuple(conn.execute("SELECT * FROM retrieval_feedback WHERE feedback_id = 1").fetchone()) == feedback_before
     assert [tuple(row) for row in conn.execute("SELECT * FROM schema_migrations ORDER BY version")] == ledger_before
+
+
+def test_v8_to_v9_backfills_terminal_times_without_mutating_episode_authority() -> None:
+    conn = _connect()
+    _apply_schema_version(conn, 8)
+    _insert_episode_authority(conn)
+    _insert_outcome_correction(conn)
+    _insert_v8_run_state_projection(conn, outcome_id=SECOND_OUTCOME_ID)
+    authority_before = _episode_authority_rows(conn)
+
+    init_db(conn)
+
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
+    assert {"terminal_at", "current_outcome_updated_at"} <= set(_table_column_names(conn, "run_state_projection"))
+    projection = conn.execute(
+        """
+        SELECT outcome_id, terminal_at, ended_at, current_outcome_updated_at
+        FROM run_state_projection
+        WHERE run_id = ?
+        """,
+        (RUN_ID,),
+    ).fetchone()
+    assert tuple(projection) == (
+        SECOND_OUTCOME_ID,
+        ROOT_OUTCOME_AT,
+        ROOT_OUTCOME_AT,
+        CURRENT_OUTCOME_AT,
+    )
+    assert _episode_authority_rows(conn) == authority_before
+    ledger = conn.execute("SELECT name, checksum FROM schema_migrations WHERE version = 9").fetchone()
+    assert tuple(ledger) == (
+        "v9_episode_recovery_integrity",
+        "c4cf1d0179cc5ee0243fc4bb88b8eaf0148f5f1c3c94d4055cef0e98331d04d1",
+    )
+
+
+def test_v8_blocked_resume_history_migrates_repairs_and_accepts_new_events(tmp_path: Path) -> None:
+    db_path = tmp_path / "bridge.db"
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    _apply_schema_version(conn, 8)
+    _insert_v8_blocked_resume_history(conn)
+    authority_before = _episode_authority_rows(conn)
+    conn.close()
+
+    store = MemoryStore(db_path, log_dir=tmp_path / "logs")
+    restored = store.get_run(workspace_key="project:bridge", run_id=RUN_ID)
+    assert restored["degraded"] is False
+    assert restored["snapshot_last_sequence"] == 2
+    assert restored["work_items"][0]["status"] == "active"
+
+    repaired = rebuild_database_projections(db_path)
+    assert repaired["ok"] is True
+    with store._connect() as migrated:
+        assert schema_version(migrated) == 9
+        assert _episode_authority_rows(migrated) == authority_before
+        assert inspect_run_projections(migrated)["ok"] is True
+
+    appended = store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=RUN_ID,
+        work_item_id=WORK_ITEM_ID,
+        event_type="checkpoint",
+        summary="The migrated v8 episode remains writable.",
+        expected_last_sequence=2,
+        expected_work_item_status="active",
+        idempotency_key="event:v8-resume:migrated-append",
+    )
+    assert appended["sequence"] == 3
+
+
+def test_injected_v9_failure_rolls_back_ddl_data_ledger_and_user_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = _connect()
+    _apply_schema_version(conn, 8)
+    _insert_episode_authority(conn)
+    _insert_outcome_correction(conn)
+    _insert_v8_run_state_projection(conn, outcome_id=SECOND_OUTCOME_ID)
+    schema_module._ensure_schema_migrations_ledger(conn)
+    schema_module._backfill_schema_migrations_ledger(conn, 8)
+    conn.commit()
+    authority_before = _episode_authority_rows(conn)
+    projection_before = tuple(conn.execute("SELECT * FROM run_state_projection WHERE run_id = ?", (RUN_ID,)).fetchone())
+    projection_columns_before = _table_column_names(conn, "run_state_projection")
+    ledger_before = [tuple(row) for row in conn.execute("SELECT * FROM schema_migrations ORDER BY version")]
+    real_migrations = tuple(schema_module.MIGRATIONS)
+    real_v9 = schema_module._coerce_schema_migration(real_migrations[8])
+
+    def failing_v9(connection: sqlite3.Connection) -> None:
+        real_v9.apply(connection)
+        connection.execute("CREATE TABLE partial_v9_data (id INTEGER PRIMARY KEY)")
+        connection.execute("INSERT INTO partial_v9_data(id) VALUES (1)")
+        raise RuntimeError("injected v9 failure")
+
+    monkeypatch.setattr(
+        schema_module,
+        "MIGRATIONS",
+        (*real_migrations[:8], SchemaMigration(real_v9.version, real_v9.name, real_v9.checksum, failing_v9)),
+    )
+
+    with pytest.raises(RuntimeError, match="injected v9 failure"):
+        init_db(conn)
+
+    assert schema_version(conn) == 8
+    assert _table_column_names(conn, "run_state_projection") == projection_columns_before
+    assert "partial_v9_data" not in _table_names(conn)
+    assert (
+        tuple(conn.execute("SELECT * FROM run_state_projection WHERE run_id = ?", (RUN_ID,)).fetchone())
+        == projection_before
+    )
+    assert _episode_authority_rows(conn) == authority_before
+    assert [tuple(row) for row in conn.execute("SELECT * FROM schema_migrations ORDER BY version")] == ledger_before
+
+
+def test_fresh_database_reaches_v9_episode_recovery_integrity_schema() -> None:
+    conn = _connect()
+
+    init_db(conn)
+
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
+    assert {"terminal_at", "current_outcome_updated_at"} <= set(_table_column_names(conn, "run_state_projection"))
+    assert conn.execute("SELECT COUNT(*) FROM schema_migrations WHERE version = 9").fetchone()[0] == 1
 
 
 def test_episode_evidence_tables_are_append_only() -> None:

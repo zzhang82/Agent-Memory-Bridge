@@ -195,10 +195,10 @@ def test_collect_test_count_uses_disposable_amb_runtime(monkeypatch: pytest.Monk
 def test_v027_episode_release_contract_checks_exact_surface_and_evidence(tmp_path: Path) -> None:
     root = create_v027_episode_contract_fixture(tmp_path)
 
-    report = build_v027_episode_release_check(root, "0.27.0")
+    report = build_v027_episode_release_check(root, "0.27.1")
 
     assert report["ok"] is True
-    assert report["schema_version"] == 8
+    assert report["schema_version"] == 9
     assert tuple(report["public_tool_order"]) == V027_PUBLIC_TOOL_ORDER
 
 
@@ -207,14 +207,14 @@ def test_v027_episode_release_contract_checks_exact_surface_and_evidence(tmp_pat
     [
         (
             "src/agent_mem_bridge/schema.py",
-            "CURRENT_SCHEMA_VERSION = 8",
             "CURRENT_SCHEMA_VERSION = 9",
+            "CURRENT_SCHEMA_VERSION = 10",
             "schema.CURRENT_SCHEMA_VERSION",
         ),
         ("src/agent_mem_bridge/mcp_boundary.py", "'ack_signal')", "'wrong_tool')", "mcp_boundary.PUBLIC_TOOL_ORDER"),
         (
             "src/agent_mem_bridge/mcp_boundary.py",
-            "6349ee0220a30ed910846766e927a8e057a9e3fbcdbaa4e3857a2ca740f93577",
+            "a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a",
             "0" * 64,
             "mcp_boundary.PUBLIC_TOOL_SCHEMA_SHA256",
         ),
@@ -240,9 +240,21 @@ def test_v027_episode_release_contract_checks_exact_surface_and_evidence(tmp_pat
         ),
         (
             "tests/test_run_consolidation.py",
-            "test_shadow_is_zero_write_and_deterministic_for_two_independent_supports",
+            "test_shadow_is_zero_write_and_legacy_declared_supports_stay_ineligible",
             "missing_shadow_regression",
             "tests/test_run_consolidation.py",
+        ),
+        (
+            "src/agent_mem_bridge/run_outcome_authority.py",
+            "is_strong_verified_outcome",
+            "missing_strong_outcome_classifier",
+            "src/agent_mem_bridge/run_outcome_authority.py",
+        ),
+        (
+            "tests/test_v027_episode_schema.py",
+            "test_v8_to_v9_backfills_terminal_times_without_mutating_episode_authority",
+            "missing_v9_migration_regression",
+            "tests/test_v027_episode_schema.py",
         ),
         (
             "tests/test_mcp_raw_wire.py",
@@ -287,7 +299,7 @@ def test_v027_episode_release_contract_fails_closed_when_required_evidence_drift
     path = root / relative_path
     path.write_text(path.read_text(encoding="utf-8").replace(needle, replacement, 1), encoding="utf-8")
 
-    report = build_v027_episode_release_check(root, "0.27.0")
+    report = build_v027_episode_release_check(root, "0.27.1")
 
     assert report["ok"] is False
     assert any(mismatch["field"] == expected_field for mismatch in report["mismatches"])
@@ -798,12 +810,12 @@ def test_check_release_contract_script_exits_zero_for_aligned_fixture(tmp_path: 
 # so the contract check passes without touching the live codebase.
 # This count (146) is NOT required to match the live test count.
 def create_v027_episode_contract_fixture(root: Path) -> Path:
-    write_file(root / "src" / "agent_mem_bridge" / "schema.py", "CURRENT_SCHEMA_VERSION = 8\n")
+    write_file(root / "src" / "agent_mem_bridge" / "schema.py", "CURRENT_SCHEMA_VERSION = 9\n")
     write_file(
         root / "src" / "agent_mem_bridge" / "mcp_boundary.py",
         "PUBLIC_TOOL_ORDER = " + repr(V027_PUBLIC_TOOL_ORDER) + "\n"
         "PUBLIC_TOOL_SCHEMA_SHA256 = "
-        '"6349ee0220a30ed910846766e927a8e057a9e3fbcdbaa4e3857a2ca740f93577"\n',
+        '"a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a"\n',
     )
     handler_definitions = "\n".join(f"def {name}():\n    pass\n" for name in V027_PUBLIC_TOOL_ORDER)
     handler_names = ", ".join(V027_PUBLIC_TOOL_ORDER)
@@ -828,9 +840,9 @@ def create_v027_episode_contract_fixture(root: Path) -> Path:
         "shadow-only receipt-shaped values fileBody\n",
     )
     write_file(
-        root / "docs" / "v0.27.0-announcement.md",
+        root / "docs" / "v0.27.1-announcement.md",
         "durable episode authority downstream learning/consolidation effects are "
-        "shadow-only receipt-shaped values fileBody\n",
+        "shadow-only receipt-shaped values fileBody legacy_declared terminal_at snapshot_epoch\n",
     )
     write_file(
         root / "docs" / "RUN-CONSOLIDATION.md",
@@ -843,8 +855,19 @@ def create_v027_episode_contract_fixture(root: Path) -> Path:
     )
     write_file(
         root / "tests" / "test_run_consolidation.py",
-        "def test_shadow_is_zero_write_and_deterministic_for_two_independent_supports():\n    pass\n"
+        "def test_shadow_is_zero_write_and_legacy_declared_supports_stay_ineligible():\n    pass\n"
         "def test_cli_requires_shadow_and_renders_json():\n    pass\n",
+    )
+    write_file(
+        root / "src" / "agent_mem_bridge" / "run_outcome_authority.py",
+        'GOVERNED_V2_VERIFICATION_PROFILE = "governed-v2"\n'
+        "def is_strong_verified_outcome():\n    pass\n"
+        'def outcome_authority_class():\n    return "legacy_declared"\n',
+    )
+    write_file(
+        root / "tests" / "test_v027_episode_schema.py",
+        "def test_v8_to_v9_backfills_terminal_times_without_mutating_episode_authority():\n    pass\n"
+        "def test_injected_v9_failure_rolls_back_ddl_data_ledger_and_user_version():\n    pass\n",
     )
     write_file(
         root / "tests" / "test_mcp_raw_wire.py",
@@ -866,11 +889,16 @@ def create_v027_episode_contract_fixture(root: Path) -> Path:
     write_file(
         root / "tests" / "test_run_ledger.py",
         "def test_receipt_shaped_values_are_rejected_before_durable_run_writes():\n"
-        '    assert "fileBody"\n    assert "file/body"\n    assert "data:text/plain;base64"\n',
+        '    assert "fileBody"\n    assert "file/body"\n    assert "data:text/plain;base64"\n'
+        "def test_work_item_fsm_rejections_are_atomic_and_terminal_items_cannot_reopen():\n    pass\n"
+        "def test_two_processes_competing_on_the_same_terminal_cas_allow_exactly_one_writer():\n    pass\n"
+        "def test_projection_drift_blocks_writes_but_get_run_returns_authority_snapshot():\n    pass\n"
+        "def test_get_run_uses_one_snapshot_during_a_concurrent_append():\n    pass\n"
+        "def test_legacy_declared_verified_success_is_readable_but_not_regression_authority():\n    pass\n",
     )
     write_file(
         root / "src" / "agent_mem_bridge" / "onboarding_contract.py",
-        'PINNED_INSTALL_VERSION = "0.27.0"\nRELEASE_INSTALL_GATE_NOTE = "gate"\n'
+        'PINNED_INSTALL_VERSION = "0.27.1"\nRELEASE_INSTALL_GATE_NOTE = "gate"\n'
         "def release_install_tool_count():\n    pass\nversioned_install_tool_surface_is_explicit = True\n",
     )
     write_file(

@@ -13,6 +13,8 @@ agent-memory-bridge consolidate-runs --shadow --workspace-key project:example --
 `--shadow` is required. Without `--stage`, the command opens the existing
 database read-only and does not write run authority, derived projections,
 state cursors, logs, ordinary memories, ranking, policies, prompts, or files.
+The command is a shadow review surface; it does not create utility credit or
+change episode authority.
 A missing or unmigrated database fails cleanly instead of being initialized.
 `--stage` is the sole opt-in mutation:
 eligible candidates are sent to the existing hidden learning-candidate lane
@@ -55,33 +57,38 @@ never declares it validated.
 
 ## Eligibility and interpretation
 
-The current outcome head is authoritative. Any nonempty schema-bounded JSON
-outcome-evidence array can support an outcome. Its values are never copied into
-the report or staged candidate: each canonical JSON element becomes an opaque
-`outcome-evidence-sha256:<digest>` reference. A verified success supports a
-candidate only when it has deterministic-verifier or human evidence; an
-evidence-backed partial success is provisional support. Evidence-backed
+The current outcome head drives classification. A nonempty schema-bounded JSON
+outcome-evidence array supplies opaque evidence references, but it does not
+authenticate the declared evaluator. Its values are never copied into the
+report or staged candidate: each canonical JSON element becomes an opaque
+`outcome-evidence-sha256:<digest>` reference. A v1 `verified_success` is
+readable but classified `legacy_declared`; it is not strong verification and
+cannot support a consolidation candidate. Evidence-backed `partial_success`
+is also neutral for eligibility in 0.27.1. Strong support is reserved for a
+future governed-v2 verification receipt, deferred to 0.27.2. Evidence-backed
 failures, regressions, and user corrections are contradictions. An
-evidence-backed current regression is also an inbound contradiction for every
-candidate supported by the run it targets, even when the regression run has no
-matching decision event. Superseded regression outcomes do not block. Unverified,
-abandoned, active, empty-evidence negative outcomes, and watcher `rollout_idle`
-closeouts are neutral or excluded. Any contradiction makes its candidate
-ineligible and unavailable for staging until the conflicting evidence is
-resolved.
+evidence-backed current regression is also an inbound
+contradiction for every candidate supported by the run it targets, even when
+the regression run has no matching decision event. Superseded regression
+outcomes do not block. Unverified, abandoned, active, empty-evidence negative
+outcomes, and watcher `rollout_idle` closeouts are neutral or excluded. Any
+contradiction makes its candidate ineligible and unavailable for staging until
+the conflicting evidence is resolved.
 
 Candidates group only an exact normalized claim, boundary, authority class,
 and ordered domain tags. There is no model clustering or caller-provided hash.
-At most one episode from each run contributes to a group. Two supporting runs
-are independent only when their run IDs, declared thread IDs, declared client
-session IDs, regression relationships, and canonical evidence references are
-independent. Blank thread/session values deliberately fall back to the run ID.
+At most one episode from each run contributes to a group. The current
+thread/session/evidence comparison is declared independence only because those
+labels are not authenticated. Blank thread/session values deliberately fall
+back to the run ID. No 0.27.1 episode can use this declared independence to
+become eligible because v1 outcomes never provide strong support.
 
-An eligible candidate has either two independent supporting episodes or an
-evidence-backed deterministic-verifier `verified_success` in the same outcome
-chain superseded by the current evidence-backed human `verified_success`.
-Contradictions never qualify a candidate. Confidence is a label, not a score:
-`reviewed`, `corroborated`, `provisional`, or `contested`.
+An eligible candidate will require either two independent episodes carrying
+strong governed-v2 support or an evidence-backed deterministic-verifier
+`verified_success` in the same governed-v2 outcome chain superseded by the
+current evidence-backed human `verified_success`. No v1 `verified_success`
+alone qualifies. Contradictions never qualify a candidate. Confidence is a
+label, not a score: `reviewed`, `corroborated`, `provisional`, or `contested`.
 
 The JSON report is deterministic: candidates are ordered by candidate key and
 contains no wall-clock generated timestamp. The `scan` object reports the

@@ -97,6 +97,7 @@ jobs:
           src/agent_mem_bridge/database_maintenance.py
           src/agent_mem_bridge/release_contract.py
           src/agent_mem_bridge/run_ledger.py
+          src/agent_mem_bridge/run_outcome_authority.py
           src/agent_mem_bridge/run_projection.py
           src/agent_mem_bridge/run_consolidation.py
           src/agent_mem_bridge/server.py
@@ -115,6 +116,7 @@ jobs:
           --cov=agent_mem_bridge.command_provider
           --cov=agent_mem_bridge.database_maintenance
           --cov=agent_mem_bridge.run_ledger
+          --cov=agent_mem_bridge.run_outcome_authority
           --cov=agent_mem_bridge.run_projection
           --cov=agent_mem_bridge.run_consolidation
           --cov=agent_mem_bridge.revisions

@@ -21,6 +21,7 @@ from typing import Any
 from .durable_data_policy import forbidden_durable_structured_field
 from .learning_policy import evaluate_learning_candidate
 from .procedure_governance import parse_procedure_artifact
+from .run_outcome_authority import is_strong_verified_outcome, outcome_authority_class
 
 SHADOW_SCHEMA = "amb.run-consolidation-shadow.v1"
 EVIDENCE_SCHEMA = "amb.run-consolidation-evidence.v1"
@@ -436,7 +437,7 @@ def _build_candidate(
             neutral.append(episode)
 
     known_contradictions = {str(episode["outcome_id"]) for episode in contradicting}
-    for episode in supporting:
+    for episode in [*supporting, *neutral]:
         for regression in inbound_regressions.get(str(episode["run_id"]), ()):
             outcome_id = str(regression["outcome_id"])
             if outcome_id not in known_contradictions:
@@ -538,6 +539,8 @@ def _episode_for_run(run_id: str, entries: Sequence[dict[str, Any]], outcome: An
         ],
         "outcome_id": str(outcome["outcome_id"]),
         "outcome_type": str(outcome["outcome_type"]),
+        "outcome_authority_class": outcome_authority_class(outcome),
+        "strong_verified": is_strong_verified_outcome(outcome),
         "evaluator_type": str(outcome["evaluator_type"]),
         "evaluator_id": _evaluator_id(outcome),
         "outcome_evidence_refs": outcome_refs,
@@ -558,6 +561,8 @@ def _inbound_regression_episode(outcome: Any) -> dict[str, Any]:
         "event_ids": [],
         "outcome_id": str(outcome["outcome_id"]),
         "outcome_type": str(outcome["outcome_type"]),
+        "outcome_authority_class": outcome_authority_class(outcome),
+        "strong_verified": is_strong_verified_outcome(outcome),
         "evaluator_type": str(outcome["evaluator_type"]),
         "evaluator_id": _evaluator_id(outcome),
         "outcome_evidence_refs": outcome_refs,
@@ -571,10 +576,7 @@ def _inbound_regression_episode(outcome: Any) -> dict[str, Any]:
 
 def _outcome_bucket(outcome: Any, evidence_refs: Sequence[str]) -> str:
     outcome_type = str(outcome["outcome_type"])
-    evaluator_type = str(outcome["evaluator_type"])
-    if outcome_type == "verified_success" and evaluator_type in {"deterministic_verifier", "human"} and evidence_refs:
-        return "supporting"
-    if outcome_type == "partial_success" and evidence_refs:
+    if is_strong_verified_outcome(outcome) and evidence_refs:
         return "supporting"
     if outcome_type in {"failed", "regression", "user_corrected"} and evidence_refs:
         return "contradicting"
@@ -638,11 +640,7 @@ def _has_verifier_to_human_chain(
     episode: Mapping[str, Any], outcomes: Sequence[Any], outcome_by_id: Mapping[str, Any]
 ) -> bool:
     current = next((row for row in outcomes if str(row["outcome_id"]) == episode["outcome_id"]), None)
-    if (
-        current is None
-        or str(current["outcome_type"]) != "verified_success"
-        or str(current["evaluator_type"]) != "human"
-    ):
+    if current is None or not is_strong_verified_outcome(current) or str(current["evaluator_type"]) != "human":
         return False
     if not _outcome_evidence_refs(current["evidence_json"]):
         return False
@@ -652,7 +650,7 @@ def _has_verifier_to_human_chain(
         if parent is None:
             return False
         if (
-            str(parent["outcome_type"]) == "verified_success"
+            is_strong_verified_outcome(parent)
             and str(parent["evaluator_type"]) == "deterministic_verifier"
             and _outcome_evidence_refs(parent["evidence_json"])
         ):

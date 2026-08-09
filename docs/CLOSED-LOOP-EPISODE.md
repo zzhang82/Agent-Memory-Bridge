@@ -1,10 +1,11 @@
 # Closed-Loop Episode Contract
 
-This document defines the current development contract for explicit run state in
-Agent Memory Bridge. It extends the published MCP interoperability baseline
-without adding MCP Tasks, implicit connection state, automatic ranking changes,
-automatic policy changes, raw chain-of-thought storage, or automatic lesson
-promotion.
+This document defines the current `0.27.1` development contract for explicit run
+state in Agent Memory Bridge. Schema v9 adds recovery timestamps through an
+authority-preserving v8-to-v9 migration. It extends the published MCP
+interoperability baseline without adding MCP Tasks, implicit connection state,
+automatic ranking changes, automatic policy changes, raw chain-of-thought
+storage, or automatic lesson promotion.
 
 ## Public MCP Surface
 
@@ -51,8 +52,12 @@ projections and downstream learning/consolidation effects are shadow-only.
 
 `record_run_event` appends a strictly validated version-1 event. Per-run sequence
 allocation, optional child work-item creation, authority insertion, and derived
-projection updates occur in one transaction. Event payload and evidence fields
-are bounded to 32 KiB, and raw transcript or hidden-reasoning fields are rejected.
+projection updates occur in one transaction. Optional
+`expected_last_sequence` and `expected_work_item_status` values provide
+compare-and-swap preconditions; when callers provide them, stale state
+assumptions are rejected without a durable append. Event payload and evidence
+fields are bounded to 32 KiB, and raw transcript or hidden-reasoning fields are
+rejected.
 This recursive policy also rejects normalized field-name variants such as
 `Thought-Process` or `ANALYSIS`; factual digest fields such as `analysis_digest`
 remain permitted.
@@ -65,20 +70,40 @@ transaction. Metadata rejects inline-body keys `body`, `file_body`, and
 response includes that artifact reference, and `get_run` returns only artifact
 references produced by the events in its page.
 
-`get_run` is read-only. It returns current run/work-item projections, ordered
-events after `since_sequence`, and the current append-only outcome head.
+`get_run` is read-only and uses one SQLite read transaction. It derives current
+run/work-item authority state, returns ordered events after `since_sequence`,
+and returns the current append-only outcome head together with
+`snapshot_epoch`, `snapshot_last_sequence`, `projection_health`, and
+`degraded`. Projections are derived views; when their health is degraded,
+mutating run writes fail closed until repair, while `get_run` continues to
+return the authority snapshot for recovery.
 
-`complete_run` appends an outcome or an explicit superseding correction.
-`verified_success` requires non-empty deterministic-verifier or human evidence;
-agent self-report alone remains `unverified`. A `regression` must name a distinct
-same-workspace target whose current outcome head is `verified_success`. Durable
-episode authority does not change memory ranking, policy, prompts, or durable
-procedures by itself.
+`complete_run` appends an outcome or an explicit superseding correction. The
+v1 API accepts `verified_success` only with non-empty caller-declared
+deterministic-verifier or human evidence, but it cannot authenticate that
+evaluator. Callers should use `unverified` for agent self-report. A v1
+`verified_success` remains readable as `legacy_declared`, but it is not strong
+verification and cannot
+authorize a regression target, consolidation support, or utility
+supporting-run credit. A `regression` therefore requires a strong governed-v2
+authority outcome, which is deferred to 0.27.2. Durable episode authority does
+not change memory ranking, policy, prompts, or durable procedures by itself.
+Outcome correction preserves the original `terminal_at`; the latest outcome
+head is tracked separately by `current_outcome_updated_at`.
 
 Before the first outcome, every root and child work-item projection must already
 be terminal through explicit ledger events: `work_item_completed`,
 `work_item_failed`, or `work_item_abandoned`. The server does not synthesize
-terminal events. A later correction supersedes a valid current outcome head.
+terminal events. The work-item FSM rejects illegal transitions and terminal
+reopen attempts atomically. In the version-1 event schema,
+`work_item_started` moves pending, active, or blocked work to active, so a
+second start event is the compatibility resume path for v8 histories. Creating
+a child work item requires its parent to be active. A later correction
+supersedes a valid current outcome head without moving `terminal_at`.
+
+The public completion path accepts `regression_of_run_id` if and only if the
+outcome type is `regression`. Schema v9 retains the legacy one-way table check;
+DB-level inverse enforcement is deferred to schema v10 in 0.27.2.
 
 ## Receipt-Bound Memory Attribution
 
@@ -108,10 +133,12 @@ credit. Callers cannot set relation, receipt hash, review state, or outcome ID.
 `memory_utility_shadow` is a rebuildable, score-zero projection. It counts only
 non-review links whose feedback ID is still the effective head and whose run has
 a current outcome head. `supporting_run_count` is deliberately conservative:
-distinct runs with helpful feedback and `verified_success`; `contradicting_run_count`
-uses misleading or outdated feedback with failed, user-corrected, or regression
-outcomes. These counters are review evidence only and never affect recall order,
-memory authority, promotion, or policy.
+distinct runs with helpful feedback and a strong governed-v2
+`verified_success`. No v1 `legacy_declared` outcome contributes supporting-run
+credit. `contradicting_run_count` uses misleading or outdated feedback with
+failed, user-corrected, or regression outcomes. These counters are review
+evidence only and never affect recall order, memory authority, promotion, or
+policy.
 
 ## Idempotency And Trust Boundary
 
@@ -130,6 +157,11 @@ The dual-era stdio cache contract remains unchanged: `server/discover` is
 `300000/public`, while `tools/list` is `0/private`. Modern and legacy clients
 receive the same deterministic 17-tool surface. Existing memory, Signal,
 feedback, receipt, and retrieval behavior must remain compatible.
+
+Schema v9 preserves the v8 authority rows and adds only recovery state derived
+from them. The migration backfills `terminal_at` and
+`current_outcome_updated_at` from existing authority data; it does not rewrite
+events, outcomes, or links.
 
 This contract explicitly excludes MCP Tasks, hosted execution, automatic
 reranking, automatic prompt or policy modification, raw chain-of-thought

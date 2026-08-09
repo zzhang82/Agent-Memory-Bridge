@@ -984,6 +984,25 @@ def record_run_event(
         str,
         Field(description="Caller-generated retry key scoped to this run; only its SHA-256 digest is stored."),
     ],
+    expected_last_sequence: Annotated[
+        int | None,
+        Field(
+            ge=0,
+            description=(
+                "Optional compare-and-swap precondition. The append is rejected without writes "
+                "when the authority ledger has a different latest sequence."
+            ),
+        ),
+    ] = None,
+    expected_work_item_status: Annotated[
+        Literal["pending", "active", "blocked", "completed", "failed", "abandoned"] | None,
+        Field(
+            description=(
+                "Optional compare-and-swap precondition for an existing work item. "
+                "Conflicts report the actual authority-derived status."
+            )
+        ),
+    ] = None,
     work_item_id: Annotated[
         str | None,
         Field(
@@ -1047,6 +1066,8 @@ def record_run_event(
         event_type=event_type,
         summary=summary,
         idempotency_key=idempotency_key,
+        expected_last_sequence=expected_last_sequence,
+        expected_work_item_status=expected_work_item_status,
         work_item_id=_optional_text(work_item_id),
         parent_work_item_id=_optional_text(parent_work_item_id),
         work_item_goal=_optional_text(work_item_goal),

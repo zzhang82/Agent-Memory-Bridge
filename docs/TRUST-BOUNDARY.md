@@ -17,6 +17,8 @@ remote access control.
   feedback
 - append-only retrieval feedback records that remain shadow-only evidence
 - append-only run events and outcomes, with rebuildable current-state projections
+- schema-v9 recovery metadata: terminal timestamps, one-snapshot run reads, and
+  projection-health reporting
 
 ## What AMB Does Not Provide
 
@@ -90,10 +92,12 @@ review evidence, not as an automatic policy or learning path.
 
 ## Run And Episode Evidence
 
-Schema v8 adds durable run declarations, work items, structured events, outcome
-chains, artifact references, and receipt-bound memory links. Event and outcome
-rows are append-only. Current run and work-item state is a materialized
-projection that can be checked and rebuilt from those authority rows.
+Schema v9 preserves the v8 durable run declarations, work items, structured
+events, outcome chains, artifact references, and receipt-bound memory links,
+while adding `terminal_at` and `current_outcome_updated_at` through an
+authority-preserving migration. Event and outcome rows are append-only. Current
+run and work-item state is a materialized projection that can be checked and
+rebuilt from those authority rows.
 
 Run, event, outcome, artifact, and link rows are durable episode authority;
 projections and downstream learning/consolidation effects are shadow-only.
@@ -105,7 +109,18 @@ event. Artifact metadata rejects inline-body keys `body`, `file_body`, and
 also rejects hidden-reasoning field names recursively, including normalized
 case/separator variants, before data reaches SQLite. `complete_run` never
 coerces unfinished work items: the first outcome requires each explicit item to
-already be terminal.
+already be terminal. The work-item FSM rejects terminal reopen attempts, and
+event callers may provide expected sequence/status compare-and-swap
+preconditions. `get_run` uses one SQLite read transaction and returns
+`snapshot_epoch`, `snapshot_last_sequence`, `projection_health`, and
+`degraded`; mutating run writes fail closed while projection health is degraded.
+Outcome correction preserves the original `terminal_at` while updating
+`current_outcome_updated_at`.
+
+Legacy v1 `verified_success` outcomes remain readable as `legacy_declared`, but
+they are not strong verification and cannot authorize regression targets,
+consolidation support, or utility supporting-run credit. Governed-v2 receipts
+are deferred to 0.27.2. Utility and consolidation remain shadow-only.
 
 The durable episode rows do not change recall ordering, promote memory, edit
 policy, rewrite prompts, or train a model. AMB rejects receipt-shaped values

@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from agent_mem_bridge import schema as schema_module
 from agent_mem_bridge.cli import main
 from agent_mem_bridge.database_maintenance import (
     backup_database,
@@ -20,6 +21,7 @@ from agent_mem_bridge.database_maintenance import (
     verify_backup,
 )
 from agent_mem_bridge.filesystem_safety import path_storage_warnings
+from agent_mem_bridge.schema import CURRENT_SCHEMA_VERSION, schema_version
 from agent_mem_bridge.service_lock import ServiceFileLock, ServiceLockConflict
 from agent_mem_bridge.storage import MemoryStore
 
@@ -28,6 +30,59 @@ def _seed_store(tmp_path: Path, *, content: str = "original durable memory") -> 
     store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
     store.store(namespace="project:test", kind="memory", title="Seed", content=content)
     return store
+
+
+def _create_stock_v8_database(path: Path) -> None:
+    with sqlite3.connect(path) as conn:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
+        for raw_migration in schema_module.MIGRATIONS[:8]:
+            migration = schema_module._coerce_schema_migration(raw_migration)
+            migration.apply(conn)
+            conn.execute(f"PRAGMA user_version = {migration.version}")
+        schema_module._ensure_schema_migrations_ledger(conn)
+        schema_module._backfill_schema_migrations_ledger(conn, 8)
+        conn.execute(
+            """
+            INSERT INTO agent_runs (
+                run_id, workspace_key, root_goal, idempotency_key_digest,
+                request_digest, created_at
+            ) VALUES (?, 'project:bridge', 'Repair the v8 projection.', ?, ?, ?)
+            """,
+            (
+                "run_" + ("1" * 32),
+                "a" * 64,
+                "b" * 64,
+                "2026-07-30T12:00:00+00:00",
+            ),
+        )
+
+
+def test_db_health_repair_migrates_stock_v8_before_rebuilding_v9_projections(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db_path = tmp_path / "bridge.db"
+    _create_stock_v8_database(db_path)
+    with sqlite3.connect(db_path) as conn:
+        assert schema_version(conn) == 8
+        v8_columns = {row[1] for row in conn.execute("PRAGMA table_info(run_state_projection)")}
+    assert {"terminal_at", "current_outcome_updated_at"}.isdisjoint(v8_columns)
+
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(db_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(tmp_path / "logs"))
+
+    assert main(["db-health", "--repair-projections", "--json"]) == 0
+    report = json.loads(capsys.readouterr().out)
+
+    assert report["ok"] is True
+    assert report["projection_repair"]["rebuilt_count"] == 0
+    with sqlite3.connect(db_path) as conn:
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
+        v9_columns = {row[1] for row in conn.execute("PRAGMA table_info(run_state_projection)")}
+        rebuilt_run_count = conn.execute("SELECT COUNT(*) FROM run_state_projection").fetchone()[0]
+    assert {"terminal_at", "current_outcome_updated_at"} <= v9_columns
+    assert rebuilt_run_count == 1
 
 
 def test_database_health_checks_integrity_structures_and_metrics(tmp_path: Path) -> None:

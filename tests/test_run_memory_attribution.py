@@ -474,7 +474,7 @@ def test_source_and_manual_attribution_validate_feedback_and_shadow_counters(tmp
         for row in links
     )
     assert shadow["helpful_count"] == 1
-    assert shadow["supporting_run_count"] == 1
+    assert shadow["supporting_run_count"] == 0
     assert shadow["shadow_score"] == 0.0
 
     correction = store.feedback(
@@ -543,7 +543,7 @@ def test_attribution_rejects_caller_managed_fields_and_keeps_memory_authority_un
 def test_memory_utility_shadow_counts_only_current_effective_feedback_with_terminal_outcomes(tmp_path: Path) -> None:
     store = _store(tmp_path)
     cases = (
-        ("helpful", "verified_success", "human", 1, 0, 0, 0, 1, 0),
+        ("helpful", "verified_success", "human", 1, 0, 0, 0, 0, 0),
         ("misleading", "failed", "agent", 0, 1, 0, 0, 0, 1),
         ("outdated", "user_corrected", "agent", 0, 0, 1, 0, 0, 1),
         ("not_used", "partial_success", "agent", 0, 0, 0, 1, 0, 0),

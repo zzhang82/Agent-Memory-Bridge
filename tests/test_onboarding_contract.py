@@ -58,7 +58,7 @@ def test_onboarding_contract_repository_passes() -> None:
                 "use a source checkout until its exact-commit CI gate passes and its tag is created." in content
             ), path
         else:
-            assert "published `v0.27.0`" not in content.casefold(), path
+            assert "published `v0.27.1`" not in content.casefold(), path
             assert "candidate" not in content.casefold(), path
             assert "unpublished" not in content.casefold(), path
     assert "<venv-python> -m agent_mem_bridge doctor" in guides[Path("docs/INTEGRATIONS.md")]
@@ -68,13 +68,14 @@ def test_onboarding_contract_repository_passes() -> None:
 def test_release_install_tool_count_tracks_the_release_cut() -> None:
     assert release_install_tool_count("0.26.1") == 13
     assert release_install_tool_count("0.27.0") == 17
+    assert release_install_tool_count("0.27.1") == 17
 
 
 def test_onboarding_contract_requires_source_checkout_wording_for_version_mismatch(tmp_path: Path, monkeypatch) -> None:
     source_version = "0.28.0"
-    route_marker = "The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration."
+    route_marker = "The pinned `v0.27.1` release-install route exposes `17` public MCP tools at client registration."
     mismatch_marker = (
-        "Source `0.28.0` differs from pinned release-install `0.27.0`; use a source checkout until its "
+        "Source `0.28.0` differs from pinned release-install `0.27.1`; use a source checkout until its "
         "exact-commit CI gate passes and its tag is created."
     )
     (tmp_path / "pyproject.toml").write_text(f'[project]\nversion = "{source_version}"\n', encoding="utf-8")
