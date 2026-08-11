@@ -182,9 +182,9 @@ V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V025_PATCH_PATTERN,
     V026_PATCH_PATTERN,
 )
-V027_EPISODE_RELEASE = "0.27.1"
+V027_EPISODE_RELEASE = "0.27.3"
 V027_EPISODE_FOUNDATION_PATTERNS = (V027_PATCH_PATTERN,)
-V027_SCHEMA_VERSION = 9
+V027_SCHEMA_VERSION = 10
 V027_PUBLIC_TOOL_ORDER = (
     "store",
     "recall",
@@ -204,7 +204,7 @@ V027_PUBLIC_TOOL_ORDER = (
     "extend_signal_lease",
     "ack_signal",
 )
-V027_PUBLIC_TOOL_SCHEMA_SHA256 = "a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a"
+V027_PUBLIC_TOOL_SCHEMA_SHA256 = "24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8"
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 CURRENT_RELEASE_IDENTITY_PATTERNS = (
     re.compile(r"(?m)^Current source release:\s*`?v?(\d+\.\d+\.\d+)`?\s*$"),
@@ -451,14 +451,22 @@ def build_v027_episode_release_check(
             "receipt-shaped values",
             "fileBody",
         ),
-        "docs/v0.27.1-announcement.md": (
+        "docs/v0.27.2-announcement.md": (
+            "governed-v2",
+            "verification receipt",
+            "explicit close",
+            "continuation",
+            "17 public MCP tools",
+        ),
+        "docs/v0.27.3-announcement.md": (
             "durable episode authority",
             "downstream learning/consolidation effects are shadow-only",
-            "receipt-shaped values",
-            "fileBody",
-            "legacy_declared",
-            "terminal_at",
-            "snapshot_epoch",
+            "candidate_subject_id",
+            "evidence_revision_id",
+            "not_applicable",
+            "not_used",
+            "structured opposition",
+            "verified independence",
         ),
         "docs/RUN-CONSOLIDATION.md": (
             "consolidate-runs --shadow",
@@ -470,7 +478,12 @@ def build_v027_episode_release_check(
             "test_invalid_receipt_attribution_is_atomic_and_memory_events_require_it",
         ),
         "tests/test_run_consolidation.py": (
-            "test_shadow_is_zero_write_and_legacy_declared_supports_stay_ineligible",
+            "test_shadow_is_zero_write_and_observational_supports_stay_ineligible",
+            "test_candidate_subject_id_is_stable_while_evidence_revision_changes",
+            "test_governed_receipts_enable_verified_independence_and_exact_revision_dedupe",
+            "test_procedure_structure_conflict_is_contested_and_never_selects_a_variant",
+            "test_explicit_structured_opposition_contests_the_target_subject_only",
+            "test_keyset_pagination_scans_large_workspaces_without_a_500_run_dead_end",
             "test_cli_requires_shadow_and_renders_json",
         ),
         "src/agent_mem_bridge/run_outcome_authority.py": (
@@ -479,8 +492,23 @@ def build_v027_episode_release_check(
             "governed-v2",
         ),
         "tests/test_v027_episode_schema.py": (
-            "test_v8_to_v9_backfills_terminal_times_without_mutating_episode_authority",
-            "test_injected_v9_failure_rolls_back_ddl_data_ledger_and_user_version",
+            "test_v8_to_v10_backfills_terminal_times_without_mutating_episode_authority",
+            "test_injected_v10_failure_rolls_back_additive_schema_and_ledger",
+            "test_v10_run_identity_and_work_items_are_immutable_except_for_generation_increment",
+        ),
+        "tests/test_v0272_governed.py": (
+            "test_governed_receipt_is_required_and_evaluator_mismatch_is_atomic",
+            "test_governed_typed_events_preflight_blocked_resume_and_cas_replay",
+            "test_operator_cli_mints_receipt_and_database_inverse_regression_guard",
+        ),
+        "tests/test_watcher.py": (
+            "test_default_watcher_pauses_an_idle_rollout_without_completing_it",
+            "test_default_watcher_completes_only_after_an_explicit_host_close",
+            "test_default_watcher_creates_an_explicit_continuation_after_terminal_growth",
+        ),
+        "tests/test_codex_rollout.py": (
+            "test_incremental_rollout_scan_reads_only_appended_bytes_and_keeps_bodies_out_of_cursor",
+            "test_incremental_rollout_scan_detects_explicit_close_and_declared_goal_metadata",
         ),
         "tests/test_mcp_raw_wire.py": (
             "test_raw_wire_modern_and_legacy_contracts",
@@ -497,7 +525,8 @@ def build_v027_episode_release_check(
             '"file_body"',
             '"filebody"',
             "normalize_durable_key",
-            "_is_data_uri",
+            "_required_artifact_uri",
+            "urlsplit",
         ),
         "tests/test_run_ledger.py": (
             "test_receipt_shaped_values_are_rejected_before_durable_run_writes",

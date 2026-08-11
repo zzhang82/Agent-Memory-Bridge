@@ -40,10 +40,10 @@ path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
-The pinned GitHub tag route is usable only after the exact-commit CI gate passes and the tag is created. Before that, use a source checkout with `<venv-python> -m pip install -e .`.
+The pinned GitHub tag route is the published `v0.27.0` baseline. The local source candidate has no release tag; use a source checkout with `<venv-python> -m pip install -e .` to evaluate it.
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -78,14 +78,16 @@ to confirm the server connects and exposes the documented 17-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
 
-The pinned `v0.27.1` release-install route exposes `17` public MCP tools at client registration.
+The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
+
+Source `0.27.3` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
 
 ## Optional `uvx` Shortcut
 
 If `uvx` is already installed, it can run the GitHub source directly:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.27.1 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.27.0 agent-memory-bridge verify
 ```
 
 Do not make this the only install instruction. `uv` is not a project baseline
@@ -112,20 +114,14 @@ retrieval subject, and caller-declared client or session labels cannot create
 additional votes. Feedback remains shadow-only: it does not mutate memories,
 indexes, recall results, or ranking behavior.
 
-For explicit episode evidence in `v0.27.1`, use
+For explicit episode evidence in the local `0.27.3` source, use
 `begin_run(...)` to obtain server-minted run/work-item handles, then use
 `record_run_event(...)`, `get_run(...)`, and `complete_run(...)`. These calls
-create durable run, event, and outcome authority. Schema v9 adds terminal
-timestamps without rewriting episode authority; terminal work items cannot
-reopen; caller-supplied event CAS preconditions can reject stale state
-assumptions; and `get_run(...)` returns one-snapshot recovery metadata including
-`snapshot_epoch`, `snapshot_last_sequence`, `projection_health`, and
-`degraded`. Writes fail closed while a run projection is drifted. Existing v1
-`verified_success` is
-readable as `legacy_declared`, but cannot authorize regression targets,
-consolidation support, or utility supporting-run credit. Only downstream
-learning and consolidation effects remain shadow-only, and governed-v2
-receipts are deferred to 0.27.2.
+create durable run, event, and outcome authority. Schema v10 adds governed-v2
+typed events, CAS preconditions, operator verification receipts, and explicit
+watcher continuation. `get_run(...)` retains one-snapshot recovery metadata.
+Credit and consolidation use current effective evidence but remain shadow-only;
+they do not change ranking, policy, prompts, or ordinary memory.
 
 Agent Memory Bridge is an additional MCP memory store. Do not claim that it
 replaces a client's built-in memory, instructions, rules, or project context.

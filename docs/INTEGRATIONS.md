@@ -9,16 +9,15 @@ Agent Memory Bridge is a local-first stdio MCP server. The stable contract is:
 
 That means the generic stdio shape matters more than any one IDE's UI.
 
-The current source/install route is `0.27.1` with exactly 17 public MCP tools.
+The current local source candidate is `0.27.3` with exactly 17 public MCP tools.
 Its schema digest is
-`a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`.
-Episode recovery uses schema v9: terminal work items cannot reopen, event
-writers may supply expected sequence/status preconditions, and `get_run`
-returns one-snapshot authority and projection-health metadata. Writes fail
-closed while a run projection is drifted. Existing v1 `verified_success`
-outcomes remain readable as `legacy_declared`, but cannot authorize regression
-targets, consolidation support, or utility supporting-run credit. Utility and
-consolidation remain shadow-only; governed-v2 receipts are deferred to 0.27.2.
+`24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`.
+Schema v10 adds governed-v2 receipts and typed event/CAS rules while retaining
+one-snapshot recovery and fail-closed projection handling. Watcher continuity
+uses incremental cursors, explicit close, and explicit continuation. Utility
+and consolidation remain shadow-only. The pinned GitHub tag route is the
+published `v0.27.0` baseline. The local candidate has no release tag; evaluate
+it from a source checkout until its exact-commit CI/tag gate is complete.
 
 ## Status Labels
 

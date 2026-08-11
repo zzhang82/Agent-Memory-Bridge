@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -58,6 +60,9 @@ CHECKPOINT_NOISE_PATTERNS = (
     "i’m pushing",
 )
 EXPLICIT_CHECKPOINT_PREFIXES = ("Claim:", "Decision:", "Fix:", "Problem:", "Trigger:", "Symptom:")
+EXPLICIT_CLOSE_EVENT_TYPES = frozenset({"session_end", "rollout_closed", "thread_closed"})
+ROLLOUT_CURSOR_VERSION = 1
+ROLLOUT_CURSOR_ANCHOR_BYTES = 4096
 
 
 @dataclass(slots=True)
@@ -72,6 +77,13 @@ class RolloutSummary:
     user_messages: list[str]
     assistant_messages: list[str]
     last_updated: str | None
+    user_message_count: int = 0
+    assistant_message_count: int = 0
+    checkpoint_signal: bool = False
+    explicit_close_reason: str = ""
+    declared_goal: str = ""
+    scan_start_offset: int = 0
+    scan_bytes_read: int = 0
 
 
 def parse_rollout_file(path: Path) -> RolloutSummary:
@@ -85,6 +97,9 @@ def parse_rollout_file(path: Path) -> RolloutSummary:
     last_updated: str | None = None
     user_messages: list[str] = []
     assistant_messages: list[str] = []
+    checkpoint_signal = False
+    explicit_close_reason = ""
+    declared_goal = ""
 
     for raw_line in Path(path).read_text(encoding="utf-8").splitlines():
         if not raw_line.strip():
@@ -110,18 +125,25 @@ def parse_rollout_file(path: Path) -> RolloutSummary:
             forked_from_id = payload.get("forked_from_id", forked_from_id)
             agent_nickname = payload.get("agent_nickname", agent_nickname)
             agent_role = payload.get("agent_role", agent_role)
+            declared_goal = _bounded_declared_goal(payload.get("task") or payload.get("goal") or declared_goal)
             continue
 
         if item_type == "event_msg" and payload.get("type") == "user_message":
             message = (payload.get("message") or "").strip()
             if message:
                 user_messages.append(message)
+                checkpoint_signal = checkpoint_signal or _is_high_signal_message(message)
             continue
 
         if item_type == "response_item" and payload.get("type") == "message" and payload.get("role") == "assistant":
             text = extract_message_text(payload)
             if text:
                 assistant_messages.append(text)
+                checkpoint_signal = checkpoint_signal or _is_high_signal_message(text)
+
+        close_reason = _explicit_close_reason(item_type, payload)
+        if close_reason:
+            explicit_close_reason = close_reason
 
     if not thread_id:
         match = ROLLOUT_RE.search(Path(path).name)
@@ -139,7 +161,176 @@ def parse_rollout_file(path: Path) -> RolloutSummary:
         user_messages=_dedupe_preserve_order(user_messages),
         assistant_messages=_dedupe_preserve_order(assistant_messages),
         last_updated=last_updated,
+        user_message_count=len(user_messages),
+        assistant_message_count=len(assistant_messages),
+        checkpoint_signal=checkpoint_signal,
+        explicit_close_reason=explicit_close_reason,
+        declared_goal=declared_goal,
     )
+
+
+def scan_rollout_file_incremental(
+    path: Path,
+    cursor: Mapping[str, Any] | None = None,
+) -> tuple[RolloutSummary, dict[str, Any]]:
+    """Read only complete JSONL bytes appended since the last watcher scan.
+
+    The returned cursor retains bounded metadata, counts, file identity, offsets,
+    and digests only. Message bodies are used transiently for checkpoint-signal
+    detection and are never written into watcher state.
+    """
+
+    rollout_path = Path(path)
+    stat = rollout_path.stat()
+    file_identity = _rollout_file_identity(rollout_path, stat)
+    stored = dict(cursor) if isinstance(cursor, Mapping) else {}
+    reset = not _cursor_matches_file(rollout_path, stat, file_identity, stored)
+    start_offset = 0 if reset else _cursor_nonnegative_int(stored, "byte_offset")
+    rolling_digest = "" if reset else _cursor_text(stored, "rolling_digest")
+    thread_id = "" if reset else _cursor_text(stored, "thread_id")
+    session_timestamp = "" if reset else _cursor_text(stored, "session_timestamp")
+    workspace_name = "" if reset else _cursor_text(stored, "workspace_name")
+    source = "codex" if reset else (_cursor_text(stored, "source") or "codex")
+    forked_from_id = "" if reset else _cursor_text(stored, "forked_from_id")
+    agent_nickname = "" if reset else _cursor_text(stored, "agent_nickname")
+    agent_role = "" if reset else _cursor_text(stored, "agent_role")
+    last_updated = None if reset else (_cursor_text(stored, "last_updated") or None)
+    user_count = 0 if reset else _cursor_nonnegative_int(stored, "user_message_count")
+    assistant_count = 0 if reset else _cursor_nonnegative_int(stored, "assistant_message_count")
+    checkpoint_signal = False if reset else bool(stored.get("checkpoint_signal"))
+    explicit_close_reason = "" if reset else _cursor_text(stored, "explicit_close_reason")
+    declared_goal = "" if reset else _cursor_text(stored, "declared_goal")
+    recent_user_messages: list[str] = []
+    recent_assistant_messages: list[str] = []
+    complete_offset = start_offset
+
+    with rollout_path.open("rb") as handle:
+        handle.seek(start_offset)
+        while True:
+            line_offset = handle.tell()
+            raw_line = handle.readline()
+            if not raw_line:
+                break
+            if not raw_line.strip():
+                complete_offset = handle.tell()
+                continue
+            try:
+                item = json.loads(raw_line.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                if not raw_line.endswith(b"\n"):
+                    complete_offset = line_offset
+                    break
+                complete_offset = handle.tell()
+                continue
+            complete_offset = handle.tell()
+            rolling_digest = hashlib.sha256(
+                rolling_digest.encode("ascii", errors="ignore") + b":" + raw_line
+            ).hexdigest()
+            if not isinstance(item, dict):
+                continue
+            last_updated = item.get("timestamp") or last_updated
+            item_type = item.get("type")
+            payload = item.get("payload", {})
+            if not isinstance(payload, dict):
+                payload = {}
+            is_rollout_activity = False
+
+            if item_type == "session_meta":
+                candidate_id = str(payload.get("id") or "").strip()
+                if candidate_id and not thread_id:
+                    thread_id = candidate_id
+                session_timestamp = str(payload.get("timestamp") or session_timestamp)
+                candidate_cwd = str(payload.get("cwd") or "").strip()
+                if candidate_cwd:
+                    workspace_name = _workspace_name_from_cwd(candidate_cwd)
+                source = str(payload.get("originator") or source)
+                forked_from_id = str(payload.get("forked_from_id") or forked_from_id)
+                agent_nickname = str(payload.get("agent_nickname") or agent_nickname)
+                agent_role = str(payload.get("agent_role") or agent_role)
+                declared_goal = _bounded_declared_goal(payload.get("task") or payload.get("goal") or declared_goal)
+            elif item_type == "event_msg" and payload.get("type") == "user_message":
+                message = str(payload.get("message") or "").strip()
+                if message:
+                    is_rollout_activity = True
+                    user_count += 1
+                    recent_user_messages.append(message)
+                    checkpoint_signal = checkpoint_signal or _is_high_signal_message(message)
+            elif (
+                item_type == "response_item" and payload.get("type") == "message" and payload.get("role") == "assistant"
+            ):
+                message = extract_message_text(payload)
+                if message:
+                    is_rollout_activity = True
+                    assistant_count += 1
+                    recent_assistant_messages.append(message)
+                    checkpoint_signal = checkpoint_signal or _is_high_signal_message(message)
+
+            close_reason = _explicit_close_reason(item_type, payload)
+            if close_reason:
+                explicit_close_reason = close_reason
+            elif is_rollout_activity:
+                explicit_close_reason = ""
+
+    if not thread_id:
+        match = ROLLOUT_RE.search(rollout_path.name)
+        if match:
+            thread_id = match.group("thread")
+    workspace_name = workspace_name or "workspace"
+    anchor_start = max(0, complete_offset - ROLLOUT_CURSOR_ANCHOR_BYTES)
+    anchor_digest = _file_slice_digest(rollout_path, anchor_start, complete_offset - anchor_start)
+    if reset:
+        prefix_length = min(ROLLOUT_CURSOR_ANCHOR_BYTES, complete_offset)
+    else:
+        prefix_length = min(_cursor_nonnegative_int(stored, "prefix_length"), complete_offset)
+    prefix_digest = _file_slice_digest(rollout_path, 0, prefix_length)
+    scan_bytes_read = complete_offset - start_offset
+    fingerprint = hashlib.sha256(f"{file_identity}:{complete_offset}:{rolling_digest}".encode("utf-8")).hexdigest()[:32]
+    next_cursor = {
+        "version": ROLLOUT_CURSOR_VERSION,
+        "file_identity": file_identity,
+        "byte_offset": complete_offset,
+        "rolling_digest": rolling_digest,
+        "prefix_length": prefix_length,
+        "prefix_digest": prefix_digest,
+        "anchor_start": anchor_start,
+        "anchor_digest": anchor_digest,
+        "fingerprint": fingerprint,
+        "thread_id": thread_id,
+        "session_timestamp": session_timestamp,
+        "workspace_name": workspace_name,
+        "source": source,
+        "forked_from_id": forked_from_id,
+        "agent_nickname": agent_nickname,
+        "agent_role": agent_role,
+        "last_updated": last_updated or "",
+        "user_message_count": user_count,
+        "assistant_message_count": assistant_count,
+        "checkpoint_signal": checkpoint_signal,
+        "explicit_close_reason": explicit_close_reason,
+        "declared_goal": declared_goal,
+        "last_scan_start_offset": start_offset,
+        "last_scan_bytes_read": scan_bytes_read,
+    }
+    summary = RolloutSummary(
+        thread_id=thread_id,
+        session_timestamp=session_timestamp,
+        cwd=workspace_name,
+        source=source,
+        forked_from_id=forked_from_id,
+        agent_nickname=agent_nickname,
+        agent_role=agent_role,
+        user_messages=_dedupe_preserve_order(recent_user_messages[-3:]),
+        assistant_messages=_dedupe_preserve_order(recent_assistant_messages[-3:]),
+        last_updated=last_updated,
+        user_message_count=user_count,
+        assistant_message_count=assistant_count,
+        checkpoint_signal=checkpoint_signal,
+        explicit_close_reason=explicit_close_reason,
+        declared_goal=declared_goal,
+        scan_start_offset=start_offset,
+        scan_bytes_read=scan_bytes_read,
+    )
+    return summary, next_cursor
 
 
 def build_closeout_payload(summary: RolloutSummary) -> dict[str, Any]:
@@ -179,19 +370,35 @@ def build_watcher_episode_begin_request(
     summary: RolloutSummary,
     *,
     workspace_key: str | None = None,
+    continuation_of_run_id: str | None = None,
+    continuation_key: str | None = None,
 ) -> dict[str, Any]:
     """Build the stable, metadata-only run request for one observed rollout."""
 
     resolved_workspace_key = workspace_key or _watcher_workspace_key(summary)
     thread_id = _watcher_thread_id(summary)
-    return {
+    idempotency_key = f"watcher:begin:{resolved_workspace_key}:{thread_id}"
+    if continuation_of_run_id:
+        continuation_digest = hashlib.sha256(
+            str(continuation_key or continuation_of_run_id).encode("utf-8")
+        ).hexdigest()[:16]
+        idempotency_key = f"{idempotency_key}:continuation:{continuation_digest}"
+    goal = "Observe a Codex rollout lifecycle using metadata-only watcher evidence."
+    if summary.declared_goal:
+        goal = f"Observe Codex rollout task metadata: {summary.declared_goal}"
+    request = {
         "workspace_key": resolved_workspace_key,
-        "goal": "Observe a Codex rollout lifecycle using metadata-only watcher evidence.",
-        "idempotency_key": f"watcher:begin:{resolved_workspace_key}:{thread_id}",
+        "goal": goal,
+        "idempotency_key": idempotency_key,
         "agent_id": "codex-session-watcher",
         "thread_id": thread_id,
+        "evidence_profile": "observational",
+        "risk_level": "low",
         "provenance": _watcher_episode_provenance(thread_id),
     }
+    if continuation_of_run_id:
+        request["continuation_of_run_id"] = continuation_of_run_id
+    return request
 
 
 def build_watcher_episode_checkpoint_request(
@@ -199,16 +406,21 @@ def build_watcher_episode_checkpoint_request(
     fingerprint: str,
     *,
     workspace_key: str | None = None,
+    lifecycle_state: str = "active",
 ) -> dict[str, Any]:
     """Build one active-rollout checkpoint without retaining message bodies."""
 
     resolved_workspace_key = workspace_key or _watcher_workspace_key(summary)
     thread_id = _watcher_thread_id(summary)
+    metadata = _watcher_episode_metadata(summary, resolved_workspace_key, fingerprint)
+    metadata["lifecycle_state"] = _bounded_watcher_label(lifecycle_state, default="active", max_chars=64)
     return {
         "event_type": "checkpoint",
-        "summary": "Observed an eligible active Codex rollout checkpoint from metadata only.",
-        "idempotency_key": f"watcher:checkpoint:{resolved_workspace_key}:{thread_id}:{fingerprint}",
-        "payload": _watcher_episode_metadata(summary, resolved_workspace_key, fingerprint),
+        "summary": f"Observed a Codex rollout {metadata['lifecycle_state']} checkpoint from metadata only.",
+        "idempotency_key": (
+            f"watcher:{metadata['lifecycle_state']}:{resolved_workspace_key}:{thread_id}:{fingerprint}"
+        ),
+        "payload": metadata,
         "agent_id": "codex-session-watcher",
         "thread_id": thread_id,
         "provenance": _watcher_episode_provenance(thread_id),
@@ -220,8 +432,9 @@ def build_watcher_episode_closeout_request(
     fingerprint: str,
     *,
     workspace_key: str | None = None,
+    termination_reason: str = "host_explicit_close",
 ) -> dict[str, Any]:
-    """Build one idle completion request without retaining message bodies."""
+    """Build one explicit host-close request without retaining message bodies."""
 
     resolved_workspace_key = workspace_key or _watcher_workspace_key(summary)
     thread_id = _watcher_thread_id(summary)
@@ -230,14 +443,20 @@ def build_watcher_episode_closeout_request(
         "evaluator_type": "system",
         "idempotency_key": f"watcher:closeout:{resolved_workspace_key}:{thread_id}:{fingerprint}",
         "metrics": {"rollout": _watcher_episode_metadata(summary, resolved_workspace_key, fingerprint)},
-        "termination_reason": "rollout_idle",
+        "termination_reason": _bounded_watcher_label(
+            termination_reason,
+            default="host_explicit_close",
+            max_chars=256,
+        ),
         "provenance": _watcher_episode_provenance(thread_id),
     }
 
 
 def has_checkpoint_signal(summary: RolloutSummary) -> bool:
+    if summary.checkpoint_signal:
+        return True
     recent_messages = [*summary.user_messages[-3:], *summary.assistant_messages[-3:]]
-    if len(recent_messages) >= 4:
+    if _rollout_total_count(summary) >= 4:
         return True
 
     text = " ".join(recent_messages).lower()
@@ -443,8 +662,8 @@ def _watcher_episode_metadata(
     workspace_key: str,
     fingerprint: str,
 ) -> dict[str, Any]:
-    user_count = len(summary.user_messages)
-    assistant_count = len(summary.assistant_messages)
+    user_count = _rollout_user_count(summary)
+    assistant_count = _rollout_assistant_count(summary)
     workspace_basename = workspace_key.partition(":")[2] or _watcher_workspace_name(summary)
     return {
         "workspace_basename": workspace_basename,
@@ -477,8 +696,8 @@ def extract_message_text(payload: dict[str, Any]) -> str:
 
 
 def build_summary_text(summary: RolloutSummary, workspace_name: str) -> str:
-    user_count = len(summary.user_messages)
-    assistant_count = len(summary.assistant_messages)
+    user_count = _rollout_user_count(summary)
+    assistant_count = _rollout_assistant_count(summary)
     lineage = ""
     if summary.agent_nickname:
         lineage = f" Agent `{summary.agent_nickname}` handled this rollout."
@@ -492,8 +711,8 @@ def build_summary_text(summary: RolloutSummary, workspace_name: str) -> str:
 
 
 def build_checkpoint_text(summary: RolloutSummary, workspace_name: str) -> str:
-    user_count = len(summary.user_messages)
-    assistant_count = len(summary.assistant_messages)
+    user_count = _rollout_user_count(summary)
+    assistant_count = _rollout_assistant_count(summary)
     lineage = ""
     if summary.agent_nickname:
         lineage = f" Agent `{summary.agent_nickname}` is currently active in this rollout."
@@ -512,6 +731,95 @@ def truncate_line(text: str, limit: int = 220) -> str:
     if len(compact) <= limit:
         return compact
     return compact[: limit - 3].rstrip() + "..."
+
+
+def _rollout_user_count(summary: RolloutSummary) -> int:
+    return max(summary.user_message_count, len(summary.user_messages))
+
+
+def _rollout_assistant_count(summary: RolloutSummary) -> int:
+    return max(summary.assistant_message_count, len(summary.assistant_messages))
+
+
+def _rollout_total_count(summary: RolloutSummary) -> int:
+    return _rollout_user_count(summary) + _rollout_assistant_count(summary)
+
+
+def _bounded_declared_goal(value: object | None) -> str:
+    return " ".join(str(value or "").split()).strip()[:1024]
+
+
+def _explicit_close_reason(item_type: object, payload: Mapping[str, Any]) -> str:
+    normalized_item_type = str(item_type or "").strip().casefold()
+    payload_type = str(payload.get("type") or "").strip().casefold()
+    if normalized_item_type not in EXPLICIT_CLOSE_EVENT_TYPES and payload_type not in EXPLICIT_CLOSE_EVENT_TYPES:
+        return ""
+    reason = _bounded_watcher_label(
+        payload.get("reason") or payload.get("termination_reason"),
+        default=normalized_item_type or payload_type or "host_explicit_close",
+        max_chars=128,
+    )
+    return reason
+
+
+def _rollout_file_identity(path: Path, stat: Any) -> str:
+    device = int(getattr(stat, "st_dev", 0) or 0)
+    inode = int(getattr(stat, "st_ino", 0) or 0)
+    if inode:
+        return f"device:{device}:inode:{inode}"
+    return f"path:{path.resolve()}"
+
+
+def _cursor_matches_file(path: Path, stat: Any, file_identity: str, cursor: Mapping[str, Any]) -> bool:
+    if cursor.get("version") != ROLLOUT_CURSOR_VERSION:
+        return False
+    if _cursor_text(cursor, "file_identity") != file_identity:
+        return False
+    byte_offset = _cursor_nonnegative_int(cursor, "byte_offset")
+    if int(getattr(stat, "st_size", 0) or 0) < byte_offset:
+        return False
+    prefix_length = _cursor_nonnegative_int(cursor, "prefix_length")
+    prefix_digest = _cursor_text(cursor, "prefix_digest")
+    if prefix_length and _file_slice_digest(path, 0, prefix_length) != prefix_digest:
+        return False
+    anchor_start = _cursor_nonnegative_int(cursor, "anchor_start")
+    anchor_length = max(0, byte_offset - anchor_start)
+    anchor_digest = _cursor_text(cursor, "anchor_digest")
+    if anchor_length and _file_slice_digest(path, anchor_start, anchor_length) != anchor_digest:
+        return False
+    return True
+
+
+def _file_slice_digest(path: Path, offset: int, length: int) -> str:
+    digest = hashlib.sha256()
+    if length <= 0:
+        return digest.hexdigest()
+    with Path(path).open("rb") as handle:
+        handle.seek(offset)
+        remaining = length
+        while remaining > 0:
+            chunk = handle.read(min(65_536, remaining))
+            if not chunk:
+                break
+            digest.update(chunk)
+            remaining -= len(chunk)
+    return digest.hexdigest()
+
+
+def _cursor_nonnegative_int(cursor: Mapping[str, Any], key: str) -> int:
+    value = cursor.get(key)
+    if isinstance(value, bool):
+        return 0
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, normalized)
+
+
+def _cursor_text(cursor: Mapping[str, Any], key: str) -> str:
+    value = cursor.get(key)
+    return str(value).strip() if isinstance(value, str) else ""
 
 
 def _dedupe_preserve_order(values: list[str]) -> list[str]:

@@ -14,6 +14,7 @@ from agent_mem_bridge.run_projection import (
     rebuild_run_projections,
     validate_work_item_transition,
 )
+from agent_mem_bridge.schema import init_db
 from agent_mem_bridge.storage import MemoryStore
 
 
@@ -585,9 +586,9 @@ def test_completion_evidence_corrections_and_workspace_isolation(tmp_path: Path)
     correction = store.complete_run(
         workspace_key="project:bridge",
         run_id=started["run_id"],
-        outcome="verified_success",
-        evaluator_type="human",
-        evidence=[{"kind": "review", "reference": "review-42"}],
+        outcome="partial_success",
+        evaluator_type="agent",
+        evidence=[{"kind": "self_report", "reference": "review-42"}],
         supersedes_outcome_id=initial["outcome_id"],
         idempotency_key="outcome:reviewed",
     )
@@ -656,6 +657,12 @@ def test_legacy_declared_verified_success_is_readable_but_not_regression_authori
     def complete_verified(
         run: dict[str, object], label: str, *, workspace_key: str = "project:bridge"
     ) -> dict[str, object]:
+        # Simulate a migrated v9 row. New observational runs cannot self-declare verified success.
+        with store._connect() as conn:
+            conn.execute("DROP TRIGGER validate_agent_runs_update")
+            conn.execute("UPDATE agent_runs SET evidence_profile = 'legacy-v1' WHERE run_id = ?", (run["run_id"],))
+            conn.commit()
+            init_db(conn)
         store.record_run_event(
             workspace_key=workspace_key,
             run_id=str(run["run_id"]),
@@ -1038,6 +1045,8 @@ def test_artifact_created_is_server_minted_atomic_idempotent_and_page_consistent
     assert artifact["artifact_version"] == 1
     assert artifact["producing_event_id"] == event["event_id"]
     assert artifact["metadata"] == artifact_payload["artifact"]["metadata"]
+    assert artifact["uri_scheme"] == "artifact"
+    assert artifact["operator_open_required"] is False
     replay = store.record_run_event(
         workspace_key="project:bridge",
         run_id=started["run_id"],
@@ -1159,6 +1168,26 @@ def test_artifact_created_is_server_minted_atomic_idempotent_and_page_consistent
         ),
         (
             "artifact_created",
+            {"artifact": {**artifact_payload["artifact"], "uri": "javascript:alert(1)"}},
+            "must not use the javascript scheme",
+        ),
+        (
+            "artifact_created",
+            {"artifact": {**artifact_payload["artifact"], "uri": "vbscript:msgbox(1)"}},
+            "must not use the vbscript scheme",
+        ),
+        (
+            "artifact_created",
+            {"artifact": {**artifact_payload["artifact"], "uri": "file:///tmp/proof.json"}},
+            "must not use the file scheme",
+        ),
+        (
+            "artifact_created",
+            {"artifact": {**artifact_payload["artifact"], "uri": "https://user:secret@example.test/proof"}},
+            "must not embed credentials",
+        ),
+        (
+            "artifact_created",
             {
                 "artifact": {
                     **artifact_payload["artifact"],
@@ -1210,6 +1239,19 @@ def test_artifact_created_is_server_minted_atomic_idempotent_and_page_consistent
         idempotency_key="event:artifact:opaque-uri",
     )
     assert opaque_artifact["artifact"]["uri"] == "proof+opaque:run-42"
+    assert opaque_artifact["artifact"]["uri_scheme"] == "proof+opaque"
+    assert opaque_artifact["artifact"]["operator_open_required"] is False
+    remote_artifact = store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=started["run_id"],
+        work_item_id=started["root_work_item_id"],
+        event_type="artifact_created",
+        summary="A remote artifact reference needs an explicit operator open.",
+        payload={"artifact": {**artifact_payload["artifact"], "uri": "https://example.test/proof.json"}},
+        idempotency_key="event:artifact:https-uri",
+    )
+    assert remote_artifact["artifact"]["uri_scheme"] == "https"
+    assert remote_artifact["artifact"]["operator_open_required"] is True
 
     original_insert = run_ledger._insert_run_artifact
 
@@ -1229,9 +1271,9 @@ def test_artifact_created_is_server_minted_atomic_idempotent_and_page_consistent
         )
     monkeypatch.setattr(run_ledger, "_insert_run_artifact", original_insert)
     with store._connect() as conn:
-        assert conn.execute("SELECT COUNT(*) FROM run_events WHERE run_id = ?", (started["run_id"],)).fetchone()[0] == 2
+        assert conn.execute("SELECT COUNT(*) FROM run_events WHERE run_id = ?", (started["run_id"],)).fetchone()[0] == 3
         assert (
-            conn.execute("SELECT COUNT(*) FROM run_artifacts WHERE run_id = ?", (started["run_id"],)).fetchone()[0] == 2
+            conn.execute("SELECT COUNT(*) FROM run_artifacts WHERE run_id = ?", (started["run_id"],)).fetchone()[0] == 3
         )
 
 
@@ -1276,9 +1318,9 @@ def test_first_outcome_requires_terminal_root_and_children_and_rebuilds_consiste
     correction = store.complete_run(
         workspace_key="project:bridge",
         run_id=started["run_id"],
-        outcome="verified_success",
-        evaluator_type="human",
-        evidence=[{"kind": "review", "reference": "terminal-work-items"}],
+        outcome="partial_success",
+        evaluator_type="agent",
+        evidence=[{"kind": "self_report", "reference": "terminal-work-items"}],
         supersedes_outcome_id=initial["outcome_id"],
         idempotency_key="outcome:terminal-work-items:correction",
     )

@@ -915,6 +915,30 @@ def begin_run(
         dict[str, Any] | None,
         Field(description="Optional bounded JSON budget metadata, such as token or time limits."),
     ] = None,
+    evidence_profile: Annotated[
+        Literal["observational", "governed-v2"],
+        Field(description="Evidence governance profile. governed-v2 requires typed events and server-minted receipts."),
+    ] = "observational",
+    acceptance_criteria: Annotated[
+        list[dict[str, Any]] | None,
+        Field(description="Optional structured acceptance criteria with stable id or criterion_id values."),
+    ] = None,
+    constraints: Annotated[
+        list[str] | None,
+        Field(description="Optional bounded constraints declared for this run."),
+    ] = None,
+    non_goals: Annotated[
+        list[str] | None,
+        Field(description="Optional bounded non-goals declared for this run."),
+    ] = None,
+    risk_level: Annotated[
+        Literal["low", "medium", "high", "critical"],
+        Field(description="Declared run risk level; high and critical preflight reviews require a rollback plan."),
+    ] = "medium",
+    continuation_of_run_id: Annotated[
+        str | None,
+        Field(description="Optional same-workspace prior run that this run continues."),
+    ] = None,
     provenance: Annotated[
         dict[str, str] | None,
         Field(description="Optional bounded declared provenance for the run."),
@@ -939,6 +963,12 @@ def begin_run(
         tool_schema_digest=_optional_text(tool_schema_digest),
         memory_scopes=memory_scopes,
         budget=budget,
+        evidence_profile=evidence_profile,
+        acceptance_criteria=acceptance_criteria,
+        constraints=constraints,
+        non_goals=non_goals,
+        risk_level=risk_level,
+        continuation_of_run_id=_optional_text(continuation_of_run_id),
         provenance=with_context_source_client(cast("dict[str, str | None] | None", provenance), ctx),
     )
 
@@ -973,8 +1003,15 @@ def record_run_event(
             "work_item_completed",
             "work_item_failed",
             "work_item_abandoned",
+            "preflight_review",
+            "test_result",
+            "risk_identified",
+            "information_gap",
+            "verification_result",
+            "work_item_resumed",
+            "blocker_resolved",
         ],
-        Field(description="Strict version-1 structured event type."),
+        Field(description="Structured v1 or governed-v2 logical event type."),
     ],
     summary: Annotated[
         str,
@@ -984,6 +1021,18 @@ def record_run_event(
         str,
         Field(description="Caller-generated retry key scoped to this run; only its SHA-256 digest is stored."),
     ],
+    event_schema_version: Annotated[
+        int,
+        Field(ge=1, le=2, description="Event payload schema version; governed-v2 runs require version 2."),
+    ] = 1,
+    expected_database_epoch: Annotated[
+        str | None,
+        Field(description="Database epoch CAS precondition; required by governed-v2 runs."),
+    ] = None,
+    expected_run_generation: Annotated[
+        int | None,
+        Field(ge=1, description="Run generation CAS precondition; required by governed-v2 runs."),
+    ] = None,
     expected_last_sequence: Annotated[
         int | None,
         Field(
@@ -1066,6 +1115,9 @@ def record_run_event(
         event_type=event_type,
         summary=summary,
         idempotency_key=idempotency_key,
+        event_schema_version=event_schema_version,
+        expected_database_epoch=_optional_text(expected_database_epoch),
+        expected_run_generation=expected_run_generation,
         expected_last_sequence=expected_last_sequence,
         expected_work_item_status=expected_work_item_status,
         work_item_id=_optional_text(work_item_id),
@@ -1171,6 +1223,27 @@ def complete_run(
             )
         ),
     ] = None,
+    verification_receipt_id: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Server-minted governed verification receipt. Ordinary MCP callers cannot mint receipts; "
+                "required for verified_success on new runs."
+            )
+        ),
+    ] = None,
+    expected_database_epoch: Annotated[
+        str | None,
+        Field(description="Database epoch CAS precondition; required by governed-v2 runs."),
+    ] = None,
+    expected_run_generation: Annotated[
+        int | None,
+        Field(ge=1, description="Run generation CAS precondition; required by governed-v2 runs."),
+    ] = None,
+    expected_last_sequence: Annotated[
+        int | None,
+        Field(ge=0, description="Current run sequence CAS precondition; required by governed-v2 runs."),
+    ] = None,
     provenance: Annotated[
         dict[str, str] | None,
         Field(description="Optional bounded declared provenance for the outcome."),
@@ -1179,7 +1252,7 @@ def complete_run(
 ) -> dict[str, Any]:
     """Append or correct a run outcome without changing memory ranking or policy.
 
-    `verified_success` requires non-empty deterministic-verifier or human evidence.
+    On new runs, `verified_success` requires a matching current server-minted governed receipt.
     Outcome corrections form an append-only supersession chain.
     """
     return _bridge_for(ctx).complete_run(
@@ -1195,6 +1268,10 @@ def complete_run(
         termination_reason=_optional_text(termination_reason),
         supersedes_outcome_id=_optional_text(supersedes_outcome_id),
         regression_of_run_id=_optional_text(regression_of_run_id),
+        verification_receipt_id=_optional_text(verification_receipt_id),
+        expected_database_epoch=_optional_text(expected_database_epoch),
+        expected_run_generation=expected_run_generation,
+        expected_last_sequence=expected_last_sequence,
         provenance=with_context_source_client(cast("dict[str, str | None] | None", provenance), ctx),
     )
 

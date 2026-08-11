@@ -1,25 +1,26 @@
 # Production Status
 
-Last updated: 2026-08-08 (America/New_York)
+Last updated: 2026-08-10 (America/New_York)
 
-This maintainer note records the current `0.27.1` release-facing source
-surface and preserves historical releases below. It does not assert a Git tag,
-remote publication, or GitHub Actions result.
+This maintainer note records the local `0.27.3` source candidate and preserves
+historical releases below. It does not assert a Git tag, push, remote
+publication, GitHub Actions result, host certification, or productivity result.
 
-Current source release: `0.27.1`
+Current source release: `0.27.3`
 
-Current source test collection: `767 tests`
+Current source test collection: `796 tests`
 
-## Current 0.27.1 Release Surface
+## Current 0.27.3 Source Surface
 
 Run, event, outcome, artifact, and link rows are durable episode authority;
 projections and downstream learning/consolidation effects are shadow-only.
 
-- Durable schema: v9, migrated from v8 with `terminal_at` and
-  `current_outcome_updated_at` backfilled without changing episode authority
+- Durable schema: v10, with governed-v2 criteria, typed event details,
+  verification receipts, and authority-closure guards added without rewriting
+  earlier episode authority
 - Public MCP surface: exactly 17 tools; the four run tools are `begin_run`,
   `record_run_event`, `get_run`, and `complete_run`
-- Schema digest: `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`
+- Schema digest: `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`
 - Run state: all run/work-item IDs are server-minted; callers pass explicit
   workspace and handles; no connection owns an implicit current run
 - Work-item authority: explicit FSM transitions; version-1
@@ -38,14 +39,19 @@ projections and downstream learning/consolidation effects are shadow-only.
   `projection_health`, and `degraded`; writes fail closed while a run projection
   is drifted
 - Outcome boundary: append-only correction chains preserve the original
-  `terminal_at`; v1 `verified_success` remains readable as `legacy_declared`,
-  but is not strong verification and cannot authorize regression targets,
-  consolidation support, or utility supporting-run credit;
-  the public completion path accepts `regression_of_run_id` only for a
-  `regression` outcome, while DB-level inverse enforcement is deferred to
-  schema v10 in 0.27.2
-- Future boundary: governed-v2 receipts are deferred to 0.27.2; utility and
-  consolidation effects remain shadow-only
+  `terminal_at`; governed-v2 strong success requires a current matching
+  server-minted receipt tied to preflight, criteria, artifacts, run config,
+  evaluator, and database epoch. Legacy success remains `legacy_declared`.
+- Watcher continuity: incremental JSONL cursors retain bounded identity,
+  offsets, and digests without message bodies; idle sessions pause, explicit
+  host close completes, and terminal growth creates an explicit continuation
+- Credit boundary: utility projection joins current effective feedback,
+  memory relation, current outcome, and review state; `not_applicable` and
+  `not_used` remain separate and `shadow_score` remains zero
+- Consolidation closure: full-workspace keyset pagination, stable
+  `candidate_subject_id`, separate `evidence_revision_id`, contested procedure
+  conflicts, deterministic structured opposition, and declared-versus-verified
+  independence; staging remains hidden `needs_review`
 - Consolidation: `consolidate-runs --shadow` is read-only by default; `--stage`
   can only create hidden `needs_review` candidates and cannot promote a lesson
 - Compatibility: the independently exercised 0.27.0 Linux/Python 3.12
@@ -204,10 +210,10 @@ labeled.
 
 ## Verified On 2026-08-08
 
-- current branch denominator: `767 tests collected`
+- current branch denominator: `796 tests collected`
 - MCP dependency is `mcp==2.0.0`
 - the independently exercised local Linux/Python 3.12 interoperability run
-  for the prior 0.27.0 source remains historical; current 0.27.1 source keeps
+  for the prior 0.27.0 source remains historical; current 0.27.3 source keeps
   its exact 17-tool modern/legacy contract
 - modern result tests verify `resultType: "complete"` on the wire
 - discover tests verify `ttlMs: 300000` and `cacheScope: "public"`; `tools/list` verifies exactly 17 tools, canonical order, `ttlMs: 0`, and `cacheScope: "private"`

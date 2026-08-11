@@ -7,7 +7,7 @@ from agent_mem_bridge import query as query_module
 from agent_mem_bridge import storage as storage_module
 from agent_mem_bridge.lineage import parse_lineage
 from agent_mem_bridge.poll_cursor import decode_poll_cursor
-from agent_mem_bridge.provenance import PROVENANCE_LENGTH_LIMITS
+from agent_mem_bridge.provenance import PROVENANCE_LENGTH_LIMITS, normalize_provenance_mapping
 from agent_mem_bridge.schema import rotate_database_epoch
 from agent_mem_bridge.signals import fair_claim_offset
 from agent_mem_bridge.storage import MemoryStore
@@ -109,6 +109,13 @@ def test_provenance_limits_accept_exact_boundary_and_cover_audited_mutations(tmp
         assert conn.execute("SELECT COUNT(*) FROM memory_annotations").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM memory_revisions").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM retrieval_feedback").fetchone()[0] == 0
+
+
+def test_provenance_mapping_rejects_unknown_fields_without_dropping_known_fields() -> None:
+    assert normalize_provenance_mapping({"source_app": "pytest", "actor": None}) == {"source_app": "pytest"}
+    assert normalize_provenance_mapping({"source_app": None}) is None
+    with pytest.raises(ValueError, match="unsupported provenance fields"):
+        normalize_provenance_mapping({"source_app": "pytest", "identity_claim": "unrecognized"})
 
 
 def test_store_and_recall_relation_metadata_and_validity_window(tmp_path: Path) -> None:

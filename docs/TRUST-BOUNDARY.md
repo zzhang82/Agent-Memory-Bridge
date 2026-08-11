@@ -17,8 +17,8 @@ remote access control.
   feedback
 - append-only retrieval feedback records that remain shadow-only evidence
 - append-only run events and outcomes, with rebuildable current-state projections
-- schema-v9 recovery metadata: terminal timestamps, one-snapshot run reads, and
-  projection-health reporting
+- schema-v10 governed-v2 receipts, typed evidence, terminal timestamps,
+  one-snapshot run reads, and projection-health reporting
 
 ## What AMB Does Not Provide
 
@@ -92,12 +92,12 @@ review evidence, not as an automatic policy or learning path.
 
 ## Run And Episode Evidence
 
-Schema v9 preserves the v8 durable run declarations, work items, structured
-events, outcome chains, artifact references, and receipt-bound memory links,
-while adding `terminal_at` and `current_outcome_updated_at` through an
-authority-preserving migration. Event and outcome rows are append-only. Current
-run and work-item state is a materialized projection that can be checked and
-rebuilt from those authority rows.
+Schema v10 preserves the earlier durable run declarations, work items,
+structured events, outcome chains, artifact references, and receipt-bound
+memory links. It adds governed-v2 criteria, typed event details, operator-issued
+verification receipts, generation/epoch CAS, and database inverse guards.
+Event and outcome rows are append-only. Current run and work-item state is a
+materialized projection that can be checked and rebuilt from authority rows.
 
 Run, event, outcome, artifact, and link rows are durable episode authority;
 projections and downstream learning/consolidation effects are shadow-only.
@@ -118,9 +118,10 @@ Outcome correction preserves the original `terminal_at` while updating
 `current_outcome_updated_at`.
 
 Legacy v1 `verified_success` outcomes remain readable as `legacy_declared`, but
-they are not strong verification and cannot authorize regression targets,
-consolidation support, or utility supporting-run credit. Governed-v2 receipts
-are deferred to 0.27.2. Utility and consolidation remain shadow-only.
+they are not strong verification. Governed-v2 strong success requires a current
+matching server-minted receipt tied to approved preflight, acceptance criteria,
+artifacts, run configuration, evaluator, and database epoch. Utility and
+consolidation remain shadow-only.
 
 The durable episode rows do not change recall ordering, promote memory, edit
 policy, rewrite prompts, or train a model. AMB rejects receipt-shaped values

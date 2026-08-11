@@ -71,6 +71,8 @@ def test_v023_through_v027_release_docs_are_on_public_surface() -> None:
         Path("docs/v0.26.1-announcement.md"),
         Path("docs/v0.27.0-announcement.md"),
         Path("docs/v0.27.1-announcement.md"),
+        Path("docs/v0.27.2-announcement.md"),
+        Path("docs/v0.27.3-announcement.md"),
         Path("docs/CLOSED-LOOP-EPISODE.md"),
         Path("docs/RUN-CONSOLIDATION.md"),
     }.issubset(set(PUBLIC_DOC_PATHS))

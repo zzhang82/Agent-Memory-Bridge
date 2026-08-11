@@ -40,7 +40,7 @@ PUBLIC_TOOL_ORDER = (
     "ack_signal",
 )
 PUBLIC_TOOL_NAMES = frozenset(PUBLIC_TOOL_ORDER)
-PUBLIC_TOOL_SCHEMA_SHA256 = "a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a"
+PUBLIC_TOOL_SCHEMA_SHA256 = "24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8"
 DISCOVER_CACHE_HINT = CacheHint(ttl_ms=300_000, scope="public")
 TOOLS_LIST_CACHE_HINT = CacheHint(ttl_ms=0, scope="private")
 MCP_CACHE_HINTS: Mapping[CacheableMethod, CacheHint] = {

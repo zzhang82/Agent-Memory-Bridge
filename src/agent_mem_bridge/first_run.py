@@ -22,11 +22,12 @@ PYTHON_LAUNCHER_NOTE = (
     "Generated Windows verification commands use PowerShell syntax."
 )
 RELEASE_VERSION = package_version()
-PINNED_INSTALL_VERSION = "0.27.1"
+PINNED_INSTALL_VERSION = "0.27.0"
 GITHUB_ARCHIVE_URL = f"https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip"
 RELEASE_INSTALL_GATE_NOTE = (
-    "The pinned GitHub tag route is usable only after the exact-commit CI gate passes and the tag is created. "
-    "Before that, use a source checkout with `<venv-python> -m pip install -e .`."
+    "The pinned GitHub tag route is the published `v0.27.0` baseline. "
+    "The local source candidate has no release tag; use a source checkout with "
+    "`<venv-python> -m pip install -e .` to evaluate it."
 )
 VENV_INTERPRETER_COMMAND = (
     'python -c "import os; from pathlib import Path; '

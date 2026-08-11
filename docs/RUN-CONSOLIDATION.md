@@ -64,8 +64,8 @@ report or staged candidate: each canonical JSON element becomes an opaque
 `outcome-evidence-sha256:<digest>` reference. A v1 `verified_success` is
 readable but classified `legacy_declared`; it is not strong verification and
 cannot support a consolidation candidate. Evidence-backed `partial_success`
-is also neutral for eligibility in 0.27.1. Strong support is reserved for a
-future governed-v2 verification receipt, deferred to 0.27.2. Evidence-backed
+is also neutral for eligibility. Strong support requires a current governed-v2
+verification receipt. Evidence-backed
 failures, regressions, and user corrections are contradictions. An
 evidence-backed current regression is also an inbound
 contradiction for every candidate supported by the run it targets, even when
@@ -80,8 +80,8 @@ and ordered domain tags. There is no model clustering or caller-provided hash.
 At most one episode from each run contributes to a group. The current
 thread/session/evidence comparison is declared independence only because those
 labels are not authenticated. Blank thread/session values deliberately fall
-back to the run ID. No 0.27.1 episode can use this declared independence to
-become eligible because v1 outcomes never provide strong support.
+back to the run ID. Declared independence alone cannot make a candidate eligible
+because those labels are not authenticated.
 
 An eligible candidate will require either two independent episodes carrying
 strong governed-v2 support or an evidence-backed deterministic-verifier
@@ -90,14 +90,11 @@ current evidence-backed human `verified_success`. No v1 `verified_success`
 alone qualifies. Contradictions never qualify a candidate. Confidence is a
 label, not a score: `reviewed`, `corroborated`, `provisional`, or `contested`.
 
-The JSON report is deterministic: candidates are ordered by candidate key and
-contains no wall-clock generated timestamp. The `scan` object reports the
-workspace run count, bounded decision-run count, omitted count, completion flag,
-and that outcome heads were read workspace-wide. If the requested `limit` leaves
-any run unscanned, every candidate is fail-closed with `scan_incomplete` and no
-candidate can stage; this avoids treating a bounded decision scan as proof that
-the workspace has no missing contradiction. It otherwise lists eligibility,
-exclusions, episode/outcome/evaluator evidence, reason codes, and any staging
-dispositions. Re-running a complete `--stage` produces the same hidden-candidate
-content, so the existing exact-content dedupe reports `duplicate` rather than
-creating a second candidate.
+The JSON report is deterministic and has no wall-clock generated timestamp.
+Keyset pagination scans the full workspace in one read snapshot; `limit` is the
+internal page size, not a 500-run evidence ceiling. A stable
+`candidate_subject_id` names the claim subject while `evidence_revision_id`
+changes with the evidence set. Procedure-structure conflicts and explicit
+structured opposition mark candidates contested. Re-running the same complete
+evidence revision reports a duplicate; a changed revision creates a separate
+hidden review candidate for the same subject.

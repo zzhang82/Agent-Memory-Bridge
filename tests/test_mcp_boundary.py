@@ -399,15 +399,15 @@ def test_run_tools_expose_one_stateless_closed_loop(tmp_path: Path) -> None:
                 {
                     "workspace_key": "project:mcp-run-tools",
                     "run_id": run_id,
-                    "outcome": "verified_success",
-                    "evaluator_type": "human",
-                    "evidence": [{"kind": "review", "reference": "mcp-boundary-test"}],
+                    "outcome": "unverified",
+                    "evaluator_type": "agent",
+                    "evidence": [{"kind": "observation", "reference": "mcp-boundary-test"}],
                     "idempotency_key": "outcome:mcp-run-tools",
                 },
             )
             assert completed.is_error is False
             assert completed.structured_content is not None
-            assert completed.structured_content["outcome"] == "verified_success"
+            assert completed.structured_content["outcome"] == "unverified"
 
             final = await client.call_tool(
                 "get_run",

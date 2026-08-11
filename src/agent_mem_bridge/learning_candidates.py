@@ -156,6 +156,8 @@ def build_learning_candidate_record(
         "source_runtime": str(candidate.get("source_runtime", "")),
         "source_session_id": str(candidate.get("source_session_id", "")),
         "source_task_id": str(candidate.get("source_task_id", candidate.get("source_turn_id", ""))),
+        "candidate_subject_id": str(candidate.get("candidate_subject_id", "")),
+        "evidence_revision_id": str(candidate.get("evidence_revision_id", "")),
         "claim": " ".join(str(candidate.get("claim", "")).split()).strip(),
         "evidence_refs_json": json.dumps(candidate.get("evidence_refs", []), ensure_ascii=True, sort_keys=True),
         "decision_reasons_json": json.dumps(decision.get("reasons", []), ensure_ascii=True, sort_keys=True),

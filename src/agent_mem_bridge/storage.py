@@ -50,6 +50,7 @@ from .retrieval_feedback import (
 )
 from .revisions import annotate_entry, revise_entry
 from .run_ledger import begin_run_entry, complete_run_entry, get_run_entry, record_run_event_entry
+from .run_verification_receipts import mint_operator_verification_receipt
 from .schema import database_epoch, init_db
 from .signals import (
     ack_signal_entry,
@@ -132,6 +133,12 @@ class MemoryStore:
         tool_schema_digest: str | None = None,
         memory_scopes: list[str] | None = None,
         budget: dict[str, Any] | None = None,
+        evidence_profile: str = "observational",
+        acceptance_criteria: list[dict[str, Any]] | None = None,
+        constraints: list[str] | None = None,
+        non_goals: list[str] | None = None,
+        risk_level: str = "medium",
+        continuation_of_run_id: str | None = None,
         provenance: dict[str, str | None] | None = None,
     ) -> dict[str, Any]:
         return begin_run_entry(
@@ -147,6 +154,12 @@ class MemoryStore:
             tool_schema_digest=tool_schema_digest,
             memory_scopes=memory_scopes,
             budget=budget,
+            evidence_profile=evidence_profile,
+            acceptance_criteria=acceptance_criteria,
+            constraints=constraints,
+            non_goals=non_goals,
+            risk_level=risk_level,
+            continuation_of_run_id=continuation_of_run_id,
             provenance=provenance,
         )
 
@@ -158,6 +171,9 @@ class MemoryStore:
         event_type: str,
         summary: str,
         idempotency_key: str,
+        event_schema_version: int = 1,
+        expected_database_epoch: str | None = None,
+        expected_run_generation: int | None = None,
         expected_last_sequence: int | None = None,
         expected_work_item_status: str | None = None,
         work_item_id: str | None = None,
@@ -178,6 +194,9 @@ class MemoryStore:
             event_type=event_type,
             summary=summary,
             idempotency_key=idempotency_key,
+            event_schema_version=event_schema_version,
+            expected_database_epoch=expected_database_epoch,
+            expected_run_generation=expected_run_generation,
             expected_last_sequence=expected_last_sequence,
             expected_work_item_status=expected_work_item_status,
             work_item_id=work_item_id,
@@ -223,6 +242,10 @@ class MemoryStore:
         termination_reason: str | None = None,
         supersedes_outcome_id: str | None = None,
         regression_of_run_id: str | None = None,
+        verification_receipt_id: str | None = None,
+        expected_database_epoch: str | None = None,
+        expected_run_generation: int | None = None,
+        expected_last_sequence: int | None = None,
         provenance: dict[str, str | None] | None = None,
     ) -> dict[str, Any]:
         return complete_run_entry(
@@ -239,7 +262,39 @@ class MemoryStore:
             termination_reason=termination_reason,
             supersedes_outcome_id=supersedes_outcome_id,
             regression_of_run_id=regression_of_run_id,
+            verification_receipt_id=verification_receipt_id,
+            expected_database_epoch=expected_database_epoch,
+            expected_run_generation=expected_run_generation,
+            expected_last_sequence=expected_last_sequence,
             provenance=provenance,
+        )
+
+    def mint_operator_verification_receipt(
+        self,
+        *,
+        workspace_key: str,
+        run_id: str,
+        preflight_event_id: str,
+        evaluator_digest: str,
+        evaluator_version: str,
+        criterion_results: list[dict[str, Any]],
+        result: str,
+        evidence: list[Any],
+        actor: str,
+    ) -> dict[str, Any]:
+        """Operator-only receipt minting boundary; intentionally not an MCP method."""
+
+        return mint_operator_verification_receipt(
+            self,
+            workspace_key=workspace_key,
+            run_id=run_id,
+            preflight_event_id=preflight_event_id,
+            evaluator_digest=evaluator_digest,
+            evaluator_version=evaluator_version,
+            criterion_results=criterion_results,
+            result=result,
+            evidence=evidence,
+            actor=actor,
         )
 
     def store(

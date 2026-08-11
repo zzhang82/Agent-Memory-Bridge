@@ -13,24 +13,21 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-Current source release: `0.27.1`
+Current source release: `0.27.3`
 
-This source release closes episode authority and recovery integrity around the
-0.27 ledger. Schema v9 adds `terminal_at` and
-`current_outcome_updated_at` through an authority-preserving v8-to-v9
-migration. Work items follow an explicit state machine, terminal items cannot
-reopen, blocked version-1 items resume through `work_item_started`, and new
-children require an active parent. Event writes can require expected sequence
-and work-item status preconditions. `get_run` derives authority state from one
-SQLite read snapshot and reports `snapshot_epoch`, `snapshot_last_sequence`,
-`projection_health`, and `degraded`; writes fail closed while a run projection
-is drifted. Outcome
-corrections preserve the original terminal time. Existing v1
-`verified_success` outcomes remain readable as `legacy_declared`, but they are
-not strong verification and cannot authorize regression targets, consolidation
-support, or utility supporting-run credit. Governed-v2 receipts are deferred to
-0.27.2. Utility and consolidation remain shadow-only. Earlier `0.26.1`
-13-tool/schema-v7 interoperability evidence remains historical.
+This is a local, unpublished source candidate; it does not assert a tag, push,
+publication, remote CI result, host certification, or productivity result. The
+candidate carries schema v10 and exactly 17 MCP tools. Governed-v2 profiles add
+typed events and CAS preconditions, bounded operator CLI verification receipts,
+and strong outcome authority. Watcher continuity uses an incremental cursor,
+explicit host close, and explicit continuation runs without storing message
+bodies in watcher state. Credit and consolidation evidence now keeps effective
+feedback, relation, and outcome heads consistent; distinguishes
+`not_applicable` from `not_used`; uses stable candidate subjects and separate
+evidence revisions; and closes immutability, provenance, artifact, privacy,
+procedure-conflict, opposition, and independence boundaries. Utility and
+consolidation remain shadow-only: they do not change ranking, policy, prompts,
+ordinary memory, or perform automatic writeback or self-improvement.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -101,20 +98,20 @@ Treat the printed value as `<venv-python>`. Keep that resolved local path out of
 commits and issue reports. In a POSIX shell, shell-quote that path when needed.
 In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
-The pinned GitHub tag route is usable only after the exact-commit CI gate passes
-and the tag is created. Before that, use a source checkout with
-`<venv-python> -m pip install -e .`.
+The pinned GitHub tag route is the published `v0.27.0` baseline. The local
+source candidate has no release tag; use a source checkout with
+`<venv-python> -m pip install -e .` to evaluate it.
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.1.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
 
-After the same gate passes, an optional pinned GitHub smoke test with `uvx` is:
+An optional smoke test against the published baseline with `uvx` is:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.27.1 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.27.0 agent-memory-bridge verify
 ```
 
 ### Quick Start: Unified First-Run
@@ -328,7 +325,7 @@ Operator review work is available as CLI reports, not MCP tools:
 
 ### MCP 2026-07-28 stdio compatibility
 
-AMB 0.27.1 keeps modern MCP 2026-07-28 `server/discover` and legacy
+AMB 0.27.3 keeps modern MCP 2026-07-28 `server/discover` and legacy
 `initialize` over local stdio, with the same deterministic 17-tool surface.
 The independently exercised 0.27.0 interoperability run remains historical:
 it used `mcp==2.0.0`, a separate `mcp==1.28.1` legacy client, and the official
@@ -355,21 +352,22 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.27.1` keeps the explicit episode ledger and adds recovery integrity: schema
-v9 stores `terminal_at` and `current_outcome_updated_at`, migrations preserve
-episode authority, work-item FSM transitions reject terminal reopen, optional
-event CAS preconditions reject stale state assumptions when supplied, and
-projection drift blocks writes until repair. `get_run` returns one-snapshot
-authority data with `snapshot_epoch`, `snapshot_last_sequence`,
-`projection_health`, and `degraded`. The exact 17-tool surface is frozen by
+`0.27.3` carries the explicit episode ledger through schema v10. Governed-v2
+profiles require closed typed event/preflight evidence and server-minted
+operator verification receipts before strong `verified_success` authority;
+watcher scans are incremental, pause idle rollouts, close only on explicit host
+signals, and create explicit continuation runs after terminal growth. The
+credit/consolidation projections use only current effective feedback and
+outcome heads, keep `not_applicable` and `not_used` distinct, and expose
+stable `candidate_subject_id` versus `evidence_revision_id` identities. Keyset
+pagination, contested procedure handling, structured opposition, declared vs
+verified independence, and immutable/provenance/artifact/privacy validation
+are all fail-closed. The exact 17-tool surface is frozen by
 `mcp_boundary.PUBLIC_TOOL_ORDER` with schema digest
-`a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`.
-Legacy v1 `verified_success` is readable as `legacy_declared` but cannot
-authorize regression targets, consolidation support, or utility supporting-run
-credit. Governed-v2 receipts are deferred to 0.27.2; utility and consolidation
-remain shadow-only. The current source collection is `767 tests`; this does
-not assert full-suite completion, CI, a tag, publication, host certification,
-or productivity evidence.
+`24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`.
+The local suite reports `796 tests passed`; this is local evidence only, not a
+remote CI, tag, publication, host-certification, ranking, auto-writeback, or
+self-improvement claim.
 
 | Track | Current signal |
 |---|---|
@@ -390,12 +388,14 @@ or productivity evidence.
 | v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| v0.27.1 episode authority and recovery | schema v9; terminal timestamps with authority-preserving migration; explicit work-item FSM and terminal-reopen rejection; optional event CAS; one-snapshot `get_run` with projection-health metadata; fail-closed writes on projection drift; canonical 17-tool digest `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`; legacy v1 verification is `legacy_declared`; utility/consolidation remain shadow-only |
+| v0.27.2 governed-v2 and watcher continuity | governed-v2 profiles, typed events/CAS, operator CLI verification receipts, incremental watcher cursor, explicit close, and explicit continuation; no public MCP surface expansion |
+| v0.27.3 credit/consolidation/authority closure | schema v10; effective-feedback/relation/outcome consistency; distinct `not_applicable` and `not_used`; keyset pagination; stable candidate subjects vs evidence revisions; contested procedures; structured opposition; declared vs verified independence; immutable/provenance/artifact/privacy closure; shadow-only utility/consolidation |
+| v0.27.1 episode authority and recovery (historical) | schema v9; terminal timestamps with authority-preserving migration; explicit work-item FSM and terminal-reopen rejection; optional event CAS; one-snapshot `get_run` with projection-health metadata; fail-closed writes on projection drift; canonical 17-tool digest `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`; legacy v1 verification is `legacy_declared`; utility/consolidation remained shadow-only |
 | Client provenance | meaningful per-request `clientInfo` is caller-declared provenance; precedence is explicit `source_client` > meaningful MCP context > environment default; generic `mcp` is ignored |
 | Inherited retrieval receipts and feedback | schema v7; same-snapshot complete exposure sets with exact content versions; optional model/harness/chat-template digests; append-only vote/correction/retraction history with one effective vote; separate token hash and feedback identity digest |
 | Test suite | Current source test collection is recorded below; release gates include raw-wire negotiation, real old-client and TypeScript client jobs, dual-era operator checks, 20-process shared-SQLite proof, 100 connect/disconnect cycles, and inherited receipt/feedback/migration regressions |
 
-Current source test collection: `767 tests`
+Current source test collection: `796 tests`
 
 <details>
 <summary>Release contract facts</summary>
@@ -539,7 +539,9 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.27.1 announcement](docs/v0.27.1-announcement.md)
+- [v0.27.3 announcement](docs/v0.27.3-announcement.md)
+- [v0.27.2 announcement](docs/v0.27.2-announcement.md)
+- [v0.27.1 announcement](docs/v0.27.1-announcement.md) (historical)
 - [v0.27.0 announcement](docs/v0.27.0-announcement.md) (historical)
 - [v0.26.1 announcement](docs/v0.26.1-announcement.md) (historical)
 - [Release communications](docs/RELEASE-COMMUNICATIONS.md)

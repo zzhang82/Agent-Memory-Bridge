@@ -1,8 +1,8 @@
 # Closed-Loop Episode Contract
 
-This document defines the current `0.27.1` development contract for explicit run
-state in Agent Memory Bridge. Schema v9 adds recovery timestamps through an
-authority-preserving v8-to-v9 migration. It extends the published MCP
+This document defines the current `0.27.3` development contract for explicit run
+state in Agent Memory Bridge. Schema v10 adds governed-v2 evidence and authority
+closure while preserving earlier episode rows. It extends the published MCP
 interoperability baseline without adding MCP Tasks, implicit connection state,
 automatic ranking changes, automatic policy changes, raw chain-of-thought
 storage, or automatic lesson promotion.
@@ -50,14 +50,13 @@ coordination `signal_id` and is not a future MCP Tasks `taskId`.
 Run, event, outcome, artifact, and link rows are durable episode authority;
 projections and downstream learning/consolidation effects are shadow-only.
 
-`record_run_event` appends a strictly validated version-1 event. Per-run sequence
-allocation, optional child work-item creation, authority insertion, and derived
-projection updates occur in one transaction. Optional
-`expected_last_sequence` and `expected_work_item_status` values provide
-compare-and-swap preconditions; when callers provide them, stale state
-assumptions are rejected without a durable append. Event payload and evidence
-fields are bounded to 32 KiB, and raw transcript or hidden-reasoning fields are
-rejected.
+`record_run_event` appends a strictly validated version-1 or governed-v2 event.
+Per-run sequence allocation, optional child work-item creation, authority
+insertion, and derived projection updates occur in one transaction. Governed-v2
+writes require epoch, generation, sequence, and status compare-and-swap
+preconditions, so stale state assumptions are rejected without a durable
+append. Event payload and evidence fields are bounded to 32 KiB, and raw
+transcript or hidden-reasoning fields are rejected.
 This recursive policy also rejects normalized field-name variants such as
 `Thought-Process` or `ANALYSIS`; factual digest fields such as `analysis_digest`
 remain permitted.
@@ -78,15 +77,12 @@ and returns the current append-only outcome head together with
 mutating run writes fail closed until repair, while `get_run` continues to
 return the authority snapshot for recovery.
 
-`complete_run` appends an outcome or an explicit superseding correction. The
-v1 API accepts `verified_success` only with non-empty caller-declared
-deterministic-verifier or human evidence, but it cannot authenticate that
-evaluator. Callers should use `unverified` for agent self-report. A v1
+`complete_run` appends an outcome or an explicit superseding correction. A v1
 `verified_success` remains readable as `legacy_declared`, but it is not strong
-verification and cannot
-authorize a regression target, consolidation support, or utility
-supporting-run credit. A `regression` therefore requires a strong governed-v2
-authority outcome, which is deferred to 0.27.2. Durable episode authority does
+verification and cannot authorize a regression target, consolidation support,
+or utility supporting-run credit. Governed-v2 strong success requires a current
+server-minted receipt tied to approved preflight, acceptance criteria, current
+artifacts, run configuration, evaluator, and database epoch. Durable episode authority does
 not change memory ranking, policy, prompts, or durable procedures by itself.
 Outcome correction preserves the original `terminal_at`; the latest outcome
 head is tracked separately by `current_outcome_updated_at`.
@@ -102,8 +98,8 @@ a child work item requires its parent to be active. A later correction
 supersedes a valid current outcome head without moving `terminal_at`.
 
 The public completion path accepts `regression_of_run_id` if and only if the
-outcome type is `regression`. Schema v9 retains the legacy one-way table check;
-DB-level inverse enforcement is deferred to schema v10 in 0.27.2.
+outcome type is `regression`. Schema v10 enforces the inverse relationship at
+the database layer.
 
 ## Receipt-Bound Memory Attribution
 
@@ -158,10 +154,9 @@ The dual-era stdio cache contract remains unchanged: `server/discover` is
 receive the same deterministic 17-tool surface. Existing memory, Signal,
 feedback, receipt, and retrieval behavior must remain compatible.
 
-Schema v9 preserves the v8 authority rows and adds only recovery state derived
-from them. The migration backfills `terminal_at` and
-`current_outcome_updated_at` from existing authority data; it does not rewrite
-events, outcomes, or links.
+Schema v10 preserves earlier authority rows and adds governed criteria, typed
+event details, verification receipts, CAS state, and inverse guards without
+rewriting events, outcomes, or links.
 
 This contract explicitly excludes MCP Tasks, hosted execution, automatic
 reranking, automatic prompt or policy modification, raw chain-of-thought

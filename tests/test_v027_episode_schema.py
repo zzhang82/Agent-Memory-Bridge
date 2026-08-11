@@ -79,8 +79,28 @@ def _table_column_names(conn: sqlite3.Connection, table: str) -> tuple[str, ...]
 
 
 def _episode_authority_rows(conn: sqlite3.Connection) -> dict[str, list[tuple[object, ...]]]:
+    v10_additive_columns = {
+        "agent_runs": {
+            "evidence_profile",
+            "acceptance_criteria_json",
+            "acceptance_criteria_digest",
+            "constraints_json",
+            "non_goals_json",
+            "risk_level",
+            "continuation_of_run_id",
+            "run_generation",
+        },
+        "run_outcomes": {"verification_profile", "verification_receipt_id"},
+    }
     return {
-        table: [tuple(row) for row in conn.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()]
+        table: [
+            tuple(
+                row[column]
+                for column in _table_column_names(conn, table)
+                if column not in v10_additive_columns.get(table, set())
+            )
+            for row in conn.execute(f"SELECT * FROM {table} ORDER BY 1").fetchall()
+        ]
         for table in EPISODE_AUTHORITY_TABLES
     }
 
@@ -293,7 +313,7 @@ def _insert_v8_blocked_resume_history(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def test_v7_to_v9_migration_preserves_existing_memory_and_feedback_authority() -> None:
+def test_v7_to_v10_migration_preserves_existing_memory_and_feedback_authority() -> None:
     conn = _connect()
     _apply_schema_version(conn, 7)
     _insert_legacy_v7_evidence(conn)
@@ -302,7 +322,7 @@ def test_v7_to_v9_migration_preserves_existing_memory_and_feedback_authority() -
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10
     assert EPISODE_TABLES <= _table_names(conn)
     assert tuple(conn.execute("SELECT * FROM memories WHERE id = 'legacy-memory'").fetchone()) == memory_before
     assert tuple(conn.execute("SELECT * FROM retrieval_feedback WHERE feedback_id = 1").fetchone()) == feedback_before
@@ -351,7 +371,7 @@ def test_injected_v8_failure_rolls_back_ddl_data_ledger_and_user_version(
     assert [tuple(row) for row in conn.execute("SELECT * FROM schema_migrations ORDER BY version")] == ledger_before
 
 
-def test_v8_to_v9_backfills_terminal_times_without_mutating_episode_authority() -> None:
+def test_v8_to_v10_backfills_terminal_times_without_mutating_episode_authority() -> None:
     conn = _connect()
     _apply_schema_version(conn, 8)
     _insert_episode_authority(conn)
@@ -361,7 +381,7 @@ def test_v8_to_v9_backfills_terminal_times_without_mutating_episode_authority() 
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10
     assert {"terminal_at", "current_outcome_updated_at"} <= set(_table_column_names(conn, "run_state_projection"))
     projection = conn.execute(
         """
@@ -404,7 +424,7 @@ def test_v8_blocked_resume_history_migrates_repairs_and_accepts_new_events(tmp_p
     repaired = rebuild_database_projections(db_path)
     assert repaired["ok"] is True
     with store._connect() as migrated:
-        assert schema_version(migrated) == 9
+        assert schema_version(migrated) == 10
         assert _episode_authority_rows(migrated) == authority_before
         assert inspect_run_projections(migrated)["ok"] is True
 
@@ -465,14 +485,87 @@ def test_injected_v9_failure_rolls_back_ddl_data_ledger_and_user_version(
     assert [tuple(row) for row in conn.execute("SELECT * FROM schema_migrations ORDER BY version")] == ledger_before
 
 
-def test_fresh_database_reaches_v9_episode_recovery_integrity_schema() -> None:
+def test_v9_to_v10_preserves_authority_and_marks_legacy_run_and_outcome() -> None:
+    conn = _connect()
+    _apply_schema_version(conn, 9)
+    _insert_episode_authority(conn)
+    authority_before = _episode_authority_rows(conn)
+
+    init_db(conn)
+
+    assert schema_version(conn) == 10
+    assert _episode_authority_rows(conn) == authority_before
+    run = conn.execute(
+        """
+        SELECT evidence_profile, acceptance_criteria_json, run_generation
+        FROM agent_runs WHERE run_id = ?
+        """,
+        (RUN_ID,),
+    ).fetchone()
+    outcome = conn.execute(
+        """
+        SELECT verification_profile, verification_receipt_id
+        FROM run_outcomes WHERE outcome_id = ?
+        """,
+        (OUTCOME_ID,),
+    ).fetchone()
+    assert tuple(run) == ("legacy-v1", "[]", 1)
+    assert tuple(outcome) == ("legacy_declared", None)
+    assert {"run_event_v2_details", "run_verification_receipts"} <= _table_names(conn)
+    assert "not_applicable_count" in _table_column_names(conn, "memory_utility_shadow")
+    ledger = conn.execute("SELECT name, checksum FROM schema_migrations WHERE version = 10").fetchone()
+    assert tuple(ledger) == (
+        "v10_governed_run_v2_authority",
+        "acbd48558db0e945ce3ff7608e0e1fbfb4bd58e9574da78cd4efda308583eddd",
+    )
+
+
+def test_injected_v10_failure_rolls_back_additive_schema_and_ledger(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conn = _connect()
+    _apply_schema_version(conn, 9)
+    _insert_episode_authority(conn)
+    schema_module._ensure_schema_migrations_ledger(conn)
+    schema_module._backfill_schema_migrations_ledger(conn, 9)
+    conn.commit()
+    authority_before = _episode_authority_rows(conn)
+    ledger_before = [tuple(row) for row in conn.execute("SELECT * FROM schema_migrations ORDER BY version")]
+    real_migrations = tuple(schema_module.MIGRATIONS)
+    real_v10 = schema_module._coerce_schema_migration(real_migrations[9])
+
+    def failing_v10(connection: sqlite3.Connection) -> None:
+        real_v10.apply(connection)
+        connection.execute("CREATE TABLE partial_v10_data (id INTEGER PRIMARY KEY)")
+        raise RuntimeError("injected v10 failure")
+
+    monkeypatch.setattr(
+        schema_module,
+        "MIGRATIONS",
+        (*real_migrations[:9], SchemaMigration(real_v10.version, real_v10.name, real_v10.checksum, failing_v10)),
+    )
+
+    with pytest.raises(RuntimeError, match="injected v10 failure"):
+        init_db(conn)
+
+    assert schema_version(conn) == 9
+    assert "run_event_v2_details" not in _table_names(conn)
+    assert "run_verification_receipts" not in _table_names(conn)
+    assert "partial_v10_data" not in _table_names(conn)
+    assert _episode_authority_rows(conn) == authority_before
+    assert [tuple(row) for row in conn.execute("SELECT * FROM schema_migrations ORDER BY version")] == ledger_before
+
+
+def test_fresh_database_reaches_v10_governed_run_schema() -> None:
     conn = _connect()
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10
     assert {"terminal_at", "current_outcome_updated_at"} <= set(_table_column_names(conn, "run_state_projection"))
-    assert conn.execute("SELECT COUNT(*) FROM schema_migrations WHERE version = 9").fetchone()[0] == 1
+    assert {"evidence_profile", "run_generation"} <= set(_table_column_names(conn, "agent_runs"))
+    assert "not_applicable_count" in _table_column_names(conn, "memory_utility_shadow")
+    assert conn.execute("SELECT COUNT(*) FROM schema_migrations WHERE version = 10").fetchone()[0] == 1
 
 
 def test_episode_evidence_tables_are_append_only() -> None:
@@ -501,6 +594,31 @@ def test_episode_evidence_tables_are_append_only() -> None:
         )
         with pytest.raises(sqlite3.IntegrityError, match=message):
             conn.execute(statement, (identifier,))
+        conn.rollback()
+
+
+def test_v10_run_identity_and_work_items_are_immutable_except_for_generation_increment() -> None:
+    conn = _connect()
+    init_db(conn)
+    _insert_episode_authority(conn)
+
+    with pytest.raises(sqlite3.IntegrityError, match="agent_runs identity and configuration are immutable"):
+        conn.execute("UPDATE agent_runs SET root_goal = 'changed' WHERE run_id = ?", (RUN_ID,))
+    conn.rollback()
+    conn.execute("UPDATE agent_runs SET run_generation = run_generation + 1 WHERE run_id = ?", (RUN_ID,))
+    assert conn.execute("SELECT run_generation FROM agent_runs WHERE run_id = ?", (RUN_ID,)).fetchone()[0] == 2
+    with pytest.raises(sqlite3.IntegrityError, match="agent_runs identity and configuration are immutable"):
+        conn.execute("UPDATE agent_runs SET run_generation = run_generation + 2 WHERE run_id = ?", (RUN_ID,))
+    conn.rollback()
+    with pytest.raises(sqlite3.IntegrityError, match="agent_runs is immutable"):
+        conn.execute("DELETE FROM agent_runs WHERE run_id = ?", (RUN_ID,))
+    conn.rollback()
+    for statement, message in (
+        ("UPDATE run_work_items SET goal = 'changed' WHERE work_item_id = ?", "run_work_items is immutable"),
+        ("DELETE FROM run_work_items WHERE work_item_id = ?", "run_work_items is immutable"),
+    ):
+        with pytest.raises(sqlite3.IntegrityError, match=message):
+            conn.execute(statement, (WORK_ITEM_ID,))
         conn.rollback()
 
 
@@ -579,7 +697,7 @@ def test_run_work_item_root_and_parent_identity_cannot_form_cycles() -> None:
             (SECOND_WORK_ITEM_ID, RUN_ID, CREATED_AT),
         )
     conn.rollback()
-    with pytest.raises(sqlite3.IntegrityError, match="identity and parent are immutable"):
+    with pytest.raises(sqlite3.IntegrityError, match="run_work_items is immutable"):
         conn.execute(
             "UPDATE run_work_items SET parent_work_item_id = work_item_id WHERE work_item_id = ?",
             (WORK_ITEM_ID,),

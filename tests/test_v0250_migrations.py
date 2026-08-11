@@ -36,6 +36,8 @@ EXPECTED_RETRIEVAL_FEEDBACK_COLUMNS = [
 ]
 
 LEGACY_V5_RETRIEVAL_FEEDBACK_CHECKSUM = "4b40b369da475605dd73e9629b8640959cae794fbf3fe46f674a9b15c4c92a01"
+LEGACY_V10_NAME = "v10_governed_run_v2_receipts"
+LEGACY_V10_CHECKSUM = "190ce141356ccdf397cf8f5e26cc9cd9b518b3266e7e026ee9636b6f45f36d70"
 
 
 def _connect() -> sqlite3.Connection:
@@ -148,7 +150,7 @@ def test_fresh_schema_records_current_ledger_and_append_only_feedback_table() ->
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10
     assert _ledger_rows(conn) == _declared_rows()
     _assert_receipt_bound_feedback_schema(conn)
 
@@ -322,7 +324,7 @@ def test_existing_v5_feedback_duplicates_upgrade_without_mutating_legacy_evidenc
             f"SELECT {legacy_columns} FROM retrieval_feedback ORDER BY feedback_id"  # noqa: S608
         ).fetchall()
     ]
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10
     assert after == before
     assert conn.execute("SELECT COUNT(*) FROM retrieval_feedback").fetchone()[0] == 2
     assert [
@@ -480,6 +482,67 @@ def test_schema_migration_checksum_mismatch_fails_closed_without_repair() -> Non
 
     assert schema_version(conn) == CURRENT_SCHEMA_VERSION
     assert conn.execute("SELECT checksum FROM schema_migrations WHERE version = 4").fetchone()["checksum"] == "0" * 64
+
+
+def test_known_legacy_v10_identity_reconciles_current_schema_without_rewriting_ledger() -> None:
+    conn = _connect()
+    init_db(conn)
+    conn.execute("DROP TRIGGER prevent_agent_runs_delete")
+    conn.execute("DROP TRIGGER validate_agent_runs_update")
+    conn.execute("ALTER TABLE memory_utility_shadow DROP COLUMN not_applicable_count")
+    conn.execute(
+        """
+        UPDATE schema_migrations
+        SET name = ?, checksum = ?
+        WHERE version = 10
+        """,
+        (LEGACY_V10_NAME, LEGACY_V10_CHECKSUM),
+    )
+    conn.commit()
+
+    init_db(conn)
+
+    utility_columns = {row["name"] for row in conn.execute("PRAGMA table_info(memory_utility_shadow)")}
+    triggers = {
+        row["name"]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'agent_runs'"
+        ).fetchall()
+    }
+    assert "not_applicable_count" in utility_columns
+    assert {"prevent_agent_runs_delete", "validate_agent_runs_update"} <= triggers
+    ledger = conn.execute("SELECT name, checksum FROM schema_migrations WHERE version = 10").fetchone()
+    assert tuple(ledger) == (LEGACY_V10_NAME, LEGACY_V10_CHECKSUM)
+
+
+def test_unknown_legacy_v10_identity_still_fails_closed() -> None:
+    conn = _connect()
+    init_db(conn)
+    conn.execute("DROP TRIGGER prevent_agent_runs_delete")
+    conn.execute("DROP TRIGGER validate_agent_runs_update")
+    conn.execute("ALTER TABLE memory_utility_shadow DROP COLUMN not_applicable_count")
+    conn.execute(
+        """
+        UPDATE schema_migrations
+        SET name = ?, checksum = ?
+        WHERE version = 10
+        """,
+        (LEGACY_V10_NAME, "0" * 64),
+    )
+    conn.commit()
+
+    with pytest.raises(RuntimeError, match="ledger mismatch for version 10"):
+        init_db(conn)
+
+    utility_columns = {row["name"] for row in conn.execute("PRAGMA table_info(memory_utility_shadow)")}
+    triggers = {
+        row["name"]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'trigger' AND tbl_name = 'agent_runs'"
+        ).fetchall()
+    }
+    assert "not_applicable_count" not in utility_columns
+    assert {"prevent_agent_runs_delete", "validate_agent_runs_update"}.isdisjoint(triggers)
 
 
 def test_unledgered_legacy_v5_retrieval_feedback_shape_fails_closed_with_clear_error() -> None:

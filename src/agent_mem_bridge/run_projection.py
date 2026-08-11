@@ -36,6 +36,7 @@ MEMORY_UTILITY_SHADOW_FIELDS = (
     "helpful_count",
     "misleading_count",
     "outdated_count",
+    "not_applicable_count",
     "not_used_count",
     "supporting_run_count",
     "contradicting_run_count",
@@ -308,9 +309,9 @@ def rebuild_memory_utility_shadow(
         """
         INSERT INTO memory_utility_shadow (
             memory_id, exact_content_version, helpful_count, misleading_count,
-            outdated_count, not_used_count, supporting_run_count,
+            outdated_count, not_applicable_count, not_used_count, supporting_run_count,
             contradicting_run_count, shadow_score, projection_version, computed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0.0, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0.0, ?, ?)
         """,
         [
             (
@@ -319,6 +320,7 @@ def rebuild_memory_utility_shadow(
                 row["helpful_count"],
                 row["misleading_count"],
                 row["outdated_count"],
+                row["not_applicable_count"],
                 row["not_used_count"],
                 row["supporting_run_count"],
                 row["contradicting_run_count"],
@@ -356,7 +358,7 @@ def inspect_memory_utility_shadow(conn: sqlite3.Connection) -> dict[str, Any]:
         for row in conn.execute(
             """
             SELECT memory_id, exact_content_version, helpful_count, misleading_count,
-                   outdated_count, not_used_count, supporting_run_count,
+                   outdated_count, not_applicable_count, not_used_count, supporting_run_count,
                    contradicting_run_count, shadow_score
             FROM memory_utility_shadow
             """
@@ -636,7 +638,9 @@ def _expected_memory_utility_shadow_rows(conn: sqlite3.Connection) -> dict[str, 
             feedback.outcome AS feedback_outcome,
             outcome.*
         FROM run_memory_links link
-        JOIN retrieval_feedback feedback ON feedback.feedback_id = link.feedback_id
+        JOIN retrieval_feedback feedback_subject ON feedback_subject.feedback_id = link.feedback_id
+        JOIN retrieval_feedback feedback
+          ON feedback.feedback_identity_digest = feedback_subject.feedback_identity_digest
         JOIN run_outcomes outcome ON outcome.run_id = link.run_id
         LEFT JOIN retrieval_feedback feedback_child
           ON feedback_child.supersedes_feedback_id = feedback.feedback_id
@@ -647,7 +651,13 @@ def _expected_memory_utility_shadow_rows(conn: sqlite3.Connection) -> dict[str, 
           AND feedback_child.feedback_id IS NULL
           AND feedback.feedback_type != 'retraction'
           AND outcome_child.outcome_id IS NULL
-          AND feedback.outcome IN ('helpful', 'misleading', 'outdated', 'not_used')
+          AND (
+              (link.relation = 'applied' AND feedback.outcome IN ('helpful', 'not_used'))
+              OR (
+                  link.relation = 'rejected'
+                  AND feedback.outcome IN ('misleading', 'outdated', 'not_applicable')
+              )
+          )
         """
     ).fetchall()
     aggregates: dict[str, dict[str, Any]] = {}
@@ -665,6 +675,7 @@ def _expected_memory_utility_shadow_rows(conn: sqlite3.Connection) -> dict[str, 
                 "helpful_count": 0,
                 "misleading_count": 0,
                 "outdated_count": 0,
+                "not_applicable_count": 0,
                 "not_used_count": 0,
                 "supporting_run_count": 0,
                 "contradicting_run_count": 0,

@@ -77,6 +77,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_task_brief(namespace)
     if namespace.command == "activation-receipt":
         return _run_activation_receipt(namespace)
+    if namespace.command == "mint-verification-receipt":
+        return _run_mint_verification_receipt(namespace)
     if namespace.command == "signal-repair":
         return _run_signal_repair(namespace)
     if namespace.command == "db-health":
@@ -317,6 +319,43 @@ def _build_parser() -> argparse.ArgumentParser:
         default="markdown",
         help="Output format.",
     )
+    verification_receipt_parser = subparsers.add_parser(
+        "mint-verification-receipt",
+        help="Mint one bounded human/operator governed-run verification receipt.",
+    )
+    verification_receipt_parser.add_argument(
+        "--workspace-key", required=True, help="Declared workspace that owns the run."
+    )
+    verification_receipt_parser.add_argument("--run-id", required=True, help="Server-minted governed run id.")
+    verification_receipt_parser.add_argument(
+        "--preflight-event-id", required=True, help="Approved same-run governed preflight_review event id."
+    )
+    verification_receipt_parser.add_argument(
+        "--evaluator-digest", required=True, help="Lowercase SHA-256 digest of the human review protocol."
+    )
+    verification_receipt_parser.add_argument(
+        "--evaluator-version", required=True, help="Bounded human review protocol version."
+    )
+    verification_receipt_parser.add_argument(
+        "--criterion-results-json",
+        required=True,
+        help="JSON array with one passed/failed result and evidence_refs for every criterion.",
+    )
+    verification_receipt_parser.add_argument(
+        "--evidence-json", required=True, help="JSON array of bounded human review evidence references."
+    )
+    verification_receipt_parser.add_argument(
+        "--result",
+        default="verified_success",
+        choices=("verified_success", "failed", "partial_success"),
+        help="Receipt result; verified_success requires every criterion to pass.",
+    )
+    verification_receipt_parser.add_argument(
+        "--actor", required=True, help="Human/operator identity recorded on the receipt."
+    )
+    verification_receipt_parser.add_argument(
+        "--json", action="store_true", help="Emit JSON instead of a compact receipt line."
+    )
     signal_repair_parser = subparsers.add_parser(
         "signal-repair",
         help="Explicitly reset one malformed claimed Signal to pending with an audit receipt.",
@@ -389,7 +428,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_consolidation_parser.add_argument("--shadow", action="store_true", help="Required safety acknowledgement.")
     run_consolidation_parser.add_argument("--workspace-key", required=True, help="Workspace key to inspect.")
-    run_consolidation_parser.add_argument("--limit", type=int, default=100, help="Runs to scan (1..500).")
+    run_consolidation_parser.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="Internal read-only page size (1..500); the command scans the full workspace.",
+    )
     run_consolidation_parser.add_argument(
         "--stage",
         action="store_true",
@@ -589,6 +633,41 @@ def _run_activation_receipt(namespace: argparse.Namespace) -> int:
     else:
         print(render_activation_receipt_markdown(receipt))
     return 0 if receipt["status"] == "pass" else 1
+
+
+def _run_mint_verification_receipt(namespace: argparse.Namespace) -> int:
+    try:
+        criterion_results = json.loads(namespace.criterion_results_json)
+        evidence = json.loads(namespace.evidence_json)
+    except json.JSONDecodeError as exc:
+        print(f"agent-memory-bridge: invalid receipt JSON: {exc.msg}", file=sys.stderr)
+        return 2
+    if not isinstance(criterion_results, list) or not isinstance(evidence, list):
+        print("agent-memory-bridge: receipt JSON inputs must be arrays", file=sys.stderr)
+        return 2
+    try:
+        receipt = MemoryStore.from_env().mint_operator_verification_receipt(
+            workspace_key=namespace.workspace_key,
+            run_id=namespace.run_id,
+            preflight_event_id=namespace.preflight_event_id,
+            evaluator_digest=namespace.evaluator_digest,
+            evaluator_version=namespace.evaluator_version,
+            criterion_results=criterion_results,
+            result=namespace.result,
+            evidence=evidence,
+            actor=namespace.actor,
+        )
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        print(f"agent-memory-bridge: verification receipt minting failed: {exc}", file=sys.stderr)
+        return 1
+    if namespace.json:
+        print(json.dumps(receipt, indent=2))
+    else:
+        print(
+            f"verification_receipt_id={receipt['verification_receipt_id']} "
+            f"run_id={receipt['run_id']} result={receipt['result']}"
+        )
+    return 0
 
 
 def _run_signal_repair(namespace: argparse.Namespace) -> int:

@@ -10,7 +10,17 @@ from .embedding_index import ensure_embedding_schema
 from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CURRENT_SCHEMA_VERSION = 9
+CURRENT_SCHEMA_VERSION = 10
+LEGACY_SCHEMA_MIGRATION_IDENTITIES: dict[int, frozenset[tuple[str, str]]] = {
+    10: frozenset(
+        {
+            (
+                "v10_governed_run_v2_receipts",
+                "190ce141356ccdf397cf8f5e26cc9cd9b518b3266e7e026ee9636b6f45f36d70",
+            )
+        }
+    )
+}
 LEGACY_V5_RETRIEVAL_FEEDBACK_COLUMNS = (
     "feedback_id",
     "idempotency_key",
@@ -149,6 +159,10 @@ def _migrate_to_v9(conn: sqlite3.Connection) -> None:
     _ensure_episode_recovery_integrity_schema(conn)
 
 
+def _migrate_to_v10(conn: sqlite3.Connection) -> None:
+    _ensure_governed_run_v2_schema(conn)
+
+
 MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     SchemaMigration(
         1,
@@ -204,6 +218,12 @@ MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], No
         "c4cf1d0179cc5ee0243fc4bb88b8eaf0148f5f1c3c94d4055cef0e98331d04d1",
         _migrate_to_v9,
     ),
+    SchemaMigration(
+        10,
+        "v10_governed_run_v2_authority",
+        "acbd48558db0e945ce3ff7608e0e1fbfb4bd58e9574da78cd4efda308583eddd",
+        _migrate_to_v10,
+    ),
 )
 
 
@@ -217,6 +237,7 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
     _ensure_retrieval_feedback_identity_schema(conn)
     _ensure_episode_schema(conn)
     _ensure_episode_recovery_integrity_schema(conn)
+    _ensure_governed_run_v2_schema(conn)
     backfill_record_projections(conn, only_missing=True)
 
 
@@ -325,7 +346,11 @@ def _validate_schema_migrations_ledger(conn: sqlite3.Connection, current_version
             raise RuntimeError(f"schema_migrations ledger contains unknown version {version}")
         if version > current_version:
             raise RuntimeError(f"schema_migrations ledger version {version} is ahead of user_version {current_version}")
-        if row["name"] != declared_migration.name or row["checksum"] != declared_migration.checksum:
+        observed_identity = (str(row["name"]), str(row["checksum"]))
+        declared_identity = (declared_migration.name, declared_migration.checksum)
+        if observed_identity != declared_identity and observed_identity not in LEGACY_SCHEMA_MIGRATION_IDENTITIES.get(
+            version, frozenset()
+        ):
             raise RuntimeError(f"schema_migrations ledger mismatch for version {version}")
         observed_versions.add(version)
 
@@ -1847,6 +1872,7 @@ def _ensure_episode_projection_tables(conn: sqlite3.Connection) -> None:
             helpful_count INTEGER NOT NULL DEFAULT 0 CHECK (helpful_count >= 0),
             misleading_count INTEGER NOT NULL DEFAULT 0 CHECK (misleading_count >= 0),
             outdated_count INTEGER NOT NULL DEFAULT 0 CHECK (outdated_count >= 0),
+            not_applicable_count INTEGER NOT NULL DEFAULT 0 CHECK (not_applicable_count >= 0),
             not_used_count INTEGER NOT NULL DEFAULT 0 CHECK (not_used_count >= 0),
             supporting_run_count INTEGER NOT NULL DEFAULT 0 CHECK (supporting_run_count >= 0),
             contradicting_run_count INTEGER NOT NULL DEFAULT 0 CHECK (contradicting_run_count >= 0),
@@ -1914,6 +1940,426 @@ def _ensure_episode_recovery_integrity_schema(conn: sqlite3.Connection) -> None:
                 ORDER BY head_outcome.created_at DESC, head_outcome.outcome_id DESC
                 LIMIT 1
             )
+        """
+    )
+
+
+def _ensure_governed_run_v2_schema(conn: sqlite3.Connection) -> None:
+    """Add v10 governed-run state without rebuilding append-only v9 authority tables."""
+
+    empty_criteria_digest = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    ensure_column(
+        conn,
+        "agent_runs",
+        "evidence_profile",
+        """
+        ALTER TABLE agent_runs
+        ADD COLUMN evidence_profile TEXT NOT NULL DEFAULT 'legacy-v1'
+            CHECK (evidence_profile IN ('legacy-v1', 'observational', 'governed-v2'))
+        """,
+    )
+    ensure_column(
+        conn,
+        "memory_utility_shadow",
+        "not_applicable_count",
+        """
+        ALTER TABLE memory_utility_shadow
+        ADD COLUMN not_applicable_count INTEGER NOT NULL DEFAULT 0
+            CHECK (not_applicable_count >= 0)
+        """,
+    )
+    ensure_column(
+        conn,
+        "agent_runs",
+        "acceptance_criteria_json",
+        """
+        ALTER TABLE agent_runs
+        ADD COLUMN acceptance_criteria_json TEXT NOT NULL DEFAULT '[]'
+            CHECK (
+                json_valid(acceptance_criteria_json)
+                AND json_type(acceptance_criteria_json) = 'array'
+                AND length(CAST(acceptance_criteria_json AS BLOB)) <= 16384
+            )
+        """,
+    )
+    ensure_column(
+        conn,
+        "agent_runs",
+        "acceptance_criteria_digest",
+        f"""
+        ALTER TABLE agent_runs
+        ADD COLUMN acceptance_criteria_digest TEXT NOT NULL DEFAULT '{empty_criteria_digest}'
+            CHECK (
+                length(acceptance_criteria_digest) = 64
+                AND acceptance_criteria_digest = lower(acceptance_criteria_digest)
+                AND acceptance_criteria_digest NOT GLOB '*[^0-9a-f]*'
+            )
+        """,
+    )
+    ensure_column(
+        conn,
+        "agent_runs",
+        "constraints_json",
+        """
+        ALTER TABLE agent_runs
+        ADD COLUMN constraints_json TEXT NOT NULL DEFAULT '[]'
+            CHECK (
+                json_valid(constraints_json)
+                AND json_type(constraints_json) = 'array'
+                AND length(CAST(constraints_json AS BLOB)) <= 8192
+            )
+        """,
+    )
+    ensure_column(
+        conn,
+        "agent_runs",
+        "non_goals_json",
+        """
+        ALTER TABLE agent_runs
+        ADD COLUMN non_goals_json TEXT NOT NULL DEFAULT '[]'
+            CHECK (
+                json_valid(non_goals_json)
+                AND json_type(non_goals_json) = 'array'
+                AND length(CAST(non_goals_json AS BLOB)) <= 8192
+            )
+        """,
+    )
+    ensure_column(
+        conn,
+        "agent_runs",
+        "risk_level",
+        """
+        ALTER TABLE agent_runs
+        ADD COLUMN risk_level TEXT NOT NULL DEFAULT 'legacy_declared'
+            CHECK (risk_level IN ('legacy_declared', 'low', 'medium', 'high', 'critical'))
+        """,
+    )
+    ensure_column(
+        conn,
+        "agent_runs",
+        "continuation_of_run_id",
+        "ALTER TABLE agent_runs ADD COLUMN continuation_of_run_id TEXT",
+    )
+    ensure_column(
+        conn,
+        "agent_runs",
+        "run_generation",
+        """
+        ALTER TABLE agent_runs
+        ADD COLUMN run_generation INTEGER NOT NULL DEFAULT 1 CHECK (run_generation > 0)
+        """,
+    )
+    ensure_column(
+        conn,
+        "run_outcomes",
+        "verification_profile",
+        """
+        ALTER TABLE run_outcomes
+        ADD COLUMN verification_profile TEXT NOT NULL DEFAULT 'legacy_declared'
+            CHECK (verification_profile IN ('legacy_declared', 'observational', 'governed-v2'))
+        """,
+    )
+    ensure_column(
+        conn,
+        "run_outcomes",
+        "verification_receipt_id",
+        "ALTER TABLE run_outcomes ADD COLUMN verification_receipt_id TEXT",
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_event_v2_details (
+            event_id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            logical_event_type TEXT NOT NULL
+                CHECK (
+                    logical_event_type IN (
+                        'plan_created', 'work_item_started', 'checkpoint', 'observation',
+                        'hypothesis', 'hypothesis_confirmed', 'hypothesis_rejected',
+                        'tool_result', 'test_failure', 'decision', 'blocker',
+                        'memory_recalled', 'memory_applied', 'memory_rejected',
+                        'artifact_created', 'compaction_boundary', 'work_item_completed',
+                        'work_item_failed', 'work_item_abandoned', 'preflight_review',
+                        'test_result', 'risk_identified', 'information_gap',
+                        'verification_result', 'work_item_resumed', 'blocker_resolved'
+                    )
+                ),
+            payload_schema_version INTEGER NOT NULL DEFAULT 2 CHECK (payload_schema_version = 2),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            FOREIGN KEY (run_id, event_id) REFERENCES run_events (run_id, event_id) ON DELETE RESTRICT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_verification_receipts (
+            receipt_id TEXT PRIMARY KEY
+                CHECK (
+                    length(receipt_id) = 40
+                    AND substr(receipt_id, 1, 8) = 'receipt_'
+                    AND substr(receipt_id, 9) NOT GLOB '*[^0-9a-f]*'
+                ),
+            run_id TEXT NOT NULL,
+            acceptance_criteria_digest TEXT NOT NULL
+                CHECK (
+                    length(acceptance_criteria_digest) = 64
+                    AND acceptance_criteria_digest = lower(acceptance_criteria_digest)
+                    AND acceptance_criteria_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            preflight_event_id TEXT NOT NULL,
+            artifact_refs_json TEXT NOT NULL
+                CHECK (
+                    json_valid(artifact_refs_json)
+                    AND json_type(artifact_refs_json) = 'array'
+                    AND length(CAST(artifact_refs_json AS BLOB)) <= 32768
+                ),
+            artifact_digest TEXT NOT NULL
+                CHECK (
+                    length(artifact_digest) = 64
+                    AND artifact_digest = lower(artifact_digest)
+                    AND artifact_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            run_config_digest TEXT NOT NULL
+                CHECK (
+                    length(run_config_digest) = 64
+                    AND run_config_digest = lower(run_config_digest)
+                    AND run_config_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            evaluator_type TEXT NOT NULL CHECK (evaluator_type IN ('deterministic_verifier', 'human')),
+            evaluator_digest TEXT NOT NULL
+                CHECK (
+                    length(evaluator_digest) = 64
+                    AND evaluator_digest = lower(evaluator_digest)
+                    AND evaluator_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            evaluator_version TEXT NOT NULL
+                CHECK (length(trim(evaluator_version)) > 0 AND length(evaluator_version) <= 128),
+            database_epoch TEXT NOT NULL CHECK (length(trim(database_epoch)) > 0 AND length(database_epoch) <= 128),
+            criterion_results_json TEXT NOT NULL
+                CHECK (
+                    json_valid(criterion_results_json)
+                    AND json_type(criterion_results_json) = 'array'
+                    AND length(CAST(criterion_results_json AS BLOB)) <= 32768
+                ),
+            result TEXT NOT NULL CHECK (result IN ('verified_success', 'failed', 'partial_success')),
+            evidence_json TEXT NOT NULL
+                CHECK (
+                    json_valid(evidence_json)
+                    AND json_type(evidence_json) = 'array'
+                    AND length(CAST(evidence_json AS BLOB)) <= 32768
+                ),
+            issuer_channel TEXT NOT NULL CHECK (issuer_channel IN ('operator_cli', 'registered_adapter')),
+            issuer_actor TEXT NOT NULL CHECK (length(trim(issuer_actor)) > 0 AND length(issuer_actor) <= 128),
+            receipt_digest TEXT NOT NULL
+                CHECK (
+                    length(receipt_digest) = 64
+                    AND receipt_digest = lower(receipt_digest)
+                    AND receipt_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            FOREIGN KEY (run_id) REFERENCES agent_runs (run_id) ON DELETE RESTRICT,
+            FOREIGN KEY (run_id, preflight_event_id) REFERENCES run_events (run_id, event_id) ON DELETE RESTRICT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_run_event_v2_details_run_type
+        ON run_event_v2_details (run_id, logical_event_type, event_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_run_verification_receipts_run_created
+        ON run_verification_receipts (run_id, created_at, receipt_id)
+        """
+    )
+    for trigger_name in (
+        "prevent_agent_runs_delete",
+        "validate_agent_runs_update",
+        "prevent_run_work_item_identity_update",
+        "prevent_run_work_items_update",
+        "prevent_run_work_items_delete",
+        "prevent_run_event_v2_details_update",
+        "prevent_run_event_v2_details_delete",
+        "prevent_run_verification_receipts_update",
+        "prevent_run_verification_receipts_delete",
+        "validate_run_verification_receipt_insert",
+        "validate_v10_run_outcome_insert",
+    ):
+        conn.execute(f"DROP TRIGGER IF EXISTS {quote_identifier(trigger_name)}")
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_agent_runs_delete
+        BEFORE DELETE ON agent_runs
+        BEGIN
+            SELECT RAISE(ABORT, 'agent_runs is immutable');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER validate_agent_runs_update
+        BEFORE UPDATE ON agent_runs
+        WHEN NEW.run_id IS NOT OLD.run_id
+          OR NEW.workspace_key IS NOT OLD.workspace_key
+          OR NEW.root_goal IS NOT OLD.root_goal
+          OR NEW.model_digest IS NOT OLD.model_digest
+          OR NEW.harness_digest IS NOT OLD.harness_digest
+          OR NEW.chat_template_digest IS NOT OLD.chat_template_digest
+          OR NEW.tool_schema_digest IS NOT OLD.tool_schema_digest
+          OR NEW.agent_id IS NOT OLD.agent_id
+          OR NEW.thread_id IS NOT OLD.thread_id
+          OR NEW.memory_scopes_json IS NOT OLD.memory_scopes_json
+          OR NEW.budget_json IS NOT OLD.budget_json
+          OR NEW.idempotency_key_digest IS NOT OLD.idempotency_key_digest
+          OR NEW.request_digest IS NOT OLD.request_digest
+          OR NEW.actor IS NOT OLD.actor
+          OR NEW.source_app IS NOT OLD.source_app
+          OR NEW.source_client IS NOT OLD.source_client
+          OR NEW.source_model IS NOT OLD.source_model
+          OR NEW.client_session_id IS NOT OLD.client_session_id
+          OR NEW.client_workspace IS NOT OLD.client_workspace
+          OR NEW.client_transport IS NOT OLD.client_transport
+          OR NEW.created_at IS NOT OLD.created_at
+          OR NEW.evidence_profile IS NOT OLD.evidence_profile
+          OR NEW.acceptance_criteria_json IS NOT OLD.acceptance_criteria_json
+          OR NEW.acceptance_criteria_digest IS NOT OLD.acceptance_criteria_digest
+          OR NEW.constraints_json IS NOT OLD.constraints_json
+          OR NEW.non_goals_json IS NOT OLD.non_goals_json
+          OR NEW.risk_level IS NOT OLD.risk_level
+          OR NEW.continuation_of_run_id IS NOT OLD.continuation_of_run_id
+          OR NEW.run_generation != OLD.run_generation + 1
+        BEGIN
+            SELECT RAISE(ABORT, 'agent_runs identity and configuration are immutable');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_work_items_update
+        BEFORE UPDATE ON run_work_items
+        BEGIN
+            SELECT RAISE(ABORT, 'run_work_items is immutable');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_work_items_delete
+        BEFORE DELETE ON run_work_items
+        BEGIN
+            SELECT RAISE(ABORT, 'run_work_items is immutable');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_event_v2_details_update
+        BEFORE UPDATE ON run_event_v2_details
+        BEGIN
+            SELECT RAISE(ABORT, 'run_event_v2_details is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_event_v2_details_delete
+        BEFORE DELETE ON run_event_v2_details
+        BEGIN
+            SELECT RAISE(ABORT, 'run_event_v2_details is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_verification_receipts_update
+        BEFORE UPDATE ON run_verification_receipts
+        BEGIN
+            SELECT RAISE(ABORT, 'run_verification_receipts is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_run_verification_receipts_delete
+        BEFORE DELETE ON run_verification_receipts
+        BEGIN
+            SELECT RAISE(ABORT, 'run_verification_receipts is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER validate_run_verification_receipt_insert
+        BEFORE INSERT ON run_verification_receipts
+        BEGIN
+            SELECT CASE
+                WHEN NOT EXISTS (
+                    SELECT 1
+                    FROM agent_runs run
+                    WHERE run.run_id = NEW.run_id
+                      AND run.evidence_profile = 'governed-v2'
+                      AND run.acceptance_criteria_digest = NEW.acceptance_criteria_digest
+                )
+                THEN RAISE(ABORT, 'verification receipt run configuration does not match')
+            END;
+            SELECT CASE
+                WHEN NOT EXISTS (
+                    SELECT 1
+                    FROM run_event_v2_details detail
+                    WHERE detail.run_id = NEW.run_id
+                      AND detail.event_id = NEW.preflight_event_id
+                      AND detail.logical_event_type = 'preflight_review'
+                )
+                THEN RAISE(ABORT, 'verification receipt requires same-run governed preflight')
+            END;
+            SELECT CASE
+                WHEN NEW.database_epoch != (SELECT value FROM bridge_metadata WHERE key = 'database_epoch')
+                THEN RAISE(ABORT, 'verification receipt database epoch is stale')
+            END;
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER validate_v10_run_outcome_insert
+        BEFORE INSERT ON run_outcomes
+        BEGIN
+            SELECT CASE
+                WHEN NEW.outcome_type != 'regression' AND NEW.regression_of_run_id IS NOT NULL
+                THEN RAISE(ABORT, 'regression_of_run_id is only valid for a regression outcome')
+            END;
+            SELECT CASE
+                WHEN NEW.outcome_type = 'regression' AND NEW.regression_of_run_id = NEW.run_id
+                THEN RAISE(ABORT, 'regression_of_run_id must reference a distinct run')
+            END;
+            SELECT CASE
+                WHEN NEW.outcome_type = 'verified_success'
+                     AND (SELECT evidence_profile FROM agent_runs WHERE run_id = NEW.run_id) = 'governed-v2'
+                     AND (
+                        NEW.verification_profile != 'governed-v2'
+                        OR NEW.verification_receipt_id IS NULL
+                        OR NOT EXISTS (
+                            SELECT 1
+                            FROM run_verification_receipts receipt
+                            WHERE receipt.receipt_id = NEW.verification_receipt_id
+                              AND receipt.run_id = NEW.run_id
+                              AND receipt.result = 'verified_success'
+                              AND receipt.evaluator_type = NEW.evaluator_type
+                              AND receipt.evaluator_digest = NEW.evaluator_digest
+                              AND receipt.evaluator_version = NEW.evaluator_version
+                              AND receipt.database_epoch = (
+                                  SELECT value FROM bridge_metadata WHERE key = 'database_epoch'
+                              )
+                        )
+                     )
+                THEN RAISE(ABORT, 'verified_success requires a current matching governed verification receipt')
+            END;
+            SELECT CASE
+                WHEN NEW.outcome_type != 'verified_success' AND NEW.verification_receipt_id IS NOT NULL
+                THEN RAISE(ABORT, 'verification receipt is only valid for verified_success')
+            END;
+        END
         """
     )
 

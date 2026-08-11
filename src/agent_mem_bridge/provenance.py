@@ -49,10 +49,17 @@ def normalize_provenance_value(field: str, value: object | None) -> str | None:
 def normalize_provenance_mapping(
     provenance: Mapping[str, object | None] | None,
 ) -> dict[str, str] | None:
-    """Return supported, bounded provenance while preserving unknown-field behavior."""
+    """Return only declared, bounded provenance fields.
+
+    Callers cannot silently discard unsupported provenance because that could
+    conceal a misspelled authority or identity field in a durable record.
+    """
 
     if provenance is None:
         return None
+    unknown = sorted(str(field) for field in provenance if field not in PROVENANCE_FIELDS)
+    if unknown:
+        raise ValueError(f"unsupported provenance fields: {unknown}")
     cleaned = {
         field: value
         for field in PROVENANCE_FIELDS

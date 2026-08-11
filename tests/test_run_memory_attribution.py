@@ -39,7 +39,7 @@ def _receipt(
     store: MemoryStore, *, content: str = "Use the durable receipt attribution contract."
 ) -> dict[str, object]:
     stored = store.store(namespace="project:bridge", content=content, kind="memory")
-    recalled = store.recall(namespace="project:bridge", query="receipt attribution", kind="memory", limit=5)
+    recalled = store.recall(namespace="project:bridge", query="receipt attribution", kind="memory", limit=50)
     item = next(item for item in recalled["items"] if item["id"] == stored["id"])
     return {
         "memory_id": str(stored["id"]),
@@ -512,6 +512,8 @@ def test_source_and_manual_attribution_validate_feedback_and_shadow_counters(tmp
     repaired = rebuild_database_projections(store.db_path)
     assert repaired["ok"] is True
     assert repaired["memory_utility_shadow_rebuilt_count"] == 0
+    with store._connect() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM memory_utility_shadow").fetchone()[0] == 0
 
 
 def test_attribution_rejects_caller_managed_fields_and_keeps_memory_authority_unchanged(tmp_path: Path) -> None:
@@ -540,16 +542,71 @@ def test_attribution_rejects_caller_managed_fields_and_keeps_memory_authority_un
     assert json.dumps(memories_after, default=str) == json.dumps(memories_before, default=str)
 
 
+def test_source_linked_feedback_outcomes_must_match_memory_relation_atomically(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    cases = (
+        ("memory_applied", "misleading", "Reviewed mismatch evidence."),
+        ("memory_applied", "outdated", "Reviewed mismatch evidence."),
+        ("memory_applied", "not_applicable", None),
+        ("memory_applied", "not_used", None),
+        ("memory_rejected", "helpful", None),
+        ("memory_rejected", "not_used", None),
+    )
+    for index, (event_type, feedback_outcome, reason) in enumerate(cases):
+        run = _run(store, f"relation-mismatch:{index}")
+        receipt = _receipt(store, content=f"Receipt attribution relation mismatch evidence {index}.")
+        recalled = _recalled_event(store, run, receipt, f"relation-mismatch:{index}")
+        feedback_kwargs = {"reason": reason} if reason is not None else {}
+        feedback = store.feedback(
+            namespace="project:bridge",
+            recall_receipt=str(receipt["token"]),
+            memory_id=str(receipt["memory_id"]),
+            result_rank=int(receipt["result_rank"]),
+            outcome=feedback_outcome,
+            **feedback_kwargs,
+        )
+        with store._connect() as conn:
+            before = (
+                conn.execute("SELECT COUNT(*) FROM run_events WHERE run_id = ?", (run["run_id"],)).fetchone()[0],
+                conn.execute("SELECT COUNT(*) FROM run_memory_links WHERE run_id = ?", (run["run_id"],)).fetchone()[0],
+            )
+        with pytest.raises(ValueError, match="feedback outcome cannot support"):
+            store.record_run_event(
+                workspace_key="project:bridge",
+                run_id=str(run["run_id"]),
+                work_item_id=str(run["root_work_item_id"]),
+                event_type=event_type,
+                summary="An outcome/relation mismatch must remain atomic.",
+                idempotency_key=f"event:relation-mismatch:{index}",
+                memory_attribution={
+                    "source_recall_event_id": recalled["event_id"],
+                    "items": [
+                        {
+                            "memory_id": receipt["memory_id"],
+                            "result_rank": receipt["result_rank"],
+                            "feedback_id": feedback["feedback_id"],
+                        }
+                    ],
+                },
+            )
+        with store._connect() as conn:
+            after = (
+                conn.execute("SELECT COUNT(*) FROM run_events WHERE run_id = ?", (run["run_id"],)).fetchone()[0],
+                conn.execute("SELECT COUNT(*) FROM run_memory_links WHERE run_id = ?", (run["run_id"],)).fetchone()[0],
+            )
+        assert after == before
+
+
 def test_memory_utility_shadow_counts_only_current_effective_feedback_with_terminal_outcomes(tmp_path: Path) -> None:
     store = _store(tmp_path)
     cases = (
-        ("helpful", "verified_success", "human", 1, 0, 0, 0, 0, 0),
-        ("misleading", "failed", "agent", 0, 1, 0, 0, 0, 1),
-        ("outdated", "user_corrected", "agent", 0, 0, 1, 0, 0, 1),
-        ("not_used", "partial_success", "agent", 0, 0, 0, 1, 0, 0),
+        ("helpful", "memory_applied", "verified_success", "human", 1, 0, 0, 0, 0, 0, 0),
+        ("misleading", "memory_rejected", "failed", "agent", 0, 1, 0, 0, 0, 0, 1),
+        ("outdated", "memory_rejected", "user_corrected", "agent", 0, 0, 1, 0, 0, 0, 1),
+        ("not_applicable", "memory_rejected", "partial_success", "agent", 0, 0, 0, 1, 0, 0, 0),
     )
     memory_ids: dict[str, str] = {}
-    for feedback_outcome, run_outcome, evaluator_type, *_ in cases:
+    for feedback_outcome, event_type, run_outcome, evaluator_type, *_ in cases:
         run = _run(store, f"counter:{feedback_outcome}")
         receipt = _receipt(store, content=f"Receipt attribution counter evidence: {feedback_outcome}.")
         recalled = _recalled_event(store, run, receipt, f"counter:{feedback_outcome}")
@@ -568,8 +625,8 @@ def test_memory_utility_shadow_counts_only_current_effective_feedback_with_termi
             workspace_key="project:bridge",
             run_id=str(run["run_id"]),
             work_item_id=str(run["root_work_item_id"]),
-            event_type="memory_applied",
-            summary="Record one selected source-linked memory application.",
+            event_type=event_type,
+            summary="Record one selected source-linked memory relation.",
             idempotency_key=f"event:counter:{feedback_outcome}",
             memory_attribution={
                 "source_recall_event_id": recalled["event_id"],
@@ -596,20 +653,248 @@ def test_memory_utility_shadow_counts_only_current_effective_feedback_with_termi
         )
         memory_ids[feedback_outcome] = str(receipt["memory_id"])
 
+    not_used_run = _run(store, "counter:not-used")
+    not_used_receipt = _receipt(store, content="Receipt attribution counter evidence: not used.")
+    not_used_recalled = _recalled_event(store, not_used_run, not_used_receipt, "counter:not-used")
+    helpful = store.feedback(
+        namespace="project:bridge",
+        recall_receipt=str(not_used_receipt["token"]),
+        memory_id=str(not_used_receipt["memory_id"]),
+        result_rank=int(not_used_receipt["result_rank"]),
+        outcome="helpful",
+    )
+    store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=str(not_used_run["run_id"]),
+        work_item_id=str(not_used_run["root_work_item_id"]),
+        event_type="memory_applied",
+        summary="Record the prior helpful source-linked memory application.",
+        idempotency_key="event:counter:not-used",
+        memory_attribution={
+            "source_recall_event_id": not_used_recalled["event_id"],
+            "items": [
+                {
+                    "memory_id": not_used_receipt["memory_id"],
+                    "result_rank": not_used_receipt["result_rank"],
+                    "feedback_id": helpful["feedback_id"],
+                }
+            ],
+        },
+    )
+    _complete_root_work_item(store, not_used_run, "counter:not-used")
+    store.complete_run(
+        workspace_key="project:bridge",
+        run_id=str(not_used_run["run_id"]),
+        outcome="verified_success",
+        evaluator_type="human",
+        evidence=[{"kind": "review", "reference": "review:counter-not-used"}],
+        idempotency_key="outcome:counter:not-used",
+    )
+    correction = store.feedback(
+        namespace="project:bridge",
+        recall_receipt=str(not_used_receipt["token"]),
+        memory_id=str(not_used_receipt["memory_id"]),
+        result_rank=int(not_used_receipt["result_rank"]),
+        outcome="not_used",
+        feedback_type="correction",
+        supersedes_feedback_id=int(helpful["feedback_id"]),
+    )
+    assert correction["effective_vote"] is True
+    memory_ids["not_used"] = str(not_used_receipt["memory_id"])
+
     with store._connect() as conn:
         rebuild_memory_utility_shadow(conn, computed_at="2026-08-01T00:00:00+00:00")
         rows = {str(row["memory_id"]): row for row in conn.execute("SELECT * FROM memory_utility_shadow").fetchall()}
-    for feedback_outcome, _, _, helpful, misleading, outdated, not_used, supporting, contradicting in cases:
+    for (
+        feedback_outcome,
+        _,
+        _,
+        _,
+        helpful,
+        misleading,
+        outdated,
+        not_applicable,
+        not_used,
+        supporting,
+        contradicting,
+    ) in cases:
         row = rows[memory_ids[feedback_outcome]]
         assert (
             row["helpful_count"],
             row["misleading_count"],
             row["outdated_count"],
+            row["not_applicable_count"],
             row["not_used_count"],
             row["supporting_run_count"],
             row["contradicting_run_count"],
             row["shadow_score"],
-        ) == (helpful, misleading, outdated, not_used, supporting, contradicting, 0.0)
+        ) == (helpful, misleading, outdated, not_applicable, not_used, supporting, contradicting, 0.0)
+    assert rows[memory_ids["not_used"]]["not_used_count"] == 1
+    assert rows[memory_ids["not_used"]]["shadow_score"] == 0.0
+
+
+def test_memory_utility_shadow_excludes_corrected_feedback_that_conflicts_with_link_relation(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    cases = (
+        ("misleading", "memory_rejected", "failed", "agent", "helpful"),
+        ("helpful", "memory_applied", "verified_success", "human", "misleading"),
+    )
+    for index, (initial_outcome, event_type, run_outcome, evaluator_type, corrected_outcome) in enumerate(cases):
+        run = _run(store, f"relation-correction:{index}")
+        receipt = _receipt(store, content=f"Receipt relation correction evidence {index}.")
+        recalled = _recalled_event(store, run, receipt, f"relation-correction:{index}")
+        feedback = store.feedback(
+            namespace="project:bridge",
+            recall_receipt=str(receipt["token"]),
+            memory_id=str(receipt["memory_id"]),
+            result_rank=int(receipt["result_rank"]),
+            outcome=initial_outcome,
+            **({"reason": "Reviewed relation evidence."} if initial_outcome == "misleading" else {}),
+        )
+        store.record_run_event(
+            workspace_key="project:bridge",
+            run_id=str(run["run_id"]),
+            work_item_id=str(run["root_work_item_id"]),
+            event_type=event_type,
+            summary="Record a source-linked memory relation before feedback is corrected.",
+            idempotency_key=f"event:relation-correction:{index}",
+            memory_attribution={
+                "source_recall_event_id": recalled["event_id"],
+                "items": [
+                    {
+                        "memory_id": receipt["memory_id"],
+                        "result_rank": receipt["result_rank"],
+                        "feedback_id": feedback["feedback_id"],
+                    }
+                ],
+            },
+        )
+        _complete_root_work_item(store, run, f"relation-correction:{index}")
+        store.complete_run(
+            workspace_key="project:bridge",
+            run_id=str(run["run_id"]),
+            outcome=run_outcome,
+            evaluator_type=evaluator_type,
+            idempotency_key=f"outcome:relation-correction:{index}",
+            **(
+                {"evidence": [{"kind": "review", "reference": f"review:relation-correction:{index}"}]}
+                if run_outcome == "verified_success"
+                else {}
+            ),
+        )
+        store.feedback(
+            namespace="project:bridge",
+            recall_receipt=str(receipt["token"]),
+            memory_id=str(receipt["memory_id"]),
+            result_rank=int(receipt["result_rank"]),
+            outcome=corrected_outcome,
+            feedback_type="correction",
+            supersedes_feedback_id=int(feedback["feedback_id"]),
+            **({"reason": "Reviewed relation correction."} if corrected_outcome == "misleading" else {}),
+        )
+
+        with store._connect() as conn:
+            rebuild_memory_utility_shadow(conn, computed_at="2026-08-01T00:00:00+00:00")
+            row = conn.execute(
+                "SELECT * FROM memory_utility_shadow WHERE memory_id = ?", (receipt["memory_id"],)
+            ).fetchone()
+
+        assert row is None
+
+
+@pytest.mark.parametrize(
+    ("replacement_type", "replacement_outcome"),
+    (("correction", "not_used"), ("retraction", None)),
+)
+def test_superseded_or_retracted_helpful_support_cannot_authorize_applied_not_used(
+    tmp_path: Path, replacement_type: str, replacement_outcome: str | None
+) -> None:
+    store = _store(tmp_path)
+    support_run = _run(store, f"retired-helpful-support:{replacement_type}")
+    receipt = _receipt(store, content=f"Receipt retired helpful support evidence {replacement_type}.")
+    recalled = _recalled_event(store, support_run, receipt, f"retired-helpful-support:{replacement_type}")
+    helpful = store.feedback(
+        namespace="project:bridge",
+        recall_receipt=str(receipt["token"]),
+        memory_id=str(receipt["memory_id"]),
+        result_rank=int(receipt["result_rank"]),
+        outcome="helpful",
+    )
+    store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=str(support_run["run_id"]),
+        work_item_id=str(support_run["root_work_item_id"]),
+        event_type="memory_applied",
+        summary="Record the strong helpful support that will be retired.",
+        idempotency_key=f"event:retired-helpful-support:{replacement_type}",
+        memory_attribution={
+            "source_recall_event_id": recalled["event_id"],
+            "items": [
+                {
+                    "memory_id": receipt["memory_id"],
+                    "result_rank": receipt["result_rank"],
+                    "feedback_id": helpful["feedback_id"],
+                }
+            ],
+        },
+    )
+    _complete_root_work_item(store, support_run, f"retired-helpful-support:{replacement_type}")
+    store.complete_run(
+        workspace_key="project:bridge",
+        run_id=str(support_run["run_id"]),
+        outcome="verified_success",
+        evaluator_type="human",
+        evidence=[{"kind": "review", "reference": f"review:retired-helpful-support:{replacement_type}"}],
+        idempotency_key=f"outcome:retired-helpful-support:{replacement_type}",
+    )
+    store.feedback(
+        namespace="project:bridge",
+        recall_receipt=str(receipt["token"]),
+        memory_id=str(receipt["memory_id"]),
+        result_rank=int(receipt["result_rank"]),
+        outcome=replacement_outcome,
+        feedback_type=replacement_type,
+        supersedes_feedback_id=int(helpful["feedback_id"]),
+    )
+
+    later_run = _run(store, f"later-not-used:{replacement_type}")
+    later_recall = store.recall(
+        namespace="project:bridge", query="durable receipt attribution", kind="memory", limit=50
+    )
+    later_item = next(item for item in later_recall["items"] if item["id"] == receipt["memory_id"])
+    later_receipt = {
+        "memory_id": str(receipt["memory_id"]),
+        "result_rank": later_recall["items"].index(later_item) + 1,
+        "token": str(later_recall["recall_receipt"]["token"]),
+    }
+    later_recalled = _recalled_event(store, later_run, later_receipt, f"later-not-used:{replacement_type}")
+    not_used = store.feedback(
+        namespace="project:bridge",
+        recall_receipt=str(later_receipt["token"]),
+        memory_id=str(later_receipt["memory_id"]),
+        result_rank=int(later_receipt["result_rank"]),
+        outcome="not_used",
+    )
+
+    with pytest.raises(ValueError, match="feedback outcome cannot support source-linked memory_applied"):
+        store.record_run_event(
+            workspace_key="project:bridge",
+            run_id=str(later_run["run_id"]),
+            work_item_id=str(later_run["root_work_item_id"]),
+            event_type="memory_applied",
+            summary="Retired helpful support cannot authorize neutral applied attribution.",
+            idempotency_key=f"event:later-not-used:{replacement_type}",
+            memory_attribution={
+                "source_recall_event_id": later_recalled["event_id"],
+                "items": [
+                    {
+                        "memory_id": later_receipt["memory_id"],
+                        "result_rank": later_receipt["result_rank"],
+                        "feedback_id": not_used["feedback_id"],
+                    }
+                ],
+            },
+        )
 
 
 def test_memory_lifecycle_payload_cannot_contradict_canonical_memory_links(tmp_path: Path) -> None:

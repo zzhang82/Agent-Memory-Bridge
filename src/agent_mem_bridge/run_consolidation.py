@@ -22,11 +22,13 @@ from .durable_data_policy import forbidden_durable_structured_field
 from .learning_policy import evaluate_learning_candidate
 from .procedure_governance import parse_procedure_artifact
 from .run_outcome_authority import is_strong_verified_outcome, outcome_authority_class
+from .schema import database_epoch
 
 SHADOW_SCHEMA = "amb.run-consolidation-shadow.v1"
 EVIDENCE_SCHEMA = "amb.run-consolidation-evidence.v1"
 MAX_LIMIT = 500
 DEFAULT_LIMIT = 100
+OPPOSITION_SCHEMA = "amb.run-consolidation-opposition.v1"
 ALLOWED_AUTHORITY_CLASSES = frozenset({"belief_proposal", "decision", "procedure", "release_evidence"})
 ALLOWED_PAYLOAD_FIELDS = frozenset(
     {
@@ -46,6 +48,7 @@ ALLOWED_PAYLOAD_FIELDS = frozenset(
         "prerequisites",
         "steps",
         "applies_to_domains",
+        "opposes_claims",
     }
 )
 PROCEDURE_FIELDS = frozenset(
@@ -58,6 +61,26 @@ PROCEDURE_FIELDS = frozenset(
         "failure_mode",
         "rollback_path",
         "applies_to_domains",
+    }
+)
+PROCEDURE_STRUCTURE_FIELDS = (
+    "goal",
+    "when_to_use",
+    "when_not_to_use",
+    "prerequisites",
+    "steps",
+    "failure_mode",
+    "rollback_path",
+    "applies_to_domains",
+    "observed_conditions",
+)
+OPPOSITION_REASON_CODES = frozenset(
+    {
+        "evidence_conflict",
+        "procedure_conflict",
+        "safety_boundary_conflict",
+        "superseded_by_review",
+        "verified_regression",
     }
 )
 REPORT_TEXT_FIELDS = frozenset(
@@ -76,6 +99,7 @@ REPORT_TEXT_FIELDS = frozenset(
 )
 OPAQUE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@=+-]{0,255}$")
 DOMAIN_TAG_RE = re.compile(r"^domain:[a-z0-9][a-z0-9._/-]{0,127}$")
+SUBJECT_ID_RE = re.compile(r"^run-consolidation-subject:[0-9a-f]{64}$")
 WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:")
 SECRET_REF_RE = re.compile(
     r"(?:sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16})",
@@ -98,7 +122,7 @@ def build_run_consolidation_report(
     stage: bool = False,
     connection: sqlite3.Connection | None = None,
 ) -> dict[str, Any]:
-    """Read a bounded workspace slice and return deterministic lesson proposals.
+    """Read all workspace runs through bounded keyset pages and return lesson proposals.
 
     ``stage=False`` is strictly read-only from this module's perspective.  A
     caller may pass an already-opened read-only connection to ensure even store
@@ -116,55 +140,98 @@ def build_run_consolidation_report(
     else:
         raise ValueError("store or read-only connection is required")
     with connection_context as conn:
-        workspace_run_count = int(
-            conn.execute(
-                "SELECT COUNT(*) FROM agent_runs WHERE workspace_key = ?",
-                (workspace,),
-            ).fetchone()[0]
-        )
-        runs = conn.execute(
-            """
-            SELECT run_id, thread_id, client_session_id, created_at
-            FROM agent_runs
-            WHERE workspace_key = ?
-            ORDER BY created_at ASC, run_id ASC
-            LIMIT ?
-            """,
-            (workspace, limit),
-        ).fetchall()
-        run_ids = [str(row["run_id"]) for row in runs]
-        scan_complete = len(run_ids) == workspace_run_count
-        outcomes = conn.execute(
-            """
+        owns_snapshot = not conn.in_transaction
+        if owns_snapshot:
+            conn.execute("BEGIN")
+        try:
+            snapshot_epoch = database_epoch(conn)
+            workspace_run_count = int(
+                conn.execute(
+                    "SELECT COUNT(*) FROM agent_runs WHERE workspace_key = ?",
+                    (workspace,),
+                ).fetchone()[0]
+            )
+            runs: list[Any] = []
+            events: list[Any] = []
+            page_count = 0
+            cursor: tuple[str, str] | None = None
+            while True:
+                if cursor is None:
+                    page = conn.execute(
+                        """
+                    SELECT run_id, thread_id, client_session_id, created_at,
+                           model_digest, harness_digest, chat_template_digest,
+                           tool_schema_digest
+                    FROM agent_runs
+                    WHERE workspace_key = ?
+                    ORDER BY created_at ASC, run_id ASC
+                    LIMIT ?
+                    """,
+                        (workspace, limit),
+                    ).fetchall()
+                else:
+                    page = conn.execute(
+                        """
+                    SELECT run_id, thread_id, client_session_id, created_at,
+                           model_digest, harness_digest, chat_template_digest,
+                           tool_schema_digest
+                    FROM agent_runs
+                    WHERE workspace_key = ?
+                      AND (created_at > ? OR (created_at = ? AND run_id > ?))
+                    ORDER BY created_at ASC, run_id ASC
+                    LIMIT ?
+                    """,
+                        (workspace, cursor[0], cursor[0], cursor[1], limit),
+                    ).fetchall()
+                if not page:
+                    break
+                page_count += 1
+                runs.extend(page)
+                page_run_ids = [str(row["run_id"]) for row in page]
+                placeholders = ", ".join("?" for _ in page_run_ids)
+                events.extend(
+                    conn.execute(
+                        f"""
+                    SELECT event_id, run_id, sequence, event_type, payload_json
+                    FROM run_events
+                    WHERE run_id IN ({placeholders})
+                    ORDER BY run_id ASC, sequence ASC, event_id ASC
+                    """,
+                        page_run_ids,
+                    ).fetchall()
+                )
+                last = page[-1]
+                cursor = (str(last["created_at"]), str(last["run_id"]))
+                if len(page) < limit:
+                    break
+            run_ids = [str(row["run_id"]) for row in runs]
+            scan_complete = len(run_ids) == workspace_run_count
+            outcomes = conn.execute(
+                """
             SELECT run_outcomes.outcome_id, run_outcomes.run_id,
                    run_outcomes.outcome_type, run_outcomes.evaluator_type,
                    run_outcomes.evaluator_digest, run_outcomes.evaluator_version,
                    run_outcomes.evidence_json, run_outcomes.supersedes_outcome_id,
                    run_outcomes.regression_of_run_id,
                    run_outcomes.termination_reason, run_outcomes.created_at,
+                   run_outcomes.verification_profile,
+                   run_outcomes.verification_receipt_id,
+                   receipt.artifact_digest AS receipt_artifact_digest,
                    agent_runs.thread_id AS run_thread_id,
                    agent_runs.client_session_id AS run_client_session_id
             FROM run_outcomes
             JOIN agent_runs ON agent_runs.run_id = run_outcomes.run_id
+            LEFT JOIN run_verification_receipts receipt
+              ON receipt.receipt_id = run_outcomes.verification_receipt_id
             WHERE agent_runs.workspace_key = ?
             ORDER BY run_outcomes.run_id ASC, run_outcomes.created_at ASC,
                      run_outcomes.outcome_id ASC
             """,
-            (workspace,),
-        ).fetchall()
-        if run_ids:
-            placeholders = ", ".join("?" for _ in run_ids)
-            events = conn.execute(
-                f"""
-                SELECT event_id, run_id, sequence, event_type, payload_json
-                FROM run_events
-                WHERE run_id IN ({placeholders})
-                ORDER BY run_id ASC, sequence ASC, event_id ASC
-                """,
-                run_ids,
+                (workspace,),
             ).fetchall()
-        else:
-            events = []
+        finally:
+            if owns_snapshot:
+                conn.rollback()
 
     runs_by_id = {str(row["run_id"]): row for row in runs}
     outcome_by_id = {str(row["outcome_id"]): row for row in outcomes}
@@ -219,6 +286,7 @@ def build_run_consolidation_report(
         )
         for group_key, entries in sorted(grouped.items(), key=lambda item: item[0])
     ]
+    _apply_structured_opposition(candidates, grouped)
     candidates.sort(key=lambda candidate: str(candidate["candidate_key"]))
     eligible = [candidate for candidate in candidates if candidate["eligible"]]
 
@@ -234,6 +302,10 @@ def build_run_consolidation_report(
             "workspace_run_count": workspace_run_count,
             "scanned_run_count": len(run_ids),
             "omitted_run_count": workspace_run_count - len(run_ids),
+            "page_count": page_count,
+            "page_size": limit,
+            "snapshot_database_epoch": snapshot_epoch,
+            "last_scanned_key": ({"created_at": cursor[0], "run_id": cursor[1]} if cursor is not None else None),
             "outcome_head_scope": "workspace",
         },
         "eligible_candidate_count": len(eligible),
@@ -290,6 +362,8 @@ def render_run_consolidation_markdown(report: Mapping[str, Any]) -> str:
         f"- workspace: `{report['workspace_key']}`",
         f"- scanned runs: `{report['scanned_run_count']}`",
         f"- scan complete: `{str(bool(report.get('scan', {}).get('complete'))).lower()}`",
+        f"- scan pages: `{report.get('scan', {}).get('page_count', 0)}`",
+        f"- scan page size: `{report.get('scan', {}).get('page_size', report['limit'])}`",
         f"- eligible candidates: `{report['eligible_candidate_count']}`",
         f"- staged candidates: `{report['staged_count']}`",
         "",
@@ -347,6 +421,9 @@ def _parse_evidence_payload(raw_payload: Any) -> tuple[dict[str, Any] | None, st
     domains = _normalize_domain_tags(raw_tags)
     if domains is None:
         return None, "invalid_domain_tags"
+    opposes_claims = _normalize_opposes_claims(payload.get("opposes_claims"))
+    if opposes_claims is None:
+        return None, "invalid_opposes_claims"
     boundary = _optional_bounded_text(payload.get("boundary"), 512) or ""
 
     normalized: dict[str, Any] = {
@@ -359,6 +436,7 @@ def _parse_evidence_payload(raw_payload: Any) -> tuple[dict[str, Any] | None, st
         "when_not_to_use": _optional_bounded_text(payload.get("when_not_to_use"), 1024) or "",
         "failure_mode": _optional_bounded_text(payload.get("failure_mode"), 1024) or "",
         "rollback_path": _optional_bounded_text(payload.get("rollback_path"), 1024) or "",
+        "opposes_claims": opposes_claims,
     }
     if authority_class == "procedure":
         procedure, reason = _parse_procedure_payload(payload, domains)
@@ -444,18 +522,20 @@ def _build_candidate(
                 contradicting.append(_inbound_regression_episode(regression))
                 known_contradictions.add(outcome_id)
 
-    independent = _independent_supports(supporting, inbound_regressions)
+    declared_independent = _declared_independent_supports(supporting, inbound_regressions)
+    verified_independent = _verified_independent_supports(supporting, inbound_regressions)
     verifier_to_human = any(
         _has_verifier_to_human_chain(episode, outcomes_by_run.get(episode["run_id"], []), outcome_by_id)
         for episode in supporting
     )
+    procedure_conflict = authority_class == "procedure" and _has_procedure_structure_conflict(entries)
     eligibility_reasons: list[str] = []
-    if len(independent) >= 2:
-        eligibility_reasons.append("two_independent_supporting_episodes")
+    if len(verified_independent) >= 2:
+        eligibility_reasons.append("two_verified_independent_supporting_episodes")
     if verifier_to_human:
         eligibility_reasons.append("verifier_to_human_outcome_chain")
-    eligible = bool(eligibility_reasons) and not contradicting and scan_complete
-    if contradicting:
+    eligible = bool(eligibility_reasons) and not contradicting and not procedure_conflict and scan_complete
+    if contradicting or procedure_conflict:
         confidence = "contested"
     elif verifier_to_human:
         confidence = "reviewed"
@@ -466,31 +546,44 @@ def _build_candidate(
     else:
         confidence = "provisional"
 
-    normalized_identity = {
-        "schema": SHADOW_SCHEMA,
+    subject_identity = {
         "claim": claim,
         "boundary": boundary,
         "authority_class": authority_class,
         "domain_tags": list(domains_tuple),
+    }
+    subject_hash = hashlib.sha256(_canonical_json(subject_identity).encode("utf-8")).hexdigest()
+    subject_id = f"run-consolidation-subject:{subject_hash}"
+    all_episodes = sorted([*supporting, *contradicting, *neutral], key=lambda item: str(item["run_id"]))
+    union_refs = sorted({ref for episode in all_episodes for ref in episode["evidence_refs"]})
+    evidence_revision_identity = {
+        "schema": SHADOW_SCHEMA,
+        "subject_id": subject_id,
         "supporting_episode_ids": [episode["run_id"] for episode in supporting],
         "contradicting_episode_ids": [episode["run_id"] for episode in contradicting],
         "neutral_episode_ids": [episode["run_id"] for episode in neutral],
-        "evidence_refs": sorted(
-            {ref for episode in [*supporting, *contradicting, *neutral] for ref in episode["evidence_refs"]}
-        ),
+        "episodes": all_episodes,
+        "evidence_refs": union_refs,
+        "procedure_structures": _procedure_structures(entries) if authority_class == "procedure" else [],
+        "opposes_claims": _group_opposes_claims(entries),
     }
-    candidate_hash = hashlib.sha256(_canonical_json(normalized_identity).encode("utf-8")).hexdigest()
-    all_episodes = sorted([*supporting, *contradicting, *neutral], key=lambda item: str(item["run_id"]))
-    union_refs = sorted({ref for episode in all_episodes for ref in episode["evidence_refs"]})
-    procedure = canonical.get("procedure")
+    evidence_revision_hash = hashlib.sha256(_canonical_json(evidence_revision_identity).encode("utf-8")).hexdigest()
+    evidence_revision_id = f"run-consolidation-evidence:{evidence_revision_hash}"
+    procedure = None if procedure_conflict else canonical.get("procedure")
     review_action = "stage_hidden_candidate_for_human_review" if eligible else "collect_independent_evidence"
     if not scan_complete:
         review_action = "rescan_workspace_before_review"
+    elif procedure_conflict:
+        review_action = "resolve_procedure_conflict_before_review"
     elif contradicting:
         review_action = "resolve_contradicting_evidence_before_review"
+    conflict_reason_codes = ["procedure_structure_conflict"] if procedure_conflict else []
     return {
-        "candidate_key": f"run-consolidation:{candidate_hash}",
-        "candidate_hash": candidate_hash,
+        "candidate_key": subject_id,
+        "candidate_hash": subject_hash,
+        "candidate_subject_id": subject_id,
+        "evidence_revision_id": evidence_revision_id,
+        "evidence_revision_hash": evidence_revision_hash,
         "claim": claim,
         "boundary": boundary or None,
         "authority_class": authority_class,
@@ -501,11 +594,20 @@ def _build_candidate(
         "neutral_episode_ids": [episode["run_id"] for episode in neutral],
         "episodes": all_episodes,
         "evidence_refs": union_refs,
-        "independence_count": len(independent),
-        "independent_supporting_episode_ids": [episode["run_id"] for episode in independent],
+        "independence_count": len(declared_independent),
+        "independent_supporting_episode_ids": [episode["run_id"] for episode in declared_independent],
+        "declared_independence_count": len(declared_independent),
+        "declared_independent_supporting_episode_ids": [episode["run_id"] for episode in declared_independent],
+        "verified_independence_count": len(verified_independent),
+        "verified_independent_supporting_episode_ids": [episode["run_id"] for episode in verified_independent],
+        "opposes_claims": _group_opposes_claims(entries),
+        "opposed_by": [],
+        "conflict_reason_codes": conflict_reason_codes,
         "eligibility_reason": (
             "scan_incomplete"
             if not scan_complete
+            else "procedure_structure_conflict"
+            if procedure_conflict
             else "contradicting_episode_present"
             if contradicting
             else eligibility_reasons[0]
@@ -515,16 +617,17 @@ def _build_candidate(
         "basis_reason_codes": [
             *eligibility_reasons,
             *(["contradicting_episode_present"] if contradicting else []),
+            *conflict_reason_codes,
             *(["scan_incomplete"] if not scan_complete else []),
         ]
         or ["insufficient_independent_support"],
         "eligible": eligible,
         "confidence_label": confidence,
         "candidate_lesson": claim,
-        "observed_conditions": canonical["observed_conditions"] or None,
-        "when_not_to_use": canonical["when_not_to_use"] or None,
-        "failure_mode": canonical["failure_mode"] or None,
-        "rollback_path": canonical["rollback_path"] or None,
+        "observed_conditions": None if procedure_conflict else canonical["observed_conditions"] or None,
+        "when_not_to_use": None if procedure_conflict else canonical["when_not_to_use"] or None,
+        "failure_mode": None if procedure_conflict else canonical["failure_mode"] or None,
+        "rollback_path": None if procedure_conflict else canonical["rollback_path"] or None,
         "review_action": review_action,
     }
 
@@ -543,6 +646,9 @@ def _episode_for_run(run_id: str, entries: Sequence[dict[str, Any]], outcome: An
         "strong_verified": is_strong_verified_outcome(outcome),
         "evaluator_type": str(outcome["evaluator_type"]),
         "evaluator_id": _evaluator_id(outcome),
+        "evaluator_digest": _opaque_digest(outcome["evaluator_digest"]),
+        "receipt_artifact_digest": _opaque_digest(outcome["receipt_artifact_digest"]),
+        "execution_environment_digest": _execution_environment_digest(run),
         "outcome_evidence_refs": outcome_refs,
         "proposal_evidence_refs": proposal_refs,
         "evidence_refs": sorted(set(proposal_refs).union(outcome_refs)),
@@ -565,6 +671,9 @@ def _inbound_regression_episode(outcome: Any) -> dict[str, Any]:
         "strong_verified": is_strong_verified_outcome(outcome),
         "evaluator_type": str(outcome["evaluator_type"]),
         "evaluator_id": _evaluator_id(outcome),
+        "evaluator_digest": _opaque_digest(outcome["evaluator_digest"]),
+        "receipt_artifact_digest": _opaque_digest(outcome["receipt_artifact_digest"]),
+        "execution_environment_digest": None,
         "outcome_evidence_refs": outcome_refs,
         "proposal_evidence_refs": [],
         "evidence_refs": outcome_refs,
@@ -583,7 +692,7 @@ def _outcome_bucket(outcome: Any, evidence_refs: Sequence[str]) -> str:
     return "neutral"
 
 
-def _independent_supports(
+def _declared_independent_supports(
     supporting: Sequence[dict[str, Any]], inbound_regressions: Mapping[str, Sequence[Any]]
 ) -> list[dict[str, Any]]:
     ordered = sorted(supporting, key=lambda item: str(item["run_id"]))
@@ -591,18 +700,37 @@ def _independent_supports(
     # greedy first run masking two later independent episodes.
     for index, left in enumerate(ordered):
         for right in ordered[index + 1 :]:
-            if _episodes_independent(left, right, inbound_regressions):
+            if _episodes_declared_independent(left, right, inbound_regressions):
                 selected = [left, right]
                 for candidate in ordered:
                     if candidate not in selected and all(
-                        _episodes_independent(candidate, existing, inbound_regressions) for existing in selected
+                        _episodes_declared_independent(candidate, existing, inbound_regressions)
+                        for existing in selected
                     ):
                         selected.append(candidate)
                 return selected
     return ordered[:1]
 
 
-def _episodes_independent(
+def _verified_independent_supports(
+    supporting: Sequence[dict[str, Any]], inbound_regressions: Mapping[str, Sequence[Any]]
+) -> list[dict[str, Any]]:
+    ordered = sorted(supporting, key=lambda item: str(item["run_id"]))
+    for index, left in enumerate(ordered):
+        for right in ordered[index + 1 :]:
+            if _episodes_verified_independent(left, right, inbound_regressions):
+                selected = [left, right]
+                for candidate in ordered:
+                    if candidate not in selected and all(
+                        _episodes_verified_independent(candidate, existing, inbound_regressions)
+                        for existing in selected
+                    ):
+                        selected.append(candidate)
+                return selected
+    return ordered[:1]
+
+
+def _episodes_declared_independent(
     left: Mapping[str, Any], right: Mapping[str, Any], inbound_regressions: Mapping[str, Sequence[Any]]
 ) -> bool:
     if left["run_id"] == right["run_id"]:
@@ -612,6 +740,25 @@ def _episodes_independent(
     if set(left["evidence_refs"]).intersection(right["evidence_refs"]):
         return False
     return not inbound_regressions.get(str(left["run_id"])) and not inbound_regressions.get(str(right["run_id"]))
+
+
+def _episodes_verified_independent(
+    left: Mapping[str, Any], right: Mapping[str, Any], inbound_regressions: Mapping[str, Sequence[Any]]
+) -> bool:
+    if not _episodes_declared_independent(left, right, inbound_regressions):
+        return False
+    if not left["strong_verified"] or not right["strong_verified"]:
+        return False
+    return _trusted_evidence_sources_differ(left, right)
+
+
+def _trusted_evidence_sources_differ(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
+    for field in ("evaluator_digest", "receipt_artifact_digest", "execution_environment_digest"):
+        left_value = str(left.get(field) or "").strip()
+        right_value = str(right.get(field) or "").strip()
+        if left_value and right_value and left_value != right_value:
+            return True
+    return False
 
 
 def _current_outcome_heads(outcomes: Sequence[Any]) -> dict[str, Any]:
@@ -659,6 +806,101 @@ def _has_verifier_to_human_chain(
     return False
 
 
+def _procedure_structures(entries: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    structures: list[dict[str, Any]] = []
+    for entry in entries:
+        procedure = entry.get("procedure")
+        if not isinstance(procedure, Mapping):
+            continue
+        structure = {
+            "goal": str(procedure.get("goal") or ""),
+            "when_to_use": str(procedure.get("when_to_use") or ""),
+            "when_not_to_use": str(procedure.get("when_not_to_use") or ""),
+            "prerequisites": list(procedure.get("prerequisites") or []),
+            "steps": list(procedure.get("steps") or []),
+            "failure_mode": str(procedure.get("failure_mode") or ""),
+            "rollback_path": str(procedure.get("rollback_path") or ""),
+            "applies_to_domains": list(procedure.get("applies_to_domains") or []),
+            "observed_conditions": str(entry.get("observed_conditions") or ""),
+        }
+        structures.append(structure)
+    return sorted(
+        {_canonical_json(structure): structure for structure in structures}.values(),
+        key=_canonical_json,
+    )
+
+
+def _has_procedure_structure_conflict(entries: Sequence[Mapping[str, Any]]) -> bool:
+    return len(_procedure_structures(entries)) > 1
+
+
+def _group_opposes_claims(entries: Sequence[Mapping[str, Any]]) -> list[dict[str, str]]:
+    declarations = [
+        declaration
+        for entry in entries
+        for declaration in entry.get("opposes_claims", [])
+        if isinstance(declaration, Mapping)
+    ]
+    unique = {
+        (str(item["subject_id"]), str(item["reason_code"])): {
+            "subject_id": str(item["subject_id"]),
+            "reason_code": str(item["reason_code"]),
+        }
+        for item in declarations
+    }
+    return sorted(unique.values(), key=lambda item: (item["subject_id"], item["reason_code"]))
+
+
+def _apply_structured_opposition(
+    candidates: Sequence[dict[str, Any]],
+    grouped: Mapping[tuple[str, str, str, tuple[str, ...]], Sequence[dict[str, Any]]],
+) -> None:
+    incoming: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for group_key, entries in grouped.items():
+        claim, boundary, authority_class, domains = group_key
+        source_subject_id = _subject_id(claim, boundary, authority_class, domains)
+        for declaration in _group_opposes_claims(entries):
+            incoming[declaration["subject_id"]].append(
+                {"subject_id": source_subject_id, "reason_code": declaration["reason_code"]}
+            )
+
+    for candidate in candidates:
+        opposed_by = _dedupe_opposition(incoming.get(str(candidate["candidate_subject_id"]), []))
+        candidate["opposed_by"] = opposed_by
+        if not opposed_by:
+            continue
+        candidate["eligible"] = False
+        candidate["confidence_label"] = "contested"
+        candidate["eligibility_reason"] = "explicit_structured_opposition"
+        candidate["review_action"] = "resolve_structured_opposition_before_review"
+        candidate["conflict_reason_codes"] = sorted(
+            {*candidate["conflict_reason_codes"], "explicit_structured_opposition"}
+        )
+        candidate["basis_reason_codes"] = sorted({*candidate["basis_reason_codes"], "explicit_structured_opposition"})
+
+
+def _subject_id(claim: str, boundary: str, authority_class: str, domains: Sequence[str]) -> str:
+    identity = {
+        "claim": claim,
+        "boundary": boundary,
+        "authority_class": authority_class,
+        "domain_tags": list(domains),
+    }
+    digest = hashlib.sha256(_canonical_json(identity).encode("utf-8")).hexdigest()
+    return f"run-consolidation-subject:{digest}"
+
+
+def _dedupe_opposition(items: Sequence[Mapping[str, str]]) -> list[dict[str, str]]:
+    unique = {
+        (str(item["subject_id"]), str(item["reason_code"])): {
+            "subject_id": str(item["subject_id"]),
+            "reason_code": str(item["reason_code"]),
+        }
+        for item in items
+    }
+    return sorted(unique.values(), key=lambda item: (item["subject_id"], item["reason_code"]))
+
+
 def _stage_candidate(store: Any, workspace: str, candidate: Mapping[str, Any]) -> dict[str, Any]:
     candidate_key = str(candidate["candidate_key"])
     payload = {
@@ -669,8 +911,10 @@ def _stage_candidate(store: Any, workspace: str, candidate: Mapping[str, Any]) -
         "evidence_refs": list(candidate["evidence_refs"]),
         "domain_tags": list(candidate["domain_tags"]),
         "source_runtime": "amb-run-consolidation",
-        "source_session_id": str(candidate["candidate_hash"]),
-        "source_task_id": str(candidate["candidate_hash"]),
+        "source_session_id": str(candidate["candidate_subject_id"]),
+        "source_task_id": str(candidate["evidence_revision_id"]),
+        "candidate_subject_id": str(candidate["candidate_subject_id"]),
+        "evidence_revision_id": str(candidate["evidence_revision_id"]),
     }
     decision = evaluate_learning_candidate(payload)
     try:
@@ -704,6 +948,27 @@ def _normalize_refs(value: Any, *, required: bool) -> list[str] | None:
     if len(set(refs)) != len(refs):
         return None
     return sorted(refs)
+
+
+def _normalize_opposes_claims(value: Any) -> list[dict[str, str]] | None:
+    if value is None:
+        return []
+    if not isinstance(value, list) or len(value) > 16:
+        return None
+    normalized: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, Mapping) or set(item) != {"schema", "subject_id", "reason_code"}:
+            return None
+        if str(item["schema"]).strip() != OPPOSITION_SCHEMA:
+            return None
+        subject_id = str(item["subject_id"]).strip()
+        reason_code = str(item["reason_code"]).strip()
+        if not SUBJECT_ID_RE.fullmatch(subject_id) or reason_code not in OPPOSITION_REASON_CODES:
+            return None
+        normalized.append({"subject_id": subject_id, "reason_code": reason_code})
+    if len({(item["subject_id"], item["reason_code"]) for item in normalized}) != len(normalized):
+        return None
+    return sorted(normalized, key=lambda item: (item["subject_id"], item["reason_code"]))
 
 
 def _normalize_domain_tags(value: Any) -> list[str] | None:
@@ -807,6 +1072,22 @@ def _evaluator_id(outcome: Any) -> str:
     version = str(outcome["evaluator_version"] or "").strip()
     suffix = digest or version or str(outcome["outcome_id"])
     return f"{outcome['evaluator_type']}:{suffix}"
+
+
+def _opaque_digest(value: Any) -> str | None:
+    digest = str(value or "").strip()
+    return digest if re.fullmatch(r"[0-9a-f]{64}", digest) else None
+
+
+def _execution_environment_digest(run: Mapping[str, Any]) -> str | None:
+    environment = {
+        field: _opaque_digest(run[field])
+        for field in ("model_digest", "harness_digest", "chat_template_digest", "tool_schema_digest")
+    }
+    if not any(environment.values()):
+        return None
+    digest = hashlib.sha256(_canonical_json(environment).encode("utf-8")).hexdigest()
+    return f"execution-environment-sha256:{digest}"
 
 
 def _is_watcher_rollout_idle(outcome: Any) -> bool:

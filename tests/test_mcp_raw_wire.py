@@ -238,14 +238,14 @@ async def _exercise_raw_eras(tmp_path: Path) -> None:
                 arguments={
                     "workspace_key": "project:raw-wire-episode-modern",
                     "run_id": begun_payload["run_id"],
-                    "outcome": "verified_success",
-                    "evaluator_type": "deterministic_verifier",
+                    "outcome": "unverified",
+                    "evaluator_type": "agent",
                     "evidence": [{"kind": "raw-wire-proof", "era": "modern", "passed": True}],
                     "idempotency_key": "outcome:raw-wire-modern",
                 },
             )
         )
-        assert completed["result"]["structuredContent"]["outcome"] == "verified_success"
+        assert completed["result"]["structuredContent"]["outcome"] == "unverified"
 
         raw_secret = "raw-baggage-secret-must-not-persist"
         capability_secret = "raw-capability-secret-must-not-persist"
@@ -385,14 +385,14 @@ async def _exercise_raw_eras(tmp_path: Path) -> None:
                 arguments={
                     "workspace_key": "project:raw-wire-episode-legacy",
                     "run_id": begun_payload["run_id"],
-                    "outcome": "verified_success",
-                    "evaluator_type": "deterministic_verifier",
+                    "outcome": "unverified",
+                    "evaluator_type": "agent",
                     "evidence": [{"kind": "raw-wire-proof", "era": "legacy", "passed": True}],
                     "idempotency_key": "outcome:raw-wire-legacy",
                 },
             )
         )
-        assert completed["result"]["structuredContent"]["outcome"] == "verified_success"
+        assert completed["result"]["structuredContent"]["outcome"] == "unverified"
         assert "resultType" not in completed["result"]
 
 
@@ -603,14 +603,14 @@ async def _exercise_raw_attribution_era(
             arguments={
                 "workspace_key": workspace_key,
                 "run_id": run_id,
-                "outcome": "verified_success",
-                "evaluator_type": "deterministic_verifier",
+                "outcome": "unverified",
+                "evaluator_type": "agent",
                 "evidence": [{"kind": "raw-wire-attribution", "era": era, "passed": True}],
                 "idempotency_key": f"outcome:raw-wire-attribution:{era}",
             },
         )
     )
-    assert completed["result"]["structuredContent"]["outcome"] == "verified_success"
+    assert completed["result"]["structuredContent"]["outcome"] == "unverified"
     if era == "modern":
         assert completed["result"]["resultType"] == "complete"
     else:
@@ -696,4 +696,4 @@ async def _exercise_failed_negotiation(tmp_path: Path) -> None:
 def test_raw_wire_negotiation_errors_are_explicit_and_read_only(tmp_path: Path) -> None:
     asyncio.run(_exercise_failed_negotiation(tmp_path))
     with sqlite3.connect(tmp_path / "bridge.db") as conn:
-        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 9
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10

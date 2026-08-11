@@ -8,7 +8,8 @@ import secrets
 import sqlite3
 import time
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
+from urllib.parse import urlsplit
 
 from .durable_data_policy import normalize_durable_key, require_durable_structured_data, require_durable_text
 from .provenance import normalize_provenance_mapping
@@ -23,6 +24,12 @@ from .run_projection import (
     initialize_work_item_projection,
     inspect_run_projection,
     validate_work_item_transition,
+)
+from .run_verification_receipts import (
+    GOVERNED_V2_PROFILE,
+    calculate_run_config_digest,
+    validate_receipt_for_verified_success,
+    verification_receipt_payload,
 )
 from .schema import database_epoch as read_database_epoch
 
@@ -49,6 +56,20 @@ RUN_EVENT_TYPES = frozenset(
         "work_item_abandoned",
     }
 )
+GOVERNED_V2_EVENT_TYPES = frozenset(
+    {
+        "preflight_review",
+        "test_result",
+        "risk_identified",
+        "information_gap",
+        "verification_result",
+        "work_item_resumed",
+        "blocker_resolved",
+    }
+)
+ALL_LOGICAL_EVENT_TYPES = RUN_EVENT_TYPES | GOVERNED_V2_EVENT_TYPES
+RUN_EVIDENCE_PROFILES = frozenset({"observational", GOVERNED_V2_PROFILE})
+RUN_RISK_LEVELS = frozenset({"low", "medium", "high", "critical"})
 RUN_OUTCOME_TYPES = frozenset(
     {
         "verified_success",
@@ -102,6 +123,34 @@ _FORBIDDEN_ARTIFACT_CONTENT_KEYS = frozenset(
 TERMINAL_WORK_ITEM_STATUSES = ("completed", "failed", "abandoned")
 ARTIFACT_URI_RE = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*):[^\s\x00-\x1f\x7f-\x9f]*")
 HEX_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+_FORBIDDEN_ARTIFACT_URI_SCHEMES = frozenset({"data", "javascript", "vbscript", "file"})
+_HYPOTHESIS_EPISTEMIC_STATUSES = frozenset({"unverified", "tentative", "supported", "refuted"})
+_GOVERNED_EXECUTION_EVENT_TYPES = frozenset(
+    {
+        "work_item_started",
+        "work_item_resumed",
+        "blocker_resolved",
+        "checkpoint",
+        "tool_result",
+        "test_result",
+        "verification_result",
+        "artifact_created",
+        "work_item_completed",
+        "work_item_failed",
+        "work_item_abandoned",
+    }
+)
+_GOVERNED_STATE_CHANGING_EVENT_TYPES = frozenset(
+    {
+        "work_item_started",
+        "work_item_resumed",
+        "blocker_resolved",
+        "blocker",
+        "work_item_completed",
+        "work_item_failed",
+        "work_item_abandoned",
+    }
+)
 
 
 def _begin_run_ledger_write_transaction(conn: Any) -> None:
@@ -130,6 +179,12 @@ def begin_run_entry(
     tool_schema_digest: str | None = None,
     memory_scopes: Sequence[str] | None = None,
     budget: Mapping[str, Any] | None = None,
+    evidence_profile: str = "observational",
+    acceptance_criteria: Sequence[Mapping[str, Any]] | None = None,
+    constraints: Sequence[str] | None = None,
+    non_goals: Sequence[str] | None = None,
+    risk_level: str = "medium",
+    continuation_of_run_id: str | None = None,
     provenance: Mapping[str, object | None] | None = None,
 ) -> dict[str, Any]:
     cleaned_workspace = _bounded_text("workspace_key", workspace_key, max_chars=512)
@@ -138,6 +193,18 @@ def begin_run_entry(
     cleaned_thread_id = _optional_bounded_text("thread_id", thread_id, max_chars=256)
     cleaned_memory_scopes = _normalize_memory_scopes(memory_scopes)
     budget_json = _json_object("budget", budget, max_bytes=8192)
+    cleaned_evidence_profile = _normalize_evidence_profile(evidence_profile)
+    cleaned_acceptance_criteria = _normalize_acceptance_criteria(acceptance_criteria)
+    if cleaned_evidence_profile == GOVERNED_V2_PROFILE and not cleaned_acceptance_criteria:
+        raise ValueError("governed-v2 runs require at least one acceptance criterion")
+    acceptance_criteria_json = _canonical_json(cleaned_acceptance_criteria)
+    acceptance_criteria_digest = _request_digest(cleaned_acceptance_criteria)
+    cleaned_constraints = _normalize_run_text_list("constraints", constraints)
+    cleaned_non_goals = _normalize_run_text_list("non_goals", non_goals)
+    constraints_json = _canonical_json(cleaned_constraints)
+    non_goals_json = _canonical_json(cleaned_non_goals)
+    cleaned_risk_level = _normalize_risk_level(risk_level)
+    cleaned_continuation = _optional_bounded_text("continuation_of_run_id", continuation_of_run_id, max_chars=64)
     cleaned_provenance = normalize_provenance_mapping(provenance) or {}
     digests = {
         "model_digest": _optional_digest("model_digest", model_digest),
@@ -154,6 +221,12 @@ def begin_run_entry(
             "thread_id": cleaned_thread_id,
             "memory_scopes": cleaned_memory_scopes,
             "budget": json.loads(budget_json),
+            "evidence_profile": cleaned_evidence_profile,
+            "acceptance_criteria": cleaned_acceptance_criteria,
+            "constraints": cleaned_constraints,
+            "non_goals": cleaned_non_goals,
+            "risk_level": cleaned_risk_level,
+            "continuation_of_run_id": cleaned_continuation,
             "provenance": cleaned_provenance,
             **digests,
         }
@@ -176,6 +249,14 @@ def begin_run_entry(
                 conn.commit()
                 return payload
 
+            if cleaned_continuation is not None:
+                continuation = conn.execute(
+                    "SELECT 1 FROM agent_runs WHERE run_id = ? AND workspace_key = ?",
+                    (cleaned_continuation, cleaned_workspace),
+                ).fetchone()
+                if continuation is None:
+                    raise ValueError("continuation_of_run_id does not exist in the declared workspace")
+
             run_id = _new_id("run_")
             root_work_item_id = _new_id("work_")
             created_at = store._utc_now()
@@ -185,10 +266,12 @@ def begin_run_entry(
                     run_id, workspace_key, root_goal, model_digest,
                     harness_digest, chat_template_digest, tool_schema_digest,
                     agent_id, thread_id, memory_scopes_json, budget_json,
+                    evidence_profile, acceptance_criteria_json, acceptance_criteria_digest,
+                    constraints_json, non_goals_json, risk_level, continuation_of_run_id,
                     idempotency_key_digest, request_digest, actor, source_app,
                     source_client, source_model, client_session_id,
                     client_workspace, client_transport, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_id,
@@ -202,6 +285,13 @@ def begin_run_entry(
                     cleaned_thread_id,
                     memory_scopes_json,
                     budget_json,
+                    cleaned_evidence_profile,
+                    acceptance_criteria_json,
+                    acceptance_criteria_digest,
+                    constraints_json,
+                    non_goals_json,
+                    cleaned_risk_level,
+                    cleaned_continuation,
                     idempotency_digest,
                     request_digest,
                     cleaned_provenance.get("actor"),
@@ -244,6 +334,9 @@ def record_run_event_entry(
     event_type: str,
     summary: str,
     idempotency_key: str,
+    event_schema_version: int = 1,
+    expected_database_epoch: str | None = None,
+    expected_run_generation: int | None = None,
     expected_last_sequence: int | None = None,
     expected_work_item_status: str | None = None,
     work_item_id: str | None = None,
@@ -260,9 +353,14 @@ def record_run_event_entry(
     cleaned_workspace = _bounded_text("workspace_key", workspace_key, max_chars=512)
     cleaned_run_id = _bounded_text("run_id", run_id, max_chars=64)
     cleaned_event_type = str(event_type).strip()
-    if cleaned_event_type not in RUN_EVENT_TYPES:
+    cleaned_event_schema_version = _event_schema_version(event_schema_version)
+    if cleaned_event_type not in (ALL_LOGICAL_EVENT_TYPES if cleaned_event_schema_version == 2 else RUN_EVENT_TYPES):
         raise ValueError(f"unsupported run event type: {cleaned_event_type or '<empty>'}")
+    if cleaned_event_schema_version == 1 and cleaned_event_type in GOVERNED_V2_EVENT_TYPES:
+        raise ValueError(f"{cleaned_event_type} requires event_schema_version=2")
     cleaned_summary = _bounded_text("summary", summary, max_bytes=4096)
+    cleaned_expected_epoch = _optional_bounded_text("expected_database_epoch", expected_database_epoch, max_chars=128)
+    cleaned_expected_generation = _optional_positive_int("expected_run_generation", expected_run_generation)
     cleaned_expected_sequence = _optional_nonnegative_int("expected_last_sequence", expected_last_sequence)
     cleaned_expected_status = _optional_work_item_status(expected_work_item_status)
     cleaned_work_item_id = _optional_bounded_text("work_item_id", work_item_id, max_chars=64)
@@ -275,6 +373,7 @@ def record_run_event_entry(
     cleaned_thread_id = _optional_bounded_text("thread_id", thread_id, max_chars=256)
     payload_json = _json_object("payload", payload, max_bytes=32768)
     cleaned_payload = json.loads(payload_json)
+    physical_event_type = _physical_event_type(cleaned_event_type, cleaned_event_schema_version)
     cleaned_artifact = _normalize_artifact_payload(cleaned_event_type, cleaned_payload)
     evidence_json = _json_array("evidence", evidence, max_bytes=32768)
     cleaned_memory_attribution = _normalize_memory_attribution(cleaned_event_type, memory_attribution)
@@ -285,9 +384,8 @@ def record_run_event_entry(
             "workspace_key": cleaned_workspace,
             "run_id": cleaned_run_id,
             "event_type": cleaned_event_type,
+            "event_schema_version": cleaned_event_schema_version,
             "summary": cleaned_summary,
-            "expected_last_sequence": cleaned_expected_sequence,
-            "expected_work_item_status": cleaned_expected_status,
             "work_item_id": cleaned_work_item_id,
             "parent_work_item_id": cleaned_parent_id,
             "work_item_goal": cleaned_goal,
@@ -321,11 +419,37 @@ def record_run_event_entry(
                     idempotent_replay=True,
                     created_work_item=cleaned_event_type == "work_item_started" and cleaned_work_item_id is None,
                     artifact=_artifact_for_event(conn, run_id=cleaned_run_id, event_id=str(existing["event_id"])),
+                    event_schema_version=cleaned_event_schema_version,
+                    logical_event_type=cleaned_event_type,
+                    database_epoch=read_database_epoch(conn),
+                    run_generation=int(run_row["run_generation"]),
                 )
             authority = derive_run_authority_state(conn, run_id=cleaned_run_id)
             projection_health = inspect_run_projection(conn, run_id=cleaned_run_id)
             _require_healthy_run_projection(projection_health)
             run_state = authority["run"]
+            is_governed = str(run_row["evidence_profile"]) == GOVERNED_V2_PROFILE
+            actual_epoch = read_database_epoch(conn)
+            actual_generation = int(run_row["run_generation"])
+            if is_governed:
+                _require_governed_event_preconditions(
+                    expected_database_epoch=cleaned_expected_epoch,
+                    expected_run_generation=cleaned_expected_generation,
+                    expected_last_sequence=cleaned_expected_sequence,
+                    actual_database_epoch=actual_epoch,
+                    actual_run_generation=actual_generation,
+                    actual_last_sequence=int(run_state["last_sequence"]),
+                )
+                if cleaned_event_schema_version != 2:
+                    raise ValueError("governed-v2 runs require event_schema_version=2")
+                _validate_governed_v2_event_payload(
+                    event_type=cleaned_event_type,
+                    payload=cleaned_payload,
+                    evidence=json.loads(evidence_json),
+                    conn=conn,
+                    run_id=cleaned_run_id,
+                    risk_level=str(run_row["risk_level"]),
+                )
             if str(run_state["status"]) != "active":
                 raise ValueError("completed or abandoned runs cannot accept new events")
             actual_sequence = int(run_state["last_sequence"])
@@ -349,7 +473,7 @@ def record_run_event_entry(
                 parent_status = str(parent_state["status"])
                 if parent_status != "active":
                     raise ValueError(f"new work item requires an active parent; actual status is {parent_status}")
-                validate_work_item_transition("pending", cleaned_event_type)
+                validate_work_item_transition("pending", physical_event_type)
                 effective_work_item_id = _new_id("work_")
                 conn.execute(
                     """
@@ -384,11 +508,26 @@ def record_run_event_entry(
                 if work_state is None:
                     raise RuntimeError("work item is missing from authority state")
                 actual_status = str(work_state["status"])
+                if is_governed and cleaned_event_type in _GOVERNED_STATE_CHANGING_EVENT_TYPES:
+                    if cleaned_expected_status is None:
+                        raise ValueError("governed-v2 state-changing events require expected_work_item_status")
+                    if actual_status == "blocked" and cleaned_event_type == "work_item_started":
+                        raise ValueError(
+                            "a blocked governed-v2 work item may leave blocked only via "
+                            "work_item_resumed or blocker_resolved"
+                        )
+                    if cleaned_event_type in {"work_item_resumed", "blocker_resolved"} and actual_status != "blocked":
+                        raise ValueError(
+                            f"{cleaned_event_type} requires blocked status; actual status is {actual_status}"
+                        )
                 if cleaned_expected_status is not None and cleaned_expected_status != actual_status:
                     raise ValueError(
                         f"work-item status conflict: expected {cleaned_expected_status}, actual {actual_status}"
                     )
-                validate_work_item_transition(actual_status, cleaned_event_type)
+                validate_work_item_transition(actual_status, physical_event_type)
+
+            if is_governed and cleaned_event_type in _GOVERNED_EXECUTION_EVENT_TYPES:
+                _require_prior_approved_preflight(conn, run_id=cleaned_run_id)
 
             resolved_memory_links = _resolve_memory_attribution(
                 conn,
@@ -426,7 +565,7 @@ def record_run_event_entry(
                     cleaned_run_id,
                     effective_work_item_id,
                     sequence,
-                    cleaned_event_type,
+                    physical_event_type,
                     cleaned_summary,
                     payload_json,
                     evidence_json,
@@ -444,6 +583,15 @@ def record_run_event_entry(
                     created_at,
                 ),
             )
+            if cleaned_event_schema_version == 2:
+                conn.execute(
+                    """
+                    INSERT INTO run_event_v2_details (
+                        event_id, run_id, logical_event_type, payload_schema_version, created_at
+                    ) VALUES (?, ?, ?, 2, ?)
+                    """,
+                    (event_id, cleaned_run_id, cleaned_event_type, created_at),
+                )
             artifact = _insert_run_artifact(
                 conn,
                 artifact=cleaned_artifact,
@@ -457,10 +605,20 @@ def record_run_event_entry(
                 run_id=cleaned_run_id,
                 work_item_id=effective_work_item_id,
                 sequence=sequence,
-                event_type=cleaned_event_type,
+                event_type=physical_event_type,
                 summary=cleaned_summary,
                 created_at=created_at,
             )
+            generation_cursor = conn.execute(
+                """
+                UPDATE agent_runs
+                SET run_generation = run_generation + 1
+                WHERE run_id = ? AND run_generation = ?
+                """,
+                (cleaned_run_id, actual_generation),
+            )
+            if generation_cursor.rowcount != 1:
+                raise RuntimeError("run generation changed during event append")
             _insert_run_memory_links(
                 conn,
                 run_id=cleaned_run_id,
@@ -486,6 +644,10 @@ def record_run_event_entry(
                 idempotent_replay=False,
                 created_work_item=created_work_item,
                 artifact=artifact,
+                event_schema_version=cleaned_event_schema_version,
+                logical_event_type=cleaned_event_type,
+                database_epoch=actual_epoch,
+                run_generation=actual_generation + 1,
             )
         except BaseException:
             conn.rollback()
@@ -529,14 +691,19 @@ def get_run_entry(
             ]
             event_rows = conn.execute(
                 """
-                SELECT event_id, work_item_id, sequence, event_type,
-                       event_schema_version, summary, payload_json, evidence_json,
-                       agent_id, thread_id, actor, source_app, source_client,
-                       source_model, client_session_id, client_workspace,
-                       client_transport, created_at
-                FROM run_events
-                WHERE run_id = ? AND sequence > ?
-                ORDER BY sequence
+                SELECT event.event_id, event.work_item_id, event.sequence,
+                       COALESCE(detail.logical_event_type, event.event_type) AS logical_event_type,
+                       CASE WHEN detail.event_id IS NULL THEN event.event_schema_version ELSE 2 END
+                           AS logical_event_schema_version,
+                       event.summary, event.payload_json, event.evidence_json,
+                       event.agent_id, event.thread_id, event.actor, event.source_app, event.source_client,
+                       event.source_model, event.client_session_id, event.client_workspace,
+                       event.client_transport, event.created_at
+                FROM run_events event
+                LEFT JOIN run_event_v2_details detail
+                  ON detail.run_id = event.run_id AND detail.event_id = event.event_id
+                WHERE event.run_id = ? AND event.sequence > ?
+                ORDER BY event.sequence
                 LIMIT ?
                 """,
                 (cleaned_run_id, since_sequence, event_limit + 1),
@@ -557,6 +724,15 @@ def get_run_entry(
                 """,
                 (cleaned_run_id,),
             ).fetchone()
+            receipt_rows = conn.execute(
+                """
+                SELECT *
+                FROM run_verification_receipts
+                WHERE run_id = ?
+                ORDER BY created_at, receipt_id
+                """,
+                (cleaned_run_id,),
+            ).fetchall()
             latest_sequence = int(authority["run"]["last_sequence"])
             next_sequence = int(visible_events[-1]["sequence"]) if visible_events else since_sequence
             response = {
@@ -565,6 +741,7 @@ def get_run_entry(
                 "events": [_event_payload(row) for row in visible_events],
                 "artifacts": artifacts,
                 "outcome": _outcome_payload(outcome) if outcome is not None else None,
+                "verification_receipts": [verification_receipt_payload(row) for row in receipt_rows],
                 "since_sequence": since_sequence,
                 "next_sequence": next_sequence,
                 "latest_sequence": latest_sequence,
@@ -572,6 +749,7 @@ def get_run_entry(
                 "snapshot_epoch": snapshot_epoch,
                 "snapshot_last_sequence": latest_sequence,
                 "projection_health": projection_health,
+                "unresolved_information_gap_ids": _unresolved_information_gap_ids(conn, run_id=cleaned_run_id),
                 "degraded": not bool(projection_health["ok"]),
             }
             conn.commit()
@@ -596,6 +774,10 @@ def complete_run_entry(
     termination_reason: str | None = None,
     supersedes_outcome_id: str | None = None,
     regression_of_run_id: str | None = None,
+    verification_receipt_id: str | None = None,
+    expected_database_epoch: str | None = None,
+    expected_run_generation: int | None = None,
+    expected_last_sequence: int | None = None,
     provenance: Mapping[str, object | None] | None = None,
 ) -> dict[str, Any]:
     cleaned_workspace = _bounded_text("workspace_key", workspace_key, max_chars=512)
@@ -608,15 +790,15 @@ def complete_run_entry(
         raise ValueError(f"unsupported evaluator type: {cleaned_evaluator_type or '<empty>'}")
     evidence_json = _json_array("evidence", evidence, max_bytes=32768)
     metrics_json = _json_object("metrics", metrics, max_bytes=32768)
-    if cleaned_outcome == "verified_success" and (
-        cleaned_evaluator_type not in {"deterministic_verifier", "human"} or not json.loads(evidence_json)
-    ):
-        raise ValueError("verified_success requires deterministic-verifier or human evidence")
     cleaned_evaluator_digest = _optional_digest("evaluator_digest", evaluator_digest)
     cleaned_evaluator_version = _optional_bounded_text("evaluator_version", evaluator_version, max_chars=128)
     cleaned_reason = _optional_bounded_text("termination_reason", termination_reason, max_bytes=1024)
     cleaned_supersedes = _optional_bounded_text("supersedes_outcome_id", supersedes_outcome_id, max_chars=64)
     cleaned_regression_run = _optional_bounded_text("regression_of_run_id", regression_of_run_id, max_chars=64)
+    cleaned_receipt_id = _optional_bounded_text("verification_receipt_id", verification_receipt_id, max_chars=64)
+    cleaned_expected_epoch = _optional_bounded_text("expected_database_epoch", expected_database_epoch, max_chars=128)
+    cleaned_expected_generation = _optional_positive_int("expected_run_generation", expected_run_generation)
+    cleaned_expected_sequence = _optional_nonnegative_int("expected_last_sequence", expected_last_sequence)
     if cleaned_outcome == "regression" and cleaned_regression_run is None:
         raise ValueError("regression outcome requires regression_of_run_id")
     if cleaned_outcome != "regression" and cleaned_regression_run is not None:
@@ -636,13 +818,14 @@ def complete_run_entry(
             "termination_reason": cleaned_reason,
             "supersedes_outcome_id": cleaned_supersedes,
             "regression_of_run_id": cleaned_regression_run,
+            "verification_receipt_id": cleaned_receipt_id,
             "provenance": cleaned_provenance,
         }
     )
     with store._connect() as conn:
         _begin_run_ledger_write_transaction(conn)
         try:
-            _require_run(conn, workspace_key=cleaned_workspace, run_id=cleaned_run_id)
+            run_row = _require_run(conn, workspace_key=cleaned_workspace, run_id=cleaned_run_id)
             existing = conn.execute(
                 """
                 SELECT *
@@ -653,11 +836,68 @@ def complete_run_entry(
             ).fetchone()
             if existing is not None:
                 _require_matching_request(existing, request_digest, subject="complete_run")
+                unresolved_information_gap_ids = _unresolved_information_gap_ids(conn, run_id=cleaned_run_id)
                 conn.commit()
-                return {**_outcome_payload(existing), "idempotent_replay": True}
+                return {
+                    **_outcome_payload(existing),
+                    "unresolved_information_gap_ids": unresolved_information_gap_ids,
+                    "database_epoch": read_database_epoch(conn),
+                    "run_generation": int(run_row["run_generation"]),
+                    "idempotent_replay": True,
+                }
             authority = derive_run_authority_state(conn, run_id=cleaned_run_id)
             projection_health = inspect_run_projection(conn, run_id=cleaned_run_id)
             _require_healthy_run_projection(projection_health)
+            is_governed = str(run_row["evidence_profile"]) == GOVERNED_V2_PROFILE
+            actual_epoch = read_database_epoch(conn)
+            actual_generation = int(run_row["run_generation"])
+            actual_sequence = int(authority["run"]["last_sequence"])
+            if is_governed:
+                _require_governed_completion_preconditions(
+                    expected_database_epoch=cleaned_expected_epoch,
+                    expected_run_generation=cleaned_expected_generation,
+                    expected_last_sequence=cleaned_expected_sequence,
+                    actual_database_epoch=actual_epoch,
+                    actual_run_generation=actual_generation,
+                    actual_last_sequence=actual_sequence,
+                )
+            verification_profile = (
+                "legacy_declared" if str(run_row["evidence_profile"]) == "legacy-v1" else "observational"
+            )
+            validated_receipt: Mapping[str, Any] | None = None
+            if cleaned_outcome == "verified_success":
+                if str(run_row["evidence_profile"]) == "legacy-v1":
+                    if cleaned_evaluator_type not in {"deterministic_verifier", "human"} or not json.loads(
+                        evidence_json
+                    ):
+                        raise ValueError("verified_success requires deterministic-verifier or human evidence")
+                elif is_governed:
+                    if cleaned_receipt_id is None:
+                        raise ValueError("verified_success requires a server-minted governed verification receipt")
+                    validated_receipt = validate_receipt_for_verified_success(
+                        conn,
+                        run=cast(Mapping[str, Any], run_row),
+                        receipt_id=cleaned_receipt_id,
+                        evaluator_type=cleaned_evaluator_type,
+                        evaluator_digest=cleaned_evaluator_digest,
+                        evaluator_version=cleaned_evaluator_version,
+                    )
+                    receipt_evidence = str(validated_receipt["evidence_json"])
+                    if json.loads(evidence_json) and evidence_json != receipt_evidence:
+                        raise ValueError("verified_success evidence must match the governed verification receipt")
+                    evidence_json = receipt_evidence
+                    verification_profile = GOVERNED_V2_PROFILE
+                elif cleaned_receipt_id is not None:
+                    raise ValueError("verification_receipt_id is only valid for governed verified_success")
+                elif cleaned_evaluator_type not in {"deterministic_verifier", "human"} or not json.loads(evidence_json):
+                    raise ValueError("verified_success requires deterministic-verifier or human evidence")
+            elif cleaned_receipt_id is not None:
+                raise ValueError("verification_receipt_id is only valid for verified_success")
+            if is_governed and cleaned_outcome != "verified_success":
+                _require_governed_verification_result_coverage(conn, run_id=cleaned_run_id)
+            unresolved_information_gap_ids = _unresolved_information_gap_ids(conn, run_id=cleaned_run_id)
+            if cleaned_outcome == "verified_success" and unresolved_information_gap_ids:
+                raise ValueError("verified_success requires no unresolved information gaps")
             current_outcome_id = authority["run"]["outcome_id"]
             if current_outcome_id is None and cleaned_supersedes is not None:
                 raise ValueError("supersedes_outcome_id is invalid because the run has no outcome")
@@ -692,11 +932,12 @@ def complete_run_entry(
                     outcome_id, run_id, outcome_type, evaluator_type,
                     evaluator_digest, evaluator_version, evidence_json,
                     metrics_json, supersedes_outcome_id, regression_of_run_id,
-                    termination_reason, idempotency_key_digest, request_digest,
+                    termination_reason, verification_profile, verification_receipt_id,
+                    idempotency_key_digest, request_digest,
                     actor, source_app, source_client, source_model,
                     client_session_id, client_workspace, client_transport,
                     created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     outcome_id,
@@ -710,6 +951,8 @@ def complete_run_entry(
                     cleaned_supersedes,
                     cleaned_regression_run,
                     cleaned_reason,
+                    verification_profile,
+                    cleaned_receipt_id,
                     idempotency_digest,
                     request_digest,
                     cleaned_provenance.get("actor"),
@@ -730,9 +973,25 @@ def complete_run_entry(
                 termination_reason=cleaned_reason,
                 created_at=created_at,
             )
+            generation_cursor = conn.execute(
+                """
+                UPDATE agent_runs
+                SET run_generation = run_generation + 1
+                WHERE run_id = ? AND run_generation = ?
+                """,
+                (cleaned_run_id, actual_generation),
+            )
+            if generation_cursor.rowcount != 1:
+                raise RuntimeError("run generation changed during outcome completion")
             conn.commit()
             row = conn.execute("SELECT * FROM run_outcomes WHERE outcome_id = ?", (outcome_id,)).fetchone()
-            return {**_outcome_payload(row), "idempotent_replay": False}
+            return {
+                **_outcome_payload(row),
+                "unresolved_information_gap_ids": unresolved_information_gap_ids,
+                "database_epoch": actual_epoch,
+                "run_generation": actual_generation + 1,
+                "idempotent_replay": False,
+            }
         except BaseException:
             conn.rollback()
             raise
@@ -748,13 +1007,21 @@ def _begin_run_response(conn: sqlite3.Connection, run_id: str, *, idempotent_rep
         (run_id,),
     ).fetchone()
     authority = derive_run_authority_state(conn, run_id=run_id)
+    run = conn.execute("SELECT * FROM agent_runs WHERE run_id = ?", (run_id,)).fetchone()
     if root is None:
+        raise RuntimeError("run initialization is incomplete")
+    if run is None:
         raise RuntimeError("run initialization is incomplete")
     return {
         "run_id": run_id,
         "root_work_item_id": str(root["work_item_id"]),
         "status": str(authority["run"]["status"]),
         "initial_sequence": int(authority["run"]["last_sequence"]),
+        "evidence_profile": str(run["evidence_profile"]),
+        "acceptance_criteria_digest": str(run["acceptance_criteria_digest"]),
+        "database_epoch": read_database_epoch(conn),
+        "run_generation": int(run["run_generation"]),
+        "continuation_of_run_id": run["continuation_of_run_id"],
         "idempotent_replay": idempotent_replay,
     }
 
@@ -809,12 +1076,17 @@ def _event_response(
     idempotent_replay: bool,
     created_work_item: bool,
     artifact: dict[str, Any] | None = None,
+    event_schema_version: int = 1,
+    logical_event_type: str | None = None,
+    database_epoch: str | None = None,
+    run_generation: int | None = None,
 ) -> dict[str, Any]:
     response = {
         "event_id": str(row["event_id"]),
         "work_item_id": str(row["work_item_id"]),
         "sequence": int(row["sequence"]),
-        "event_type": str(row["event_type"]),
+        "event_type": logical_event_type or str(row["event_type"]),
+        "event_schema_version": event_schema_version,
         "summary": str(row["summary"]),
         "created_at": str(row["created_at"]),
         "created_work_item": created_work_item,
@@ -822,6 +1094,10 @@ def _event_response(
     }
     if artifact is not None:
         response["artifact"] = artifact
+    if database_epoch is not None:
+        response["database_epoch"] = database_epoch
+    if run_generation is not None:
+        response["run_generation"] = run_generation
     return response
 
 
@@ -839,6 +1115,15 @@ def _run_payload(run: sqlite3.Row, state: Mapping[str, Any]) -> dict[str, Any]:
         "thread_id": run["thread_id"],
         "memory_scopes": json.loads(str(run["memory_scopes_json"])),
         "budget": json.loads(str(run["budget_json"])),
+        "evidence_profile": str(run["evidence_profile"]),
+        "acceptance_criteria": json.loads(str(run["acceptance_criteria_json"])),
+        "acceptance_criteria_digest": str(run["acceptance_criteria_digest"]),
+        "constraints": json.loads(str(run["constraints_json"])),
+        "non_goals": json.loads(str(run["non_goals_json"])),
+        "risk_level": str(run["risk_level"]),
+        "continuation_of_run_id": run["continuation_of_run_id"],
+        "run_generation": int(run["run_generation"]),
+        "run_config_digest": calculate_run_config_digest(cast(Mapping[str, Any], run)),
         "created_at": str(run["created_at"]),
         "ended_at": state["ended_at"],
         "terminal_at": state["terminal_at"],
@@ -871,8 +1156,8 @@ def _event_payload(row: sqlite3.Row) -> dict[str, Any]:
         "event_id": str(row["event_id"]),
         "work_item_id": str(row["work_item_id"]),
         "sequence": int(row["sequence"]),
-        "event_type": str(row["event_type"]),
-        "event_schema_version": int(row["event_schema_version"]),
+        "event_type": str(row["logical_event_type"]),
+        "event_schema_version": int(row["logical_event_schema_version"]),
         "summary": str(row["summary"]),
         "payload": json.loads(str(row["payload_json"])),
         "evidence": json.loads(str(row["evidence_json"])),
@@ -939,13 +1224,15 @@ def _reject_artifact_managed_or_content_fields(value: Any) -> None:
     elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         for item in value:
             _reject_artifact_managed_or_content_fields(item)
-    elif isinstance(value, str) and _is_data_uri(value):
-        raise ValueError("artifact must not use the data scheme")
-
-
-def _is_data_uri(value: str) -> bool:
-    match = ARTIFACT_URI_RE.fullmatch(value)
-    return match is not None and match["scheme"].casefold() == "data"
+    elif isinstance(value, str):
+        match = ARTIFACT_URI_RE.fullmatch(value)
+        if match is None:
+            return
+        scheme = match["scheme"].casefold()
+        if scheme in _FORBIDDEN_ARTIFACT_URI_SCHEMES:
+            raise ValueError(f"artifact must not use the {scheme} scheme")
+        if urlsplit(value).netloc and "@" in urlsplit(value).netloc:
+            raise ValueError("artifact must not embed credentials")
 
 
 def _insert_run_artifact(
@@ -1033,6 +1320,11 @@ def _artifacts_for_events(
 
 
 def _artifact_payload(row: sqlite3.Row) -> dict[str, Any]:
+    uri = str(row["uri"])
+    match = ARTIFACT_URI_RE.fullmatch(uri)
+    if match is None:
+        raise RuntimeError("stored artifact URI is malformed")
+    uri_scheme = match["scheme"].casefold()
     return {
         "artifact_id": str(row["artifact_id"]),
         "artifact_version": int(row["artifact_version"]),
@@ -1041,10 +1333,360 @@ def _artifact_payload(row: sqlite3.Row) -> dict[str, Any]:
         "producing_event_id": str(row["producing_event_id"]),
         "digest": str(row["digest"]),
         "mime_type": str(row["mime_type"]),
-        "uri": str(row["uri"]),
+        "uri": uri,
+        "uri_scheme": uri_scheme,
+        "operator_open_required": uri_scheme in {"http", "https"},
         "metadata": json.loads(str(row["metadata_json"])),
         "created_at": str(row["created_at"]),
     }
+
+
+def _event_schema_version(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value not in {1, 2}:
+        raise ValueError("event_schema_version must be 1 or 2")
+    return value
+
+
+def _physical_event_type(logical_event_type: str, event_schema_version: int) -> str:
+    if event_schema_version != 2:
+        return logical_event_type
+    if logical_event_type in {"work_item_resumed", "blocker_resolved"}:
+        return "work_item_started"
+    if logical_event_type in GOVERNED_V2_EVENT_TYPES:
+        return "checkpoint"
+    return logical_event_type
+
+
+def _require_governed_event_preconditions(
+    *,
+    expected_database_epoch: str | None,
+    expected_run_generation: int | None,
+    expected_last_sequence: int | None,
+    actual_database_epoch: str,
+    actual_run_generation: int,
+    actual_last_sequence: int,
+) -> None:
+    if expected_database_epoch is None:
+        raise ValueError("governed-v2 events require expected_database_epoch")
+    if expected_run_generation is None:
+        raise ValueError("governed-v2 events require expected_run_generation")
+    if expected_last_sequence is None:
+        raise ValueError("governed-v2 events require expected_last_sequence")
+    if expected_database_epoch != actual_database_epoch:
+        raise ValueError(f"database epoch conflict: expected {expected_database_epoch}, actual {actual_database_epoch}")
+    if expected_run_generation != actual_run_generation:
+        raise ValueError(f"run generation conflict: expected {expected_run_generation}, actual {actual_run_generation}")
+    if expected_last_sequence != actual_last_sequence:
+        raise ValueError(f"run sequence conflict: expected {expected_last_sequence}, actual {actual_last_sequence}")
+
+
+def _require_governed_completion_preconditions(
+    *,
+    expected_database_epoch: str | None,
+    expected_run_generation: int | None,
+    expected_last_sequence: int | None,
+    actual_database_epoch: str,
+    actual_run_generation: int,
+    actual_last_sequence: int,
+) -> None:
+    _require_governed_event_preconditions(
+        expected_database_epoch=expected_database_epoch,
+        expected_run_generation=expected_run_generation,
+        expected_last_sequence=expected_last_sequence,
+        actual_database_epoch=actual_database_epoch,
+        actual_run_generation=actual_run_generation,
+        actual_last_sequence=actual_last_sequence,
+    )
+
+
+def _validate_governed_v2_event_payload(
+    *,
+    event_type: str,
+    payload: Mapping[str, Any],
+    evidence: Sequence[Any],
+    conn: sqlite3.Connection,
+    run_id: str,
+    risk_level: str,
+) -> None:
+    if event_type in {"hypothesis_confirmed", "hypothesis_rejected"}:
+        _require_payload_fields(payload, required={"hypothesis_event_id", "evidence_refs"})
+        hypothesis_event_id = _bounded_text("payload.hypothesis_event_id", payload["hypothesis_event_id"], max_chars=64)
+        _require_nonempty_evidence_refs(payload["evidence_refs"])
+        _require_same_run_logical_event(
+            conn,
+            run_id=run_id,
+            event_id=hypothesis_event_id,
+            logical_event_type="hypothesis",
+        )
+        return
+    if event_type == "hypothesis":
+        _require_payload_fields(
+            payload,
+            required={"claim", "falsifier", "epistemic_status", "confidence"},
+        )
+        _bounded_text("payload.claim", payload["claim"], max_bytes=4096)
+        _bounded_text("payload.falsifier", payload["falsifier"], max_bytes=4096)
+        _require_enum_payload_value(
+            "payload.epistemic_status",
+            payload["epistemic_status"],
+            _HYPOTHESIS_EPISTEMIC_STATUSES,
+        )
+        confidence = payload["confidence"]
+        if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0.0 <= confidence <= 1.0:
+            raise ValueError("payload.confidence must be a number between 0.0 and 1.0")
+        return
+    if event_type == "preflight_review":
+        required = {
+            "approved",
+            "confirmed_facts",
+            "reasonable_inferences",
+            "unverified_hypotheses",
+            "missing_information",
+            "alternatives_considered",
+            "hidden_risks",
+            "maintenance_cost",
+            "maintenance_impact",
+            "verification_plan",
+        }
+        _require_payload_fields(payload, required=required, optional={"rollback_plan"})
+        if not isinstance(payload["approved"], bool):
+            raise ValueError("preflight_review payload.approved must be a boolean")
+        for field in sorted(required - {"approved"}):
+            _require_bounded_payload_array(f"payload.{field}", payload[field])
+        rollback_plan = payload.get("rollback_plan")
+        if risk_level in {"high", "critical"}:
+            if not isinstance(rollback_plan, str) or not rollback_plan.strip():
+                raise ValueError("high or critical preflight_review requires payload.rollback_plan")
+            _bounded_text("payload.rollback_plan", rollback_plan, max_bytes=4096)
+        elif rollback_plan is not None:
+            _bounded_text("payload.rollback_plan", rollback_plan, max_bytes=4096)
+        if evidence:
+            raise ValueError("preflight_review evidence must be carried in payload")
+        return
+    if event_type == "decision":
+        _require_payload_fields(
+            payload,
+            required={"selected_decision", "alternatives_considered", "evidence_refs", "maintenance_summary"},
+        )
+        _bounded_text("payload.selected_decision", payload["selected_decision"], max_bytes=4096)
+        _require_bounded_payload_array("payload.alternatives_considered", payload["alternatives_considered"])
+        _require_nonempty_evidence_refs(payload["evidence_refs"])
+        _require_maintenance_summary(payload["maintenance_summary"])
+        return
+    if event_type == "test_failure":
+        raise ValueError("governed-v2 test evidence must use test_result")
+    if event_type == "test_result":
+        _require_payload_fields(payload, required={"test_id", "result", "evidence_refs"})
+        _bounded_text("payload.test_id", payload["test_id"], max_chars=256)
+        _require_enum_payload_value("payload.result", payload["result"], {"passed", "failed", "skipped"})
+        _require_nonempty_evidence_refs(payload["evidence_refs"])
+        return
+    if event_type == "risk_identified":
+        _require_payload_fields(payload, required={"risk_id", "severity"}, optional={"mitigation"})
+        _bounded_text("payload.risk_id", payload["risk_id"], max_chars=128)
+        _require_enum_payload_value("payload.severity", payload["severity"], RUN_RISK_LEVELS)
+        if "mitigation" in payload:
+            _bounded_text("payload.mitigation", payload["mitigation"], max_bytes=4096)
+        return
+    if event_type == "information_gap":
+        _require_payload_fields(payload, required={"gap_id", "question"})
+        _bounded_text("payload.gap_id", payload["gap_id"], max_chars=128)
+        _bounded_text("payload.question", payload["question"], max_bytes=4096)
+        return
+    if event_type == "verification_result":
+        _require_payload_fields(payload, required={"criterion_id", "result", "evidence_refs"})
+        criterion_id = _bounded_text("payload.criterion_id", payload["criterion_id"], max_chars=128)
+        if criterion_id not in _governed_criterion_ids(conn, run_id=run_id):
+            raise ValueError("payload.criterion_id is not declared by the governed run")
+        _require_enum_payload_value("payload.result", payload["result"], {"passed", "failed", "not_applicable"})
+        _require_nonempty_evidence_refs(payload["evidence_refs"])
+        return
+    if event_type == "work_item_resumed":
+        _require_payload_fields(payload, required={"reason"})
+        _bounded_text("payload.reason", payload["reason"], max_bytes=4096)
+        return
+    if event_type == "blocker_resolved":
+        _require_payload_fields(payload, required={"blocker_event_id", "resolution"})
+        blocker_event_id = _bounded_text("payload.blocker_event_id", payload["blocker_event_id"], max_chars=64)
+        _bounded_text("payload.resolution", payload["resolution"], max_bytes=4096)
+        _require_same_run_logical_event(
+            conn,
+            run_id=run_id,
+            event_id=blocker_event_id,
+            logical_event_type="blocker",
+        )
+        return
+
+
+def _require_payload_fields(
+    payload: Mapping[str, Any],
+    *,
+    required: set[str],
+    optional: set[str] | None = None,
+) -> None:
+    optional = optional or set()
+    missing = sorted(required - set(payload))
+    unexpected = sorted(str(key) for key in payload if key not in required | optional)
+    if missing:
+        raise ValueError(f"governed-v2 payload is missing required fields: {missing}")
+    if unexpected:
+        raise ValueError(f"governed-v2 payload has unsupported fields: {unexpected}")
+
+
+def _require_enum_payload_value(name: str, value: object, allowed: Sequence[str] | set[str] | frozenset[str]) -> None:
+    cleaned = _bounded_text(name, value, max_chars=64)
+    if cleaned not in allowed:
+        raise ValueError(f"{name} has unsupported value: {cleaned}")
+
+
+def _require_nonempty_evidence_refs(value: Any) -> None:
+    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
+        raise ValueError("payload.evidence_refs must be an array")
+    if not value:
+        raise ValueError("payload.evidence_refs must not be empty")
+    require_durable_structured_data(list(value), subject="durable run structured data")
+    _bounded_json("payload.evidence_refs", list(value), max_bytes=8192)
+
+
+def _require_bounded_payload_array(name: str, value: Any) -> None:
+    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
+        raise ValueError(f"{name} must be an array")
+    items = list(value)
+    if len(items) > 32:
+        raise ValueError(f"{name} must contain at most 32 entries")
+    require_durable_structured_data(items, subject="durable governed run structured data")
+    _bounded_json(name, items, max_bytes=8192)
+
+
+def _require_maintenance_summary(value: Any) -> None:
+    if not isinstance(value, Mapping):
+        raise ValueError("payload.maintenance_summary must be an object")
+    _require_payload_fields(value, required={"cost", "impact"})
+    _bounded_text("payload.maintenance_summary.cost", value["cost"], max_bytes=2048)
+    _bounded_text("payload.maintenance_summary.impact", value["impact"], max_bytes=2048)
+
+
+def _require_same_run_logical_event(
+    conn: sqlite3.Connection,
+    *,
+    run_id: str,
+    event_id: str,
+    logical_event_type: str,
+) -> None:
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM run_events event
+        LEFT JOIN run_event_v2_details detail
+          ON detail.run_id = event.run_id AND detail.event_id = event.event_id
+        WHERE event.run_id = ?
+          AND event.event_id = ?
+          AND COALESCE(detail.logical_event_type, event.event_type) = ?
+        """,
+        (run_id, event_id, logical_event_type),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"payload reference must identify a same-run {logical_event_type} event")
+
+
+def _governed_criterion_ids(conn: sqlite3.Connection, *, run_id: str) -> set[str]:
+    row = conn.execute(
+        "SELECT acceptance_criteria_json FROM agent_runs WHERE run_id = ?",
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        raise RuntimeError("governed run is missing")
+    try:
+        criteria = json.loads(str(row["acceptance_criteria_json"]))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("governed acceptance criteria are malformed") from exc
+    if not isinstance(criteria, list):
+        raise RuntimeError("governed acceptance criteria are malformed")
+    criterion_ids: set[str] = set()
+    for criterion in criteria:
+        if not isinstance(criterion, Mapping):
+            raise RuntimeError("governed acceptance criteria are malformed")
+        criterion_id = criterion.get("criterion_id")
+        if not isinstance(criterion_id, str) or not criterion_id or criterion_id in criterion_ids:
+            raise RuntimeError("governed acceptance criteria are malformed")
+        criterion_ids.add(criterion_id)
+    if not criterion_ids:
+        raise RuntimeError("governed acceptance criteria are missing")
+    return criterion_ids
+
+
+def _require_governed_verification_result_coverage(conn: sqlite3.Connection, *, run_id: str) -> None:
+    criterion_ids = _governed_criterion_ids(conn, run_id=run_id)
+    rows = conn.execute(
+        """
+        SELECT event.payload_json
+        FROM run_events event
+        JOIN run_event_v2_details detail
+          ON detail.run_id = event.run_id AND detail.event_id = event.event_id
+        WHERE event.run_id = ? AND detail.logical_event_type = 'verification_result'
+        ORDER BY event.sequence DESC
+        """,
+        (run_id,),
+    ).fetchall()
+    latest_result_ids: set[str] = set()
+    for row in rows:
+        try:
+            payload = json.loads(str(row["payload_json"]))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("governed verification result is malformed") from exc
+        if not isinstance(payload, Mapping) or not isinstance(payload.get("criterion_id"), str):
+            raise RuntimeError("governed verification result is malformed")
+        criterion_id = payload["criterion_id"]
+        if criterion_id in criterion_ids:
+            latest_result_ids.add(criterion_id)
+    missing = sorted(criterion_ids - latest_result_ids)
+    if missing:
+        raise ValueError(f"governed completion requires verification_result coverage for: {missing}")
+
+
+def _unresolved_information_gap_ids(conn: sqlite3.Connection, *, run_id: str) -> list[str]:
+    rows = conn.execute(
+        """
+        SELECT event.payload_json
+        FROM run_events event
+        JOIN run_event_v2_details detail
+          ON detail.run_id = event.run_id AND detail.event_id = event.event_id
+        WHERE event.run_id = ? AND detail.logical_event_type = 'information_gap'
+        ORDER BY event.sequence
+        """,
+        (run_id,),
+    ).fetchall()
+    gap_ids: list[str] = []
+    for row in rows:
+        try:
+            payload = json.loads(str(row["payload_json"]))
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("governed information gap is malformed") from exc
+        gap_id = payload.get("gap_id") if isinstance(payload, Mapping) else None
+        if not isinstance(gap_id, str) or not gap_id.strip():
+            raise RuntimeError("governed information gap is malformed")
+        if gap_id not in gap_ids:
+            gap_ids.append(gap_id)
+    return gap_ids
+
+
+def _require_prior_approved_preflight(conn: sqlite3.Connection, *, run_id: str) -> None:
+    rows = conn.execute(
+        """
+        SELECT event.payload_json
+        FROM run_events event
+        JOIN run_event_v2_details detail
+          ON detail.run_id = event.run_id AND detail.event_id = event.event_id
+        WHERE event.run_id = ? AND detail.logical_event_type = 'preflight_review'
+        ORDER BY event.sequence
+        """,
+        (run_id,),
+    ).fetchall()
+    for row in rows:
+        payload = json.loads(str(row["payload_json"]))
+        if payload.get("approved") is True:
+            return
+    raise ValueError("governed-v2 execution events require a prior approved preflight_review")
 
 
 def _outcome_payload(row: sqlite3.Row) -> dict[str, Any]:
@@ -1055,6 +1697,8 @@ def _outcome_payload(row: sqlite3.Row) -> dict[str, Any]:
         "evaluator_type": str(row["evaluator_type"]),
         "evaluator_digest": row["evaluator_digest"],
         "evaluator_version": row["evaluator_version"],
+        "verification_profile": str(row["verification_profile"]),
+        "verification_receipt_id": row["verification_receipt_id"],
         "evidence": json.loads(str(row["evidence_json"])),
         "metrics": json.loads(str(row["metrics_json"])),
         "supersedes_outcome_id": row["supersedes_outcome_id"],
@@ -1217,8 +1861,12 @@ def _required_artifact_uri(value: Any) -> str:
         raise ValueError(
             "artifact.uri must be a reference-like URI with a scheme and no whitespace or control characters"
         )
-    if match["scheme"].casefold() == "data":
-        raise ValueError("artifact.uri must not use the data scheme")
+    scheme = match["scheme"].casefold()
+    if scheme in _FORBIDDEN_ARTIFACT_URI_SCHEMES:
+        raise ValueError(f"artifact.uri must not use the {scheme} scheme")
+    parsed = urlsplit(value)
+    if parsed.netloc and "@" in parsed.netloc:
+        raise ValueError("artifact.uri must not embed credentials")
     return value
 
 
@@ -1386,7 +2034,12 @@ def _resolve_source_memory_attribution(
             raise ValueError("memory_attribution item was not exposed by source_recall_event_id")
         feedback_id = selected.get("feedback_id")
         if feedback_id is not None:
-            _validate_source_feedback_link(conn, feedback_id=int(feedback_id), source=source)
+            _validate_source_feedback_link(
+                conn,
+                feedback_id=int(feedback_id),
+                source=source,
+                relation=relation,
+            )
         resolved.append(
             {
                 "memory_id": str(source["memory_id"]),
@@ -1401,7 +2054,13 @@ def _resolve_source_memory_attribution(
     return resolved
 
 
-def _validate_source_feedback_link(conn: sqlite3.Connection, *, feedback_id: int, source: sqlite3.Row) -> None:
+def _validate_source_feedback_link(
+    conn: sqlite3.Connection,
+    *,
+    feedback_id: int,
+    source: sqlite3.Row,
+    relation: str,
+) -> None:
     row = conn.execute(
         """
         SELECT feedback.*, memory.namespace AS memory_namespace, memory.exact_content_hash AS current_exact_content_version
@@ -1437,6 +2096,48 @@ def _validate_source_feedback_link(conn: sqlite3.Connection, *, feedback_id: int
         raise ValueError("feedback_id does not match the recalled exact content version")
     if str(row["namespace"]) != str(row["memory_namespace"]):
         raise ValueError("feedback_id does not match the recalled memory namespace")
+    allowed_outcomes = {
+        "applied": {"helpful"},
+        "rejected": {"misleading", "outdated", "not_applicable"},
+    }
+    feedback_outcome = str(row["outcome"])
+    reviewed_neutral_supported = feedback_outcome == "not_used" and _has_existing_helpful_support(
+        conn,
+        memory_id=str(source["memory_id"]),
+        exact_content_version=str(source["exact_content_version"]),
+    )
+    if feedback_outcome not in allowed_outcomes[relation] and not (
+        relation == "applied" and reviewed_neutral_supported
+    ):
+        raise ValueError(f"feedback outcome cannot support source-linked memory_{relation}")
+
+
+def _has_existing_helpful_support(
+    conn: sqlite3.Connection,
+    *,
+    memory_id: str,
+    exact_content_version: str,
+) -> bool:
+    rows = conn.execute(
+        """
+        SELECT outcome.*
+        FROM run_memory_links link
+        JOIN retrieval_feedback feedback ON feedback.feedback_id = link.feedback_id
+        JOIN run_outcomes outcome ON outcome.run_id = link.run_id
+        LEFT JOIN retrieval_feedback feedback_child ON feedback_child.supersedes_feedback_id = feedback.feedback_id
+        LEFT JOIN run_outcomes outcome_child ON outcome_child.supersedes_outcome_id = outcome.outcome_id
+        WHERE link.memory_id = ?
+          AND link.exact_content_version = ?
+          AND link.relation = 'applied'
+          AND link.review_required = 0
+          AND feedback_child.feedback_id IS NULL
+          AND feedback.feedback_type != 'retraction'
+          AND feedback.outcome = 'helpful'
+          AND outcome_child.outcome_id IS NULL
+        """,
+        (memory_id, exact_content_version),
+    ).fetchall()
+    return any(is_strong_verified_outcome(row) for row in rows)
 
 
 def _resolve_manual_memory_attribution(
@@ -1534,6 +2235,71 @@ def _normalize_memory_scopes(memory_scopes: Sequence[str] | None) -> list[str]:
     return cleaned
 
 
+def _normalize_evidence_profile(value: str) -> str:
+    cleaned = _bounded_text("evidence_profile", value, max_chars=32)
+    if cleaned not in RUN_EVIDENCE_PROFILES:
+        raise ValueError(f"unsupported evidence_profile: {cleaned}")
+    return cleaned
+
+
+def _normalize_risk_level(value: str) -> str:
+    cleaned = _bounded_text("risk_level", value, max_chars=32)
+    if cleaned not in RUN_RISK_LEVELS:
+        raise ValueError(f"unsupported risk_level: {cleaned}")
+    return cleaned
+
+
+def _normalize_acceptance_criteria(value: Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
+        raise ValueError("acceptance_criteria must be an array")
+    if len(value) > 64:
+        raise ValueError("acceptance_criteria must contain at most 64 entries")
+    normalized: list[dict[str, Any]] = []
+    identifiers: set[str] = set()
+    for entry in value:
+        if not isinstance(entry, Mapping):
+            raise ValueError("acceptance_criteria entries must be objects")
+        keys = set(entry)
+        if "id" in keys and "criterion_id" in keys:
+            raise ValueError("acceptance_criteria entries must use either id or criterion_id, not both")
+        allowed = {"id", "criterion_id", "description"}
+        unexpected = sorted(str(key) for key in keys - allowed)
+        if unexpected:
+            raise ValueError(f"acceptance_criteria entries have unsupported fields: {unexpected}")
+        raw_identifier = entry.get("criterion_id", entry.get("id"))
+        identifier = _bounded_text("acceptance_criteria.criterion_id", raw_identifier, max_chars=128)
+        if identifier in identifiers:
+            raise ValueError("acceptance_criteria criterion_id values must be unique")
+        identifiers.add(identifier)
+        normalized_entry: dict[str, Any] = {"criterion_id": identifier}
+        if "description" in entry:
+            normalized_entry["description"] = _bounded_text(
+                "acceptance_criteria.description", entry["description"], max_bytes=4096
+            )
+        normalized.append(normalized_entry)
+    require_durable_structured_data(normalized, subject="durable run structured data")
+    _bounded_json("acceptance_criteria", normalized, max_bytes=16384)
+    return normalized
+
+
+def _normalize_run_text_list(name: str, value: Sequence[str] | None) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
+        raise ValueError(f"{name} must be an array")
+    if len(value) > 64:
+        raise ValueError(f"{name} must contain at most 64 entries")
+    normalized: list[str] = []
+    for raw_item in value:
+        item = _bounded_text(name, raw_item, max_bytes=2048)
+        if item not in normalized:
+            normalized.append(item)
+    _bounded_json(name, normalized, max_bytes=8192)
+    return normalized
+
+
 def _json_object(name: str, value: Mapping[str, Any] | None, *, max_bytes: int) -> str:
     if value is None:
         value = {}
@@ -1568,7 +2334,7 @@ def _idempotency_digest(value: str) -> str:
     return hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
 
 
-def _request_digest(value: Mapping[str, Any]) -> str:
+def _request_digest(value: Any) -> str:
     return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
 
 
@@ -1590,6 +2356,14 @@ def _optional_nonnegative_int(name: str, value: int | None) -> int | None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError(f"{name} must be a non-negative integer")
+    return value
+
+
+def _optional_positive_int(name: str, value: int | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(f"{name} must be a positive integer")
     return value
 
 

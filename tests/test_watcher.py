@@ -66,6 +66,20 @@ def _write_watcher_state(
     )
 
 
+def _append_explicit_close(rollout: Path, *, reason: str = "operator_closed") -> None:
+    with rollout.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n"
+            + json.dumps(
+                {
+                    "timestamp": "2026-04-04T17:20:00.000Z",
+                    "type": "session_end",
+                    "payload": {"reason": reason},
+                }
+            )
+        )
+
+
 def test_watcher_processes_idle_rollout_once(tmp_path: Path) -> None:
     sessions_root = tmp_path / "sessions"
     sessions_root.mkdir()
@@ -356,6 +370,7 @@ def test_default_watcher_records_metadata_only_checkpoint_without_memory_or_note
             ],
         }
     serialized = json.dumps(durable)
+    serialized_state = watcher.config.state_path.read_text(encoding="utf-8")
     for forbidden in (
         user_message,
         assistant_message,
@@ -365,9 +380,11 @@ def test_default_watcher_records_metadata_only_checkpoint_without_memory_or_note
         "messages",
     ):
         assert forbidden not in serialized
+    for forbidden in (user_message, assistant_message, "transcript", "messages"):
+        assert forbidden not in serialized_state
 
 
-def test_default_watcher_closes_an_idle_first_observation_in_one_run(tmp_path: Path) -> None:
+def test_default_watcher_pauses_an_idle_rollout_without_completing_it(tmp_path: Path) -> None:
     sessions_root = tmp_path / "sessions"
     sessions_root.mkdir()
     rollout = _write_rollout(sessions_root)
@@ -383,86 +400,102 @@ def test_default_watcher_closes_an_idle_first_observation_in_one_run(tmp_path: P
         )
     )
 
-    result = watcher.run_once(now_ts=time.time())
+    first = watcher.run_once(now_ts=time.time())
+    second = watcher.run_once(now_ts=time.time())
 
-    assert [item["mode"] for item in result["processed"]] == ["closeout"]
-    closeout = result["processed"][0]
-    run = watcher.store.get_run(workspace_key="project:mem-store", run_id=closeout["run_id"])
+    assert [item["mode"] for item in first["processed"]] == ["paused"]
+    assert second["processed"] == []
+    paused = first["processed"][0]
+    run = watcher.store.get_run(workspace_key="project:mem-store", run_id=paused["run_id"])
+    watcher_state = json.loads(watcher.config.state_path.read_text(encoding="utf-8"))[str(rollout)]
+    assert run["run"]["status"] == "active"
+    assert run["outcome"] is None
+    assert run["events"][0]["payload"]["lifecycle_state"] == "paused_on_idle"
+    assert watcher_state["database_epoch"] == run["snapshot_epoch"]
+    assert watcher_state["run_generation"] == run["run"]["run_generation"]
+    assert _episode_counts(watcher) == {
+        "memories": 0,
+        "agent_runs": 1,
+        "run_events": 1,
+        "run_outcomes": 0,
+    }
+
+
+def test_default_watcher_resumes_the_same_run_after_idle_growth(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    sessions_root.mkdir()
+    rollout = _write_rollout(sessions_root)
+    old_time = time.time() - 120
+    os.utime(rollout, (old_time, old_time))
+    watcher = CodexSessionWatcher(
+        WatcherConfig(
+            sessions_root=sessions_root,
+            notes_root=tmp_path / "notes",
+            runtime_dir=tmp_path / "runtime",
+            state_path=tmp_path / "runtime" / "watcher-state.json",
+            idle_seconds=10,
+        )
+    )
+    paused = watcher.run_once(now_ts=time.time())["processed"][0]
+    with rollout.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n"
+            + json.dumps(
+                {
+                    "timestamp": "2026-04-04T17:19:00.000Z",
+                    "type": "event_msg",
+                    "payload": {"type": "user_message", "message": "Continue after the pause."},
+                }
+            )
+        )
+    resumed = watcher.run_once(now_ts=time.time())["processed"]
+
+    assert [item["mode"] for item in resumed] == ["session-seen", "resumed"]
+    assert resumed[-1]["run_id"] == paused["run_id"]
+    run = watcher.store.get_run(workspace_key="project:mem-store", run_id=paused["run_id"])
+    assert run["run"]["status"] == "active"
+    assert run["outcome"] is None
+    assert [event["payload"]["lifecycle_state"] for event in run["events"]] == ["paused_on_idle", "resumed"]
+    assert _episode_counts(watcher) == {
+        "memories": 0,
+        "agent_runs": 1,
+        "run_events": 2,
+        "run_outcomes": 0,
+    }
+
+
+def test_default_watcher_completes_only_after_an_explicit_host_close(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    sessions_root.mkdir()
+    rollout = _write_rollout(sessions_root)
+    watcher = CodexSessionWatcher(
+        WatcherConfig(
+            sessions_root=sessions_root,
+            notes_root=tmp_path / "notes",
+            runtime_dir=tmp_path / "runtime",
+            state_path=tmp_path / "runtime" / "watcher-state.json",
+            idle_seconds=3600,
+            checkpoint_seconds=1,
+            checkpoint_min_messages=2,
+        )
+    )
+
+    first = watcher.run_once(now_ts=time.time())
+    run_id = next(item["run_id"] for item in first["processed"] if item["mode"] == "checkpoint")
+    _append_explicit_close(rollout)
+    closed = watcher.run_once(now_ts=time.time())["processed"]
+
+    assert [item["mode"] for item in closed] == ["closeout"]
+    assert closed[0]["run_id"] == run_id
+    run = watcher.store.get_run(workspace_key="project:mem-store", run_id=run_id)
     assert run["run"]["status"] == "completed"
-    assert run["outcome"] is not None
     assert run["outcome"]["outcome"] == "unverified"
     assert run["outcome"]["evaluator_type"] == "system"
-    assert run["outcome"]["termination_reason"] == "rollout_idle"
+    assert run["outcome"]["termination_reason"] == "host_explicit_close:operator_closed"
     assert _episode_counts(watcher) == {
         "memories": 0,
         "agent_runs": 1,
-        "run_events": 1,
-        "run_outcomes": 1,
-    }
-
-
-def test_default_watcher_migrates_legacy_closeout_state_without_a_run_id(tmp_path: Path) -> None:
-    sessions_root = tmp_path / "sessions"
-    sessions_root.mkdir()
-    rollout = _write_rollout(sessions_root)
-    old_time = time.time() - 120
-    os.utime(rollout, (old_time, old_time))
-    watcher = CodexSessionWatcher(
-        WatcherConfig(
-            sessions_root=sessions_root,
-            notes_root=tmp_path / "notes",
-            runtime_dir=tmp_path / "runtime",
-            state_path=tmp_path / "runtime" / "watcher-state.json",
-            idle_seconds=10,
-        )
-    )
-    fingerprint = f"{rollout.stat().st_mtime_ns}:{rollout.stat().st_size}"
-    _write_watcher_state(watcher, rollout, {"closeout_fingerprint": fingerprint})
-
-    first = watcher.run_once(now_ts=time.time())
-    second = watcher.run_once(now_ts=time.time())
-
-    assert [item["mode"] for item in first["processed"]] == ["closeout"]
-    assert second["processed"] == []
-    closeout = first["processed"][0]
-    run = watcher.store.get_run(workspace_key="project:mem-store", run_id=closeout["run_id"])
-    assert run["run"]["status"] == "completed"
-    assert run["outcome"]["outcome"] == "unverified"
-    assert _episode_counts(watcher) == {
-        "memories": 0,
-        "agent_runs": 1,
-        "run_events": 1,
-        "run_outcomes": 1,
-    }
-
-
-def test_default_watcher_migrates_legacy_raw_closeout_state(tmp_path: Path) -> None:
-    sessions_root = tmp_path / "sessions"
-    sessions_root.mkdir()
-    rollout = _write_rollout(sessions_root)
-    old_time = time.time() - 120
-    os.utime(rollout, (old_time, old_time))
-    watcher = CodexSessionWatcher(
-        WatcherConfig(
-            sessions_root=sessions_root,
-            notes_root=tmp_path / "notes",
-            runtime_dir=tmp_path / "runtime",
-            state_path=tmp_path / "runtime" / "watcher-state.json",
-            idle_seconds=10,
-        )
-    )
-    fingerprint = f"{rollout.stat().st_mtime_ns}:{rollout.stat().st_size}"
-    _write_watcher_state(watcher, rollout, fingerprint)
-
-    first = watcher.run_once(now_ts=time.time())
-    second = watcher.run_once(now_ts=time.time())
-
-    assert [item["mode"] for item in first["processed"]] == ["closeout"]
-    assert second["processed"] == []
-    assert _episode_counts(watcher) == {
-        "memories": 0,
-        "agent_runs": 1,
-        "run_events": 1,
+        "run_events": 2,
         "run_outcomes": 1,
     }
 
@@ -482,7 +515,6 @@ def test_default_watcher_rebinds_episode_state_when_its_run_is_gone(tmp_path: Pa
             idle_seconds=10,
         )
     )
-    fingerprint = f"{rollout.stat().st_mtime_ns}:{rollout.stat().st_size}"
     _write_watcher_state(
         watcher,
         rollout,
@@ -492,16 +524,15 @@ def test_default_watcher_rebinds_episode_state_when_its_run_is_gone(tmp_path: Pa
             "root_work_item_id": "work_missing",
             "run_status": "active",
             "session_seen": True,
-            "closeout_fingerprint": fingerprint,
-            "terminal_skip_fingerprint": fingerprint,
+            "pause_fingerprint": "legacy-fingerprint",
         },
     )
 
     result = watcher.run_once(now_ts=time.time())
 
-    assert [item["mode"] for item in result["processed"]] == ["closeout"]
+    assert [item["mode"] for item in result["processed"]] == ["paused"]
     assert result["processed"][0]["run_id"] != "run_missing"
-    assert _episode_counts(watcher)["run_outcomes"] == 1
+    assert _episode_counts(watcher)["run_outcomes"] == 0
 
 
 def test_default_watcher_migrates_legacy_checkpoint_state_and_remains_idempotent(tmp_path: Path) -> None:
@@ -540,17 +571,17 @@ def test_default_watcher_migrates_legacy_checkpoint_state_and_remains_idempotent
 
     assert {item["mode"] for item in first["processed"]} == {"session-seen", "checkpoint"}
     assert second["processed"] == []
-    assert [item["mode"] for item in third["processed"]] == ["closeout"]
+    assert [item["mode"] for item in third["processed"]] == ["paused"]
     assert fourth["processed"] == []
     assert _episode_counts(watcher) == {
         "memories": 0,
         "agent_runs": 1,
         "run_events": 2,
-        "run_outcomes": 1,
+        "run_outcomes": 0,
     }
 
 
-def test_default_watcher_repairs_current_buggy_closeout_gate_for_an_active_run(tmp_path: Path) -> None:
+def test_default_watcher_ignores_legacy_closeout_gate_and_keeps_active_authority(tmp_path: Path) -> None:
     sessions_root = tmp_path / "sessions"
     sessions_root.mkdir()
     rollout = _write_rollout(sessions_root)
@@ -586,9 +617,9 @@ def test_default_watcher_repairs_current_buggy_closeout_gate_for_an_active_run(t
 
     result = watcher.run_once(now_ts=time.time())
 
-    assert [item["mode"] for item in result["processed"]] == ["closeout"]
+    assert [item["mode"] for item in result["processed"]] == ["paused"]
     assert result["processed"][0]["run_id"] == begin["run_id"]
-    assert _episode_counts(watcher)["run_outcomes"] == 1
+    assert _episode_counts(watcher)["run_outcomes"] == 0
 
 
 def test_default_watcher_replays_after_state_loss_without_duplicate_ledger_rows(tmp_path: Path) -> None:
@@ -620,6 +651,46 @@ def test_default_watcher_replays_after_state_loss_without_duplicate_ledger_rows(
     checkpoint = next(item for item in replay["processed"] if item["mode"] == "checkpoint")
     assert checkpoint["begin_idempotent_replay"] is True
     assert checkpoint["event_idempotent_replay"] is True
+
+
+def test_default_watcher_rebinds_stale_epoch_generation_gates_without_duplicate_rows(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    sessions_root.mkdir()
+    rollout = _write_rollout(sessions_root)
+    state_path = tmp_path / "runtime" / "watcher-state.json"
+    watcher = CodexSessionWatcher(
+        WatcherConfig(
+            sessions_root=sessions_root,
+            notes_root=tmp_path / "notes",
+            runtime_dir=tmp_path / "runtime",
+            state_path=state_path,
+            idle_seconds=3600,
+            checkpoint_seconds=1,
+            checkpoint_min_messages=2,
+        )
+    )
+
+    watcher.run_once(now_ts=time.time())
+    initial_counts = _episode_counts(watcher)
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    entry = state[str(rollout)]
+    entry["database_epoch"] = "stale-restored-epoch"
+    entry["run_generation"] = 1
+    entry["terminal_skip_fingerprint"] = entry["rollout_cursor"]["fingerprint"]
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    replay = watcher.run_once(now_ts=time.time() + 2)
+
+    assert _episode_counts(watcher) == initial_counts
+    assert [item["mode"] for item in replay["processed"]] == ["session-seen", "checkpoint"]
+    assert replay["processed"][-1]["event_idempotent_replay"] is True
+    rebound = json.loads(state_path.read_text(encoding="utf-8"))[str(rollout)]
+    snapshot = watcher.store.get_run(
+        workspace_key=str(rebound["workspace_key"]),
+        run_id=str(rebound["run_id"]),
+    )
+    assert rebound["database_epoch"] == snapshot["snapshot_epoch"]
+    assert rebound["run_generation"] == snapshot["run"]["run_generation"]
 
 
 def test_default_watcher_keeps_one_run_when_later_metadata_changes_workspace(tmp_path: Path) -> None:
@@ -663,31 +734,48 @@ def test_default_watcher_keeps_one_run_when_later_metadata_changes_workspace(tmp
     assert run["events"][-1]["payload"]["workspace_basename"] == "mem-store"
 
 
-def test_default_watcher_skips_later_growth_after_a_terminal_run_once_per_fingerprint(tmp_path: Path) -> None:
+def test_default_watcher_creates_an_explicit_continuation_after_terminal_growth(tmp_path: Path) -> None:
     sessions_root = tmp_path / "sessions"
     sessions_root.mkdir()
     rollout = _write_rollout(sessions_root)
-    old_time = time.time() - 120
-    os.utime(rollout, (old_time, old_time))
     watcher = CodexSessionWatcher(
         WatcherConfig(
             sessions_root=sessions_root,
             notes_root=tmp_path / "notes",
             runtime_dir=tmp_path / "runtime",
             state_path=tmp_path / "runtime" / "watcher-state.json",
-            idle_seconds=10,
+            idle_seconds=3600,
+            checkpoint_seconds=1,
+            checkpoint_min_messages=2,
         )
     )
 
     first = watcher.run_once(now_ts=time.time())
-    counts_after_closeout = _episode_counts(watcher)
+    original_run_id = next(item["run_id"] for item in first["processed"] if item["mode"] == "checkpoint")
+    _append_explicit_close(rollout)
+    closed = watcher.run_once(now_ts=time.time())
+    assert [item["mode"] for item in closed["processed"]] == ["closeout"]
+
     with rollout.open("a", encoding="utf-8") as handle:
-        handle.write("\n" + json.dumps({"timestamp": "2026-04-04T17:19:00.000Z", "type": "event_msg", "payload": {}}))
+        handle.write(
+            "\n"
+            + json.dumps(
+                {
+                    "timestamp": "2026-04-04T17:21:00.000Z",
+                    "type": "event_msg",
+                    "payload": {"type": "user_message", "message": "Start explicit continuation work."},
+                }
+            )
+        )
 
     second = watcher.run_once(now_ts=time.time())
     third = watcher.run_once(now_ts=time.time())
 
-    assert [item["mode"] for item in first["processed"]] == ["closeout"]
-    assert [item["mode"] for item in second["processed"]] == ["terminal-skip"]
+    assert [item["mode"] for item in second["processed"]] == ["continuation-started", "session-seen"]
+    continuation_id = second["processed"][0]["run_id"]
+    assert continuation_id != original_run_id
+    continuation = watcher.store.get_run(workspace_key="project:mem-store", run_id=continuation_id)
+    assert continuation["run"]["continuation_of_run_id"] == original_run_id
+    assert continuation["run"]["status"] == "active"
     assert third["processed"] == []
-    assert _episode_counts(watcher) == counts_after_closeout
+    assert _episode_counts(watcher)["agent_runs"] == 2

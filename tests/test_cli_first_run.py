@@ -61,11 +61,15 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert ".resolve()" not in report["install"]["baseline"][1]
     assert report["install"]["package_version"] == RELEASE_VERSION
     assert report["install"]["release_install_version"] == PINNED_INSTALL_VERSION
-    assert RELEASE_VERSION == PINNED_INSTALL_VERSION
-    assert report["install"]["version_mismatch_note"] is None
+    assert RELEASE_VERSION == "0.27.3"
+    assert PINNED_INSTALL_VERSION == "0.27.0"
+    assert report["install"]["version_mismatch_note"] == (
+        "Package/source version 0.27.3 differs from pinned release-install version 0.27.0. "
+        "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
+    )
     assert report["install"]["release_install_gate_note"] == RELEASE_INSTALL_GATE_NOTE
     assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in report["install"]["baseline"][2]
-    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" in report["install"]["baseline"][2]
+    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" not in report["install"]["baseline"][2]
     assert "<venv-python> -m pip install" in report["install"]["baseline"][2]
     assert report["install"]["github_install"] == report["install"]["baseline"]
     assert report["install"]["editable_install"][-1] == "<venv-python> -m pip install -e ."
@@ -76,13 +80,13 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert report["install"]["smoke_test"] == report["verify"][1]
     assert report["install"]["optional_uv_smoke_test"].startswith("uvx --from git+")
     assert f"Agent-Memory-Bridge@v{PINNED_INSTALL_VERSION}" in report["install"]["optional_uv_smoke_test"]
-    assert f"Agent-Memory-Bridge@v{RELEASE_VERSION}" in report["install"]["optional_uv_smoke_test"]
+    assert f"Agent-Memory-Bridge@v{RELEASE_VERSION}" not in report["install"]["optional_uv_smoke_test"]
 
     markdown = render_first_run_markdown(report)
     assert "## Install" in markdown
     assert "Linux systems use `python3`" in markdown
     assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in markdown
-    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" in markdown
+    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" not in markdown
     assert markdown.index("python -m venv .amb-venv") < markdown.index(".absolute()")
     assert markdown.index(".absolute()") < markdown.index(f'<venv-python> -m pip install "{GITHUB_ARCHIVE_URL}"')
     assert "Editable install:" not in markdown
@@ -109,13 +113,13 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
         example=False,
     )
     assert future_report["install"]["version_mismatch_note"] == (
-        "Package/source version 0.28.0 differs from pinned release-install version 0.27.1. "
+        "Package/source version 0.28.0 differs from pinned release-install version 0.27.0. "
         "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
     )
     assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in future_report["install"]["baseline"][2]
     assert "archive/refs/tags/v0.28.0.zip" not in future_report["install"]["baseline"][2]
     assert (
-        "Package/source version 0.28.0 differs from pinned release-install version 0.27.1."
+        "Package/source version 0.28.0 differs from pinned release-install version 0.27.0."
         in render_first_run_markdown(future_report)
     )
 
@@ -168,10 +172,13 @@ def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch
     assert ".absolute()" in payload["install"]["baseline"][1]
     assert payload["install"]["package_version"] == RELEASE_VERSION
     assert payload["install"]["release_install_version"] == PINNED_INSTALL_VERSION
-    assert payload["install"]["version_mismatch_note"] is None
+    assert payload["install"]["version_mismatch_note"] == (
+        "Package/source version 0.27.3 differs from pinned release-install version 0.27.0. "
+        "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
+    )
     assert payload["install"]["release_install_gate_note"] == RELEASE_INSTALL_GATE_NOTE
     assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in payload["install"]["baseline"][2]
-    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" in payload["install"]["baseline"][2]
+    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" not in payload["install"]["baseline"][2]
 
 
 def test_first_run_stays_cli_only_not_mcp_tool() -> None:

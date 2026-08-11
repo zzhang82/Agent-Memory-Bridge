@@ -8,6 +8,7 @@ from agent_mem_bridge.codex_rollout import (
     build_watcher_episode_checkpoint_request,
     build_watcher_episode_closeout_request,
     parse_rollout_file,
+    scan_rollout_file_incremental,
 )
 
 
@@ -133,6 +134,146 @@ def test_watcher_episode_builders_keep_only_bounded_rollout_metadata(tmp_path: P
         "messages",
     ):
         assert forbidden not in serialized
+
+
+def test_incremental_rollout_scan_reads_only_appended_bytes_and_keeps_bodies_out_of_cursor(tmp_path: Path) -> None:
+    rollout = tmp_path / "rollout-2026-04-04T13-17-22-019d597f-d23c-7391-9214-4c5b847d13ce.jsonl"
+    first_body = "DISTINCTIVE_FIRST_BODY must remain transient."
+    second_body = "DISTINCTIVE_SECOND_BODY must remain transient."
+    initial_lines = [
+        {
+            "timestamp": "2026-04-04T17:18:07.854Z",
+            "type": "session_meta",
+            "payload": {
+                "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
+                "timestamp": "2026-04-04T17:17:22.372Z",
+                "cwd": "C:\\workspaces\\demo\\mem-store",
+                "originator": "Codex Desktop",
+            },
+        },
+        {
+            "timestamp": "2026-04-04T17:18:07.856Z",
+            "type": "event_msg",
+            "payload": {"type": "user_message", "message": first_body},
+        },
+    ]
+    rollout.write_text("\n".join(json.dumps(line) for line in initial_lines), encoding="utf-8")
+
+    first, cursor = scan_rollout_file_incremental(rollout)
+    first_size = rollout.stat().st_size
+    assert first.scan_start_offset == 0
+    assert first.scan_bytes_read == first_size
+    assert first.user_message_count == 1
+
+    with rollout.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n"
+            + json.dumps(
+                {
+                    "timestamp": "2026-04-04T17:18:11.235Z",
+                    "type": "response_item",
+                    "payload": {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": second_body}],
+                    },
+                }
+            )
+        )
+
+    second, next_cursor = scan_rollout_file_incremental(rollout, cursor)
+
+    assert second.scan_start_offset == first_size
+    assert second.scan_bytes_read == rollout.stat().st_size - first_size
+    assert second.assistant_message_count == 1
+    assert next_cursor["byte_offset"] == rollout.stat().st_size
+    serialized_cursor = json.dumps(next_cursor)
+    assert first_body not in serialized_cursor
+    assert second_body not in serialized_cursor
+
+
+def test_incremental_rollout_scan_detects_explicit_close_and_declared_goal_metadata(tmp_path: Path) -> None:
+    rollout = tmp_path / "rollout-2026-04-04T13-17-22-019d597f-d23c-7391-9214-4c5b847d13ce.jsonl"
+    rollout.write_text(
+        "\n".join(
+            json.dumps(line)
+            for line in [
+                {
+                    "timestamp": "2026-04-04T17:18:07.854Z",
+                    "type": "session_meta",
+                    "payload": {
+                        "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
+                        "cwd": "C:\\workspaces\\demo\\mem-store",
+                        "task": "Prepare the bounded release candidate.",
+                    },
+                },
+                {
+                    "timestamp": "2026-04-04T17:20:00.000Z",
+                    "type": "session_end",
+                    "payload": {"reason": "operator_closed"},
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    summary, cursor = scan_rollout_file_incremental(rollout)
+    begin = build_watcher_episode_begin_request(summary)
+    closeout = build_watcher_episode_closeout_request(
+        summary,
+        cursor["fingerprint"],
+        termination_reason=f"host_explicit_close:{summary.explicit_close_reason}",
+    )
+
+    assert summary.declared_goal == "Prepare the bounded release candidate."
+    assert summary.explicit_close_reason == "operator_closed"
+    assert begin["goal"].endswith("Prepare the bounded release candidate.")
+    assert begin["evidence_profile"] == "observational"
+    assert closeout["termination_reason"] == "host_explicit_close:operator_closed"
+
+
+def test_incremental_rollout_scan_clears_a_prior_close_after_new_activity(tmp_path: Path) -> None:
+    rollout = tmp_path / "rollout-2026-04-04T13-17-22-019d597f-d23c-7391-9214-4c5b847d13ce.jsonl"
+    rollout.write_text(
+        "\n".join(
+            json.dumps(line)
+            for line in [
+                {
+                    "timestamp": "2026-04-04T17:18:07.854Z",
+                    "type": "session_meta",
+                    "payload": {
+                        "id": "019d597f-d23c-7391-9214-4c5b847d13ce",
+                        "cwd": "C:\\workspaces\\demo\\mem-store",
+                    },
+                },
+                {
+                    "timestamp": "2026-04-04T17:20:00.000Z",
+                    "type": "session_end",
+                    "payload": {"reason": "operator_closed"},
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    closed, cursor = scan_rollout_file_incremental(rollout)
+    assert closed.explicit_close_reason == "operator_closed"
+
+    with rollout.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\n"
+            + json.dumps(
+                {
+                    "timestamp": "2026-04-04T17:21:00.000Z",
+                    "type": "event_msg",
+                    "payload": {"type": "user_message", "message": "Continue this rollout."},
+                }
+            )
+        )
+
+    resumed, next_cursor = scan_rollout_file_incremental(rollout, cursor)
+
+    assert resumed.explicit_close_reason == ""
+    assert next_cursor["explicit_close_reason"] == ""
 
 
 def test_parse_rollout_keeps_subagent_thread_and_parent_lineage(tmp_path: Path) -> None:
