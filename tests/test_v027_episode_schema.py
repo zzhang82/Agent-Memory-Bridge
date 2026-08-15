@@ -322,7 +322,7 @@ def test_v7_to_v10_migration_preserves_existing_memory_and_feedback_authority() 
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 11
     assert EPISODE_TABLES <= _table_names(conn)
     assert tuple(conn.execute("SELECT * FROM memories WHERE id = 'legacy-memory'").fetchone()) == memory_before
     assert tuple(conn.execute("SELECT * FROM retrieval_feedback WHERE feedback_id = 1").fetchone()) == feedback_before
@@ -381,7 +381,7 @@ def test_v8_to_v10_backfills_terminal_times_without_mutating_episode_authority()
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 11
     assert {"terminal_at", "current_outcome_updated_at"} <= set(_table_column_names(conn, "run_state_projection"))
     projection = conn.execute(
         """
@@ -424,7 +424,7 @@ def test_v8_blocked_resume_history_migrates_repairs_and_accepts_new_events(tmp_p
     repaired = rebuild_database_projections(db_path)
     assert repaired["ok"] is True
     with store._connect() as migrated:
-        assert schema_version(migrated) == 10
+        assert schema_version(migrated) == 11
         assert _episode_authority_rows(migrated) == authority_before
         assert inspect_run_projections(migrated)["ok"] is True
 
@@ -493,7 +493,7 @@ def test_v9_to_v10_preserves_authority_and_marks_legacy_run_and_outcome() -> Non
 
     init_db(conn)
 
-    assert schema_version(conn) == 10
+    assert schema_version(conn) == 11
     assert _episode_authority_rows(conn) == authority_before
     run = conn.execute(
         """
@@ -556,16 +556,18 @@ def test_injected_v10_failure_rolls_back_additive_schema_and_ledger(
     assert [tuple(row) for row in conn.execute("SELECT * FROM schema_migrations ORDER BY version")] == ledger_before
 
 
-def test_fresh_database_reaches_v10_governed_run_schema() -> None:
+def test_fresh_database_reaches_v11_dynamic_state_schema() -> None:
     conn = _connect()
 
     init_db(conn)
 
-    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10
+    assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 11
     assert {"terminal_at", "current_outcome_updated_at"} <= set(_table_column_names(conn, "run_state_projection"))
     assert {"evidence_profile", "run_generation"} <= set(_table_column_names(conn, "agent_runs"))
     assert "not_applicable_count" in _table_column_names(conn, "memory_utility_shadow")
+    assert {"state_resources", "state_mutations", "state_heads"} <= _table_names(conn)
     assert conn.execute("SELECT COUNT(*) FROM schema_migrations WHERE version = 10").fetchone()[0] == 1
+    assert conn.execute("SELECT COUNT(*) FROM schema_migrations WHERE version = 11").fetchone()[0] == 1
 
 
 def test_episode_evidence_tables_are_append_only() -> None:

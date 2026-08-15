@@ -696,4 +696,4 @@ async def _exercise_failed_negotiation(tmp_path: Path) -> None:
 def test_raw_wire_negotiation_errors_are_explicit_and_read_only(tmp_path: Path) -> None:
     asyncio.run(_exercise_failed_negotiation(tmp_path))
     with sqlite3.connect(tmp_path / "bridge.db") as conn:
-        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 10
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 11
