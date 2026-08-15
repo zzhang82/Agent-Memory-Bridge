@@ -14,7 +14,7 @@ For the shortest GitHub-source procedure, start with
 Agent Memory Bridge is a local-first stdio MCP server for reusable engineering
 memory and lightweight coordination.
 
-The pinned `v0.27.0` and local `0.27.3` source surfaces both expose 17 tools:
+The pinned `v0.27.0` and local `0.27.4` source surfaces both expose 17 tools:
 
 - `store`, `recall`, `browse`, `stats`, `export`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`
@@ -23,7 +23,7 @@ The pinned `v0.27.0` and local `0.27.3` source surfaces both expose 17 tools:
 
 The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
 
-Source `0.27.3` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
+Source `0.27.4` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
 
 The pinned GitHub tag route is the published `v0.27.0` baseline. The local source candidate has no release tag; use a source checkout with `<venv-python> -m pip install -e .` to evaluate it.
 
@@ -36,11 +36,13 @@ current effective vote per receipt-bound subject. It remains shadow-only and
 does not change memory records, recall results, or ranking behavior.
 
 Run tools create explicit server-minted handles and append bounded episode
-evidence. The local 0.27.3 source uses schema v10 with governed-v2 typed events,
-CAS preconditions, operator verification receipts, watcher continuity, and
-credit/consolidation authority closure. Run rows remain durable authority;
-downstream utility and consolidation remain shadow-only, so they do not change
-normal recall ordering, policy, prompts, or ordinary memory.
+evidence. The local 0.27.4 source uses schema v12 with existing governed-v2
+episode authority plus an internal exact-key Dynamic State lane. Dynamic State
+uses typed status/owner/restore commands, version/database-epoch guards,
+lifecycle idempotency, immutable mutation/request-outcome history, and a
+rebuildable state head; it adds no MCP tools and does not alter memory recall,
+ranking, policy, prompts, or ordinary memory. Run rows remain durable authority;
+downstream utility and consolidation remain shadow-only.
 
 ## Ask Before You Configure
 

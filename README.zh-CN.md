@@ -13,20 +13,18 @@
 
 Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 shared engineering memory。它补充 `AGENTS.md`、`CLAUDE.md` 和客户端原生 preference memory，而不是取代它们。SQLite/WAL 是 durable authority，FTS5 和可选本地 embeddings 则是 derived indexes；当前公开能力按 `lexical`、`hashed_lexical` 和声明式 `semantic` 边界表述。
 
-当前源码发布版本：`0.27.3`
+当前源码发布版本：`0.27.4`
 
 这是一个本地、未发布的 source candidate；不声明 tag、push、publication、
 remote CI、host certification 或 productivity result。candidate 使用 schema
-v10，并保持恰好 `17` 个 MCP tools。governed-v2 profile 增加 typed events、
-CAS preconditions、operator CLI verification receipts 和 strong outcome
-authority。Watcher 使用 incremental cursor、explicit host close 和 explicit
-continuation run；watcher state 不保存 message bodies。Credit/consolidation
-evidence 现在保持 effective feedback、relation、outcome heads 一致，区分
-`not_applicable` 与 `not_used`，使用 stable candidate subject 和独立 evidence
-revision，并对 immutability、provenance、artifact、privacy、procedure
-conflict、structured opposition 和 independence 做 fail-closed 校验。Utility
-和 consolidation 仍是 shadow-only：不会改变 ranking、policy、prompt、
-ordinary memory，也不会 automatic writeback 或 self-improvement。
+v12，并保持恰好 `17` 个 MCP tools。既有 governed-v2 episode authority、
+watcher continuity 和 credit/consolidation closure 及其 shadow-only 边界保持
+不变。新增的内部 Dynamic State MVP 是 SQLite/WAL 上的 exact-key release-state
+lane：typed status transition、owner assignment、version/database-epoch
+precondition、lifecycle idempotency、immutable mutation/request-outcome history
+与可重建的 state-head projection。它不增加 MCP tools，也不改变 semantic
+memory、embedding、FTS、ranking、policy、prompt、ordinary memory、automatic
+writeback 或 self-improvement。
 
 > Codex 是参考工作流，不是产品边界。AMB 使用本地 stdio MCP；客户端集成只按下方标注声明为 documented 或 locally verified。
 
@@ -300,7 +298,7 @@ operator review work 是 CLI report，不是 MCP tool：
 
 ### MCP 2026-07-28 stdio compatibility
 
-AMB 0.27.3 继续支持 modern MCP 2026-07-28 `server/discover` 和 legacy
+AMB 0.27.4 继续支持 modern MCP 2026-07-28 `server/discover` 和 legacy
 `initialize`，都走本地 stdio，并保持 deterministic 的 17-tool surface。
 独立执行的 0.27.0 interoperability run 属于历史证据：它使用
 `mcp==2.0.0`、独立的 `mcp==1.28.1` legacy client，以及官方
@@ -327,18 +325,18 @@ authenticated identity。`source_client` precedence 是 explicit tool input，
 
 ## Proof Snapshot
 
-`0.27.3` 将显式 episode ledger 推进到 schema v10。Governed-v2 profile 要求
-closed typed event/preflight evidence，并在 strong `verified_success` 前使用
-server-minted operator verification receipt；watcher 只增量扫描，idle rollout
-先 pause，只有显式 host close 才完成，并在 terminal growth 后创建 explicit
-continuation。Credit/consolidation projection 只使用 current effective
-feedback/outcome heads，区分 `not_applicable` 与 `not_used`，并暴露稳定的
-`candidate_subject_id` 与独立的 `evidence_revision_id`。Keyset pagination、
-contested procedure、structured opposition、declared vs verified independence
-以及 immutable/provenance/artifact/privacy validation 都 fail closed。17-tool
-surface 由 `mcp_boundary.PUBLIC_TOOL_ORDER` 冻结，schema digest 为
+`0.27.4` 将 durable schema 推进到 v12，同时保留冻结的 17-tool MCP
+surface 与既有 episode authority。Dynamic State 是一个狭窄的内部 release-state
+authority lane：exact-key read；typed `status_transition`、`owner_assignment`
+和 `restore` command；乐观的 `expected_version` 与
+`expected_database_epoch` guard；immutable accepted mutation 与 terminal
+request outcome；deterministic restore-as-a-new-version；以及由 SQLite/WAL
+history 导出的可重建 state-head projection。它不暴露新的 MCP tool，也不改变
+semantic-memory、embedding、FTS、ranking、policy、prompt、ordinary memory 或
+automatic writeback。17-tool surface 仍由 `mcp_boundary.PUBLIC_TOOL_ORDER`
+冻结，schema digest 为
 `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`。本地
-suite 报告 `796 tests passed`；这是 local evidence，不是 remote CI、tag、
+suite 报告 `806 tests passed`；这是 local evidence，不是 remote CI、tag、
 publication、host certification、ranking、auto-writeback 或 self-improvement
 claim。
 
@@ -367,13 +365,14 @@ claim。
 | v0.22 activation receipt | 仅为 declared-provenance local receipt；要求两个不同的声明式 `source_client` labels 和 acked reader signal；`public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory：`examples/diagrams/visual-claims.json`；native-size 和 README-width raster render gate 要求无 clipping、overlap 或 crossed labels；hero PNG 标记为 conceptual，semantic validation not performed；SVG assets 带 title/desc metadata |
 | v0.27.2 governed-v2 与 watcher continuity | governed-v2 profiles、typed events/CAS、operator CLI verification receipts、incremental watcher cursor、explicit close 与 explicit continuation；不扩展 public MCP surface |
+| v0.27.4 internal Dynamic State authority MVP | schema v12；exact-key release state；typed status/owner/restore command；version/database-epoch guard；lifecycle idempotency；immutable mutation/terminal outcome；deterministic rebuild/restore；不改变 MCP、semantic-memory、embedding、FTS、ranking、policy 或 automatic writeback |
 | v0.27.3 credit/consolidation/authority closure | schema v10；effective-feedback/relation/outcome consistency；区分 `not_applicable` 与 `not_used`；keyset pagination；stable candidate subject 与 evidence revision；contested procedure；structured opposition；declared vs verified independence；immutable/provenance/artifact/privacy closure；utility/consolidation 保持 shadow-only |
 | v0.27.1 episode authority and recovery（历史） | schema v9；terminal timestamps 与 authority-preserving migration；显式 work-item FSM 和 terminal-reopen rejection；可选 event CAS；one-snapshot `get_run` 与 projection-health metadata；projection drift 时 fail-closed writes；canonical 17-tool digest `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`；legacy v1 verification 为 `legacy_declared`；utility/consolidation 保持 shadow-only |
 | Client provenance | meaningful per-request `clientInfo` 是 caller-declared provenance；precedence 是 explicit `source_client` > meaningful MCP context > environment default；generic `mcp` 被忽略 |
 | Inherited retrieval receipts and feedback | schema v7；same-snapshot complete exposure sets with exact content versions；可选 model/harness/chat-template digests；append-only vote/correction/retraction history with one effective vote；separate token hash and feedback identity digest |
 | Test suite | 当前源码测试收集数见下方；release gates 包括 raw-wire negotiation、真实 old-client 和 TypeScript client jobs、dual-era operator checks、20-process shared-SQLite proof、100 connect/disconnect cycles，以及继承的 receipt/feedback/migration regressions |
 
-当前源码测试收集数：`796 tests`
+当前源码测试收集数：`806 tests`
 
 <details>
 <summary>Release contract facts</summary>
@@ -517,7 +516,8 @@ AMB 不是 graph database、通用 unlearning system、hosted memory platform、
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.27.3 announcement](docs/v0.27.3-announcement.md)
+- [v0.27.4 announcement](docs/v0.27.4-announcement.md)
+- [v0.27.3 announcement](docs/v0.27.3-announcement.md)（历史）
 - [v0.27.2 announcement](docs/v0.27.2-announcement.md)
 - [v0.27.1 announcement](docs/v0.27.1-announcement.md)（历史）
 - [v0.27.0 announcement](docs/v0.27.0-announcement.md)（历史）
