@@ -10,7 +10,7 @@ from .embedding_index import ensure_embedding_schema
 from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CURRENT_SCHEMA_VERSION = 11
+CURRENT_SCHEMA_VERSION = 12
 LEGACY_SCHEMA_MIGRATION_IDENTITIES: dict[int, frozenset[tuple[str, str]]] = {
     10: frozenset(
         {
@@ -167,6 +167,10 @@ def _migrate_to_v11(conn: sqlite3.Connection) -> None:
     _ensure_dynamic_state_schema(conn)
 
 
+def _migrate_to_v12(conn: sqlite3.Connection) -> None:
+    _ensure_dynamic_state_request_schema(conn)
+
+
 MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     SchemaMigration(
         1,
@@ -234,6 +238,12 @@ MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], No
         "c09f27e225f0efc0b4446967dd32daa8c458dd5644819df6f45c742486d57084",
         _migrate_to_v11,
     ),
+    SchemaMigration(
+        12,
+        "v12_dynamic_state_request_outcomes",
+        "9e6587892a3ed94372e893c98a10f8d10488b804e7f182410189159cfcf4fedf",
+        _migrate_to_v12,
+    ),
 )
 
 
@@ -249,6 +259,7 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
     _ensure_episode_recovery_integrity_schema(conn)
     _ensure_governed_run_v2_schema(conn)
     _ensure_dynamic_state_schema(conn)
+    _ensure_dynamic_state_request_schema(conn)
     backfill_record_projections(conn, only_missing=True)
 
 
@@ -2638,6 +2649,76 @@ def _ensure_dynamic_state_schema(conn: sqlite3.Connection) -> None:
         BEFORE DELETE ON state_mutations
         BEGIN
             SELECT RAISE(ABORT, 'state_mutations is append-only');
+        END
+        """
+    )
+
+
+def _ensure_dynamic_state_request_schema(conn: sqlite3.Connection) -> None:
+    """Add strict command identity and terminal request-outcome authority to v11 state."""
+
+    mutation_columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(state_mutations)").fetchall()}
+    if "command_type" not in mutation_columns:
+        conn.execute(
+            """
+            ALTER TABLE state_mutations
+            ADD COLUMN command_type TEXT NOT NULL DEFAULT 'legacy_set'
+            CHECK (command_type IN ('legacy_set', 'status_transition', 'owner_assignment', 'restore'))
+            """
+        )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS state_request_outcomes (
+            workspace_key TEXT NOT NULL
+                CHECK (length(trim(workspace_key)) > 0 AND length(workspace_key) <= 512),
+            state_key TEXT NOT NULL
+                CHECK (length(trim(state_key)) > 0 AND length(state_key) <= 512),
+            idempotency_key_digest TEXT NOT NULL
+                CHECK (
+                    length(idempotency_key_digest) = 64
+                    AND idempotency_key_digest = lower(idempotency_key_digest)
+                    AND idempotency_key_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            request_digest TEXT NOT NULL
+                CHECK (
+                    length(request_digest) = 64
+                    AND request_digest = lower(request_digest)
+                    AND request_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            command_type TEXT NOT NULL
+                CHECK (command_type IN ('status_transition', 'owner_assignment', 'restore')),
+            outcome_type TEXT NOT NULL CHECK (outcome_type IN ('accepted', 'conflict', 'rejected')),
+            response_json TEXT NOT NULL
+                CHECK (
+                    json_valid(response_json)
+                    AND json_type(response_json) = 'object'
+                    AND length(CAST(response_json AS BLOB)) <= 32768
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            PRIMARY KEY (workspace_key, state_key, idempotency_key_digest)
+        ) WITHOUT ROWID
+        """
+    )
+    for trigger_name in (
+        "prevent_state_request_outcomes_update",
+        "prevent_state_request_outcomes_delete",
+    ):
+        conn.execute(f"DROP TRIGGER IF EXISTS {quote_identifier(trigger_name)}")
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_state_request_outcomes_update
+        BEFORE UPDATE ON state_request_outcomes
+        BEGIN
+            SELECT RAISE(ABORT, 'state_request_outcomes is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_state_request_outcomes_delete
+        BEFORE DELETE ON state_request_outcomes
+        BEGIN
+            SELECT RAISE(ABORT, 'state_request_outcomes is append-only');
         END
         """
     )

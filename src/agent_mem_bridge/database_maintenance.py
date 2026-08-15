@@ -189,7 +189,7 @@ def rebuild_database_projections(
                     )
                 run_projection_counts = rebuild_run_projections(conn)
                 memory_utility_shadow_counts = rebuild_memory_utility_shadow(conn)
-                state_head_counts = rebuild_state_heads(conn, rebuilt_at=datetime.now(UTC).isoformat())
+                state_head_counts = rebuild_state_heads(conn)
                 if repaired_insertion_sequence_count:
                     rotated_epoch = rotate_database_epoch(conn)
                 conn.commit()

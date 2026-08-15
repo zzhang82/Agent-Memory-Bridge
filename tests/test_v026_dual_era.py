@@ -98,7 +98,7 @@ def test_mcp_2_dual_era_surface_preserves_schema_and_durable_data(
 
     before = _database_dump(db_path)
     with sqlite3.connect(db_path) as conn:
-        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 11
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 12
 
     asyncio.run(
         _exercise_stdio_era(
@@ -119,7 +119,7 @@ def test_mcp_2_dual_era_surface_preserves_schema_and_durable_data(
 
     assert _database_dump(db_path) == before
     with sqlite3.connect(db_path) as conn:
-        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 11
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 12
 
 
 async def _exercise_episode_tools(

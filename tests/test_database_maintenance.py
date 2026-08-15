@@ -78,7 +78,7 @@ def test_db_health_repair_migrates_stock_v8_before_rebuilding_v9_projections(
     assert report["ok"] is True
     assert report["projection_repair"]["rebuilt_count"] == 0
     with sqlite3.connect(db_path) as conn:
-        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 11
+        assert schema_version(conn) == CURRENT_SCHEMA_VERSION == 12
         v9_columns = {row[1] for row in conn.execute("PRAGMA table_info(run_state_projection)")}
         rebuilt_run_count = conn.execute("SELECT COUNT(*) FROM run_state_projection").fetchone()[0]
     assert {"terminal_at", "current_outcome_updated_at"} <= v9_columns
