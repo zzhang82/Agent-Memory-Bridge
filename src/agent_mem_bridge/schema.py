@@ -10,7 +10,7 @@ from .embedding_index import ensure_embedding_schema
 from .record_projection import backfill_record_projections
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-CURRENT_SCHEMA_VERSION = 10
+CURRENT_SCHEMA_VERSION = 11
 LEGACY_SCHEMA_MIGRATION_IDENTITIES: dict[int, frozenset[tuple[str, str]]] = {
     10: frozenset(
         {
@@ -163,6 +163,10 @@ def _migrate_to_v10(conn: sqlite3.Connection) -> None:
     _ensure_governed_run_v2_schema(conn)
 
 
+def _migrate_to_v11(conn: sqlite3.Connection) -> None:
+    _ensure_dynamic_state_schema(conn)
+
+
 MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], None]], ...] = (
     SchemaMigration(
         1,
@@ -224,6 +228,12 @@ MIGRATIONS: tuple[SchemaMigration | tuple[int, Callable[[sqlite3.Connection], No
         "acbd48558db0e945ce3ff7608e0e1fbfb4bd58e9574da78cd4efda308583eddd",
         _migrate_to_v10,
     ),
+    SchemaMigration(
+        11,
+        "v11_dynamic_state_authority",
+        "c09f27e225f0efc0b4446967dd32daa8c458dd5644819df6f45c742486d57084",
+        _migrate_to_v11,
+    ),
 )
 
 
@@ -238,6 +248,7 @@ def _ensure_current_schema(conn: sqlite3.Connection) -> None:
     _ensure_episode_schema(conn)
     _ensure_episode_recovery_integrity_schema(conn)
     _ensure_governed_run_v2_schema(conn)
+    _ensure_dynamic_state_schema(conn)
     backfill_record_projections(conn, only_missing=True)
 
 
@@ -2432,6 +2443,204 @@ def _ensure_exact_content_identity_triggers(conn: sqlite3.Connection) -> None:
 
 def normalize_exact_content(content: str) -> str:
     return content.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def _ensure_dynamic_state_schema(conn: sqlite3.Connection) -> None:
+    """Create the isolated mutable-state authority lane and its rebuildable head."""
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS state_resources (
+            workspace_key TEXT NOT NULL
+                CHECK (length(trim(workspace_key)) > 0 AND length(workspace_key) <= 512),
+            state_key TEXT NOT NULL
+                CHECK (length(trim(state_key)) > 0 AND length(state_key) <= 512),
+            state_type TEXT NOT NULL CHECK (state_type = 'release-state'),
+            session_id TEXT
+                CHECK (session_id IS NULL OR (length(trim(session_id)) > 0 AND length(session_id) <= 256)),
+            correlation_id TEXT
+                CHECK (correlation_id IS NULL OR (length(trim(correlation_id)) > 0 AND length(correlation_id) <= 256)),
+            actor TEXT CHECK (actor IS NULL OR (length(trim(actor)) > 0 AND length(actor) <= 128)),
+            source_app TEXT
+                CHECK (source_app IS NULL OR (length(trim(source_app)) > 0 AND length(source_app) <= 128)),
+            source_client TEXT
+                CHECK (source_client IS NULL OR (length(trim(source_client)) > 0 AND length(source_client) <= 128)),
+            source_model TEXT
+                CHECK (source_model IS NULL OR (length(trim(source_model)) > 0 AND length(source_model) <= 128)),
+            client_session_id TEXT
+                CHECK (
+                    client_session_id IS NULL
+                    OR (length(trim(client_session_id)) > 0 AND length(client_session_id) <= 256)
+                ),
+            client_workspace TEXT
+                CHECK (
+                    client_workspace IS NULL
+                    OR (length(trim(client_workspace)) > 0 AND length(client_workspace) <= 512)
+                ),
+            client_transport TEXT
+                CHECK (
+                    client_transport IS NULL
+                    OR (length(trim(client_transport)) > 0 AND length(client_transport) <= 64)
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            PRIMARY KEY (workspace_key, state_key)
+        ) WITHOUT ROWID
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS state_mutations (
+            mutation_id TEXT PRIMARY KEY
+                CHECK (length(trim(mutation_id)) > 0 AND length(mutation_id) <= 96),
+            workspace_key TEXT NOT NULL,
+            state_key TEXT NOT NULL,
+            base_version INTEGER NOT NULL CHECK (base_version >= 0),
+            new_version INTEGER NOT NULL CHECK (new_version > 0 AND new_version = base_version + 1),
+            operation TEXT NOT NULL CHECK (operation IN ('set', 'restore')),
+            value_json TEXT NOT NULL
+                CHECK (
+                    json_valid(value_json)
+                    AND json_type(value_json) = 'object'
+                    AND length(CAST(value_json AS BLOB)) <= 32768
+                    AND json_type(value_json, '$.raw_cot') IS NULL
+                    AND json_type(value_json, '$.chain_of_thought') IS NULL
+                    AND json_type(value_json, '$.transcript') IS NULL
+                    AND json_type(value_json, '$.messages') IS NULL
+                ),
+            value_hash TEXT NOT NULL
+                CHECK (
+                    length(value_hash) = 64
+                    AND value_hash = lower(value_hash)
+                    AND value_hash NOT GLOB '*[^0-9a-f]*'
+                ),
+            idempotency_key_digest TEXT NOT NULL
+                CHECK (
+                    length(idempotency_key_digest) = 64
+                    AND idempotency_key_digest = lower(idempotency_key_digest)
+                    AND idempotency_key_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            request_digest TEXT NOT NULL
+                CHECK (
+                    length(request_digest) = 64
+                    AND request_digest = lower(request_digest)
+                    AND request_digest NOT GLOB '*[^0-9a-f]*'
+                ),
+            restore_of_mutation_id TEXT,
+            session_id TEXT
+                CHECK (session_id IS NULL OR (length(trim(session_id)) > 0 AND length(session_id) <= 256)),
+            correlation_id TEXT
+                CHECK (correlation_id IS NULL OR (length(trim(correlation_id)) > 0 AND length(correlation_id) <= 256)),
+            actor TEXT CHECK (actor IS NULL OR (length(trim(actor)) > 0 AND length(actor) <= 128)),
+            source_app TEXT
+                CHECK (source_app IS NULL OR (length(trim(source_app)) > 0 AND length(source_app) <= 128)),
+            source_client TEXT
+                CHECK (source_client IS NULL OR (length(trim(source_client)) > 0 AND length(source_client) <= 128)),
+            source_model TEXT
+                CHECK (source_model IS NULL OR (length(trim(source_model)) > 0 AND length(source_model) <= 128)),
+            client_session_id TEXT
+                CHECK (
+                    client_session_id IS NULL
+                    OR (length(trim(client_session_id)) > 0 AND length(client_session_id) <= 256)
+                ),
+            client_workspace TEXT
+                CHECK (
+                    client_workspace IS NULL
+                    OR (length(trim(client_workspace)) > 0 AND length(client_workspace) <= 512)
+                ),
+            client_transport TEXT
+                CHECK (
+                    client_transport IS NULL
+                    OR (length(trim(client_transport)) > 0 AND length(client_transport) <= 64)
+                ),
+            created_at TEXT NOT NULL CHECK (julianday(created_at) IS NOT NULL),
+            UNIQUE (workspace_key, state_key, new_version),
+            UNIQUE (workspace_key, state_key, idempotency_key_digest),
+            FOREIGN KEY (workspace_key, state_key)
+                REFERENCES state_resources (workspace_key, state_key) ON DELETE RESTRICT,
+            FOREIGN KEY (restore_of_mutation_id) REFERENCES state_mutations (mutation_id) ON DELETE RESTRICT,
+            CHECK (
+                (operation = 'set' AND restore_of_mutation_id IS NULL)
+                OR (operation = 'restore' AND restore_of_mutation_id IS NOT NULL)
+            )
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_state_mutations_history
+        ON state_mutations (workspace_key, state_key, new_version)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS state_heads (
+            workspace_key TEXT NOT NULL,
+            state_key TEXT NOT NULL,
+            current_version INTEGER NOT NULL CHECK (current_version > 0),
+            value_json TEXT NOT NULL
+                CHECK (
+                    json_valid(value_json)
+                    AND json_type(value_json) = 'object'
+                    AND length(CAST(value_json AS BLOB)) <= 32768
+                ),
+            value_hash TEXT NOT NULL
+                CHECK (
+                    length(value_hash) = 64
+                    AND value_hash = lower(value_hash)
+                    AND value_hash NOT GLOB '*[^0-9a-f]*'
+                ),
+            last_mutation_id TEXT NOT NULL,
+            updated_at TEXT NOT NULL CHECK (julianday(updated_at) IS NOT NULL),
+            PRIMARY KEY (workspace_key, state_key),
+            FOREIGN KEY (workspace_key, state_key)
+                REFERENCES state_resources (workspace_key, state_key) ON DELETE RESTRICT,
+            FOREIGN KEY (last_mutation_id) REFERENCES state_mutations (mutation_id) ON DELETE RESTRICT
+        ) WITHOUT ROWID
+        """
+    )
+    for trigger_name in (
+        "prevent_state_resources_update",
+        "prevent_state_resources_delete",
+        "prevent_state_mutations_update",
+        "prevent_state_mutations_delete",
+    ):
+        conn.execute(f"DROP TRIGGER IF EXISTS {quote_identifier(trigger_name)}")
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_state_resources_update
+        BEFORE UPDATE ON state_resources
+        BEGIN
+            SELECT RAISE(ABORT, 'state_resources is immutable');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_state_resources_delete
+        BEFORE DELETE ON state_resources
+        BEGIN
+            SELECT RAISE(ABORT, 'state_resources is immutable');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_state_mutations_update
+        BEFORE UPDATE ON state_mutations
+        BEGIN
+            SELECT RAISE(ABORT, 'state_mutations is append-only');
+        END
+        """
+    )
+    conn.execute(
+        """
+        CREATE TRIGGER prevent_state_mutations_delete
+        BEFORE DELETE ON state_mutations
+        BEGIN
+            SELECT RAISE(ABORT, 'state_mutations is append-only');
+        END
+        """
+    )
 
 
 def exact_content_hash(content: str) -> str:
