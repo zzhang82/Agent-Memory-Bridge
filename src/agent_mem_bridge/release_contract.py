@@ -182,9 +182,9 @@ V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V025_PATCH_PATTERN,
     V026_PATCH_PATTERN,
 )
-V027_EPISODE_RELEASE = "0.27.3"
+V027_EPISODE_RELEASE = "0.27.4"
 V027_EPISODE_FOUNDATION_PATTERNS = (V027_PATCH_PATTERN,)
-V027_SCHEMA_VERSION = 10
+V027_SCHEMA_VERSION = 12
 V027_PUBLIC_TOOL_ORDER = (
     "store",
     "recall",
@@ -467,6 +467,17 @@ def build_v027_episode_release_check(
             "not_used",
             "structured opposition",
             "verified independence",
+        ),
+        "docs/v0.27.4-announcement.md": (
+            "Dynamic State authority MVP",
+            "exact-key release state",
+            "status_transition",
+            "owner_assignment",
+            "expected_version",
+            "expected_database_epoch",
+            "state_request_outcomes",
+            "rebuildable state-head projection",
+            "no new MCP public tools",
         ),
         "docs/RUN-CONSOLIDATION.md": (
             "consolidate-runs --shadow",

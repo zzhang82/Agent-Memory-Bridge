@@ -1,23 +1,28 @@
 # Production Status
 
-Last updated: 2026-08-10 (America/New_York)
+Last updated: 2026-08-15 (America/New_York)
 
-This maintainer note records the local `0.27.3` source candidate and preserves
+This maintainer note records the local `0.27.4` source candidate and preserves
 historical releases below. It does not assert a Git tag, push, remote
 publication, GitHub Actions result, host certification, or productivity result.
 
-Current source release: `0.27.3`
+Current source release: `0.27.4`
 
-Current source test collection: `796 tests`
+Current source test collection: `806 tests`
 
-## Current 0.27.3 Source Surface
+## Current 0.27.4 Source Surface
 
 Run, event, outcome, artifact, and link rows are durable episode authority;
 projections and downstream learning/consolidation effects are shadow-only.
 
-- Durable schema: v10, with governed-v2 criteria, typed event details,
-  verification receipts, and authority-closure guards added without rewriting
-  earlier episode authority
+- Durable schema: v12, retaining governed-v2 criteria, typed event details,
+  verification receipts, and authority-closure guards while adding isolated
+  Dynamic State authority/request-outcome tables without rewriting earlier
+  memory, feedback, or episode authority
+- Dynamic State: one internal exact-key release-state lane with typed status,
+  owner, and restore commands; version/database-epoch guards; lifecycle
+  idempotency; immutable mutation and terminal-outcome history; and a
+  deterministically rebuildable head projection
 - Public MCP surface: exactly 17 tools; the four run tools are `begin_run`,
   `record_run_event`, `get_run`, and `complete_run`
 - Schema digest: `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`
@@ -208,12 +213,12 @@ labeled.
     client flows
 36. explicit stateless run/work-item lifecycle with append-only structured events, outcome correction chains, reconnect pagination, and shadow-only learning evidence
 
-## Verified On 2026-08-08
+## Verified On 2026-08-15
 
-- current branch denominator: `796 tests collected`
+- current branch denominator: `806 tests collected`
 - MCP dependency is `mcp==2.0.0`
 - the independently exercised local Linux/Python 3.12 interoperability run
-  for the prior 0.27.0 source remains historical; current 0.27.3 source keeps
+  for the prior 0.27.0 source remains historical; current 0.27.4 source keeps
   its exact 17-tool modern/legacy contract
 - modern result tests verify `resultType: "complete"` on the wire
 - discover tests verify `ttlMs: 300000` and `cacheScope: "public"`; `tools/list` verifies exactly 17 tools, canonical order, `ttlMs: 0`, and `cacheScope: "private"`
@@ -230,11 +235,10 @@ labeled.
 - v0.25.2 recall receipt tests verify one SQLite snapshot for returned rows and receipt evidence, complete exposure sets, exact content-version binding, retrieval-contract digests, optional caller-declared evidence-context digests, redaction of raw values, and rejection of tampered or stale evidence
 - v0.25.2 feedback tests verify append-only vote/correction/retraction chains, one current effective vote, stale replay semantics, caller-declared provenance neutrality, concurrent duplicate collapse, separate token and vote-identity hashes, no memory/index/ranking mutation, and redacted logs/telemetry
 - stdio feedback integration covers startup tool-surface visibility, successful feedback, duplicate retry, conflict rejection, and redacted structured responses
-- schema migration tests verify SQLite schema version `9`, authority-preserving
-  v8-to-v9 terminal-time backfill, append-only retrieval/run evidence, unique
-  idempotency and supersession constraints, legacy v0-v8 upgrades, v5 duplicate
-  preservation, rollback on injected v5/v7/v8/v9 failures, and fail-closed
-  handling for unsupported legacy feedback tables
+- schema migration tests verify current SQLite schema version `12`, including
+  additive v10-to-v12 Dynamic State migrations, alongside historical
+  authority-preserving v8-to-v9 terminal-time backfill, append-only
+  retrieval/run evidence, legacy upgrades, and injected migration failures
 - episode recovery tests verify terminal work-item reopen rejection, optional
   event compare-and-swap preconditions, one-snapshot `get_run` metadata,
   authority-derived state during projection drift, fail-closed writes, and

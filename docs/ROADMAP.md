@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-10 (America/New_York)
 
-This maintainer note tracks the local release ladder through the `0.27.3`
+This maintainer note tracks the local release ladder through the `0.27.4`
 source candidate and the planned `0.28.0` and `0.29.0` follow-ons, including
 Task Brief reports, the limited
 first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed
@@ -10,8 +10,8 @@ first-run adoption helper, the fixed v0.19 and v0.20 adoption proofs, the fixed
 the v0.23 local hardening work, the v0.24 exact-identity / recall-boundary
 correctness patch, the v0.25 Trustworthy Adaptive Retrieval and Evidence
 Integrity releases, and independently exercised MCP 2026-07-28 stdio
-interoperability. This document does not assert a `0.27.2` or `0.27.3` tag,
-remote publication, or release-commit CI result.
+interoperability. This document does not assert a `0.27.4` tag, remote
+publication, or release-commit CI result.
 
 ## Shipped Ladder
 
@@ -737,7 +737,7 @@ not runtime outcome evidence.
 
 ## 0.27.1 = Episode Authority & Recovery Integrity
 
-Status: historical patch foundation for the local 0.27.3 source candidate.
+Status: historical patch foundation for the local 0.27.4 source candidate.
 
 The implemented patch keeps the 17-tool episode ledger and makes recovery state
 explicit. Schema v9 adds `terminal_at` and `current_outcome_updated_at` through
@@ -757,7 +757,7 @@ is `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`.
 
 ## 0.27.2 = Governed-v2 & Watcher Continuity
 
-Status: implemented inside the local 0.27.3 source candidate; no standalone tag
+Status: implemented inside the local 0.27.4 source candidate; no standalone tag
 or publication is asserted.
 
 Implemented: server-governed-v2 profiles and operator verification receipts;
@@ -767,8 +767,9 @@ terminal growth. Caller-declared provenance remains unauthenticated metadata.
 
 ## 0.27.3 = Credit, Consolidation & Authority Closure
 
-Status: current local source candidate; no tag, remote publication, or release-
-commit CI result is asserted here.
+Status: historical patch foundation for the local 0.27.4 source candidate; no
+new standalone tag, remote publication, or release-commit CI result is asserted
+here.
 
 Implemented: current-effective feedback/relation/outcome credit consistency;
 separate `not_applicable` and `not_used`; full-workspace keyset pagination;
@@ -777,6 +778,20 @@ conflicts; deterministic structured opposition; declared and verified
 independence lanes; and immutability, provenance, artifact, and privacy closure.
 Derived utility and lesson candidates remain reviewable shadow state. This does
 not add automatic durable writeback or change recall ranking.
+
+## 0.27.4 = Internal Dynamic State Authority MVP
+
+Status: current local source candidate; no tag, remote publication, or release-
+commit CI result is asserted here.
+
+Implemented: an internal exact-key release-state authority lane over SQLite/WAL
+with typed status-transition, owner-assignment, and restore commands; optimistic
+version and database-epoch guards; lifecycle idempotency across accepted,
+conflict, and deterministic rejection outcomes; immutable mutation/outcome
+history; deterministic restore-as-a-new-version; and a rebuildable state-head
+projection. The additive v10-to-v12 migrations retain the frozen 17-tool MCP
+surface and do not change semantic memory, embeddings, FTS, ranking, policy,
+prompts, ordinary memory, or automatic durable writeback.
 
 ## 0.28.0 = Evaluated Episodes
 

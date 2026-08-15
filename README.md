@@ -13,21 +13,19 @@ Give coding agents one shared, governed record of project decisions across tools
 
 Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
 
-Current source release: `0.27.3`
+Current source release: `0.27.4`
 
 This is a local, unpublished source candidate; it does not assert a tag, push,
 publication, remote CI result, host certification, or productivity result. The
-candidate carries schema v10 and exactly 17 MCP tools. Governed-v2 profiles add
-typed events and CAS preconditions, bounded operator CLI verification receipts,
-and strong outcome authority. Watcher continuity uses an incremental cursor,
-explicit host close, and explicit continuation runs without storing message
-bodies in watcher state. Credit and consolidation evidence now keeps effective
-feedback, relation, and outcome heads consistent; distinguishes
-`not_applicable` from `not_used`; uses stable candidate subjects and separate
-evidence revisions; and closes immutability, provenance, artifact, privacy,
-procedure-conflict, opposition, and independence boundaries. Utility and
-consolidation remain shadow-only: they do not change ranking, policy, prompts,
-ordinary memory, or perform automatic writeback or self-improvement.
+candidate carries schema v12 and exactly 17 MCP tools. Governed-v2 episode
+authority, watcher continuity, credit/consolidation closure, and their existing
+shadow-only boundaries remain unchanged. The new internal Dynamic State MVP is
+an exact-key release-state lane over SQLite/WAL: typed status transitions,
+owner assignment, optimistic version and database-epoch preconditions,
+lifecycle idempotency, immutable mutation/request-outcome history, and a
+rebuildable state-head projection. It adds no MCP tools and does not change
+semantic-memory, embedding, FTS, ranking, policy, prompts, ordinary memory, or
+automatic writeback behavior.
 
 > Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
 
@@ -325,7 +323,7 @@ Operator review work is available as CLI reports, not MCP tools:
 
 ### MCP 2026-07-28 stdio compatibility
 
-AMB 0.27.3 keeps modern MCP 2026-07-28 `server/discover` and legacy
+AMB 0.27.4 keeps modern MCP 2026-07-28 `server/discover` and legacy
 `initialize` over local stdio, with the same deterministic 17-tool surface.
 The independently exercised 0.27.0 interoperability run remains historical:
 it used `mcp==2.0.0`, a separate `mcp==1.28.1` legacy client, and the official
@@ -352,20 +350,18 @@ Some MCP clients generate one static input schema per tool and may send signal-o
 
 ## Proof Snapshot
 
-`0.27.3` carries the explicit episode ledger through schema v10. Governed-v2
-profiles require closed typed event/preflight evidence and server-minted
-operator verification receipts before strong `verified_success` authority;
-watcher scans are incremental, pause idle rollouts, close only on explicit host
-signals, and create explicit continuation runs after terminal growth. The
-credit/consolidation projections use only current effective feedback and
-outcome heads, keep `not_applicable` and `not_used` distinct, and expose
-stable `candidate_subject_id` versus `evidence_revision_id` identities. Keyset
-pagination, contested procedure handling, structured opposition, declared vs
-verified independence, and immutable/provenance/artifact/privacy validation
-are all fail-closed. The exact 17-tool surface is frozen by
-`mcp_boundary.PUBLIC_TOOL_ORDER` with schema digest
+`0.27.4` advances the durable schema to v12 while retaining the frozen 17-tool
+MCP surface and prior episode authority. Dynamic State is a narrow internal
+release-state authority lane: exact-key reads; typed `status_transition`,
+`owner_assignment`, and `restore` commands; optimistic `expected_version` and
+`expected_database_epoch` guards; immutable accepted mutations and terminal
+request outcomes; deterministic restore-as-a-new-version; and a rebuildable
+state-head projection derived from SQLite/WAL history. It does not expose a
+new MCP tool or change semantic-memory, embedding, FTS, ranking, policy,
+prompts, ordinary memory, or automatic writeback behavior. The exact 17-tool
+surface remains frozen by `mcp_boundary.PUBLIC_TOOL_ORDER` with schema digest
 `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`.
-The local suite reports `796 tests passed`; this is local evidence only, not a
+The local suite reports `806 tests passed`; this is local evidence only, not a
 remote CI, tag, publication, host-certification, ranking, auto-writeback, or
 self-improvement claim.
 
@@ -389,13 +385,14 @@ self-improvement claim.
 | v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
 | v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
 | v0.27.2 governed-v2 and watcher continuity | governed-v2 profiles, typed events/CAS, operator CLI verification receipts, incremental watcher cursor, explicit close, and explicit continuation; no public MCP surface expansion |
+| v0.27.4 internal Dynamic State authority MVP | schema v12; exact-key release state; typed status/owner/restore commands; version and database-epoch guards; lifecycle idempotency; immutable mutations and terminal outcomes; deterministic rebuild/restore; no MCP, semantic-memory, embedding, FTS, ranking, policy, or automatic-writeback change |
 | v0.27.3 credit/consolidation/authority closure | schema v10; effective-feedback/relation/outcome consistency; distinct `not_applicable` and `not_used`; keyset pagination; stable candidate subjects vs evidence revisions; contested procedures; structured opposition; declared vs verified independence; immutable/provenance/artifact/privacy closure; shadow-only utility/consolidation |
 | v0.27.1 episode authority and recovery (historical) | schema v9; terminal timestamps with authority-preserving migration; explicit work-item FSM and terminal-reopen rejection; optional event CAS; one-snapshot `get_run` with projection-health metadata; fail-closed writes on projection drift; canonical 17-tool digest `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`; legacy v1 verification is `legacy_declared`; utility/consolidation remained shadow-only |
 | Client provenance | meaningful per-request `clientInfo` is caller-declared provenance; precedence is explicit `source_client` > meaningful MCP context > environment default; generic `mcp` is ignored |
 | Inherited retrieval receipts and feedback | schema v7; same-snapshot complete exposure sets with exact content versions; optional model/harness/chat-template digests; append-only vote/correction/retraction history with one effective vote; separate token hash and feedback identity digest |
 | Test suite | Current source test collection is recorded below; release gates include raw-wire negotiation, real old-client and TypeScript client jobs, dual-era operator checks, 20-process shared-SQLite proof, 100 connect/disconnect cycles, and inherited receipt/feedback/migration regressions |
 
-Current source test collection: `796 tests`
+Current source test collection: `806 tests`
 
 <details>
 <summary>Release contract facts</summary>
@@ -539,7 +536,8 @@ For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
 - [Trust boundary](docs/TRUST-BOUNDARY.md)
 - [Agent install protocol](INSTALL_FOR_AGENTS.md)
 - [Benchmark and proof harness](benchmark/README.md)
-- [v0.27.3 announcement](docs/v0.27.3-announcement.md)
+- [v0.27.4 announcement](docs/v0.27.4-announcement.md)
+- [v0.27.3 announcement](docs/v0.27.3-announcement.md) (historical)
 - [v0.27.2 announcement](docs/v0.27.2-announcement.md)
 - [v0.27.1 announcement](docs/v0.27.1-announcement.md) (historical)
 - [v0.27.0 announcement](docs/v0.27.0-announcement.md) (historical)

@@ -195,10 +195,10 @@ def test_collect_test_count_uses_disposable_amb_runtime(monkeypatch: pytest.Monk
 def test_v027_episode_release_contract_checks_exact_surface_and_evidence(tmp_path: Path) -> None:
     root = create_v027_episode_contract_fixture(tmp_path)
 
-    report = build_v027_episode_release_check(root, "0.27.3")
+    report = build_v027_episode_release_check(root, "0.27.4")
 
     assert report["ok"] is True
-    assert report["schema_version"] == 10
+    assert report["schema_version"] == 12
     assert tuple(report["public_tool_order"]) == V027_PUBLIC_TOOL_ORDER
 
 
@@ -207,8 +207,8 @@ def test_v027_episode_release_contract_checks_exact_surface_and_evidence(tmp_pat
     [
         (
             "src/agent_mem_bridge/schema.py",
-            "CURRENT_SCHEMA_VERSION = 10",
-            "CURRENT_SCHEMA_VERSION = 11",
+            "CURRENT_SCHEMA_VERSION = 12",
+            "CURRENT_SCHEMA_VERSION = 13",
             "schema.CURRENT_SCHEMA_VERSION",
         ),
         ("src/agent_mem_bridge/mcp_boundary.py", "'ack_signal')", "'wrong_tool')", "mcp_boundary.PUBLIC_TOOL_ORDER"),
@@ -299,7 +299,7 @@ def test_v027_episode_release_contract_fails_closed_when_required_evidence_drift
     path = root / relative_path
     path.write_text(path.read_text(encoding="utf-8").replace(needle, replacement, 1), encoding="utf-8")
 
-    report = build_v027_episode_release_check(root, "0.27.3")
+    report = build_v027_episode_release_check(root, "0.27.4")
 
     assert report["ok"] is False
     assert any(mismatch["field"] == expected_field for mismatch in report["mismatches"])
@@ -810,7 +810,7 @@ def test_check_release_contract_script_exits_zero_for_aligned_fixture(tmp_path: 
 # so the contract check passes without touching the live codebase.
 # This count (146) is NOT required to match the live test count.
 def create_v027_episode_contract_fixture(root: Path) -> Path:
-    write_file(root / "src" / "agent_mem_bridge" / "schema.py", "CURRENT_SCHEMA_VERSION = 10\n")
+    write_file(root / "src" / "agent_mem_bridge" / "schema.py", "CURRENT_SCHEMA_VERSION = 12\n")
     write_file(
         root / "src" / "agent_mem_bridge" / "mcp_boundary.py",
         "PUBLIC_TOOL_ORDER = " + repr(V027_PUBLIC_TOOL_ORDER) + "\n"
@@ -848,6 +848,12 @@ def create_v027_episode_contract_fixture(root: Path) -> Path:
         "durable episode authority downstream learning/consolidation effects are shadow-only "
         "candidate_subject_id evidence_revision_id not_applicable not_used structured opposition "
         "verified independence\n",
+    )
+    write_file(
+        root / "docs" / "v0.27.4-announcement.md",
+        "Dynamic State authority MVP exact-key release state status_transition owner_assignment "
+        "expected_version expected_database_epoch state_request_outcomes "
+        "rebuildable state-head projection no new MCP public tools\n",
     )
     write_file(
         root / "docs" / "RUN-CONSOLIDATION.md",

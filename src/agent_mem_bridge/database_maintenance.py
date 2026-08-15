@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from .dynamic_state import inspect_state_heads, rebuild_state_heads
 from .filesystem_safety import ensure_private_directory, ensure_private_file
 from .record_projection import (
     METADATA_SCHEMA_VERSION,
@@ -130,6 +131,7 @@ def rebuild_database_projections(
             repaired_insertion_sequence_count = 0
             run_projection_counts = {"run_count": 0, "work_item_count": 0}
             memory_utility_shadow_counts = {"memory_version_count": 0}
+            state_head_counts = {"state_head_count": 0}
             rotated_epoch: str | None = None
             try:
                 rows = conn.execute(
@@ -187,6 +189,7 @@ def rebuild_database_projections(
                     )
                 run_projection_counts = rebuild_run_projections(conn)
                 memory_utility_shadow_counts = rebuild_memory_utility_shadow(conn)
+                state_head_counts = rebuild_state_heads(conn)
                 if repaired_insertion_sequence_count:
                     rotated_epoch = rotate_database_epoch(conn)
                 conn.commit()
@@ -202,6 +205,7 @@ def rebuild_database_projections(
         "run_projection_rebuilt_count": run_projection_counts["run_count"],
         "work_item_projection_rebuilt_count": run_projection_counts["work_item_count"],
         "memory_utility_shadow_rebuilt_count": memory_utility_shadow_counts["memory_version_count"],
+        "state_head_rebuilt_count": state_head_counts["state_head_count"],
         "database_epoch": rotated_epoch,
         "service_lock_path": str(lock_path),
         "health": health,
@@ -653,6 +657,10 @@ def _content_checks(conn: sqlite3.Connection, *, tables: set[str]) -> dict[str, 
         memory_utility_shadow_health = inspect_memory_utility_shadow(conn)
         counts.update(memory_utility_shadow_health["counts"])
         samples.update(memory_utility_shadow_health["samples"])
+    if {"state_resources", "state_mutations", "state_heads"}.issubset(tables):
+        state_head_health = inspect_state_heads(conn)
+        counts.update(state_head_health["counts"])
+        samples.update(state_head_health["samples"])
 
     total = sum(counts.values())
     return {"ok": total == 0, "counts": counts, "samples": samples}

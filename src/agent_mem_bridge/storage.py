@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .dynamic_state import DynamicStateStore
 from .exporters import render_export
 from .filesystem_safety import ensure_private_directory, ensure_private_file
 from .learning_candidates import (
@@ -109,6 +110,7 @@ class MemoryStore:
         )
         self._init_db()
         ensure_private_file(self.db_path)
+        self.dynamic_state = DynamicStateStore(self)
         self.recall_receipt_secret = load_or_create_recall_receipt_secret(self.recall_receipt_secret_path)
 
     @classmethod

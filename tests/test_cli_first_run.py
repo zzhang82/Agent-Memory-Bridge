@@ -61,10 +61,10 @@ def test_first_run_report_renders_install_verify_and_task_brief_without_mutation
     assert ".resolve()" not in report["install"]["baseline"][1]
     assert report["install"]["package_version"] == RELEASE_VERSION
     assert report["install"]["release_install_version"] == PINNED_INSTALL_VERSION
-    assert RELEASE_VERSION == "0.27.3"
+    assert RELEASE_VERSION == "0.27.4"
     assert PINNED_INSTALL_VERSION == "0.27.0"
     assert report["install"]["version_mismatch_note"] == (
-        "Package/source version 0.27.3 differs from pinned release-install version 0.27.0. "
+        "Package/source version 0.27.4 differs from pinned release-install version 0.27.0. "
         "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
     )
     assert report["install"]["release_install_gate_note"] == RELEASE_INSTALL_GATE_NOTE
@@ -173,7 +173,7 @@ def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch
     assert payload["install"]["package_version"] == RELEASE_VERSION
     assert payload["install"]["release_install_version"] == PINNED_INSTALL_VERSION
     assert payload["install"]["version_mismatch_note"] == (
-        "Package/source version 0.27.3 differs from pinned release-install version 0.27.0. "
+        "Package/source version 0.27.4 differs from pinned release-install version 0.27.0. "
         "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
     )
     assert payload["install"]["release_install_gate_note"] == RELEASE_INSTALL_GATE_NOTE

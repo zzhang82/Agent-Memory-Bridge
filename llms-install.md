@@ -80,7 +80,7 @@ loaded.
 
 The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
 
-Source `0.27.3` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
+Source `0.27.4` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
 
 ## Optional `uvx` Shortcut
 
@@ -114,14 +114,15 @@ retrieval subject, and caller-declared client or session labels cannot create
 additional votes. Feedback remains shadow-only: it does not mutate memories,
 indexes, recall results, or ranking behavior.
 
-For explicit episode evidence in the local `0.27.3` source, use
+For explicit episode evidence in the local `0.27.4` source, use
 `begin_run(...)` to obtain server-minted run/work-item handles, then use
 `record_run_event(...)`, `get_run(...)`, and `complete_run(...)`. These calls
-create durable run, event, and outcome authority. Schema v10 adds governed-v2
-typed events, CAS preconditions, operator verification receipts, and explicit
-watcher continuation. `get_run(...)` retains one-snapshot recovery metadata.
-Credit and consolidation use current effective evidence but remain shadow-only;
-they do not change ranking, policy, prompts, or ordinary memory.
+create durable run, event, and outcome authority. Schema v12 retains
+governed-v2 events/CAS, operator verification receipts, and watcher continuity,
+and adds an internal exact-key Dynamic State release lane with typed commands,
+epoch/version guards, lifecycle idempotency, immutable history, and rebuildable
+heads. It adds no MCP tool and does not alter recall, ranking, policy, prompts,
+or ordinary memory. Credit and consolidation remain shadow-only.
 
 Agent Memory Bridge is an additional MCP memory store. Do not claim that it
 replaces a client's built-in memory, instructions, rules, or project context.
