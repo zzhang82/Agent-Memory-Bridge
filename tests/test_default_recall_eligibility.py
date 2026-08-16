@@ -263,7 +263,7 @@ def test_task_memory_cannot_reintroduce_revision_predecessors(
     suppressed_by_id = {str(entry["id"]): str(entry["reason"]) for entry in report["suppressed_items"]}
     assert suppressed_by_id[str(unsafe["id"])] == "procedure_status:unsafe"
     if relation_aware:
-        assert suppressed_by_id[predecessor_id] == "superseded"
+        assert suppressed_by_id[predecessor_id] == "superseded_revision"
     with store._connect() as conn:
         assert fetch_row_by_id(conn, predecessor_id) is not None
         chain = conn.execute(
@@ -319,8 +319,8 @@ def test_task_memory_exposes_only_final_revision_of_procedure_chain(
     assert [str(item["id"]) for item in report["procedure_hits"]] == [v3_id]
     if relation_aware:
         suppressed_by_id = {str(entry["id"]): str(entry["reason"]) for entry in report["suppressed_items"]}
-        assert suppressed_by_id[v1_id] == "superseded"
-        assert suppressed_by_id[v2_id] == "superseded"
+        assert suppressed_by_id[v1_id] == "superseded_revision"
+        assert suppressed_by_id[v2_id] == "superseded_revision"
     historical_recall = store.recall(
         namespace="project:checkout",
         query="checkout deployment procedure",
@@ -379,7 +379,7 @@ def test_task_memory_procedure_governance_reporting_survives_revision_exclusion(
     assert suppressed_by_id[statuses["unsafe"]] == "procedure_status:unsafe"
     assert suppressed_by_id[statuses["stale"]] == "procedure_status:stale"
     assert suppressed_by_id[statuses["replaced"]] == "procedure_status:replaced"
-    assert suppressed_by_id[predecessor_id] == "superseded"
+    assert suppressed_by_id[predecessor_id] == "superseded_revision"
 
 
 def _warm_deterministic_semantic_index(
@@ -550,6 +550,241 @@ def test_semantic_and_hybrid_recall_cannot_reintroduce_ineligible_procedures(
     assert recalled["retrieval"]["semantic_available"] is True
     assert recalled["retrieval"]["semantic_completeness"] == "complete"
     assert recalled["retrieval"]["suppression_reason_counts"] == {"procedure_unsafe": 1}
+    receipt_result_ids, exposure_ids = _decoded_receipt_ids(store, recalled)
+    assert receipt_result_ids == returned_ids
+    assert exposure_ids == returned_ids
+
+
+def test_relation_expansion_cannot_reintroduce_revision_predecessor(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    predecessor = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="Legacy checkout rollout dependency",
+        content="legacy dependency guidance for checkout rollout",
+    )
+    predecessor_id = str(predecessor["id"])
+    store.revise(
+        predecessor_id,
+        replacement_content="corrected dependency guidance for checkout rollout",
+        title="Corrected checkout rollout dependency",
+    )
+    anchor = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="[[Procedure]] checkout rollout validated path",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run the checkout rollout procedure.\n"
+            "when_to_use: During a checkout rollout.\n"
+            "steps: read dependency | run rollout\n"
+            "procedure_status: validated\n"
+            f"depends_on: {predecessor_id}\n"
+        ),
+        tags=["kind:procedure"],
+    )
+
+    report = assemble_task_memory(
+        store,
+        query="checkout rollout",
+        project_namespace="project:checkout",
+    )
+
+    actionable = _actionable_ids(report)
+    assert predecessor_id not in actionable
+    assert [str(item["id"]) for item in report["procedure_hits"]] == [str(anchor["id"])]
+    assert [str(item["id"]) for item in report["supporting_hits"]] == []
+    suppressed_by_id = {str(entry["id"]): str(entry["reason"]) for entry in report["suppressed_items"]}
+    assert suppressed_by_id[predecessor_id] == "superseded_revision"
+
+
+def test_relation_expansion_cannot_reintroduce_ineligible_procedure(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    unsafe = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="[[Procedure]] midnight migration shortcut",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run the midnight migration shortcut.\n"
+            "when_to_use: Never in production work.\n"
+            "steps: skip checks | force migrate\n"
+            "procedure_status: unsafe\n"
+        ),
+        tags=["kind:procedure"],
+    )
+    anchor = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="[[Procedure]] release cutover validated path",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run the release cutover procedure.\n"
+            "when_to_use: During a release cutover.\n"
+            "steps: verify release | run cutover\n"
+            "procedure_status: validated\n"
+            f"depends_on: {unsafe['id']}\n"
+        ),
+        tags=["kind:procedure"],
+    )
+
+    report = assemble_task_memory(
+        store,
+        query="release cutover",
+        project_namespace="project:checkout",
+    )
+
+    actionable = _actionable_ids(report)
+    assert str(unsafe["id"]) not in actionable
+    assert [str(item["id"]) for item in report["procedure_hits"]] == [str(anchor["id"])]
+    suppressed_by_id = {str(entry["id"]): str(entry["reason"]) for entry in report["suppressed_items"]}
+    assert suppressed_by_id[str(unsafe["id"])] == "procedure_status:unsafe"
+
+
+def test_flat_task_memory_suppresses_ineligible_procedures_without_task_domain(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    unsafe = store.store(
+        namespace="project:checkout",
+        title="Unsafe checkout deployment procedure",
+        content=_procedure_content("unsafe", "unsafe"),
+        tags=["kind:procedure"],
+    )
+    validated = store.store(
+        namespace="project:checkout",
+        title="Validated checkout deployment procedure",
+        content=_procedure_content("validated", "validated"),
+        tags=["kind:procedure"],
+    )
+
+    report = assemble_task_memory(
+        store,
+        query="checkout deployment procedure",
+        project_namespace="project:checkout",
+        relation_aware=False,
+    )
+
+    actionable = _actionable_ids(report)
+    assert str(unsafe["id"]) not in actionable
+    assert [str(item["id"]) for item in report["procedure_hits"]] == [str(validated["id"])]
+    suppressed_by_id = {str(entry["id"]): str(entry["reason"]) for entry in report["suppressed_items"]}
+    assert suppressed_by_id[str(unsafe["id"])] == "procedure_status:unsafe"
+
+
+def test_flat_supporting_fetch_cannot_reintroduce_revision_predecessor(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    predecessor = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="Legacy checkout deployment dependency",
+        content="legacy dependency guidance for checkout deployment",
+    )
+    predecessor_id = str(predecessor["id"])
+    store.revise(
+        predecessor_id,
+        replacement_content="corrected dependency guidance for checkout deployment",
+        title="Corrected checkout deployment dependency",
+    )
+    anchor = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="[[Procedure]] checkout deployment validated path",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run the checkout deployment procedure.\n"
+            "when_to_use: During a checkout deployment.\n"
+            "steps: read dependency | deploy checkout\n"
+            "procedure_status: validated\n"
+            f"depends_on: {predecessor_id}\n"
+        ),
+        tags=["kind:procedure"],
+    )
+
+    report = assemble_task_memory(
+        store,
+        query="checkout deployment",
+        project_namespace="project:checkout",
+        relation_aware=False,
+    )
+
+    actionable = _actionable_ids(report)
+    assert predecessor_id not in actionable
+    assert [str(item["id"]) for item in report["procedure_hits"]] == [str(anchor["id"])]
+    assert [str(item["id"]) for item in report["supporting_hits"]] == []
+    suppressed_by_id = {str(entry["id"]): str(entry["reason"]) for entry in report["suppressed_items"]}
+    assert suppressed_by_id[predecessor_id] == "superseded_revision"
+
+
+@pytest.mark.parametrize("retrieval_mode", ["semantic", "hybrid"])
+def test_semantic_and_hybrid_refill_requires_exclusion_aware_second_window(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    retrieval_mode: str,
+) -> None:
+    namespace = "project:semantic-refill"
+    store = _store(tmp_path)
+
+    def _refill_ineligible_procedure_content(index: int) -> str:
+        return (
+            "record_type: procedure\n"
+            f"goal: Execute zephyrblade deployment runbook variant {index}.\n"
+            "when_to_use: During the zephyrblade deployment runbook cutover.\n"
+            "steps: zephyrblade deployment runbook | verify | migrate\n"
+            "procedure_status: unsafe\n"
+            "zephyrblade zephyrblade zephyrblade zephyrblade zephyrblade\n"
+        )
+
+    ineligible_ids = [
+        str(
+            store.store(
+                namespace=namespace,
+                kind="memory",
+                title=f"Zephyrblade unsafe procedure {index}",
+                content=_refill_ineligible_procedure_content(index),
+                tags=["kind:procedure"],
+            )["id"]
+        )
+        for index in range(22)
+    ]
+    eligible_ids = [
+        str(
+            store.store(
+                namespace=namespace,
+                kind="memory",
+                title=f"Zephyrblade eligible note {index}",
+                content=(
+                    f"zephyrblade deployment runbook eligible note {index} current guidance " + ("padding " * 200)
+                ),
+            )["id"]
+        )
+        for index in range(3)
+    ]
+    _warm_deterministic_semantic_index(store, tmp_path, monkeypatch)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_RETRIEVAL_MODE", retrieval_mode)
+
+    historical = store.recall(
+        namespace=namespace,
+        query="zephyrblade deployment runbook",
+        kind="memory",
+        limit=20,
+        eligibility="historical",
+    )
+    recalled = store.recall(
+        namespace=namespace,
+        query="zephyrblade deployment runbook",
+        kind="memory",
+        limit=3,
+    )
+
+    historical_ids = _ids(historical)
+    assert len(historical_ids) == 20
+    assert set(historical_ids) <= set(ineligible_ids)
+    returned_ids = _ids(recalled)
+    assert set(returned_ids) == set(eligible_ids)
+    assert len(returned_ids) == len(set(returned_ids)) == 3
+    assert recalled["retrieval"]["mode"] == retrieval_mode
+    assert recalled["retrieval"]["semantic_available"] is True
+    assert recalled["retrieval"]["suppressed_count"] == 22
+    assert recalled["retrieval"]["suppression_reason_counts"] == {"procedure_unsafe": 22}
     receipt_result_ids, exposure_ids = _decoded_receipt_ids(store, recalled)
     assert receipt_result_ids == returned_ids
     assert exposure_ids == returned_ids

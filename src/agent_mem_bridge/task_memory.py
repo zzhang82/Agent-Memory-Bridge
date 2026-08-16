@@ -11,7 +11,10 @@ from .procedure_governance import (
     procedure_governance_status,
     procedure_score_adjustment,
 )
-from .recall_eligibility import PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY
+from .recall_eligibility import (
+    PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY,
+    direct_lookup_ineligibility_reasons,
+)
 from .relation_metadata import parse_content_fields, parse_relation_metadata
 from .repository import MemoryRow, fetch_row_by_id, fetch_tombstone_metadata
 from .storage import MemoryStore
@@ -157,7 +160,12 @@ def _assemble_flat_task_memory(store: MemoryStore, *, query: str, config: TaskMe
     procedure_hits, suppressed = _filter_flat_procedures(procedure_hits, config=config)
     enriched_procedures = [_enrich_procedure_hit(item, task_domain=config.task_domain) for item in procedure_hits]
     supporting_ids = _collect_supporting_ids([*procedure_hits, *concept_hits])
-    supporting_hits = _fetch_items_by_id(store, supporting_ids, limit=config.support_limit)
+    supporting_hits, suppressed_supports = _fetch_eligible_items_by_id(
+        store,
+        supporting_ids,
+        limit=config.support_limit,
+    )
+    suppressed.extend(suppressed_supports)
 
     report = {
         "query": query.strip(),
@@ -265,6 +273,7 @@ def _assemble_relation_aware_task_memory(
     suppressed: list[dict[str, Any]] = []
     corrective_items: list[dict[str, Any]] = []
     active_ids = set(candidates)
+    _apply_relation_expansion_eligibility_suppression(store, candidates, active_ids, suppressed)
     _apply_validity_suppression(candidates, active_ids, suppressed, as_of=config.as_of)
     _apply_lineage_suppression(candidates, active_ids, suppressed)
     _apply_procedure_governance_suppression(
@@ -510,8 +519,6 @@ def _filter_flat_procedures(
     *,
     config: TaskMemoryConfig,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    if config.as_of is None and not config.task_domain:
-        return items, []
     eligible: list[dict[str, Any]] = []
     suppressed: list[dict[str, Any]] = []
     for item in items:
@@ -520,7 +527,7 @@ def _filter_flat_procedures(
             validity = str(parse_relation_metadata(str(item.get("content") or ""), now=config.as_of)["validity_status"])
             if validity in INELIGIBLE_VALIDITY_STATUSES:
                 reason = f"validity:{validity}"
-        if reason is None and config.task_domain:
+        if reason is None:
             governance = parse_procedure_artifact(
                 str(item.get("content") or ""),
                 tags=item.get("tags") or [],
@@ -561,17 +568,46 @@ def _collect_supporting_ids(items: list[dict[str, Any]]) -> list[str]:
     return ordered
 
 
-def _fetch_items_by_id(store: MemoryStore, ids: list[str], *, limit: int) -> list[dict[str, Any]]:
+def _fetch_eligible_items_by_id(
+    store: MemoryStore,
+    ids: list[str],
+    *,
+    limit: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Fetch supporting records by id, excluding records recall eligibility rejects.
+
+    Supporting fetches bypass ranked recall, so revision predecessors and
+    procedure-status-ineligible records are dropped here and reported in the
+    flat suppression list instead of becoming actionable support records.
+    """
     items: list[dict[str, Any]] = []
     if not ids:
-        return items
+        return items, []
     with store._connect() as conn:
         for memory_id in ids[:limit]:
             row = fetch_row_by_id(conn, memory_id)
             if row is None:
                 continue
             items.append(MemoryRow.from_sqlite(row).as_dict())
-    return items
+        reasons = direct_lookup_ineligibility_reasons(store, items, connection=conn)
+    if not reasons:
+        return items, []
+    eligible = [item for item in items if _item_id(item) not in reasons]
+    suppressed = [
+        {
+            "id": _item_id(item),
+            "title": item.get("title"),
+            "section": "support",
+            "reason": reasons[_item_id(item)],
+            "by_id": None,
+            "by_title": None,
+            "by_record_type": None,
+            "score": None,
+        }
+        for item in items
+        if _item_id(item) in reasons
+    ]
+    return eligible, suppressed
 
 
 def _candidate_limit(limit: int) -> int:
@@ -717,6 +753,30 @@ def _looks_like_record_id(value: str) -> bool:
     if not RECORD_ID_PATTERN.fullmatch(value):
         return False
     return any(marker in value for marker in ("-", "_", "/", ":"))
+
+
+def _apply_relation_expansion_eligibility_suppression(
+    store: MemoryStore,
+    candidates: dict[str, TaskCandidate],
+    active_ids: set[str],
+    suppressed: list[dict[str, Any]],
+) -> None:
+    """Relation targets are read by id and skip recall eligibility; apply it here.
+
+    Revision predecessors and procedure-status-ineligible records must not
+    re-enter task memory as relation-expanded supporting records. Direct
+    candidates are untouched: direct procedures intentionally reach the
+    governance layer in raw form so it can report its own decisions.
+    """
+    expanded_items = [
+        candidate.item for item_id, candidate in candidates.items() if not candidate.direct and item_id in active_ids
+    ]
+    if not expanded_items:
+        return
+    reasons = direct_lookup_ineligibility_reasons(store, expanded_items)
+    for item_id, reason in reasons.items():
+        active_ids.remove(item_id)
+        suppressed.append(_suppressed_payload(candidates[item_id], reason=reason))
 
 
 def _apply_validity_suppression(

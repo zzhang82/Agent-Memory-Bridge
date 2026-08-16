@@ -33,6 +33,40 @@ def recall_eligibility_suppresses_procedures(eligibility: str) -> bool:
     return eligibility != PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY
 
 
+def direct_lookup_ineligibility_reasons(
+    store: Any,
+    items: list[dict[str, Any]],
+    *,
+    connection: sqlite3.Connection | None = None,
+) -> dict[str, str]:
+    """Per-item ineligibility reasons for records read directly by id.
+
+    Task memory reads relation targets and supporting records straight from
+    the database instead of going through ranked recall, so the same lifecycle
+    rules must be applied to those reads. Reasons use the task-memory
+    suppression vocabulary ("superseded_revision", "procedure_status:<status>").
+    """
+    superseded_ids = _superseded_ids(
+        store,
+        [str(item.get("id") or "").strip() for item in items],
+        connection=connection,
+    )
+    reasons: dict[str, str] = {}
+    for item in items:
+        if item.get("kind") != "memory":
+            continue
+        item_id = str(item.get("id") or "").strip()
+        if not item_id or item_id in reasons:
+            continue
+        if item_id in superseded_ids:
+            reasons[item_id] = "superseded_revision"
+            continue
+        status = _ineligible_procedure_status(item)
+        if status:
+            reasons[item_id] = f"procedure_status:{status}"
+    return reasons
+
+
 def filter_default_recall_candidates(
     store: Any,
     items: list[dict[str, Any]],
@@ -111,6 +145,11 @@ def _superseded_ids(
 
 
 def _procedure_suppression_reason(item: dict[str, Any]) -> str | None:
+    status = _ineligible_procedure_status(item)
+    return f"procedure_{status}" if status else None
+
+
+def _ineligible_procedure_status(item: dict[str, Any]) -> str | None:
     tags = {str(tag).strip() for tag in item.get("tags") or []}
     if _PROCEDURE_TAG not in tags:
         return None
@@ -122,4 +161,4 @@ def _procedure_suppression_reason(item: dict[str, Any]) -> str | None:
     status = str(governance.get("status") or "")
     if status not in INELIGIBLE_PROCEDURE_STATUSES:
         return None
-    return f"procedure_{status}"
+    return status
