@@ -23,7 +23,7 @@ def _ids(payload: dict[str, Any]) -> list[str]:
 
 
 def main() -> None:
-    with tempfile.TemporaryDirectory(prefix="amb-default-recall-eligibility-") as directory:
+    with tempfile.TemporaryDirectory(prefix="amb-default-recall-eligibility-", ignore_cleanup_errors=True) as directory:
         root = Path(directory)
         store = MemoryStore(root / "bridge.db", log_dir=root / "logs")
         predecessor = store.store(
@@ -51,7 +51,7 @@ def main() -> None:
             namespace="project:checkout",
             query="legacy deploy force",
             limit=5,
-            include_ineligible=True,
+            eligibility="historical",
         )
         default_procedures = store.recall(
             namespace="project:checkout",
@@ -64,7 +64,7 @@ def main() -> None:
             query="release cutover procedure",
             tags_any=["kind:procedure"],
             limit=10,
-            include_ineligible=True,
+            eligibility="historical",
         )
 
         print(

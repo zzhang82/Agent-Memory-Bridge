@@ -9,17 +9,42 @@ from .procedure_governance import INELIGIBLE_PROCEDURE_STATUSES, parse_procedure
 _MAX_SQL_VARIABLES = 900
 _PROCEDURE_TAG = "kind:procedure"
 
+DEFAULT_RECALL_ELIGIBILITY = "default"
+PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY = "procedure-governance"
+HISTORICAL_RECALL_ELIGIBILITY = "historical"
+_RECALL_ELIGIBILITY_MODES = frozenset(
+    {
+        DEFAULT_RECALL_ELIGIBILITY,
+        PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY,
+        HISTORICAL_RECALL_ELIGIBILITY,
+    }
+)
+
+
+def normalize_recall_eligibility(value: str | None) -> str:
+    normalized = "-".join(str(value or "").strip().lower().replace("_", "-").split())
+    if normalized not in _RECALL_ELIGIBILITY_MODES:
+        raise ValueError(f"eligibility must be one of {sorted(_RECALL_ELIGIBILITY_MODES)}")
+    return normalized
+
+
+def recall_eligibility_suppresses_procedures(eligibility: str) -> bool:
+    """Only the governed procedure path may inspect procedure-status-ineligible records."""
+    return eligibility != PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY
+
 
 def filter_default_recall_candidates(
     store: Any,
     items: list[dict[str, Any]],
     *,
     connection: sqlite3.Connection | None = None,
+    suppress_ineligible_procedures: bool = True,
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """Remove known non-actionable records from ordinary recall candidates.
 
-    This intentionally covers only immutable revision predecessors and records
-    already recognized by the governed task-memory path as structured procedures.
+    Revision predecessors are always removed. Structured procedures with an
+    ineligible status are removed unless the governed task-memory path asks to
+    inspect them so its own governance layer can report suppression decisions.
     """
 
     candidate_ids = [str(item.get("id") or "").strip() for item in items]
@@ -38,7 +63,13 @@ def filter_default_recall_candidates(
             eligible.append(item)
             continue
 
-        reason = "superseded_revision" if item_id in superseded_ids else _procedure_suppression_reason(item)
+        reason = (
+            "superseded_revision"
+            if item_id in superseded_ids
+            else _procedure_suppression_reason(item)
+            if suppress_ineligible_procedures
+            else None
+        )
         if reason is not None:
             suppression_reason_counts[reason] += 1
             continue

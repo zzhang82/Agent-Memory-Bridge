@@ -11,6 +11,7 @@ from .procedure_governance import (
     procedure_governance_status,
     procedure_score_adjustment,
 )
+from .recall_eligibility import PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY
 from .relation_metadata import parse_content_fields, parse_relation_metadata
 from .repository import MemoryRow, fetch_row_by_id, fetch_tombstone_metadata
 from .storage import MemoryStore
@@ -119,7 +120,7 @@ def _assemble_flat_task_memory(store: MemoryStore, *, query: str, config: TaskMe
             query=query,
             tags_any=["kind:procedure"],
             limit=config.procedure_limit,
-            include_ineligible=True,
+            eligibility=PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY,
         ),
         _recall_hits(
             store,
@@ -127,7 +128,7 @@ def _assemble_flat_task_memory(store: MemoryStore, *, query: str, config: TaskMe
             query=query,
             tags_any=["kind:procedure"],
             limit=config.procedure_limit,
-            include_ineligible=True,
+            eligibility=PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY,
         ),
         config.procedure_limit,
     )
@@ -195,7 +196,7 @@ def _assemble_relation_aware_task_memory(
             query=query,
             tags_any=[SECTION_TAGS["procedure"]],
             limit=candidate_limit,
-            include_ineligible=True,
+            eligibility=PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY,
         ),
         _recall_hits(
             store,
@@ -203,7 +204,7 @@ def _assemble_relation_aware_task_memory(
             query=query,
             tags_any=[SECTION_TAGS["procedure"]],
             limit=candidate_limit,
-            include_ineligible=True,
+            eligibility=PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY,
         ),
         candidate_limit * 2,
     )
@@ -457,7 +458,7 @@ def _recall_hits(
     query: str,
     tags_any: list[str],
     limit: int,
-    include_ineligible: bool = False,
+    eligibility: str = "default",
 ) -> list[dict[str, Any]]:
     if not namespace:
         return []
@@ -466,7 +467,7 @@ def _recall_hits(
         query=query,
         tags_any=tags_any,
         limit=limit,
-        include_ineligible=include_ineligible,
+        eligibility=eligibility,
     )["items"]
     if hits or not query.strip():
         return hits
@@ -474,7 +475,7 @@ def _recall_hits(
         namespace=namespace,
         tags_any=tags_any,
         limit=limit,
-        include_ineligible=include_ineligible,
+        eligibility=eligibility,
     )["items"]
 
 

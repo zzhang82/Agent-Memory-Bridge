@@ -32,7 +32,12 @@ from .poll_cursor import encode_poll_cursor
 from .promotion import promote_entry
 from .provenance import normalize_provenance_mapping, normalize_provenance_value
 from .query import build_tag_filter, recall_candidates, recall_signal_poll_page
-from .recall_eligibility import filter_default_recall_candidates
+from .recall_eligibility import (
+    HISTORICAL_RECALL_ELIGIBILITY,
+    filter_default_recall_candidates,
+    normalize_recall_eligibility,
+    recall_eligibility_suppresses_procedures,
+)
 from .relation_metadata import parse_relation_metadata
 from .repository import (
     ALLOWED_KINDS,
@@ -90,8 +95,8 @@ def _safe_transport_category(value: str | None) -> str | None:
     return cleaned if cleaned in {"stdio", "http", "sse"} else "other"
 
 
-def _recall_candidate_limit(limit: int, *, include_ineligible: bool) -> int:
-    if include_ineligible:
+def _recall_candidate_limit(limit: int, *, eligibility: str) -> int:
+    if eligibility == HISTORICAL_RECALL_ELIGIBILITY:
         return limit
     return max(limit, min(max(limit * 5, 20), 100))
 
@@ -102,13 +107,14 @@ def _collect_default_recall_items(
     *,
     candidate_limit: int,
     limit: int,
-    include_ineligible: bool,
+    eligibility: str,
     diagnostics: dict[str, Any],
     connection: sqlite3.Connection | None = None,
 ) -> list[dict[str, Any]]:
-    if include_ineligible:
+    if eligibility == HISTORICAL_RECALL_ELIGIBILITY:
         return fetch_candidates(set())[:limit]
 
+    suppress_ineligible_procedures = recall_eligibility_suppresses_procedures(eligibility)
     eligible: list[dict[str, Any]] = []
     excluded_ids: set[str] = set()
     suppression_reason_counts: dict[str, int] = {}
@@ -121,6 +127,7 @@ def _collect_default_recall_items(
             store,
             candidates,
             connection=connection,
+            suppress_ineligible_procedures=suppress_ineligible_procedures,
         )
         for reason, count in batch_reason_counts.items():
             suppression_reason_counts[reason] = suppression_reason_counts.get(reason, 0) + count
@@ -448,7 +455,7 @@ class MemoryStore:
         correlation_id: str | None = None,
         since: str | None = None,
         evidence_context: dict[str, str] | None = None,
-        include_ineligible: bool = False,
+        eligibility: str = "default",
     ) -> dict[str, Any]:
         cleaned_namespace = namespace.strip()
         if not cleaned_namespace:
@@ -463,6 +470,7 @@ class MemoryStore:
                 raise ValueError("since requires kind='signal'")
         search_limit = max(1, min(limit, 100))
         normalized_signal_status = normalize_signal_status_filter(signal_status)
+        eligibility_mode = normalize_recall_eligibility(eligibility)
         with self.telemetry.span(
             "amb.store.recall",
             {
@@ -478,7 +486,7 @@ class MemoryStore:
                 "has_correlation_id": bool(correlation_id),
                 "has_since": bool(cleaned_since),
                 "has_evidence_context": bool(evidence_context),
-                "include_ineligible": include_ineligible,
+                "eligibility": eligibility_mode,
             },
         ) as span:
             retrieval_diagnostics: dict[str, Any] = {}
@@ -502,7 +510,7 @@ class MemoryStore:
                 with self._connect() as conn:
                     conn.execute("BEGIN")
                     snapshot_epoch = database_epoch(conn)
-                    candidate_limit = _recall_candidate_limit(search_limit, include_ineligible=include_ineligible)
+                    candidate_limit = _recall_candidate_limit(search_limit, eligibility=eligibility_mode)
                     items = _collect_default_recall_items(
                         self,
                         lambda excluded_ids: recall_candidates(
@@ -525,7 +533,7 @@ class MemoryStore:
                         ),
                         candidate_limit=candidate_limit,
                         limit=search_limit,
-                        include_ineligible=include_ineligible,
+                        eligibility=eligibility_mode,
                         diagnostics=retrieval_diagnostics,
                         connection=conn,
                     )
@@ -547,7 +555,7 @@ class MemoryStore:
                         evidence_context=evidence_context,
                     )
             else:
-                candidate_limit = _recall_candidate_limit(search_limit, include_ineligible=include_ineligible)
+                candidate_limit = _recall_candidate_limit(search_limit, eligibility=eligibility_mode)
                 items = _collect_default_recall_items(
                     self,
                     lambda excluded_ids: recall_candidates(
@@ -568,7 +576,7 @@ class MemoryStore:
                     ),
                     candidate_limit=candidate_limit,
                     limit=search_limit,
-                    include_ineligible=include_ineligible,
+                    eligibility=eligibility_mode,
                     diagnostics=retrieval_diagnostics,
                 )
             next_since = (

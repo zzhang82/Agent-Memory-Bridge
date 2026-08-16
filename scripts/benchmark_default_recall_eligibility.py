@@ -11,7 +11,7 @@ from agent_mem_bridge.storage import MemoryStore
 
 
 def _result(count: int) -> dict[str, Any]:
-    with tempfile.TemporaryDirectory(prefix="amb-default-recall-benchmark-") as directory:
+    with tempfile.TemporaryDirectory(prefix="amb-default-recall-benchmark-", ignore_cleanup_errors=True) as directory:
         root = Path(directory)
         store = MemoryStore(root / "bridge.db", log_dir=root / "logs")
         for index in range(count):
