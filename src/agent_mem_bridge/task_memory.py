@@ -119,6 +119,7 @@ def _assemble_flat_task_memory(store: MemoryStore, *, query: str, config: TaskMe
             query=query,
             tags_any=["kind:procedure"],
             limit=config.procedure_limit,
+            include_ineligible=True,
         ),
         _recall_hits(
             store,
@@ -126,6 +127,7 @@ def _assemble_flat_task_memory(store: MemoryStore, *, query: str, config: TaskMe
             query=query,
             tags_any=["kind:procedure"],
             limit=config.procedure_limit,
+            include_ineligible=True,
         ),
         config.procedure_limit,
     )
@@ -193,6 +195,7 @@ def _assemble_relation_aware_task_memory(
             query=query,
             tags_any=[SECTION_TAGS["procedure"]],
             limit=candidate_limit,
+            include_ineligible=True,
         ),
         _recall_hits(
             store,
@@ -200,6 +203,7 @@ def _assemble_relation_aware_task_memory(
             query=query,
             tags_any=[SECTION_TAGS["procedure"]],
             limit=candidate_limit,
+            include_ineligible=True,
         ),
         candidate_limit * 2,
     )
@@ -453,6 +457,7 @@ def _recall_hits(
     query: str,
     tags_any: list[str],
     limit: int,
+    include_ineligible: bool = False,
 ) -> list[dict[str, Any]]:
     if not namespace:
         return []
@@ -461,6 +466,7 @@ def _recall_hits(
         query=query,
         tags_any=tags_any,
         limit=limit,
+        include_ineligible=include_ineligible,
     )["items"]
     if hits or not query.strip():
         return hits
@@ -468,6 +474,7 @@ def _recall_hits(
         namespace=namespace,
         tags_any=tags_any,
         limit=limit,
+        include_ineligible=include_ineligible,
     )["items"]
 
 

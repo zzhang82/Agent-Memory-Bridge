@@ -104,7 +104,12 @@ def test_explicit_revision_creates_successor_and_preserves_predecessor(tmp_path:
 
     successor_id = revision["successor_id"]
     assert successor_id != predecessor["id"]
-    old_item = store.recall(namespace="project:revisions", query="Old guidance", limit=1)["items"][0]
+    old_item = store.recall(
+        namespace="project:revisions",
+        query="Old guidance",
+        limit=1,
+        include_ineligible=True,
+    )["items"][0]
     new_item = store.recall(namespace="project:revisions", query="Corrected guidance", limit=1)["items"][0]
     assert old_item["id"] == predecessor["id"]
     assert new_item["id"] == successor_id

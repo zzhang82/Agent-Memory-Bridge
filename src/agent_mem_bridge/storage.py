@@ -7,7 +7,7 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .dynamic_state import DynamicStateStore
 from .exporters import render_export
@@ -32,6 +32,7 @@ from .poll_cursor import encode_poll_cursor
 from .promotion import promote_entry
 from .provenance import normalize_provenance_mapping, normalize_provenance_value
 from .query import build_tag_filter, recall_candidates, recall_signal_poll_page
+from .recall_eligibility import filter_default_recall_candidates
 from .relation_metadata import parse_relation_metadata
 from .repository import (
     ALLOWED_KINDS,
@@ -87,6 +88,55 @@ def _safe_transport_category(value: str | None) -> str | None:
         return None
     cleaned = value.strip().lower()
     return cleaned if cleaned in {"stdio", "http", "sse"} else "other"
+
+
+def _recall_candidate_limit(limit: int, *, include_ineligible: bool) -> int:
+    if include_ineligible:
+        return limit
+    return max(limit, min(max(limit * 5, 20), 100))
+
+
+def _collect_default_recall_items(
+    store: Any,
+    fetch_candidates: Callable[[set[str]], list[dict[str, Any]]],
+    *,
+    candidate_limit: int,
+    limit: int,
+    include_ineligible: bool,
+    diagnostics: dict[str, Any],
+    connection: sqlite3.Connection | None = None,
+) -> list[dict[str, Any]]:
+    if include_ineligible:
+        return fetch_candidates(set())[:limit]
+
+    eligible: list[dict[str, Any]] = []
+    excluded_ids: set[str] = set()
+    suppression_reason_counts: dict[str, int] = {}
+    while len(eligible) < limit:
+        candidates = fetch_candidates(excluded_ids)
+        if not candidates:
+            break
+
+        eligible_batch, batch_reason_counts = filter_default_recall_candidates(
+            store,
+            candidates,
+            connection=connection,
+        )
+        for reason, count in batch_reason_counts.items():
+            suppression_reason_counts[reason] = suppression_reason_counts.get(reason, 0) + count
+        candidate_ids = {str(item.get("id") or "").strip() for item in candidates}
+        candidate_ids.discard("")
+        if not candidate_ids - excluded_ids:
+            break
+        excluded_ids.update(candidate_ids)
+        eligible.extend(eligible_batch)
+        if len(candidates) < candidate_limit:
+            break
+
+    if suppression_reason_counts:
+        diagnostics["suppressed_count"] = sum(suppression_reason_counts.values())
+        diagnostics["suppression_reason_counts"] = dict(sorted(suppression_reason_counts.items()))
+    return eligible[:limit]
 
 
 class MemoryStore:
@@ -398,6 +448,7 @@ class MemoryStore:
         correlation_id: str | None = None,
         since: str | None = None,
         evidence_context: dict[str, str] | None = None,
+        include_ineligible: bool = False,
     ) -> dict[str, Any]:
         cleaned_namespace = namespace.strip()
         if not cleaned_namespace:
@@ -427,6 +478,7 @@ class MemoryStore:
                 "has_correlation_id": bool(correlation_id),
                 "has_since": bool(cleaned_since),
                 "has_evidence_context": bool(evidence_context),
+                "include_ineligible": include_ineligible,
             },
         ) as span:
             retrieval_diagnostics: dict[str, Any] = {}
@@ -450,22 +502,32 @@ class MemoryStore:
                 with self._connect() as conn:
                     conn.execute("BEGIN")
                     snapshot_epoch = database_epoch(conn)
-                    items = recall_candidates(
+                    candidate_limit = _recall_candidate_limit(search_limit, include_ineligible=include_ineligible)
+                    items = _collect_default_recall_items(
                         self,
-                        namespace=cleaned_namespace,
-                        query=query_text,
+                        lambda excluded_ids: recall_candidates(
+                            self,
+                            namespace=cleaned_namespace,
+                            query=query_text,
+                            limit=candidate_limit,
+                            kind=kind,
+                            signal_status=normalized_signal_status,
+                            tags_any=tags_any,
+                            session_id=session_id,
+                            actor=actor,
+                            correlation_id=correlation_id,
+                            since=cleaned_since,
+                            diagnostics=retrieval_diagnostics,
+                            include_rowid=False,
+                            connection=conn,
+                            current_database_epoch=snapshot_epoch,
+                            exclude_ids=excluded_ids,
+                        ),
+                        candidate_limit=candidate_limit,
                         limit=search_limit,
-                        kind=kind,
-                        signal_status=normalized_signal_status,
-                        tags_any=tags_any,
-                        session_id=session_id,
-                        actor=actor,
-                        correlation_id=correlation_id,
-                        since=cleaned_since,
+                        include_ineligible=include_ineligible,
                         diagnostics=retrieval_diagnostics,
-                        include_rowid=False,
                         connection=conn,
-                        current_database_epoch=snapshot_epoch,
                     )
                     recall_receipt = issue_recall_receipt(
                         secret=self.recall_receipt_secret,
@@ -485,20 +547,29 @@ class MemoryStore:
                         evidence_context=evidence_context,
                     )
             else:
-                items = recall_candidates(
+                candidate_limit = _recall_candidate_limit(search_limit, include_ineligible=include_ineligible)
+                items = _collect_default_recall_items(
                     self,
-                    namespace=cleaned_namespace,
-                    query=query_text,
+                    lambda excluded_ids: recall_candidates(
+                        self,
+                        namespace=cleaned_namespace,
+                        query=query_text,
+                        limit=candidate_limit,
+                        kind=kind,
+                        signal_status=normalized_signal_status,
+                        tags_any=tags_any,
+                        session_id=session_id,
+                        actor=actor,
+                        correlation_id=correlation_id,
+                        since=cleaned_since,
+                        diagnostics=retrieval_diagnostics,
+                        include_rowid=False,
+                        exclude_ids=excluded_ids,
+                    ),
+                    candidate_limit=candidate_limit,
                     limit=search_limit,
-                    kind=kind,
-                    signal_status=normalized_signal_status,
-                    tags_any=tags_any,
-                    session_id=session_id,
-                    actor=actor,
-                    correlation_id=correlation_id,
-                    since=cleaned_since,
+                    include_ineligible=include_ineligible,
                     diagnostics=retrieval_diagnostics,
-                    include_rowid=False,
                 )
             next_since = (
                 self._poll_cursor(

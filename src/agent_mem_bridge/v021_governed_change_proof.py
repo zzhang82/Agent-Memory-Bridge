@@ -275,6 +275,7 @@ def _checkpoint(state: CaseState, case: dict[str, Any], index: int) -> dict[str,
         query=query,
         kind="memory",
         limit=FLAT_BUDGET,
+        include_ineligible=True,
     )
     flat_task = assemble_task_memory(
         state.store,
