@@ -14,6 +14,7 @@ from typing import Any, Callable, Iterator
 from .embedding_index import EmbeddingConfig, ensure_embeddings_for_rows
 from .onboarding import TOOL_NAMES
 from .query import recall_via_semantic
+from .recall_eligibility import HISTORICAL_RECALL_ELIGIBILITY
 from .relation_metadata import parse_relation_metadata
 from .release_contract import load_server_tool_names
 from .storage import MemoryStore
@@ -275,6 +276,7 @@ def _checkpoint(state: CaseState, case: dict[str, Any], index: int) -> dict[str,
         query=query,
         kind="memory",
         limit=FLAT_BUDGET,
+        eligibility=HISTORICAL_RECALL_ELIGIBILITY,
     )
     flat_task = assemble_task_memory(
         state.store,

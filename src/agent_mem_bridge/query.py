@@ -43,6 +43,7 @@ def recall_candidates(
     include_rowid: bool = False,
     connection: sqlite3.Connection | None = None,
     current_database_epoch: str | None = None,
+    exclude_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     candidate_limit = max(limit, min(max(limit * 5, 20), 100))
     mode = normalize_retrieval_mode(retrieval_mode or resolve_retrieval_mode())
@@ -76,6 +77,7 @@ def recall_candidates(
                 include_rowid=include_rowid,
                 connection=connection,
                 current_database_epoch=current_database_epoch,
+                exclude_ids=exclude_ids,
             )
         lexical_items = _recall_lexical_candidates(
             store,
@@ -92,6 +94,7 @@ def recall_candidates(
             include_rowid=include_rowid,
             connection=connection,
             current_database_epoch=current_database_epoch,
+            exclude_ids=exclude_ids,
         )
         try:
             semantic_items = recall_via_semantic(
@@ -111,6 +114,7 @@ def recall_candidates(
                 embedding_config=embedding_config,
                 connection=connection,
                 current_database_epoch=current_database_epoch,
+                exclude_ids=exclude_ids,
             )
         except EmbeddingProviderError as exc:
             if mode == "semantic":
@@ -166,6 +170,7 @@ def recall_candidates(
         include_rowid=include_rowid,
         connection=connection,
         current_database_epoch=current_database_epoch,
+        exclude_ids=exclude_ids,
     )
 
 
@@ -217,6 +222,7 @@ def _recall_lexical_candidates(
     include_rowid: bool,
     connection: sqlite3.Connection | None = None,
     current_database_epoch: str | None = None,
+    exclude_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     candidate_limit = max(limit, min(max(limit * 5, 20), 100))
     match_query = build_match_query(query)
@@ -235,6 +241,7 @@ def _recall_lexical_candidates(
             since=since,
             connection=connection,
             current_database_epoch=current_database_epoch,
+            exclude_ids=exclude_ids,
         )
         if rows:
             items = [_row_to_item(row, include_rowid=include_rowid) for row in rows]
@@ -257,6 +264,7 @@ def _recall_lexical_candidates(
             since=since,
             connection=connection,
             current_database_epoch=current_database_epoch,
+            exclude_ids=exclude_ids,
         )
     else:
         rows = recall_via_filters(
@@ -272,6 +280,7 @@ def _recall_lexical_candidates(
             since=since,
             connection=connection,
             current_database_epoch=current_database_epoch,
+            exclude_ids=exclude_ids,
         )
     items = [_row_to_item(row, include_rowid=include_rowid) for row in rows]
     if signal_status is not None:
@@ -299,6 +308,7 @@ def recall_via_semantic(
     embedding_config: EmbeddingConfig | None = None,
     connection: sqlite3.Connection | None = None,
     current_database_epoch: str | None = None,
+    exclude_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     where_sql, params = build_filters(
         store,
@@ -313,6 +323,7 @@ def recall_via_semantic(
         alias="m",
         connection=connection,
         current_database_epoch=current_database_epoch,
+        exclude_ids=exclude_ids,
     )
     try:
         resolved_embedding_config = embedding_config or active_embedding_config()
@@ -595,6 +606,7 @@ def recall_via_fts(
     since: str | None,
     connection: sqlite3.Connection | None = None,
     current_database_epoch: str | None = None,
+    exclude_ids: set[str] | None = None,
 ) -> list[sqlite3.Row]:
     where_sql, params = build_filters(
         store,
@@ -609,6 +621,7 @@ def recall_via_fts(
         alias="m",
         connection=connection,
         current_database_epoch=current_database_epoch,
+        exclude_ids=exclude_ids,
     )
     sql = f"""
         SELECT
@@ -641,6 +654,7 @@ def recall_via_like(
     since: str | None,
     connection: sqlite3.Connection | None = None,
     current_database_epoch: str | None = None,
+    exclude_ids: set[str] | None = None,
 ) -> list[sqlite3.Row]:
     where_sql, params = build_filters(
         store,
@@ -654,6 +668,7 @@ def recall_via_like(
         since=since,
         connection=connection,
         current_database_epoch=current_database_epoch,
+        exclude_ids=exclude_ids,
     )
     like_value = f"%{escape_like(query)}%"
     sql = f"""
@@ -686,6 +701,7 @@ def recall_via_filters(
     since: str | None,
     connection: sqlite3.Connection | None = None,
     current_database_epoch: str | None = None,
+    exclude_ids: set[str] | None = None,
 ) -> list[sqlite3.Row]:
     rows, _snapshot_epoch = _recall_via_filters_snapshot(
         store,
@@ -700,6 +716,7 @@ def recall_via_filters(
         since=since,
         connection=connection,
         current_database_epoch=current_database_epoch,
+        exclude_ids=exclude_ids,
     )
     return rows
 
@@ -718,6 +735,7 @@ def _recall_via_filters_snapshot(
     since: str | None,
     connection: sqlite3.Connection | None = None,
     current_database_epoch: str | None = None,
+    exclude_ids: set[str] | None = None,
 ) -> tuple[list[sqlite3.Row], str]:
     def _read_filter_rows(conn: sqlite3.Connection, snapshot_epoch: str) -> list[sqlite3.Row]:
         where_sql, params = build_filters(
@@ -732,6 +750,7 @@ def _recall_via_filters_snapshot(
             since=since,
             connection=conn,
             current_database_epoch=snapshot_epoch,
+            exclude_ids=exclude_ids,
         )
         order_sql = (
             "(SELECT sequence FROM memory_insertions WHERE memory_id = memories.id) ASC"
@@ -775,6 +794,7 @@ def build_filters(
     alias: str | None = None,
     connection: sqlite3.Connection | None = None,
     current_database_epoch: str | None = None,
+    exclude_ids: set[str] | None = None,
 ) -> tuple[str, list[Any]]:
     prefix = f"{alias}." if alias else ""
     clauses = [f"{prefix}namespace = ?"]
@@ -806,6 +826,12 @@ def build_filters(
     if tag_filter_sql:
         clauses.append(tag_filter_sql)
         params.extend(tag_params)
+
+    if exclude_ids:
+        excluded = sorted(exclude_ids)
+        placeholders = ", ".join("?" for _ in excluded)
+        clauses.append(f"{prefix}id NOT IN ({placeholders})")
+        params.extend(excluded)
 
     if since is not None:
         since_filter_sql, since_params = build_since_filter(

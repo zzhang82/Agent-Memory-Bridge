@@ -336,7 +336,7 @@ semantic-memory、embedding、FTS、ranking、policy、prompt、ordinary memory 
 automatic writeback。17-tool surface 仍由 `mcp_boundary.PUBLIC_TOOL_ORDER`
 冻结，schema digest 为
 `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`。本地
-suite 报告 `806 tests passed`；这是 local evidence，不是 remote CI、tag、
+suite 报告 `829 tests passed`；这是 local evidence，不是 remote CI、tag、
 publication、host certification、ranking、auto-writeback 或 self-improvement
 claim。
 
@@ -372,7 +372,7 @@ claim。
 | Inherited retrieval receipts and feedback | schema v7；same-snapshot complete exposure sets with exact content versions；可选 model/harness/chat-template digests；append-only vote/correction/retraction history with one effective vote；separate token hash and feedback identity digest |
 | Test suite | 当前源码测试收集数见下方；release gates 包括 raw-wire negotiation、真实 old-client 和 TypeScript client jobs、dual-era operator checks、20-process shared-SQLite proof、100 connect/disconnect cycles，以及继承的 receipt/feedback/migration regressions |
 
-当前源码测试收集数：`806 tests`
+当前源码测试收集数：`829 tests`
 
 <details>
 <summary>Release contract facts</summary>
