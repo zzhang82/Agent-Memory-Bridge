@@ -294,3 +294,86 @@ def test_transient_rendering_redacts_sensitive_session_fields_without_serializin
     assert "[redacted sensitive line]" in rendered
     assert "Use the approved window." in rendered
     assert "never-render" not in manifest.serialize()
+
+
+@pytest.mark.parametrize("missing_key", ["value", "value_hash", "database_epoch"])
+def test_existing_dynamic_state_snapshot_must_be_complete(tmp_path: Path, missing_key: str) -> None:
+    store = _store(tmp_path)
+    report = _governed_report(store, query="checkout release")
+    state = _current_state_snapshot(store)
+    malformed = dict(state)
+    malformed[missing_key] = None
+
+    with pytest.raises(ValueError, match="Dynamic State snapshot"):
+        compile_context(task_memory=report, state_snapshots=[malformed])
+
+
+def test_dynamic_state_snapshot_hash_identity_and_epoch_fail_closed(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    report = _governed_report(store, query="checkout release")
+    state = _current_state_snapshot(store)
+
+    mismatched = dict(state)
+    mismatched["value_hash"] = "0" * 64
+    with pytest.raises(ValueError, match="value_hash mismatch"):
+        compile_context(task_memory=report, state_snapshots=[mismatched])
+
+    with pytest.raises(ValueError, match="duplicate Dynamic State snapshot identity"):
+        compile_context(task_memory=report, state_snapshots=[state, dict(state)])
+
+    different_epoch = dict(state)
+    different_epoch["state_key"] = "release:next"
+    different_epoch["database_epoch"] = "different-epoch"
+    with pytest.raises(ValueError, match="share one database_epoch"):
+        compile_context(task_memory=report, state_snapshots=[state, different_epoch])
+
+
+def test_absent_dynamic_state_remains_an_explicit_nonblocking_omission(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    report = _governed_report(store, query="checkout release")
+    absent = store.dynamic_state.read(workspace_key="project:checkout", state_key="release:absent")
+
+    manifest = compile_context(task_memory=report, state_snapshots=[absent])
+
+    assert manifest.items == ()
+    assert [omission["reason"] for omission in manifest.omissions] == ["state_absent"]
+
+
+def test_input_fingerprint_covers_session_title_and_canonical_memory_digests(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    stored = store.store(
+        namespace="project:checkout",
+        title="Canonical checkout release procedure",
+        content=_procedure_content(goal="Preserve canonical digest semantics during checkout release."),
+        tags=["kind:procedure", "domain:release"],
+    )
+    report = _governed_report(store, query="canonical checkout release")
+
+    first = compile_context(
+        task_memory=report,
+        session_items=[{"title": "Session A", "content": "Same current handoff."}],
+    )
+    second = compile_context(
+        task_memory=report,
+        session_items=[{"title": "Session B", "content": "Same current handoff."}],
+    )
+    report_item = next(
+        item
+        for report_key in (
+            "procedure_hits",
+            "concept_hits",
+            "belief_hits",
+            "domain_hits",
+            "supporting_hits",
+            "corrective_items",
+        )
+        for item in report[report_key]
+        if item["id"] == stored["id"]
+    )
+    reference = next(item for item in first.items if item.item_id == stored["id"])
+
+    assert first.input_fingerprint != second.input_fingerprint
+    assert reference.content_hash == content_hash_for_content(str(report_item["content"]))
+    assert reference.exact_content_hash == exact_content_hash(str(report_item["content"]))
+    assert reference.content_hash
+    assert reference.exact_content_hash

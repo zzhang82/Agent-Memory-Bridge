@@ -199,10 +199,11 @@ def compile_context(
     if isinstance(budget_tokens, bool) or not isinstance(budget_tokens, int) or budget_tokens < 0:
         raise ValueError("budget_tokens must be a non-negative integer")
 
+    validated_state_snapshots = _validate_state_snapshots(state_snapshots)
     omissions: list[dict[str, Any]] = []
     state_items: list[ContextItemRef] = []
     for snapshot in sorted(
-        state_snapshots,
+        validated_state_snapshots,
         key=lambda item: (str(item.get("workspace_key") or ""), str(item.get("state_key") or "")),
     ):
         state_item, omission = _state_candidate(snapshot)
@@ -278,7 +279,7 @@ def compile_context(
         used_tokens += candidate.token_cost
 
     task_identifier_sha256 = _sha256(str(task_memory["query"]))
-    input_fingerprint = _input_fingerprint(task_memory, state_snapshots, session_items)
+    input_fingerprint = _input_fingerprint(task_memory, validated_state_snapshots, session_items)
     return ContextManifest(
         task_identifier_sha256=task_identifier_sha256,
         input_fingerprint=input_fingerprint,
@@ -315,11 +316,49 @@ def _validate_task_memory(task_memory: Mapping[str, Any]) -> None:
             raise ValueError(f"task_memory report field {key!r} must be a list")
 
 
+def _validate_state_snapshots(state_snapshots: Sequence[Mapping[str, Any]]) -> tuple[Mapping[str, Any], ...]:
+    validated: list[Mapping[str, Any]] = []
+    identities: set[tuple[str, str]] = set()
+    database_epochs: set[str] = set()
+    for snapshot in state_snapshots:
+        if not isinstance(snapshot, Mapping):
+            raise TypeError("state_snapshots must contain Dynamic State read mappings")
+        workspace_key = _clean_label(snapshot.get("workspace_key"))
+        state_key = _clean_label(snapshot.get("state_key"))
+        database_epoch = _clean_label(snapshot.get("database_epoch"))
+        exists = snapshot.get("exists")
+        if not workspace_key or not state_key:
+            raise ValueError("Dynamic State snapshot requires workspace_key and state_key")
+        if not isinstance(exists, bool):
+            raise ValueError("Dynamic State snapshot requires boolean exists")
+        if not database_epoch:
+            raise ValueError("Dynamic State snapshot requires database_epoch")
+        identity = (workspace_key, state_key)
+        if identity in identities:
+            raise ValueError("duplicate Dynamic State snapshot identity")
+        identities.add(identity)
+        database_epochs.add(database_epoch)
+        if exists:
+            version = snapshot.get("version")
+            value = snapshot.get("value")
+            value_hash = _clean_label(snapshot.get("value_hash"))
+            if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+                raise ValueError("existing Dynamic State snapshot requires positive integer version")
+            if value is None or not value_hash:
+                raise ValueError("existing Dynamic State snapshot requires value and value_hash")
+            if value_hash != _state_value_hash(value):
+                raise ValueError("Dynamic State snapshot value_hash mismatch")
+        validated.append(snapshot)
+    if len(database_epochs) > 1:
+        raise ValueError("Dynamic State snapshots must share one database_epoch")
+    return tuple(validated)
+
+
 def _state_candidate(snapshot: Mapping[str, Any]) -> tuple[ContextItemRef | None, dict[str, Any] | None]:
     workspace_key = _clean_label(snapshot.get("workspace_key"))
     state_key = _clean_label(snapshot.get("state_key"))
     title_sha256 = _sha256(f"{workspace_key}/{state_key}".strip("/"))
-    if not snapshot.get("exists"):
+    if not snapshot["exists"]:
         return None, _omission(
             source="dynamic_state",
             section="state",
@@ -327,27 +366,10 @@ def _state_candidate(snapshot: Mapping[str, Any]) -> tuple[ContextItemRef | None
             title_sha256=title_sha256,
             reason="state_absent",
         )
-    version = snapshot.get("version")
-    value_hash = _clean_label(snapshot.get("value_hash"))
-    database_epoch = _clean_label(snapshot.get("database_epoch"))
-    value = snapshot.get("value")
-    if not workspace_key or not state_key or isinstance(version, bool) or not isinstance(version, int) or version < 1:
-        return None, _omission(
-            source="dynamic_state",
-            section="state",
-            item_id=None,
-            title_sha256=title_sha256,
-            reason="invalid_state_reference",
-        )
-    if not value_hash or not database_epoch or value is None:
-        return None, _omission(
-            source="dynamic_state",
-            section="state",
-            item_id=None,
-            title_sha256=title_sha256,
-            reason="incomplete_state_reference",
-        )
-    sanitized_value = _sanitize_state_value(value)
+    version = int(snapshot["version"])
+    value_hash = _clean_label(snapshot["value_hash"])
+    database_epoch = _clean_label(snapshot["database_epoch"])
+    sanitized_value = _sanitize_state_value(snapshot["value"])
     text = (
         f"[Authoritative Dynamic State] {workspace_key}/{state_key}\n"
         f"version: {version}\n"
@@ -416,8 +438,8 @@ def _session_candidate(
             title_sha256=title_sha256,
             render_text=text,
             token_cost=_resolve_token_cost(raw_cost, text),
-            content_hash=_sha256(content),
-            exact_content_hash=_sha256(_normalize_content(content)),
+            content_hash=_content_digests(content)[0],
+            exact_content_hash=_content_digests(content)[1],
             provenance=provenance,
         ),
         None,
@@ -453,6 +475,7 @@ def _task_memory_candidate(
     task_metadata = raw_item.get("task_memory")
     selection = task_metadata if isinstance(task_metadata, Mapping) else {}
     raw_content = str(raw_item.get("content") or "")
+    content_hash, exact_hash = _content_digests(raw_content)
     return (
         ContextItemRef(
             source="task_memory",
@@ -461,8 +484,8 @@ def _task_memory_candidate(
             title_sha256=title_sha256,
             render_text=text,
             token_cost=_resolve_token_cost(raw_item.get("token_cost"), text),
-            content_hash=_clean_label(raw_item.get("content_hash")) or content_hash_for_content(raw_content),
-            exact_content_hash=_clean_label(raw_item.get("exact_content_hash")) or exact_content_hash(raw_content),
+            content_hash=_clean_label(raw_item.get("content_hash")) or content_hash,
+            exact_content_hash=_clean_label(raw_item.get("exact_content_hash")) or exact_hash,
             selected_as=_clean_label(selection.get("selected_as")) or None,
             selection_score=_finite_score(selection.get("score")),
             selection_reasons=tuple(
@@ -567,15 +590,7 @@ def _input_fingerprint(
         "assembly_mode": task_memory["assembly_mode"],
         "task_identifier_sha256": _sha256(str(task_memory["query"])),
         "task_items": [
-            {
-                "section": section,
-                "id": _clean_label(item.get("id")) if isinstance(item, Mapping) else None,
-                "exact_content_hash": _clean_label(item.get("exact_content_hash"))
-                if isinstance(item, Mapping)
-                else None,
-                "content_hash": _clean_label(item.get("content_hash")) if isinstance(item, Mapping) else None,
-                "selection": item.get("task_memory") if isinstance(item, Mapping) else None,
-            }
+            _task_memory_fingerprint_payload(item, section)
             for report_key, section in _TASK_MEMORY_SECTIONS
             for item in task_memory[report_key]
         ],
@@ -588,31 +603,60 @@ def _input_fingerprint(
             for item in task_memory["suppressed_items"]
             if isinstance(item, Mapping)
         ],
-        "state_refs": [
-            {
-                "workspace_key": _clean_label(item.get("workspace_key")),
-                "state_key": _clean_label(item.get("state_key")),
-                "version": item.get("version"),
-                "value_hash": _clean_label(item.get("value_hash")),
-                "database_epoch": _clean_label(item.get("database_epoch")),
-                "exists": bool(item.get("exists")),
-            }
-            for item in state_snapshots
-        ],
+        "state_refs": [_state_fingerprint_payload(item) for item in state_snapshots],
         "session_refs": [_session_fingerprint_payload(item, index) for index, item in enumerate(session_items)],
     }
     return _sha256(_canonical_json(payload))
 
 
+def _task_memory_fingerprint_payload(item: object, section: str) -> dict[str, Any]:
+    if not isinstance(item, Mapping):
+        return {"section": section, "invalid": True}
+    raw_content = str(item.get("content") or "")
+    content_hash, exact_hash = _content_digests(raw_content)
+    task_metadata = item.get("task_memory")
+    return {
+        "section": section,
+        "id": _clean_label(item.get("id")),
+        "title_sha256": _sha256(_sanitize_text(str(item.get("title") or item.get("id") or ""))),
+        "content_hash": _clean_label(item.get("content_hash")) or content_hash,
+        "exact_content_hash": _clean_label(item.get("exact_content_hash")) or exact_hash,
+        "selection": task_metadata if isinstance(task_metadata, Mapping) else {},
+        "provenance": dict(_provenance(item)),
+        "token_cost": item.get("token_cost"),
+    }
+
+
+def _state_fingerprint_payload(item: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "workspace_key": _clean_label(item.get("workspace_key")),
+        "state_key": _clean_label(item.get("state_key")),
+        "version": item.get("version"),
+        "value_hash": _clean_label(item.get("value_hash")),
+        "database_epoch": _clean_label(item.get("database_epoch")),
+        "exists": bool(item.get("exists")),
+    }
+
+
 def _session_fingerprint_payload(item: Mapping[str, Any] | str, index: int) -> dict[str, Any]:
     if isinstance(item, str):
-        return {"position": index, "content_sha256": _sha256(item)}
+        content_hash, exact_hash = _content_digests(item)
+        return {
+            "position": index,
+            "title_sha256": _sha256(f"session-{index + 1}"),
+            "content_hash": content_hash,
+            "exact_content_hash": exact_hash,
+        }
     if isinstance(item, Mapping):
         content = str(item.get("content") or item.get("text") or "")
+        content_hash, exact_hash = _content_digests(content)
+        title = _sanitize_text(str(item.get("title") or item.get("label") or f"session-{index + 1}"))
         return {
             "position": index,
             "id": _clean_label(item.get("id")),
-            "content_sha256": _sha256(content),
+            "title_sha256": _sha256(title),
+            "content_hash": content_hash,
+            "exact_content_hash": exact_hash,
             "token_cost": item.get("token_cost"),
             "provenance": dict(_provenance(item)),
         }
@@ -640,6 +684,15 @@ def _omission(
     return omission
 
 
+def _content_digests(value: str) -> tuple[str, str]:
+    content = str(value)
+    return content_hash_for_content(content), exact_content_hash(content)
+
+
+def _state_value_hash(value: object) -> str:
+    return _sha256(_canonical_json(value))
+
+
 def _normalize_content(value: str) -> str:
     return str(value).replace("\r\n", "\n").replace("\r", "\n")
 
@@ -660,7 +713,7 @@ def _section_label(section: str) -> str:
 
 
 def _canonical_json(payload: object) -> str:
-    return json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    return json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True, allow_nan=False)
 
 
 def _sha256(value: str) -> str:
