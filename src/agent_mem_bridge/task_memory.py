@@ -51,6 +51,10 @@ DEPENDENCY_BLOCKING_REASONS = {
     "depends_on:ineligible",
     "depends_on:unresolved",
     "lineage_status:degraded",
+    "superseded_revision",
+    "procedure_status:unsafe",
+    "procedure_status:stale",
+    "procedure_status:replaced",
 }
 MAX_RELATION_TRAVERSAL_DEPTH = 8
 MAX_RELATION_GRAPH_RECORDS = 96
@@ -580,33 +584,39 @@ def _fetch_eligible_items_by_id(
     procedure-status-ineligible records are dropped here and reported in the
     flat suppression list instead of becoming actionable support records.
     """
-    items: list[dict[str, Any]] = []
-    if not ids:
-        return items, []
+    eligible: list[dict[str, Any]] = []
+    suppressed: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    if not ids or limit <= 0:
+        return eligible, suppressed
     with store._connect() as conn:
-        for memory_id in ids[:limit]:
+        for memory_id in ids:
+            if len(eligible) >= limit:
+                break
             row = fetch_row_by_id(conn, memory_id)
             if row is None:
                 continue
-            items.append(MemoryRow.from_sqlite(row).as_dict())
-        reasons = direct_lookup_ineligibility_reasons(store, items, connection=conn)
-    if not reasons:
-        return items, []
-    eligible = [item for item in items if _item_id(item) not in reasons]
-    suppressed = [
-        {
-            "id": _item_id(item),
-            "title": item.get("title"),
-            "section": "support",
-            "reason": reasons[_item_id(item)],
-            "by_id": None,
-            "by_title": None,
-            "by_record_type": None,
-            "score": None,
-        }
-        for item in items
-        if _item_id(item) in reasons
-    ]
+            item = MemoryRow.from_sqlite(row).as_dict()
+            item_id = _item_id(item)
+            if not item_id or item_id in seen_ids:
+                continue
+            seen_ids.add(item_id)
+            reason = direct_lookup_ineligibility_reasons(store, [item], connection=conn).get(item_id)
+            if reason is None:
+                eligible.append(item)
+                continue
+            suppressed.append(
+                {
+                    "id": item_id,
+                    "title": item.get("title"),
+                    "section": "support",
+                    "reason": reason,
+                    "by_id": None,
+                    "by_title": None,
+                    "by_record_type": None,
+                    "score": None,
+                }
+            )
     return eligible, suppressed
 
 

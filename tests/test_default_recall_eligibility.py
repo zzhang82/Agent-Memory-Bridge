@@ -555,7 +555,7 @@ def test_semantic_and_hybrid_recall_cannot_reintroduce_ineligible_procedures(
     assert exposure_ids == returned_ids
 
 
-def test_relation_expansion_cannot_reintroduce_revision_predecessor(tmp_path: Path) -> None:
+def test_relation_expansion_suppresses_dependent_of_revision_predecessor(tmp_path: Path) -> None:
     store = _store(tmp_path)
     predecessor = store.store(
         namespace="project:checkout",
@@ -564,11 +564,12 @@ def test_relation_expansion_cannot_reintroduce_revision_predecessor(tmp_path: Pa
         content="legacy dependency guidance for checkout rollout",
     )
     predecessor_id = str(predecessor["id"])
-    store.revise(
+    revision = store.revise(
         predecessor_id,
         replacement_content="corrected dependency guidance for checkout rollout",
         title="Corrected checkout rollout dependency",
     )
+    successor_id = str(revision["successor_id"])
     anchor = store.store(
         namespace="project:checkout",
         kind="memory",
@@ -589,27 +590,48 @@ def test_relation_expansion_cannot_reintroduce_revision_predecessor(tmp_path: Pa
         query="checkout rollout",
         project_namespace="project:checkout",
     )
+    default_recall = store.recall(namespace="project:checkout", query="checkout rollout", limit=5)
+    historical_recall = store.recall(
+        namespace="project:checkout",
+        query="checkout rollout",
+        limit=5,
+        eligibility="historical",
+    )
 
     actionable = _actionable_ids(report)
     assert predecessor_id not in actionable
-    assert [str(item["id"]) for item in report["procedure_hits"]] == [str(anchor["id"])]
+    assert str(anchor["id"]) not in actionable
+    assert [str(item["id"]) for item in report["procedure_hits"]] == []
     assert [str(item["id"]) for item in report["supporting_hits"]] == []
-    suppressed_by_id = {str(entry["id"]): str(entry["reason"]) for entry in report["suppressed_items"]}
-    assert suppressed_by_id[predecessor_id] == "superseded_revision"
+    suppressed_by_id = {str(entry["id"]): entry for entry in report["suppressed_items"]}
+    assert suppressed_by_id[predecessor_id]["reason"] == "superseded_revision"
+    assert suppressed_by_id[str(anchor["id"])]["reason"] == "depends_on:ineligible"
+    assert suppressed_by_id[str(anchor["id"])]["by_id"] == predecessor_id
+    assert successor_id in _ids(default_recall)
+    assert {predecessor_id, successor_id} <= set(_ids(historical_recall))
+    with store._connect() as conn:
+        persisted_anchor = fetch_row_by_id(conn, str(anchor["id"]))
+    assert persisted_anchor is not None
+    assert f"depends_on: {predecessor_id}" in str(persisted_anchor["content"])
+    assert successor_id not in str(persisted_anchor["content"])
 
 
-def test_relation_expansion_cannot_reintroduce_ineligible_procedure(tmp_path: Path) -> None:
+@pytest.mark.parametrize("status", ["unsafe", "stale", "replaced"])
+def test_relation_expansion_suppresses_dependent_of_ineligible_procedure(
+    tmp_path: Path,
+    status: str,
+) -> None:
     store = _store(tmp_path)
-    unsafe = store.store(
+    ineligible = store.store(
         namespace="project:checkout",
         kind="memory",
-        title="[[Procedure]] midnight migration shortcut",
+        title=f"[[Procedure]] {status} midnight migration shortcut",
         content=(
             "record_type: procedure\n"
             "goal: Run the midnight migration shortcut.\n"
             "when_to_use: Never in production work.\n"
             "steps: skip checks | force migrate\n"
-            "procedure_status: unsafe\n"
+            f"procedure_status: {status}\n"
         ),
         tags=["kind:procedure"],
     )
@@ -623,7 +645,7 @@ def test_relation_expansion_cannot_reintroduce_ineligible_procedure(tmp_path: Pa
             "when_to_use: During a release cutover.\n"
             "steps: verify release | run cutover\n"
             "procedure_status: validated\n"
-            f"depends_on: {unsafe['id']}\n"
+            f"depends_on: {ineligible['id']}\n"
         ),
         tags=["kind:procedure"],
     )
@@ -635,10 +657,50 @@ def test_relation_expansion_cannot_reintroduce_ineligible_procedure(tmp_path: Pa
     )
 
     actionable = _actionable_ids(report)
-    assert str(unsafe["id"]) not in actionable
+    assert str(ineligible["id"]) not in actionable
+    assert str(anchor["id"]) not in actionable
+    assert [str(item["id"]) for item in report["procedure_hits"]] == []
+    suppressed_by_id = {str(entry["id"]): entry for entry in report["suppressed_items"]}
+    assert suppressed_by_id[str(ineligible["id"])]["reason"] == f"procedure_status:{status}"
+    assert suppressed_by_id[str(anchor["id"])]["reason"] == "depends_on:ineligible"
+    assert suppressed_by_id[str(anchor["id"])]["by_id"] == str(ineligible["id"])
+
+
+def test_relation_expansion_does_not_treat_supports_as_a_hard_dependency(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    unsafe = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="[[Procedure]] unsafe release support",
+        content=_procedure_content("unsafe", "unsafe release support"),
+        tags=["kind:procedure"],
+    )
+    anchor = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="[[Procedure]] release cutover supported path",
+        content=(
+            "record_type: procedure\n"
+            "goal: Run the release cutover procedure.\n"
+            "when_to_use: During a release cutover.\n"
+            "steps: verify release | run cutover\n"
+            "procedure_status: validated\n"
+            f"supports: {unsafe['id']}\n"
+        ),
+        tags=["kind:procedure"],
+    )
+
+    report = assemble_task_memory(
+        store,
+        query="release cutover",
+        project_namespace="project:checkout",
+    )
+
+    assert str(anchor["id"]) in _actionable_ids(report)
     assert [str(item["id"]) for item in report["procedure_hits"]] == [str(anchor["id"])]
-    suppressed_by_id = {str(entry["id"]): str(entry["reason"]) for entry in report["suppressed_items"]}
-    assert suppressed_by_id[str(unsafe["id"])] == "procedure_status:unsafe"
+    suppressed_by_id = {str(entry["id"]): entry for entry in report["suppressed_items"]}
+    assert suppressed_by_id[str(unsafe["id"])]["reason"] == "procedure_status:unsafe"
+    assert str(anchor["id"]) not in suppressed_by_id
 
 
 def test_flat_task_memory_suppresses_ineligible_procedures_without_task_domain(tmp_path: Path) -> None:
@@ -670,48 +732,73 @@ def test_flat_task_memory_suppresses_ineligible_procedures_without_task_domain(t
     assert suppressed_by_id[str(unsafe["id"])] == "procedure_status:unsafe"
 
 
-def test_flat_supporting_fetch_cannot_reintroduce_revision_predecessor(tmp_path: Path) -> None:
+def test_flat_supporting_fetch_refills_limit_after_ineligible_records(tmp_path: Path) -> None:
     store = _store(tmp_path)
     predecessor = store.store(
         namespace="project:checkout",
         kind="memory",
-        title="Legacy checkout deployment dependency",
-        content="legacy dependency guidance for checkout deployment",
+        title="Legacy checkout support dependency",
+        content="legacy checkout support guidance",
     )
     predecessor_id = str(predecessor["id"])
     store.revise(
         predecessor_id,
-        replacement_content="corrected dependency guidance for checkout deployment",
-        title="Corrected checkout deployment dependency",
+        replacement_content="corrected checkout support guidance",
+        title="Corrected checkout support dependency",
+    )
+    unsafe = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="[[Procedure]] unsafe checkout support",
+        content=_procedure_content("unsafe", "unsafe checkout support"),
+        tags=["kind:procedure"],
+    )
+    eligible_a = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="Eligible checkout support A",
+        content="current checkout support alpha",
+    )
+    eligible_b = store.store(
+        namespace="project:checkout",
+        kind="memory",
+        title="Eligible checkout support B",
+        content="current checkout support beta",
     )
     anchor = store.store(
         namespace="project:checkout",
         kind="memory",
-        title="[[Procedure]] checkout deployment validated path",
+        title="[[Procedure]] checkout support scan path",
         content=(
             "record_type: procedure\n"
-            "goal: Run the checkout deployment procedure.\n"
-            "when_to_use: During a checkout deployment.\n"
-            "steps: read dependency | deploy checkout\n"
+            "goal: Run the checkout support scan.\n"
+            "when_to_use: During a checkout support scan.\n"
+            "steps: collect support | verify support\n"
             "procedure_status: validated\n"
-            f"depends_on: {predecessor_id}\n"
+            f"depends_on: {predecessor_id} | {unsafe['id']}\n"
+            f"supports: {eligible_a['id']} | {eligible_b['id']}\n"
         ),
         tags=["kind:procedure"],
     )
 
     report = assemble_task_memory(
         store,
-        query="checkout deployment",
+        query="checkout support scan",
         project_namespace="project:checkout",
         relation_aware=False,
+        support_limit=2,
     )
 
-    actionable = _actionable_ids(report)
-    assert predecessor_id not in actionable
     assert [str(item["id"]) for item in report["procedure_hits"]] == [str(anchor["id"])]
-    assert [str(item["id"]) for item in report["supporting_hits"]] == []
+    assert [str(item["id"]) for item in report["supporting_hits"]] == [
+        str(eligible_a["id"]),
+        str(eligible_b["id"]),
+    ]
+    supporting_ids = [str(item["id"]) for item in report["supporting_hits"]]
+    assert len(supporting_ids) == len(set(supporting_ids))
     suppressed_by_id = {str(entry["id"]): str(entry["reason"]) for entry in report["suppressed_items"]}
     assert suppressed_by_id[predecessor_id] == "superseded_revision"
+    assert suppressed_by_id[str(unsafe["id"])] == "procedure_status:unsafe"
 
 
 @pytest.mark.parametrize("retrieval_mode", ["semantic", "hybrid"])
