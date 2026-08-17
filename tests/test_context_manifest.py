@@ -4,7 +4,11 @@ import json
 from pathlib import Path
 from typing import Any
 
-from agent_mem_bridge.context_manifest import ContextManifest, compile_context, render_context
+import pytest
+
+from agent_mem_bridge.context_manifest import compile_context, render_context
+from agent_mem_bridge.repository import content_hash_for_content
+from agent_mem_bridge.schema import exact_content_hash
 from agent_mem_bridge.storage import MemoryStore
 from agent_mem_bridge.task_memory import assemble_task_memory
 
@@ -13,235 +17,280 @@ def _store(tmp_path: Path) -> MemoryStore:
     return MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
 
 
-def _procedure_content(status: str, label: str) -> str:
+def _governed_report(store: MemoryStore, *, query: str) -> dict[str, Any]:
+    return assemble_task_memory(
+        store,
+        query=query,
+        project_namespace="project:checkout",
+        global_namespace="global",
+        task_domain="release",
+    )
+
+
+def _procedure_content(
+    *,
+    status: str = "validated",
+    goal: str = "Run the checkout release.",
+) -> str:
     return (
         "record_type: procedure\n"
-        f"goal: Execute the {label} checkout deployment procedure.\n"
-        "when_to_use: Before a production checkout deployment.\n"
-        "steps: verify deployment | deploy checkout | validate checkout\n"
+        f"goal: {goal}\n"
+        "when_to_use: During a checked release window.\n"
+        "when_not_to_use: When the release state is draft.\n"
+        "prerequisites: approved change ticket | verified backup\n"
+        "steps: verify state | deploy | validate\n"
+        "failure_mode: Deploying in draft state can publish an unsafe release.\n"
+        "rollback_path: Restore the prior release.\n"
         f"procedure_status: {status}\n"
     )
 
 
-def _current_state_snapshot(store: MemoryStore) -> dict[str, Any]:
+def _current_state_snapshot(store: MemoryStore, *, status: str = "draft") -> dict[str, Any]:
     absent = store.dynamic_state.read(workspace_key="project:checkout", state_key="release:current")
     store.dynamic_state.transition_status(
         workspace_key="project:checkout",
         state_key="release:current",
-        to_status="draft",
+        to_status=status,
         expected_version=0,
         expected_database_epoch=str(absent["database_epoch"]),
-        idempotency_key="context-manifest:state-draft",
+        idempotency_key=f"context-manifest:state:{status}",
         provenance={"actor": "context-manifest-test"},
     )
     return store.dynamic_state.read(workspace_key="project:checkout", state_key="release:current")
 
 
-def _empty_sections(*, query: str) -> dict[str, object]:
-    return {
-        "query": query,
-        "procedure_hits": [],
-        "concept_hits": [],
-        "belief_hits": [],
-        "domain_hits": [],
-        "supporting_hits": [],
-        "corrective_items": [],
-        "suppressed_items": [],
-    }
+def _first_item(manifest: Any, *, source: str) -> dict[str, Any]:
+    serialized = manifest.to_dict()
+    return next(item for item in serialized["items"] if item["source"] == source)
 
 
-def test_compile_context_consumes_governed_task_memory_and_state_references(tmp_path: Path) -> None:
+def test_authoritative_state_value_renders_before_conflicting_memory_and_tiny_budget_fails_closed(
+    tmp_path: Path,
+) -> None:
     store = _store(tmp_path)
-    predecessor = store.store(
-        namespace="project:checkout",
-        title="Obsolete checkout procedure",
-        content=_procedure_content("validated", "obsolete"),
-        tags=["kind:procedure"],
+    stale_memory = store.store(
+        namespace="global",
+        title="Published release guidance",
+        content="record_type: concept-note\nclaim: release status is published for the checkout rollout.\n",
+        tags=["kind:concept-note"],
     )
-    revision = store.revise(
-        str(predecessor["id"]),
-        replacement_content=_procedure_content("validated", "current"),
-        title="Current checkout procedure",
+    state = _current_state_snapshot(store, status="draft")
+    report = _governed_report(store, query="checkout rollout release status")
+
+    unconstrained = compile_context(task_memory=report, state_snapshots=[state], budget_tokens=2_048)
+    state_item = unconstrained.items[0]
+    constrained = compile_context(
+        task_memory=report,
+        state_snapshots=[state],
+        budget_tokens=state_item.token_cost,
     )
-    unsafe = store.store(
-        namespace="project:checkout",
-        title="Unsafe checkout procedure",
-        content=_procedure_content("unsafe", "unsafe"),
-        tags=["kind:procedure"],
+    rendered = render_context(unconstrained)
+
+    assert state_item.source == "dynamic_state"
+    assert '"status":"draft"' in rendered
+    assert "release status is published" in rendered
+    assert [item.source for item in constrained.items] == ["dynamic_state"]
+    assert str(stale_memory["id"]) not in {item.item_id for item in constrained.items}
+    assert any(omission["reason"] == "budget_exceeded" for omission in constrained.omissions)
+    with pytest.raises(ValueError, match="cannot fit required Dynamic State"):
+        compile_context(
+            task_memory=report,
+            state_snapshots=[state],
+            budget_tokens=state_item.token_cost - 1,
+        )
+
+
+def test_serialized_manifest_is_metadata_only_while_rendered_context_stays_transient(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    query = "confidential launch identifier zeta-42"
+    memory_body = "confidential launch identifier zeta-42 memory instruction"
+    store.store(
+        namespace="global",
+        title="Confidential launch guidance",
+        content=f"record_type: concept-note\nclaim: {memory_body}\n",
+        tags=["kind:concept-note"],
     )
-    snapshot = _current_state_snapshot(store)
-    report = assemble_task_memory(
-        store,
-        query="checkout deployment procedure",
-        project_namespace="project:checkout",
-        task_domain="release",
-    )
+    state = _current_state_snapshot(store)
+    session_body = "session-local body that must never be archived"
+    report = _governed_report(store, query=query)
 
     manifest = compile_context(
         task_memory=report,
-        state_snapshots=[snapshot],
-        session_items=[{"title": "handoff", "content": "Operator confirmed the checkout window."}],
-        budget_chars=8_000,
+        state_snapshots=[state],
+        session_items=[{"title": "handoff", "content": session_body}],
+    )
+    serialized = manifest.serialize()
+    rendered = render_context(manifest)
+    payload = json.loads(serialized)
+
+    assert query not in serialized
+    assert memory_body not in serialized
+    assert session_body not in serialized
+    assert '"status":"draft"' not in serialized
+    assert memory_body in rendered
+    assert session_body in rendered
+    assert '"status":"draft"' in rendered
+    assert payload["rendered_context_sha256"] == manifest.rendered_context_sha256
+    assert payload["task_identifier_sha256"] != query
+    assert "render_text" not in serialized
+    assert "render_text" not in json.dumps(payload["items"], sort_keys=True)
+
+
+def test_manifest_retains_content_versions_provenance_and_selection_metadata(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    stored = store.store(
+        namespace="project:checkout",
+        title="Approved checkout procedure",
+        content=_procedure_content(),
+        tags=["kind:procedure", "domain:release"],
+        actor="release-owner",
+        source_client="pytest-client",
+        source_model="fixture-model",
+        client_session_id="session-123",
+        client_workspace="checkout-workspace",
+    )
+    report = _governed_report(store, query="checkout release")
+
+    manifest = compile_context(task_memory=report)
+    report_procedure = next(item for item in report["procedure_hits"] if item["id"] == stored["id"])
+    procedure = next(item for item in manifest.items if item.item_id == str(stored["id"]))
+    metadata = _first_item(manifest, source="task_memory")
+
+    assert procedure.content_hash == content_hash_for_content(str(report_procedure["content"]))
+    assert procedure.exact_content_hash == exact_content_hash(str(report_procedure["content"]))
+    assert procedure.selected_as == "procedure-anchor"
+    assert procedure.selection_score is not None
+    assert "direct:procedure" in procedure.selection_reasons
+    assert dict(procedure.provenance) == {
+        "actor": "release-owner",
+        "source_client": "pytest-client",
+        "source_model": "fixture-model",
+        "client_session_id": "session-123",
+        "client_workspace": "checkout-workspace",
+    }
+    assert metadata["exact_content_hash"] == exact_content_hash(str(report_procedure["content"]))
+    assert metadata["selection"]["selected_as"] == "procedure-anchor"
+    assert metadata["provenance"]["source_client"] == "pytest-client"
+    assert manifest.compiler_version
+    assert manifest.selection_policy_version
+    assert len(manifest.input_fingerprint) == 64
+
+
+def test_compiler_requires_relation_aware_governed_report_and_preserves_procedure_safety_fields(
+    tmp_path: Path,
+) -> None:
+    store = _store(tmp_path)
+    store.store(
+        namespace="project:checkout",
+        title="Approved checkout procedure",
+        content=_procedure_content(),
+        tags=["kind:procedure", "domain:release"],
+    )
+    governed = _governed_report(store, query="checkout release")
+    flat = assemble_task_memory(
+        store,
+        query="checkout release",
+        project_namespace="project:checkout",
+        global_namespace="global",
+        relation_aware=False,
+        task_domain="release",
+    )
+
+    rendered = render_context(compile_context(task_memory=governed))
+
+    assert "when_not_to_use: When the release state is draft." in rendered
+    assert "prerequisites: approved change ticket | verified backup" in rendered
+    with pytest.raises(ValueError, match="relation-aware"):
+        compile_context(task_memory=flat)
+    with pytest.raises(ValueError, match="project_namespace"):
+        compile_context(task_memory={"assembly_mode": "relation-aware", "query": "missing"})
+
+
+def test_governed_suppression_and_current_session_parity_are_inherited_without_retrieval(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    predecessor = store.store(
+        namespace="project:checkout",
+        title="Old checkout release procedure",
+        content=_procedure_content(goal="Run the old checkout release."),
+        tags=["kind:procedure", "domain:release"],
+    )
+    revision = store.revise(
+        str(predecessor["id"]),
+        replacement_content=_procedure_content(goal="Run the current checkout release."),
+        title="Current checkout release procedure",
+    )
+    unsafe = store.store(
+        namespace="project:checkout",
+        title="Unsafe checkout release procedure",
+        content=_procedure_content(status="unsafe", goal="Skip release checks."),
+        tags=["kind:procedure", "domain:release"],
+    )
+    report = _governed_report(store, query="checkout release")
+
+    manifest = compile_context(
+        task_memory=report,
+        session_items=[{"title": "current handoff", "content": "Use the current release window.", "token_cost": 3}],
+        budget_tokens=2_048,
     )
     rendered = render_context(manifest)
     selected_ids = {item.item_id for item in manifest.items if item.item_id}
-    omitted_reasons = {str(item["reason"]) for item in manifest.omissions}
-    state_items = [item for item in manifest.items if item.source == "dynamic_state"]
+    omissions = {str(item["reason"]) for item in manifest.omissions}
 
     assert str(predecessor["id"]) not in selected_ids
     assert str(unsafe["id"]) not in selected_ids
     assert str(revision["successor_id"]) in selected_ids
-    assert "governed_suppressed:superseded_revision" in omitted_reasons
-    assert "governed_suppressed:procedure_status:unsafe" in omitted_reasons
-    assert len(state_items) == 1
-    assert state_items[0].workspace_key == snapshot["workspace_key"]
-    assert state_items[0].state_key == snapshot["state_key"]
-    assert state_items[0].version == snapshot["version"]
-    assert state_items[0].value_hash == snapshot["value_hash"]
-    assert state_items[0].database_epoch == snapshot["database_epoch"]
-    assert str(snapshot["value"]["status"]) not in rendered
-    assert "Operator confirmed the checkout window." in rendered
+    assert "governed_suppressed:superseded_revision" in omissions
+    assert "governed_suppressed:procedure_status:unsafe" in omissions
+    assert rendered.startswith("[Session] current handoff")
+    assert "Use the current release window." in rendered
+    assert next(item for item in manifest.items if item.source == "session").token_cost == 3
 
 
-def test_compile_context_is_reproducible_and_serializes_deterministically() -> None:
-    task_memory = _empty_sections(query="release cutover")
-    task_memory["procedure_hits"] = [
-        {
-            "id": "procedure:cutover",
-            "title": "Release cutover",
-            "procedure": {"goal": "Run cutover.", "steps": ["verify", "deploy"]},
-        }
-    ]
-    state = {
-        "workspace_key": "project:checkout",
-        "state_key": "release:current",
-        "version": 4,
-        "value_hash": "a" * 64,
-        "database_epoch": "epoch-1",
-        "exists": True,
-    }
-    session_items = [{"title": "handoff", "content": "Owner is on call."}]
+def test_token_budget_is_deterministic_for_cjk_and_session_cost_override(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    report = _governed_report(store, query="发布")
+    session = {"title": "中文", "content": "当前发布窗口", "token_cost": 4}
 
-    first = compile_context(
-        task_memory=task_memory,
-        state_snapshots=[state],
-        session_items=session_items,
-        budget_chars=8_000,
-    )
-    second = compile_context(
-        task_memory=task_memory,
-        state_snapshots=[state],
-        session_items=session_items,
-        budget_chars=8_000,
-    )
+    first = compile_context(task_memory=report, session_items=[session], budget_tokens=4)
+    second = compile_context(task_memory=report, session_items=[session], budget_tokens=4)
 
-    assert isinstance(first, ContextManifest)
     assert first == second
-    assert first.fingerprint == second.fingerprint
-    assert first.serialize() == second.serialize()
-    assert render_context(first) == render_context(second)
-    assert json.loads(first.serialize())["fingerprint"] == first.fingerprint
-    assert all(len(item.fingerprint) == 64 for item in first.items)
+    assert first.used_tokens == 4
+    assert first.remaining_tokens == 0
+    assert render_context(first) == "[Session] 中文\n当前发布窗口"
+    with pytest.raises(ValueError, match="token_cost"):
+        compile_context(
+            task_memory=report,
+            session_items=[{"title": "bad", "content": "cost", "token_cost": -1}],
+        )
 
 
-def test_compile_context_applies_budget_in_fixed_input_order_and_records_omissions() -> None:
-    task_memory = _empty_sections(query="budget")
-    task_memory["procedure_hits"] = [
-        {
-            "id": "procedure:one",
-            "title": "First procedure",
-            "procedure": {"goal": "Keep the first item."},
-        },
-        {
-            "id": "procedure:two",
-            "title": "Second procedure",
-            "procedure": {"goal": "This item must be omitted by budget."},
-        },
-    ]
-    unconstrained = compile_context(task_memory=task_memory, budget_chars=8_000)
-    first_item_budget = unconstrained.items[0].char_count
-
-    manifest = compile_context(task_memory=task_memory, budget_chars=first_item_budget)
-
-    assert [item.item_id for item in manifest.items] == ["procedure:one"]
-    assert manifest.used_chars == first_item_budget
-    assert manifest.remaining_chars == 0
-    assert any(
-        omission["id"] == "procedure:two" and omission["reason"] == "budget_exceeded" for omission in manifest.omissions
-    )
-    assert render_context(manifest) == manifest.items[0].text
-
-
-def test_compile_context_redacts_sensitive_lines_and_never_renders_state_values() -> None:
-    task_memory = _empty_sections(query="sanitized")
-    task_memory["concept_hits"] = [
-        {
-            "id": "concept:credential-hygiene",
-            "title": "Credential hygiene",
-            "content": "Keep this guidance.\napi_key: do-not-render\nContinue safely.",
-        }
-    ]
-    state = {
-        "workspace_key": "project:checkout",
-        "state_key": "release:current",
-        "version": 1,
-        "value": {"owner": "private-owner", "status": "draft"},
-        "value_hash": "b" * 64,
-        "database_epoch": "epoch-2",
-        "exists": True,
-    }
+def test_compile_context_is_transient_and_does_not_read_or_write_storage(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    report = _governed_report(store, query="transient")
+    before = store.stats(namespace="project:checkout")
 
     manifest = compile_context(
-        task_memory=task_memory,
-        state_snapshots=[state],
-        session_items=[{"title": "handoff", "content": "token: do-not-render\nSafe handoff note."}],
+        task_memory=report,
+        session_items=["Only an explicit session-local item."],
+    )
+
+    after = store.stats(namespace="project:checkout")
+    assert before == after
+    assert render_context(manifest) == "[Session] session-1\nOnly an explicit session-local item."
+
+
+def test_transient_rendering_redacts_sensitive_session_fields_without_serializing_them(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    report = _governed_report(store, query="sanitized handoff")
+
+    manifest = compile_context(
+        task_memory=report,
+        session_items=[{"title": "handoff", "content": "api_key: never-render\nUse the approved window."}],
     )
     rendered = render_context(manifest)
 
-    assert "do-not-render" not in rendered
-    assert "private-owner" not in rendered
-    assert "status: draft" not in rendered
-    assert rendered.count("[redacted sensitive line]") == 2
-    assert "Safe handoff note." in rendered
-    assert manifest.serialize().count("do-not-render") == 0
-
-
-def test_compile_context_reports_absent_or_incomplete_state_references_without_copying_state() -> None:
-    manifest = compile_context(
-        task_memory=_empty_sections(query="state"),
-        state_snapshots=[
-            {
-                "workspace_key": "project:checkout",
-                "state_key": "release:absent",
-                "exists": False,
-                "database_epoch": "epoch-3",
-            },
-            {
-                "workspace_key": "project:checkout",
-                "state_key": "release:broken",
-                "version": 2,
-                "exists": True,
-                "value_hash": None,
-                "database_epoch": "epoch-3",
-            },
-        ],
-    )
-
-    assert manifest.items == ()
-    assert {str(omission["reason"]) for omission in manifest.omissions} == {
-        "state_absent",
-        "incomplete_state_reference",
-    }
-
-
-def test_compile_context_never_reads_or_persists_through_memory_store(tmp_path: Path) -> None:
-    store = _store(tmp_path)
-    before = store.stats(namespace="project:checkout")
-    manifest = compile_context(
-        task_memory=_empty_sections(query="transient"),
-        session_items=["Only an explicit session-local item."],
-    )
-    after = store.stats(namespace="project:checkout")
-
-    assert render_context(manifest) == "[Session] session-1\nOnly an explicit session-local item."
-    assert before == after
+    assert "never-render" not in rendered
+    assert "[redacted sensitive line]" in rendered
+    assert "Use the approved window." in rendered
+    assert "never-render" not in manifest.serialize()

@@ -1,9 +1,10 @@
 """Transient deterministic context manifests over governed task-memory inputs.
 
-The Context Compiler is deliberately a derived-view layer. It receives an already
-assembled task-memory report, exact Dynamic State read snapshots, and explicit
-session-local items; it never queries storage, ranks records, or persists a
-manifest. This preserves task-memory as the single governed retrieval path.
+The Context Compiler is a derived-view boundary. It receives an already
+relation-aware task-memory report, exact Dynamic State read snapshots, and
+explicit session-local items. It never queries storage, ranks records, or
+persists a manifest. Render text exists only in-process; serialized manifests
+contain source references, digests, governance metadata, and selection facts.
 """
 
 from __future__ import annotations
@@ -14,7 +15,11 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-_MANIFEST_VERSION = "context-manifest-v1"
+from .repository import content_hash_for_content
+from .schema import exact_content_hash
+
+COMPILER_VERSION = "context-compiler-v1"
+SELECTION_POLICY_VERSION = "session-1-governed-token-budget-v1"
 _TASK_MEMORY_SECTIONS = (
     ("procedure_hits", "procedure"),
     ("concept_hits", "concept"),
@@ -23,22 +28,42 @@ _TASK_MEMORY_SECTIONS = (
     ("supporting_hits", "support"),
     ("corrective_items", "corrective"),
 )
-_SENSITIVE_LINE_PATTERN = re.compile(
-    r"^\s*(?:api[ _-]?key|authorization|cookie|credential|password|secret|session[ _-]?token|token)\s*[:=]",
+_REQUIRED_REPORT_KEYS = tuple(key for key, _ in _TASK_MEMORY_SECTIONS) + ("suppressed_items",)
+_REQUIRED_REPORT_TEXT_FIELDS = ("query", "project_namespace", "global_namespace", "summary")
+_SENSITIVE_FIELD_PATTERN = re.compile(
+    r"(?:api[ _-]?key|authorization|cookie|credential|password|secret|session[ _-]?token|token)",
     re.IGNORECASE,
+)
+_TOKEN_PATTERN = re.compile(r"[\u3400-\u9fff]|[A-Za-z0-9_]+|[^\s]")
+_PROVENANCE_KEYS = (
+    "actor",
+    "source_app",
+    "source_client",
+    "source_model",
+    "client_session_id",
+    "client_workspace",
+    "client_transport",
+    "session_id",
+    "correlation_id",
 )
 
 
 @dataclass(frozen=True, slots=True)
 class ContextItemRef:
-    """One sanitized, transient context item with an optional authority reference."""
+    """One selected transient item with render text kept out of serialization."""
 
     source: str
     section: str
     item_id: str | None
-    title: str
-    text: str
-    char_count: int
+    title_sha256: str
+    render_text: str
+    token_cost: int
+    content_hash: str | None = None
+    exact_content_hash: str | None = None
+    selected_as: str | None = None
+    selection_score: float | None = None
+    selection_reasons: tuple[str, ...] = ()
+    provenance: tuple[tuple[str, str], ...] = ()
     workspace_key: str | None = None
     state_key: str | None = None
     version: int | None = None
@@ -46,14 +71,21 @@ class ContextItemRef:
     database_epoch: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Return auditable metadata only; never include title or render text."""
         payload: dict[str, Any] = {
             "source": self.source,
             "section": self.section,
             "id": self.item_id,
-            "title": self.title,
-            "text": self.text,
-            "char_count": self.char_count,
-            "fingerprint": self.fingerprint,
+            "title_sha256": self.title_sha256,
+            "token_cost": self.token_cost,
+            "content_hash": self.content_hash,
+            "exact_content_hash": self.exact_content_hash,
+            "selection": {
+                "selected_as": self.selected_as,
+                "score": self.selection_score,
+                "reasons": list(self.selection_reasons),
+            },
+            "provenance": dict(self.provenance),
         }
         if self.state_key is not None:
             payload["state_ref"] = {
@@ -63,73 +95,89 @@ class ContextItemRef:
                 "value_hash": self.value_hash,
                 "database_epoch": self.database_epoch,
             }
+        payload["fingerprint"] = self.fingerprint
         return payload
 
     @property
     def fingerprint(self) -> str:
-        return _fingerprint(
-            {
-                "source": self.source,
-                "section": self.section,
-                "id": self.item_id,
-                "title": self.title,
-                "text": self.text,
-                "state_ref": {
-                    "workspace_key": self.workspace_key,
-                    "state_key": self.state_key,
-                    "version": self.version,
-                    "value_hash": self.value_hash,
-                    "database_epoch": self.database_epoch,
-                }
-                if self.state_key is not None
-                else None,
+        return _sha256(_canonical_json(self._fingerprint_payload()))
+
+    def _fingerprint_payload(self) -> dict[str, Any]:
+        return {
+            "source": self.source,
+            "section": self.section,
+            "id": self.item_id,
+            "title_sha256": self.title_sha256,
+            "token_cost": self.token_cost,
+            "content_hash": self.content_hash,
+            "exact_content_hash": self.exact_content_hash,
+            "selection": {
+                "selected_as": self.selected_as,
+                "score": self.selection_score,
+                "reasons": list(self.selection_reasons),
+            },
+            "provenance": dict(self.provenance),
+            "state_ref": {
+                "workspace_key": self.workspace_key,
+                "state_key": self.state_key,
+                "version": self.version,
+                "value_hash": self.value_hash,
+                "database_epoch": self.database_epoch,
             }
-        )
+            if self.state_key is not None
+            else None,
+            "rendered_text_sha256": _sha256(self.render_text),
+        }
 
 
 @dataclass(frozen=True, slots=True)
 class ContextManifest:
-    """A non-persistent, reproducible context plan and its budget accounting."""
+    """A non-persistent, reproducible context plan with metadata-only serialization."""
 
-    query: str
-    budget_chars: int
-    used_chars: int
+    task_identifier_sha256: str
+    input_fingerprint: str
+    budget_tokens: int
+    used_tokens: int
     items: tuple[ContextItemRef, ...]
     omissions: tuple[dict[str, Any], ...]
-    manifest_version: str = _MANIFEST_VERSION
+    compiler_version: str = COMPILER_VERSION
+    selection_policy_version: str = SELECTION_POLICY_VERSION
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "manifest_version": self.manifest_version,
-            "query": self.query,
-            "budget_chars": self.budget_chars,
-            "used_chars": self.used_chars,
-            "remaining_chars": self.remaining_chars,
-            "items": [item.to_dict() for item in self.items],
-            "omissions": [dict(omission) for omission in self.omissions],
-            "fingerprint": self.fingerprint,
-        }
+        """Return auditable selection metadata without a prompt/context archive."""
+        payload = self._metadata_payload()
+        payload["rendered_context_sha256"] = self.rendered_context_sha256
+        payload["fingerprint"] = self.fingerprint
+        return payload
 
     def serialize(self) -> str:
-        """Return canonical JSON suitable for deterministic comparison or logging."""
+        """Return canonical metadata JSON; render text stays transient in-process."""
         return _canonical_json(self.to_dict())
 
     @property
-    def remaining_chars(self) -> int:
-        return self.budget_chars - self.used_chars
+    def remaining_tokens(self) -> int:
+        return self.budget_tokens - self.used_tokens
+
+    @property
+    def rendered_context_sha256(self) -> str:
+        return _sha256(render_context(self))
 
     @property
     def fingerprint(self) -> str:
-        return _fingerprint(
-            {
-                "manifest_version": self.manifest_version,
-                "query": self.query,
-                "budget_chars": self.budget_chars,
-                "used_chars": self.used_chars,
-                "items": [item.to_dict() for item in self.items],
-                "omissions": [dict(omission) for omission in self.omissions],
-            }
-        )
+        return _sha256(_canonical_json(self._metadata_payload()))
+
+    def _metadata_payload(self) -> dict[str, Any]:
+        return {
+            "compiler_version": self.compiler_version,
+            "selection_policy_version": self.selection_policy_version,
+            "task_identifier_sha256": self.task_identifier_sha256,
+            "input_fingerprint": self.input_fingerprint,
+            "budget_tokens": self.budget_tokens,
+            "used_tokens": self.used_tokens,
+            "remaining_tokens": self.remaining_tokens,
+            "items": [item.to_dict() for item in self.items],
+            "omissions": [dict(omission) for omission in self.omissions],
+        }
 
 
 def compile_context(
@@ -137,33 +185,37 @@ def compile_context(
     task_memory: Mapping[str, Any],
     state_snapshots: Sequence[Mapping[str, Any]] = (),
     session_items: Sequence[Mapping[str, Any] | str] = (),
-    budget_chars: int = 8_000,
+    budget_tokens: int = 2_048,
 ) -> ContextManifest:
-    """Compile one transient manifest from already-governed inputs.
+    """Compile one transient context from relation-aware governed inputs.
 
-    ``task_memory`` must be the output of :func:`assemble_task_memory`; this
-    function intentionally does not accept a ``MemoryStore`` or retrieval query.
-    Dynamic State values are not copied into context. Only their exact authority
-    references are rendered: workspace/state keys, version, value hash, and
-    database epoch.
+    The task-memory report must be produced by the default relation-aware
+    assembly. State snapshots are rendered as sanitized authoritative values;
+    their serialized references retain only exact state identity/version/digest
+    metadata. Valid Dynamic State items are required inputs: compilation fails
+    closed if they cannot fit within ``budget_tokens``.
     """
-    if isinstance(budget_chars, bool) or not isinstance(budget_chars, int) or budget_chars < 0:
-        raise ValueError("budget_chars must be a non-negative integer")
+    _validate_task_memory(task_memory)
+    if isinstance(budget_tokens, bool) or not isinstance(budget_tokens, int) or budget_tokens < 0:
+        raise ValueError("budget_tokens must be a non-negative integer")
 
-    query = _sanitize_text(str(task_memory.get("query") or ""))
-    candidates: list[ContextItemRef] = []
     omissions: list[dict[str, Any]] = []
-
+    state_items: list[ContextItemRef] = []
     for snapshot in sorted(
         state_snapshots,
         key=lambda item: (str(item.get("workspace_key") or ""), str(item.get("state_key") or "")),
     ):
         state_item, omission = _state_candidate(snapshot)
         if state_item is not None:
-            candidates.append(state_item)
+            state_items.append(state_item)
         elif omission is not None:
             omissions.append(omission)
 
+    required_state_tokens = sum(item.token_cost for item in state_items)
+    if required_state_tokens > budget_tokens:
+        raise ValueError("budget_tokens cannot fit required Dynamic State context")
+
+    candidates: list[ContextItemRef] = []
     for position, raw_item in enumerate(session_items):
         session_item, omission = _session_candidate(raw_item, position)
         if session_item is not None:
@@ -173,19 +225,7 @@ def compile_context(
 
     seen_memory_ids: set[str] = set()
     for report_key, section in _TASK_MEMORY_SECTIONS:
-        raw_items = task_memory.get(report_key) or []
-        if not isinstance(raw_items, Sequence) or isinstance(raw_items, (str, bytes, bytearray)):
-            omissions.append(
-                _omission(
-                    source="task_memory",
-                    section=section,
-                    item_id=None,
-                    title=report_key,
-                    reason="invalid_task_memory_section",
-                )
-            )
-            continue
-        for position, raw_item in enumerate(raw_items):
+        for position, raw_item in enumerate(task_memory[report_key]):
             item, omission = _task_memory_candidate(raw_item, section, position)
             if item is None:
                 if omission is not None:
@@ -197,7 +237,7 @@ def compile_context(
                         source="task_memory",
                         section=section,
                         item_id=item.item_id,
-                        title=item.title,
+                        title_sha256=item.title_sha256,
                         reason="duplicate_item",
                     )
                 )
@@ -206,94 +246,112 @@ def compile_context(
                 seen_memory_ids.add(item.item_id)
             candidates.append(item)
 
-    suppressed_items = task_memory.get("suppressed_items") or []
-    if isinstance(suppressed_items, Sequence) and not isinstance(suppressed_items, (str, bytes, bytearray)):
-        for raw_item in suppressed_items:
-            if isinstance(raw_item, Mapping):
-                reason = _clean_label(raw_item.get("reason")) or "governed_suppressed"
-                omissions.append(
-                    _omission(
-                        source="task_memory",
-                        section=_clean_label(raw_item.get("section")) or "suppressed",
-                        item_id=_clean_label(raw_item.get("id")) or None,
-                        title=_sanitize_text(str(raw_item.get("title") or "")),
-                        reason=f"governed_suppressed:{reason}",
-                    )
+    for raw_item in task_memory["suppressed_items"]:
+        if isinstance(raw_item, Mapping):
+            reason = _clean_label(raw_item.get("reason")) or "governed_suppressed"
+            omissions.append(
+                _omission(
+                    source="task_memory",
+                    section=_clean_label(raw_item.get("section")) or "suppressed",
+                    item_id=_clean_label(raw_item.get("id")) or None,
+                    title_sha256=_sha256(_sanitize_text(str(raw_item.get("title") or ""))),
+                    reason=f"governed_suppressed:{reason}",
                 )
+            )
 
-    selected: list[ContextItemRef] = []
-    used_chars = 0
+    selected = list(state_items)
+    used_tokens = required_state_tokens
     for candidate in candidates:
-        separator_chars = 2 if selected else 0
-        required_chars = separator_chars + candidate.char_count
-        if used_chars + required_chars > budget_chars:
+        if used_tokens + candidate.token_cost > budget_tokens:
             omissions.append(
                 _omission(
                     source=candidate.source,
                     section=candidate.section,
                     item_id=candidate.item_id,
-                    title=candidate.title,
+                    title_sha256=candidate.title_sha256,
                     reason="budget_exceeded",
-                    required_chars=required_chars,
+                    required_tokens=candidate.token_cost,
                 )
             )
             continue
         selected.append(candidate)
-        used_chars += required_chars
+        used_tokens += candidate.token_cost
 
+    task_identifier_sha256 = _sha256(str(task_memory["query"]))
+    input_fingerprint = _input_fingerprint(task_memory, state_snapshots, session_items)
     return ContextManifest(
-        query=query,
-        budget_chars=budget_chars,
-        used_chars=used_chars,
+        task_identifier_sha256=task_identifier_sha256,
+        input_fingerprint=input_fingerprint,
+        budget_tokens=budget_tokens,
+        used_tokens=used_tokens,
         items=tuple(selected),
         omissions=tuple(omissions),
     )
 
 
 def render_context(manifest: ContextManifest) -> str:
-    """Render a manifest without adding content beyond its accounted item text."""
+    """Render transient model context from selected in-memory item bodies."""
     if not isinstance(manifest, ContextManifest):
         raise TypeError("manifest must be a ContextManifest")
-    rendered = "\n\n".join(item.text for item in manifest.items)
-    if len(rendered) != manifest.used_chars:
-        raise ValueError("manifest budget accounting does not match rendered context")
+    rendered = "\n\n".join(item.render_text for item in manifest.items)
+    if sum(item.token_cost for item in manifest.items) != manifest.used_tokens:
+        raise ValueError("manifest token accounting does not match selected context")
+    if manifest.used_tokens > manifest.budget_tokens:
+        raise ValueError("manifest exceeds its token budget")
     return rendered
+
+
+def _validate_task_memory(task_memory: Mapping[str, Any]) -> None:
+    if not isinstance(task_memory, Mapping):
+        raise TypeError("task_memory must be a relation-aware task-memory report")
+    if task_memory.get("assembly_mode") != "relation-aware":
+        raise ValueError("task_memory must use the relation-aware governed assembly")
+    for key in _REQUIRED_REPORT_TEXT_FIELDS:
+        if not isinstance(task_memory.get(key), str):
+            raise ValueError(f"task_memory report field {key!r} must be a string")
+    for key in _REQUIRED_REPORT_KEYS:
+        value = task_memory.get(key)
+        if not isinstance(value, list):
+            raise ValueError(f"task_memory report field {key!r} must be a list")
 
 
 def _state_candidate(snapshot: Mapping[str, Any]) -> tuple[ContextItemRef | None, dict[str, Any] | None]:
     workspace_key = _clean_label(snapshot.get("workspace_key"))
     state_key = _clean_label(snapshot.get("state_key"))
-    title = _sanitize_text(f"{workspace_key}/{state_key}".strip("/"))
+    title_sha256 = _sha256(f"{workspace_key}/{state_key}".strip("/"))
     if not snapshot.get("exists"):
         return None, _omission(
             source="dynamic_state",
             section="state",
             item_id=None,
-            title=title,
+            title_sha256=title_sha256,
             reason="state_absent",
         )
     version = snapshot.get("version")
     value_hash = _clean_label(snapshot.get("value_hash"))
     database_epoch = _clean_label(snapshot.get("database_epoch"))
+    value = snapshot.get("value")
     if not workspace_key or not state_key or isinstance(version, bool) or not isinstance(version, int) or version < 1:
         return None, _omission(
             source="dynamic_state",
             section="state",
             item_id=None,
-            title=title,
+            title_sha256=title_sha256,
             reason="invalid_state_reference",
         )
-    if not value_hash or not database_epoch:
+    if not value_hash or not database_epoch or value is None:
         return None, _omission(
             source="dynamic_state",
             section="state",
             item_id=None,
-            title=title,
+            title_sha256=title_sha256,
             reason="incomplete_state_reference",
         )
+    sanitized_value = _sanitize_state_value(value)
     text = (
-        f"[Dynamic State] {workspace_key}/{state_key}\n"
+        f"[Authoritative Dynamic State] {workspace_key}/{state_key}\n"
         f"version: {version}\n"
+        f"value: {_canonical_json(sanitized_value)}\n"
         f"value_hash: {value_hash}\n"
         f"database_epoch: {database_epoch}"
     )
@@ -302,9 +360,9 @@ def _state_candidate(snapshot: Mapping[str, Any]) -> tuple[ContextItemRef | None
             source="dynamic_state",
             section="state",
             item_id=None,
-            title=title,
-            text=text,
-            char_count=len(text),
+            title_sha256=title_sha256,
+            render_text=text,
+            token_cost=_estimate_tokens(text),
             workspace_key=workspace_key,
             state_key=state_key,
             version=version,
@@ -323,25 +381,30 @@ def _session_candidate(
         item_id = None
         title = f"session-{position + 1}"
         content = raw_item
+        raw_cost: object | None = None
+        provenance: tuple[tuple[str, str], ...] = ()
     elif isinstance(raw_item, Mapping):
         item_id = _clean_label(raw_item.get("id")) or None
         title = _sanitize_text(str(raw_item.get("title") or raw_item.get("label") or f"session-{position + 1}"))
         content = str(raw_item.get("content") or raw_item.get("text") or "")
+        raw_cost = raw_item.get("token_cost")
+        provenance = _provenance(raw_item)
     else:
         return None, _omission(
             source="session",
             section="session",
             item_id=None,
-            title=f"session-{position + 1}",
+            title_sha256=_sha256(f"session-{position + 1}"),
             reason="invalid_session_item",
         )
     sanitized = _sanitize_text(content)
+    title_sha256 = _sha256(title)
     if not sanitized:
         return None, _omission(
             source="session",
             section="session",
             item_id=item_id,
-            title=title,
+            title_sha256=title_sha256,
             reason="empty_after_sanitization",
         )
     text = f"[Session] {title}\n{sanitized}"
@@ -350,9 +413,12 @@ def _session_candidate(
             source="session",
             section="session",
             item_id=item_id,
-            title=title,
-            text=text,
-            char_count=len(text),
+            title_sha256=title_sha256,
+            render_text=text,
+            token_cost=_resolve_token_cost(raw_cost, text),
+            content_hash=_sha256(content),
+            exact_content_hash=_sha256(_normalize_content(content)),
+            provenance=provenance,
         ),
         None,
     )
@@ -368,29 +434,43 @@ def _task_memory_candidate(
             source="task_memory",
             section=section,
             item_id=None,
-            title=f"{section}-{position + 1}",
+            title_sha256=_sha256(f"{section}-{position + 1}"),
             reason="invalid_task_memory_item",
         )
     item_id = _clean_label(raw_item.get("id")) or None
     title = _sanitize_text(str(raw_item.get("title") or item_id or f"{section}-{position + 1}"))
+    title_sha256 = _sha256(title)
     content = _task_memory_text(raw_item, section)
     if not content:
         return None, _omission(
             source="task_memory",
             section=section,
             item_id=item_id,
-            title=title,
+            title_sha256=title_sha256,
             reason="empty_after_sanitization",
         )
     text = f"[{_section_label(section)}] {title}\n{content}"
+    task_metadata = raw_item.get("task_memory")
+    selection = task_metadata if isinstance(task_metadata, Mapping) else {}
+    raw_content = str(raw_item.get("content") or "")
     return (
         ContextItemRef(
             source="task_memory",
             section=section,
             item_id=item_id,
-            title=title,
-            text=text,
-            char_count=len(text),
+            title_sha256=title_sha256,
+            render_text=text,
+            token_cost=_resolve_token_cost(raw_item.get("token_cost"), text),
+            content_hash=_clean_label(raw_item.get("content_hash")) or content_hash_for_content(raw_content),
+            exact_content_hash=_clean_label(raw_item.get("exact_content_hash")) or exact_content_hash(raw_content),
+            selected_as=_clean_label(selection.get("selected_as")) or None,
+            selection_score=_finite_score(selection.get("score")),
+            selection_reasons=tuple(
+                _clean_label(reason) for reason in selection.get("reasons", []) if _clean_label(reason)
+            )
+            if isinstance(selection.get("reasons"), list)
+            else (),
+            provenance=_provenance(raw_item),
         ),
         None,
     )
@@ -403,6 +483,8 @@ def _task_memory_text(item: Mapping[str, Any], section: str) -> str:
         for label, key in (
             ("goal", "goal"),
             ("when_to_use", "when_to_use"),
+            ("when_not_to_use", "when_not_to_use"),
+            ("prerequisites", "prerequisites"),
             ("steps", "steps"),
             ("failure_mode", "failure_mode"),
             ("rollback_path", "rollback_path"),
@@ -418,18 +500,148 @@ def _task_memory_text(item: Mapping[str, Any], section: str) -> str:
     return _sanitize_text(str(item.get("content") or ""))
 
 
+def _sanitize_state_value(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {
+            _clean_label(key): "[redacted sensitive value]"
+            if _SENSITIVE_FIELD_PATTERN.search(_clean_label(key))
+            else _sanitize_state_value(raw_value)
+            for key, raw_value in sorted(value.items(), key=lambda item: _clean_label(item[0]))
+            if _clean_label(key)
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [_sanitize_state_value(item) for item in value]
+    if isinstance(value, str):
+        return _sanitize_text(value)
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return _sanitize_text(str(value))
+
+
 def _sanitize_text(value: str) -> str:
-    normalized = str(value).replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "")
+    normalized = _normalize_content(value).replace("\x00", "")
     lines = []
     for raw_line in normalized.split("\n"):
         cleaned = " ".join(raw_line.split())
         if not cleaned:
             continue
-        if _SENSITIVE_LINE_PATTERN.search(cleaned):
+        field_name = cleaned.split(":", 1)[0].split("=", 1)[0]
+        if _SENSITIVE_FIELD_PATTERN.fullmatch(field_name.strip()):
             lines.append("[redacted sensitive line]")
         else:
             lines.append(cleaned)
     return "\n".join(lines).strip()
+
+
+def _provenance(item: Mapping[str, Any]) -> tuple[tuple[str, str], ...]:
+    return tuple((key, _clean_label(item.get(key))) for key in _PROVENANCE_KEYS if _clean_label(item.get(key)))
+
+
+def _resolve_token_cost(raw_cost: object | None, text: str) -> int:
+    if raw_cost is None:
+        return _estimate_tokens(text)
+    if isinstance(raw_cost, bool) or not isinstance(raw_cost, int) or raw_cost < 0:
+        raise ValueError("token_cost must be a non-negative integer when supplied")
+    return raw_cost
+
+
+def _estimate_tokens(text: str) -> int:
+    """Use the frozen deterministic approximation when callers provide no cost."""
+    return len(_TOKEN_PATTERN.findall(text))
+
+
+def _finite_score(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if value != value or value in (float("inf"), float("-inf")):
+        return None
+    return float(value)
+
+
+def _input_fingerprint(
+    task_memory: Mapping[str, Any],
+    state_snapshots: Sequence[Mapping[str, Any]],
+    session_items: Sequence[Mapping[str, Any] | str],
+) -> str:
+    payload = {
+        "assembly_mode": task_memory["assembly_mode"],
+        "task_identifier_sha256": _sha256(str(task_memory["query"])),
+        "task_items": [
+            {
+                "section": section,
+                "id": _clean_label(item.get("id")) if isinstance(item, Mapping) else None,
+                "exact_content_hash": _clean_label(item.get("exact_content_hash"))
+                if isinstance(item, Mapping)
+                else None,
+                "content_hash": _clean_label(item.get("content_hash")) if isinstance(item, Mapping) else None,
+                "selection": item.get("task_memory") if isinstance(item, Mapping) else None,
+            }
+            for report_key, section in _TASK_MEMORY_SECTIONS
+            for item in task_memory[report_key]
+        ],
+        "suppressed": [
+            {
+                "id": _clean_label(item.get("id")),
+                "reason": _clean_label(item.get("reason")),
+                "by_id": _clean_label(item.get("by_id")),
+            }
+            for item in task_memory["suppressed_items"]
+            if isinstance(item, Mapping)
+        ],
+        "state_refs": [
+            {
+                "workspace_key": _clean_label(item.get("workspace_key")),
+                "state_key": _clean_label(item.get("state_key")),
+                "version": item.get("version"),
+                "value_hash": _clean_label(item.get("value_hash")),
+                "database_epoch": _clean_label(item.get("database_epoch")),
+                "exists": bool(item.get("exists")),
+            }
+            for item in state_snapshots
+        ],
+        "session_refs": [_session_fingerprint_payload(item, index) for index, item in enumerate(session_items)],
+    }
+    return _sha256(_canonical_json(payload))
+
+
+def _session_fingerprint_payload(item: Mapping[str, Any] | str, index: int) -> dict[str, Any]:
+    if isinstance(item, str):
+        return {"position": index, "content_sha256": _sha256(item)}
+    if isinstance(item, Mapping):
+        content = str(item.get("content") or item.get("text") or "")
+        return {
+            "position": index,
+            "id": _clean_label(item.get("id")),
+            "content_sha256": _sha256(content),
+            "token_cost": item.get("token_cost"),
+            "provenance": dict(_provenance(item)),
+        }
+    return {"position": index, "invalid": True}
+
+
+def _omission(
+    *,
+    source: str,
+    section: str,
+    item_id: str | None,
+    title_sha256: str,
+    reason: str,
+    required_tokens: int | None = None,
+) -> dict[str, Any]:
+    omission: dict[str, Any] = {
+        "source": source,
+        "section": section,
+        "id": item_id,
+        "title_sha256": title_sha256,
+        "reason": reason,
+    }
+    if required_tokens is not None:
+        omission["required_tokens"] = required_tokens
+    return omission
+
+
+def _normalize_content(value: str) -> str:
+    return str(value).replace("\r\n", "\n").replace("\r", "\n")
 
 
 def _clean_label(value: object) -> str:
@@ -447,33 +659,12 @@ def _section_label(section: str) -> str:
     }.get(section, section.replace("_", " ").title())
 
 
-def _omission(
-    *,
-    source: str,
-    section: str,
-    item_id: str | None,
-    title: str,
-    reason: str,
-    required_chars: int | None = None,
-) -> dict[str, Any]:
-    omission: dict[str, Any] = {
-        "source": source,
-        "section": section,
-        "id": item_id,
-        "title": title,
-        "reason": reason,
-    }
-    if required_chars is not None:
-        omission["required_chars"] = required_chars
-    return omission
-
-
 def _canonical_json(payload: object) -> str:
     return json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
 
 
-def _fingerprint(payload: object) -> str:
-    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+def _sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 __all__ = ["ContextItemRef", "ContextManifest", "compile_context", "render_context"]
