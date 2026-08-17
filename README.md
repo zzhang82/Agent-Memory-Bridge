@@ -361,7 +361,7 @@ new MCP tool or change semantic-memory, embedding, FTS, ranking, policy,
 prompts, ordinary memory, or automatic writeback behavior. The exact 17-tool
 surface remains frozen by `mcp_boundary.PUBLIC_TOOL_ORDER` with schema digest
 `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`.
-The local suite reports `806 tests passed`; this is local evidence only, not a
+The local suite reports `829 tests passed`; this is local evidence only, not a
 remote CI, tag, publication, host-certification, ranking, auto-writeback, or
 self-improvement claim.
 
@@ -392,7 +392,7 @@ self-improvement claim.
 | Inherited retrieval receipts and feedback | schema v7; same-snapshot complete exposure sets with exact content versions; optional model/harness/chat-template digests; append-only vote/correction/retraction history with one effective vote; separate token hash and feedback identity digest |
 | Test suite | Current source test collection is recorded below; release gates include raw-wire negotiation, real old-client and TypeScript client jobs, dual-era operator checks, 20-process shared-SQLite proof, 100 connect/disconnect cycles, and inherited receipt/feedback/migration regressions |
 
-Current source test collection: `806 tests`
+Current source test collection: `829 tests`
 
 <details>
 <summary>Release contract facts</summary>
