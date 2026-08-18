@@ -1349,7 +1349,11 @@ def test_twenty_concurrent_writers_append_one_thousand_monotonic_events(tmp_path
         idempotency_key="begin:concurrency",
     )
 
+    start_writers = threading.Barrier(20)
+
     def write_event(index: int) -> dict[str, object]:
+        if index < 20:
+            start_writers.wait()
         return store.record_run_event(
             workspace_key="project:bridge",
             run_id=started["run_id"],
