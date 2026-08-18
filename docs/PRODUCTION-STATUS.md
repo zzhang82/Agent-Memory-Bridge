@@ -1,16 +1,12 @@
 # Production Status
 
-This page is the canonical reference for the **checked-out current source**. It distinguishes source main, Git tags, GitHub Releases, and CI rather than treating them as interchangeable release states. Historical release announcements and proof artifacts remain available as evidence, but they are not the current-source status record.
+This page is the canonical reference for **checked-in current-source facts**: implementation version, public surface, capability boundaries, and validated source evidence. It deliberately does not snapshot the moving `main` commit, latest live CI result, or latest published GitHub Release. Consult [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) and [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) for those live repository states. Historical release announcements and proof artifacts remain evidence, but they are not the current-source status record.
 
 ## Current Source Status
 
 | Field | Current fact |
 |---|---|
 | Package/source version | `0.27.4` |
-| Verified main baseline | `bb43201c359e48228237092b47e7b6ba6bd9226c` |
-| Git tag | `v0.27.4` exists at `e8210cb204e501650a59876502a2028c7aae9afe` |
-| Latest published GitHub Release | `v0.27.3` |
-| Main CI | Successful push run [#32188729510](https://github.com/zzhang82/Agent-Memory-Bridge/actions/runs/32188729510) on the verified main baseline |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
@@ -18,7 +14,11 @@ This page is the canonical reference for the **checked-out current source**. It 
 
 Current source test collection: `850 tests`
 
-> A tag is not a GitHub Release, and a green main CI run is not a host certification, distribution claim, or productivity result. Installation guidance retains its own pinned-release and source-checkout gates.
+> A tag is not a GitHub Release, and live CI state is not host certification, a distribution claim, or a productivity result. Installation guidance retains its own pinned-release and source-checkout gates.
+
+## Historical Tag Reference
+
+The `v0.27.4` tag identifies the historical source snapshot `e8210cb204e501650a59876502a2028c7aae9afe`. This is a stable tag fact, not a claim about the checked-out `main` commit, current publication state, or live CI status.
 
 ## Implemented Capability Summary
 
@@ -53,7 +53,7 @@ Run, event, outcome, artifact, and link rows are **durable episode authority**; 
 
 ## Validation Status
 
-The verified main baseline completed the full Python suite and the release, public-surface, and onboarding contracts. The source repository also checks formatting and linting in its normal validation path.
+The checked-in validation contracts verify the source facts on this page. For the current remote workflow state, use [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions); the repository also checks formatting and linting in its normal validation path.
 
 <details>
 <summary>Current source facts validated against checked-in snapshot reports</summary>
