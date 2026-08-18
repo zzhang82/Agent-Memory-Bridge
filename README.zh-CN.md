@@ -3,534 +3,121 @@
 [English](README.md)
 
 [![MCP](https://img.shields.io/badge/MCP_Server-Enabled-4A90E2?logo=protocolsdotio&logoColor=white)](https://modelcontextprotocol.io)
-[![Glama](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge/badges/score.svg)](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge)
 [![CI](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/zzhang82/Agent-Memory-Bridge?logo=github&color=2ea44f)](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-让不同 coding agents 在不同工具和 session 之间共享一份受治理的项目决策记录。
-
-Agent Memory Bridge 为使用多个 coding agents 的开发者和团队提供 shared engineering memory。它补充 `AGENTS.md`、`CLAUDE.md` 和客户端原生 preference memory，而不是取代它们。SQLite/WAL 是 durable authority，FTS5 和可选本地 embeddings 则是 derived indexes；当前公开能力按 `lexical`、`hashed_lexical` 和声明式 `semantic` 边界表述。
+**Agent Memory Bridge（AMB）**为编码智能体提供一份跨工具、跨会话共享且受治理的工程知识记录。它以 SQLite/WAL 为本地优先的权威存储，通过刻意保持精简的 MCP 接口提供能力。
 
 当前源码发布版本：`0.27.4`
 
-这是一个本地、未发布的 source candidate；不声明 tag、push、publication、
-remote CI、host certification 或 productivity result。candidate 使用 schema
-v12，并保持恰好 `17` 个 MCP tools。既有 governed-v2 episode authority、
-watcher continuity 和 credit/consolidation closure 及其 shadow-only 边界保持
-不变。新增的内部 Dynamic State MVP 是 SQLite/WAL 上的 exact-key release-state
-lane：typed status transition、owner assignment、version/database-epoch
-precondition、lifecycle idempotency、immutable mutation/request-outcome history
-与可重建的 state-head projection。它不增加 MCP tools，也不改变 semantic
-memory、embedding、FTS、ranking、policy、prompt、ordinary memory、automatic
-writeback 或 self-improvement。
+> AMB 补充而非替代 `AGENTS.md`、`CLAUDE.md` 与客户端原生偏好记忆。它不是托管式智能体运行时、调度器、队列，也不是通用记忆平台。
 
-> Codex 是参考工作流，不是产品边界。AMB 使用本地 stdio MCP；客户端集成只按下方标注声明为 documented 或 locally verified。
+## 为什么需要 AMB
 
-<p align="center">
-  <img src="examples/diagrams/v0.22-shared-memory-hero.png" alt="渲染的工作台场景：三组代码工作站通过桥连接到中央文件柜，柜中有卡片和卷轴。" width="900">
-</p>
+编码智能体很容易在会话、客户端和交接之间遗失有价值的工程知识。普通摘要会过期；不透明的检索会掩盖条目为何被选择；可变的运行状态也不应被误认为持久知识。
 
-<p align="center"><em>概念图，只表达 AMB 的 shared-memory workspace metaphor；不是 product evidence、identity evidence、certification、distribution 或使用证明。</em></p>
+AMB 将这些问题分开处理：它存储可检查的工程记忆，在组装任务上下文之前应用生命周期感知的治理，并通过独立权威边界维护精确键的可变状态，同时让面向提示词的上下文保持瞬态。
 
-本地试用：安装后运行 `<venv-python> -m agent_mem_bridge first-run --client generic --example`
+## AMB 提供什么
 
-## 为什么存在
+| 能力 | 含义 |
+|---|---|
+| 持久工程记忆 | 用于决策、经验教训、过程、概念、信念、支持性证据和协作信号的本地记录。 |
+| 生命周期感知检索 | 在指导信息被用于任务之前，应用资格、修订、替代、有效期、关系和治理边界。 |
+| Dynamic State 权威 | 内部精确键发布状态通道，使用版本与数据库纪元前置条件；它不是语义记忆。 |
+| 受治理的任务记忆组装 | 任务时选择来自既有受治理记忆路径，而不是第二套检索系统。 |
+| 瞬态 Context Compiler | 基于受治理任务记忆、Dynamic State 快照和显式会话局部条目的有界确定性派生视图。 |
+| 回合与验证证据 | 显式运行、工件、结果和回执支持可复核的证据，而不宣称因果关系或自动学习。 |
+| 跨客户端 MCP 访问 | 面向已支持和已文档化 MCP 客户端的稳定本地 stdio 接口。 |
 
-很多 agent memory 会落入两个极端：
+AMB **不会**自动把经验写回记忆、根据反馈改变排序、提升自生成反思，也不会自主获得技能。
 
-- summary 变成过时的大块文本
-- vector store 能召回，但很难解释为什么召回
-- 每个新 session 都要重新学习同一个 gotcha
-- handoff 状态变成临时笔记，或者被迫搭一个并不想要的队列
+## 如何工作
 
-AMB 选择更小的路径：本地 SQLite authority、显式 namespace、可检查记录、可解释 lexical retrieval、明确区分 `hashed_lexical` 和声明式 `semantic` 的 capability 边界，以及轻量 signal lifecycle。
+```mermaid
+flowchart LR
+    A[持久记忆] --> C[生命周期感知检索]
+    B[Dynamic State 权威] --> D[Context Compiler]
+    C --> E[受治理任务记忆]
+    E --> D
+    D --> F[瞬态有界上下文]
+    F --> G[仅元数据的上下文证明]
+    G --> H[回合与运行权威]
+    H --> I[验证回执]
+    I --> J[当前已验证结果]
+```
 
-## 能带来什么
+上下文主体在进程中渲染；编译器不会将其持久化。证明仅存储有界元数据和摘要，而不是面向提示词的主体。被选择的上下文不证明记忆已被使用，记忆被使用也不证明其导致了结果。
 
-- Durable memory：决策、gotcha、procedure、concept、belief 和 supporting records。
-- Coordination signals：`claim -> extend -> ack / expire / reclaim`，但不假装自己是 scheduler。
-- Governed learning：runtime learning 可以先进入 policy-gated learning candidate staging，再经过 review/promotion 变成 durable records。
-- Context assembly：startup 和 task-time context 可以从 procedure、concept、belief、gotcha 和 linked support 编译出来，不需要增加更多 MCP tools。
-- Governed change：在 guidance 变为 actionable 之前检查显式 deletion、supersession、changed premise 和 task-domain applicability。
-- Cross-client activation receipts：read-only CLI receipt 可以显示一个 memory loop 中有两个不同的声明式 client labels 参与，同时不暴露 path、content、session ID 或 model ID。
-- Retrieval feedback：调用方可以追加 receipt-bound vote、correction 或 retraction；AMB 最多暴露一个 current effective vote，但不会改变 ranking 或 memory。
-- Episode ledger：调用方可以创建由 server mint 的显式 run/work item、追加 structured events、在重连或 compaction 后恢复状态，并记录 evidence-backed outcome；这些都不会改变 ranking 或 policy。
-- Evidence context：recall 可以为可选且由调用方声明的 `model`、`harness`、`chat_template` labels 签入 bounded SHA-256 digests，不包含 raw values，也不把它们当作 authenticated identity。
-- Proof discipline：release contract、public-surface check、onboarding check、benchmark snapshot、visual inventory checks，以及针对 receipt/feedback 的 targeted regressions。
+完整的权威与数据流说明请阅读[架构](docs/ARCHITECTURE.md)。
 
-## 工作方式
+## 快速开始
 
-AMB 保持 runtime path 很小：MCP-compatible coding agents 调用 `17` 个
-public tools，其中四个用于显式 episode lifecycle；SQLite/WAL 仍是 durable authority；FTS5 和可选本地 embeddings
-是 derived indexes；governed context 和 CLI reports 在不自动 durable
-writeback 的前提下生成。Release checks、benchmarks 和 visual claim inventory
-都在 runtime path 之外。
-
-## 适合谁
-
-- 你在使用多个 coding agents，希望项目决策、gotcha 和 handoff 能在它们之间共享。
-- 你已经在使用 `AGENTS.md`、`CLAUDE.md` 或原生 preference memory，还需要一个并行的 governed cross-agent layer。
-- 你想要本地、可检查的 memory，而不是云平台或不透明的 vector stack。
-- 你在跑 review、handoff 或 multi-agent workflow，需要轻量 coordination signal，但还不想搭完整 task queue。
-
-## 安装
-
-要求：
-
-- Python 3.11+
-- 带 FTS5 的 SQLite；可选本地 embeddings 是 derived index，不是 durable authority
-- 任意能启动本地 stdio server 的 MCP-compatible client
-- 可选的 `uv` / `uvx`，用于 pinned 单命令 GitHub smoke test
-
-使用 Python 从 pinned GitHub archive 安装：
+AMB 在本地运行，需要 **Python 3.11+**、支持 FTS5 的 SQLite，以及能启动本地 stdio 服务的 MCP 客户端。
 
 ```bash
 python -m venv .amb-venv
-python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())"
+<venv-python> -m pip install -e .
+<venv-python> -m agent_mem_bridge first-run --client generic --example
 ```
 
-把打印结果视为 `<venv-python>`。不要把解析后的本地 path 写入 commit 或
-issue report。在 POSIX shell 中按需对该 path 做 shell quoting；在 Windows
-PowerShell 中使用 `& "<venv-python>"` 调用。然后运行：
+随后使用生成的客户端配置，重新加载客户端，并运行：
 
-Pinned GitHub tag route 是已发布的 `v0.27.0` baseline。本地 source candidate
-没有 release tag；评估它时请使用 source checkout 和
-`<venv-python> -m pip install -e .`。
-
-```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
+```bash
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
 
-针对已发布 baseline 的可选 `uvx` smoke test：
+`first-run` 会生成安装说明和占位符安全的配置示例；它不会写入客户端配置或持久记忆。固定发布版本路径、源码与发布版本门槛、客户端专用片段、Docker，以及完整的验证/重启/注册流程，请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
-```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.27.0 agent-memory-bridge verify
-```
+## 集成
 
-### 快速开始：Unified First-Run
+AMB 是本地 stdio MCP 服务器。通用 stdio MCP 受支持；Codex 是参考工作流；Claude Code、Claude Desktop、Cursor 和 Cline 已有文档；Antigravity、OpenCode 与 Hermes 已有本地测试的配置路径。集成状态标签刻意保持严格，不代表宿主认证。
 
-如果你想直接得到某个客户端的完整 copy/paste setup guide，先用
-`first-run`。它会渲染安装步骤、placeholder-safe config snippet、验证命令，
-以及第一份 Task Brief preview。它不会写 client config 文件，也不会写 durable
-memory records。
+客户端专用配置和边界请见[集成](docs/INTEGRATIONS.md)。
 
-```bash
-<venv-python> -m agent_mem_bridge first-run --client generic --example
-<venv-python> -m agent_mem_bridge first-run --client codex --example
-<venv-python> -m agent_mem_bridge first-run --client opencode --example
-<venv-python> -m agent_mem_bridge first-run --client hermes --example
-```
+## 信任与隐私
 
-如果你只需要 config snippet，再直接用 `config`：
+SQLite/WAL 是本地持久权威。FTS5 与可选的本地嵌入是派生索引，不是记忆权威。Dynamic State 与语义记忆分离。运行工件仅保留有界元数据；AMB 会拒绝将原始转录、隐藏推理和内联工件主体写入持久回合路径。
 
-```bash
-<venv-python> -m agent_mem_bridge config --client generic --example
-<venv-python> -m agent_mem_bridge config --client codex --example
-<venv-python> -m agent_mem_bridge config --client opencode --example
-<venv-python> -m agent_mem_bridge config --client hermes --example
-<venv-python> -m agent_mem_bridge config --client cursor --example
-```
+详细边界请见[权威契约](docs/AUTHORITY-CONTRACT.md)、[信任边界](docs/TRUST-BOUNDARY.md)和[闭环回合权威](docs/CLOSED-LOOP-EPISODE.md)。
 
-如果你想要隔离运行时，也可以用 Dockerized stdio：
+## MCP 工具
 
-```bash
-docker build -t agent-memory-bridge:local .
-docker run --rm -i -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge -v /path/to/bridge-home:/data/agent-memory-bridge agent-memory-bridge:local
-```
+AMB 提供 **17 个公共 MCP 工具**：
 
-客户端配置见 [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md)。运行时配置见 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)。authority / correction 边界见 [docs/AUTHORITY-CONTRACT.md](docs/AUTHORITY-CONTRACT.md)。安全说明见 [SECURITY.md](SECURITY.md)。安装 bridge 的 agent 应该从 [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md) 开始。
+- `store`、`recall`、`browse` 和 `stats`
+- `forget`、`feedback`、`promote`、`annotate`、`revise` 和 `export`
+- `begin_run`、`record_run_event`、`get_run` 和 `complete_run`
+- `claim_signal`、`extend_signal_lease` 和 `ack_signal`
 
-## 第一个有用闭环
-
-Session 1 发现一条项目规则：
-
-```text
-store(
-  namespace="project:demo",
-  kind="memory",
-  content="claim: Use WAL mode for concurrent SQLite readers."
-)
-```
-
-Session 2 回到同一个项目：
-
-```text
-recall(namespace="project:demo", query="SQLite concurrent readers")
-```
-
-agent 可以自己拿回那条规则，不需要用户再讲一遍。
-
-协作状态用 signal：
-
-```text
-store(namespace="project:demo", kind="signal", content="release note review ready")
-claim_signal(namespace="project:demo", consumer="reviewer-a", lease_seconds=300)
-extend_signal_lease(id="<signal_id>", consumer="reviewer-a", lease_seconds=300)
-ack_signal(id="<signal_id>", consumer="reviewer-a")
-```
-
-轮询时使用空 query、`kind="signal"`，并把上一次返回的 `next_since`
-作为新的 `since`。Polling 会按升序返回后续插入；缺失、已删除或跨 namespace
-的 anchor 会明确失败。Cursor 不会报告旧 Signal 后续发生的 claim 或 ack 状态变化。
-Text 和 memory recall 返回 `next_since: null`。
-
-Cross-client activation receipt 需要两个 client 共用一个 correlation id：
-
-```text
-# Client A 存一条 reviewed project memory。
-store(
-  namespace="project:demo",
-  kind="memory",
-  title="Reviewed SQLite guidance",
-  content="record_type: gotcha\nclaim: Use WAL mode for concurrent SQLite readers.",
-  tags=["workflow:cross-client-activation", "activation-role:writer", "reviewed:true"],
-  correlation_id="activation-demo-001",
-  source_client="client-a"
-)
-
-# Client B recall 它，然后写入并 ack read signal。
-recall(namespace="project:demo", query="SQLite concurrent readers", correlation_id="activation-demo-001")
-store(
-  namespace="project:demo",
-  kind="signal",
-  content="{\"observed_memory_id\":\"<writer_memory_id>\"}",
-  tags=["workflow:cross-client-activation", "activation-role:reader"],
-  correlation_id="activation-demo-001",
-  source_client="client-b"
-)
-ack_signal(id="<reader_signal_id>")
-```
-
-然后生成本地 receipt：
-
-```bash
-<venv-python> -m agent_mem_bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
-```
-
-Receipt 只输出 hashes 和 pass/review status。它不会打印 raw memory
-content、private paths、session ids、model ids，也不会声称 authenticated identity。
-
-短版是：
-
-```text
-WITHOUT AMB
-user> We hit this last time too: run the generator after schema edits.
-
-WITH AMB
-agent> I found the previous gotcha: run the generator after schema edits.
-```
-
-Task Brief 不需要 Agent Memory Harness (AMH)。AMB CLI 可以把召回的 AMB
-records 渲染成针对具体任务的 derived context report，标出哪些 context 被
-used、ignored 或 needs review。这个 brief 是 AMB memory 之上的 derived
-view；它不是第二个 durable store，也不会增加 MCP tools。
-
-终端 demo 和 before/after gotcha story 都在 [examples/demo](examples/demo/README.md)，故事源文件在 [examples/demo/before-after-gotcha.cast.md](examples/demo/before-after-gotcha.cast.md)。
-
-## 客户端支持
-
-状态标签刻意保持保守。
-
-| Client | Status | Notes |
-|---|---|---|
-| Generic stdio MCP | supported | 任意能启动本地 stdio server 的客户端 |
-| Codex | verified | 参考工作流，也是最深的 dogfood 路径 |
-| Claude Code | documented | CLI 或 project-level stdio MCP config |
-| Claude Desktop | documented | 本地 stdio server config；remote/extension flow 是另一层 |
-| Cursor | documented | JSON `mcpServers` config |
-| Cline | documented | JSON `mcpServers` config |
-| Antigravity | locally tested | 在本地 setup 里验证过；UI/config 细节可能变化 |
-| OpenCode | locally tested | JSON `mcp` local command config |
-| Hermes | locally tested | 本地 profile 使用 YAML `mcp_servers`；adapter workflow 仍保持手工边界 |
-
-## MCP Tools
-
-bridge 暴露 `17` public MCP tools：
-
-| Group | Tools | Boundary |
-|---|---|---|
-| Memory - 6 | `store`, `recall`, `browse`, `stats`, `export`, `feedback` | `recall` 可接受 caller-declared evidence-context labels；`feedback` 使用 append-only vote/correction/retraction events；两者都不改变 ranking |
-| Change - 4 | `forget`, `promote`, `annotate`, `revise` | 显式 mutating/review operations；不会绕过 reserved governance boundary |
-| Runs - 4 | `begin_run`, `record_run_event`, `get_run`, `complete_run` | 显式 stateless episode authority 与 outcome evidence；不会自动改变 ranking 或 policy |
-| Signals - 3 | `claim_signal`, `extend_signal_lease`, `ack_signal` | 轻量 coordination lifecycle，不是 scheduler、queue 或 distributed lock |
-
-`annotate` 可以补充非 policy tags 和 provenance，而不重写原 content。
-`revise` 会在同一事务中创建 successor record 和可审计的 supersession
-receipt。两者都保留 review boundary：调用方不能生成 reserved governance
-tags，也不能把 hidden learning candidate 直接修订成 authority。`feedback` 使用短生命周期 recall receipt 绑定 recalled memory id 和 rank；它不会让 helpful/outdated 等 outcome 参与默认 ranking，也不会把 caller-declared provenance 当成 authenticated identity。
-
-带 receipt 的 recall 会在同一个 SQLite read snapshot 中读取 rows，并生成
-带签名的完整 exposure set；每个 exposure 都绑定 `memory_id`、rank 和 exact
-content version。可选 `evidence_context` 只接受 `model`、`harness` 和
-`chat_template`，receipt 只包含 bounded SHA-256 digests，不包含 raw
-caller-declared values。这些 labels 不会影响 retrieval order 或 feedback
-identity。
-
-`feedback` 默认创建 root `vote`。`correction` 或 `retraction` 必须通过
-`supersedes_feedback_id` 指向 current head，从而保留完整 append-only event
-history，同时最多暴露一个 current effective vote。caller-declared client
-或 session labels 不能为同一 signed retrieval subject 增加 votes。
-`receipt_hash` 仍是 actual token hash；`feedback_identity_digest` 是独立的
-canonical subject identity。
-
-更复杂的能力留在 surface 后面：reflex promotion、consolidation、startup/task-time assembly、procedure governance、telemetry summaries、signal contention checks、learning-candidate review queues、Task Brief reports、human review workflows，以及 activation receipts。当前没有单独的 `task_packet`、`startup_packet`、`learning_candidate`、`task_brief`、`review_queue`、`review_workflow` 或 `activation_receipt` MCP tools，也没有 MCP Tasks、自动 rerank 或自动 policy 接口。
-
-正常 always-on service 使用时，Codex-log watcher capture、reflex promotion 和 strong consolidation 默认关闭。每个 cycle 中，启用的 lane 都有独立 exception boundary：单个 lane failure 会返回 failure count 和 bounded retry delay，但不会停止其他 lanes。Lanes 仍按顺序执行，因此慢调用仍会延迟后续 lanes；lane duration 和 slow-lane warning 会让这种延迟可见。Watcher、reflex、consolidation、governance 和 embedding scheduler state 使用 tolerant atomic JSON，并在 restored database epoch 改变时重置。Service 写入 `service-health.json`，默认持有 bridge-home singleton lock；`service --once` 在任一 enabled lane 失败时返回 `1`，锁冲突时返回 `3`。只有明确接受重复处理时才应使用 `--allow-multiple-services`。
-
-Restore 是离线维护操作。执行前必须停止 service 以及所有可能写入数据库的
-MCP/client 进程，验证完成后再重新打开客户端。Service lock 只排除后台 daemon；
-普通 MCP writer 不参与这把锁。
-
-operator review work 是 CLI report，不是 MCP tool：
-
-```bash
-<venv-python> -m agent_mem_bridge review-queue --namespace project:demo --format markdown
-<venv-python> -m agent_mem_bridge review-workflow --namespace project:demo --format markdown
-<venv-python> -m agent_mem_bridge task-brief --namespace project:demo --query "release handoff" --format markdown
-<venv-python> -m agent_mem_bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
-```
-
-`review-queue` 会显示 staged candidates、review receipts、tombstones、stale records 和 quarantined claims。`review-workflow` 会把这些 queue items 转成明确的 human decision prompts 和 manual steps。`task-brief` 会把已有 task-memory assembly、review queue items 和 active signals 编译成 `Used`、`Ignored` 和 `Needs Review` 区块。`activation-receipt` 只读取同一 namespace 和 correlation id 下已有 rows，并输出 sanitized declared-provenance receipt。这些 CLI reports 不会自动 durable writeback。
-
-### MCP 2026-07-28 stdio compatibility
-
-AMB 0.27.4 继续支持 modern MCP 2026-07-28 `server/discover` 和 legacy
-`initialize`，都走本地 stdio，并保持 deterministic 的 17-tool surface。
-独立执行的 0.27.0 interoperability run 属于历史证据：它使用
-`mcp==2.0.0`、独立的 `mcp==1.28.1` legacy client，以及官方
-`@modelcontextprotocol/client@2.0.0`。Modern successful wire results
-包含 `resultType: "complete"`；`server/discover` 使用 `ttlMs: 300000` /
-`cacheScope: "public"`；当前 surface 是 deterministic，`tools/list` 继续使用
-`ttlMs: 0` / `cacheScope: "private"`。
-
-这只是 local Linux/Python 3.12 project-interoperability evidence，不是 GitHub
-CI 结果、official conformance、host certification、Windows proof、tag、publication
-或 productivity result。
-
-简写 cache contract 是 discover 的 `300000/public` 和 tools/list 的
-`0/private`。
-
-有意义的 per-request `clientInfo` 是 caller-declared provenance，不是
-authenticated identity。`source_client` precedence 是 explicit tool input，
-然后 meaningful MCP context，然后 environment default；generic SDK name
-例如 `mcp` 会被忽略。
-
-### 静态 schema 客户端兼容性
-
-有些 MCP client 会为 tool 生成静态 input schema，因此在 `kind="memory"` 路径上也可能带上 signal-only fields：例如 `store` 里的 `ttl_seconds` 或 `expires_at`，以及 `recall`、`browse` 或 `export` 里的 `signal_status`。AMB 只会在 MCP transport 边界丢弃这些字段，不会把它们写入或用于查询 memory records；底层 memory store contract 仍然保持严格，durable memory 和 coordination signal 仍是两条独立 lane，真实的 signal lifecycle fields 仍只属于 `kind="signal"`。
-
-## Proof Snapshot
-
-`0.27.4` 将 durable schema 推进到 v12，同时保留冻结的 17-tool MCP
-surface 与既有 episode authority。Dynamic State 是一个狭窄的内部 release-state
-authority lane：exact-key read；typed `status_transition`、`owner_assignment`
-和 `restore` command；乐观的 `expected_version` 与
-`expected_database_epoch` guard；immutable accepted mutation 与 terminal
-request outcome；deterministic restore-as-a-new-version；以及由 SQLite/WAL
-history 导出的可重建 state-head projection。它不暴露新的 MCP tool，也不改变
-semantic-memory、embedding、FTS、ranking、policy、prompt、ordinary memory 或
-automatic writeback。17-tool surface 仍由 `mcp_boundary.PUBLIC_TOOL_ORDER`
-冻结，schema digest 为
-`24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`。本地
-suite 报告 `850 tests passed`；这是 local evidence，不是 remote CI、tag、
-publication、host certification、ranking、auto-writeback 或 self-improvement
-claim。
-
-| Track | Current signal |
-|---|---|
-| Trustworthy Adaptive Retrieval | `lexical` / `hashed_lexical` / declared `semantic` capability labels；不声明 active rerank、ANN、graph traversal 或 automatic policy decisions |
-| Recall receipts | 短生命周期 HMAC token；same-snapshot complete exposure set 绑定 exact content versions；可选 model/harness/chat-template digests；tamper-evident，不加密 |
-| Retrieval feedback | schema v7；append-only vote/correction/retraction history；每个 signed retrieval subject 最多一个 effective vote；`feedback_mode = shadow_only`, `ordering = unchanged` |
-| Trust boundary | caller/provenance declared but not authenticated；没有 auth、ACL、caller identity proof 或 certification claim |
-| Restore guard | database epoch 只用于 restore-instance mismatch guard；不是 per-write freshness proof |
-| Retrieval | `memory_expected_top1_accuracy = 1.0`, `file_scan_expected_top1_accuracy = 0.636` |
-| Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
-| Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
-| Learning candidates | policy-gated staging records 默认不进入 normal recall、browse、export 和 stats；只有显式 review tag 才会出现，且在 review/promotion 之前不属于 durable authority |
-| Signal contention | serialized lifecycle benchmark：`signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0`；multiprocessing exact-ID claim test：8 processes，1 winner |
-| 继承的 v0.24 correctness patch | schema v4 `exact_content_hash`；read-only derived-index recall over precomputed vectors；degraded completeness metadata；warmed benchmark/proof embeddings；service-locked index rebuild；documented cooperative trust boundary |
-| 继承的 Signal correctness | 10,000-Signal polling acceptance：精确插入顺序，`missing = 0`, `unexpected = 0`, `unique = 10000`；suite 覆盖 active-claim owner ack 和 promotion preservation regression |
-| Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
-| Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
-| Reviewed memory operations | `review_queue_item_count = 6`, `review_queue_actionable_count = 6`, `review_queue_no_auto_mutation = true`, `review_queue_public_mcp_surface_change = false` |
-| Human review workflow | `review_workflow_item_count = 6`, `review_workflow_manual_step_count = 27`, `review_workflow_auto_write_count = 0`, `review_workflow_public_mcp_surface_change = false` |
-| Task Brief | `task_brief_used_count = 2`, `task_brief_ignored_count = 1`, `task_brief_needs_review_count = 4`, `task_brief_no_auto_writeback = true`, `task_brief_public_mcp_surface_change = false` |
-| v0.19 adoption proof | 仅为 synthetic fixture proof，不代表 clean-room external adoption：`v019_case_count = 12`, `v019_pass_rate = 1.0`, `v019_public_mcp_surface_change = false`, `v019_client_config_write_count = 0` |
-| v0.20 clean-room proof | 仅为 local reproducible proof，不代表 vendor certification：`v020_case_count = 6`, `v020_pass_rate = 1.0`, `v020_stdio_round_trip_pass = true`, `v020_client_config_write_count = 0`, `v020_external_vendor_adoption_claim = false` |
-| v0.21 governed change proof | 固定的本地 executable proof：`v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
-| v0.22 activation receipt | 仅为 declared-provenance local receipt；要求两个不同的声明式 `source_client` labels 和 acked reader signal；`public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
-| v0.22 visual assets | machine inventory：`examples/diagrams/visual-claims.json`；native-size 和 README-width raster render gate 要求无 clipping、overlap 或 crossed labels；hero PNG 标记为 conceptual，semantic validation not performed；SVG assets 带 title/desc metadata |
-| v0.27.2 governed-v2 与 watcher continuity | governed-v2 profiles、typed events/CAS、operator CLI verification receipts、incremental watcher cursor、explicit close 与 explicit continuation；不扩展 public MCP surface |
-| v0.27.4 internal Dynamic State authority MVP | schema v12；exact-key release state；typed status/owner/restore command；version/database-epoch guard；lifecycle idempotency；immutable mutation/terminal outcome；deterministic rebuild/restore；不改变 MCP、semantic-memory、embedding、FTS、ranking、policy 或 automatic writeback |
-| v0.27.3 credit/consolidation/authority closure | schema v10；effective-feedback/relation/outcome consistency；区分 `not_applicable` 与 `not_used`；keyset pagination；stable candidate subject 与 evidence revision；contested procedure；structured opposition；declared vs verified independence；immutable/provenance/artifact/privacy closure；utility/consolidation 保持 shadow-only |
-| v0.27.1 episode authority and recovery（历史） | schema v9；terminal timestamps 与 authority-preserving migration；显式 work-item FSM 和 terminal-reopen rejection；可选 event CAS；one-snapshot `get_run` 与 projection-health metadata；projection drift 时 fail-closed writes；canonical 17-tool digest `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`；legacy v1 verification 为 `legacy_declared`；utility/consolidation 保持 shadow-only |
-| Client provenance | meaningful per-request `clientInfo` 是 caller-declared provenance；precedence 是 explicit `source_client` > meaningful MCP context > environment default；generic `mcp` 被忽略 |
-| Inherited retrieval receipts and feedback | schema v7；same-snapshot complete exposure sets with exact content versions；可选 model/harness/chat-template digests；append-only vote/correction/retraction history with one effective vote；separate token hash and feedback identity digest |
-| Test suite | 当前源码测试收集数见下方；release gates 包括 raw-wire negotiation、真实 old-client 和 TypeScript client jobs、dual-era operator checks、20-process shared-SQLite proof、100 connect/disconnect cycles，以及继承的 receipt/feedback/migration regressions |
-
-当前源码测试收集数：`850 tests`
-
-<details>
-<summary>Release contract facts</summary>
-
-这些 snapshot facts 会由 release contract 检查：
-
-```text
-question_count = 11
-memory_expected_top1_accuracy = 1.0
-memory_mrr = 1.0
-file_scan_expected_top1_accuracy = 0.636
-file_scan_mrr = 0.909
-
-sample_count = 16
-classifier_exact_match_rate = 0.875
-fallback_exact_match_rate = 0.062
-classifier_better_count = 13
-fallback_better_count = 2
-classifier_filtered_low_confidence_count = 2
-
-case_count = 7
-flat_case_pass_rate = 0.429
-governed_case_pass_rate = 1.0
-flat_blocked_procedure_leak_rate = 1.0
-governed_blocked_procedure_leak_rate = 0.0
-governed_governance_field_completeness = 1.0
-
-signal_contention_case_count = 5
-signal_contention_case_pass_rate = 1.0
-unique_active_claim_rate = 1.0
-duplicate_active_claim_count = 0
-active_reclaim_block_rate = 1.0
-stale_ack_blocked_rate = 1.0
-stale_reclaim_success_rate = 1.0
-pending_under_pressure_claim_rate = 1.0
-initial_hard_expiry_cap_rate = 1.0
-
-adversarial_case_count = 6
-adversarial_task_count = 7
-adversarial_governed_task_pass_rate = 1.0
-adversarial_governed_blocked_record_leak_rate = 0.0
-
-memory_evolution_case_count = 6
-memory_evolution_task_count = 7
-memory_evolution_governed_task_pass_rate = 1.0
-memory_evolution_governed_blocked_record_leak_rate = 0.0
-memory_evolution_governed_disposition_reason_hit_rate = 1.0
-
-review_queue_item_count = 6
-review_queue_actionable_count = 6
-review_queue_hidden_lane_count = 2
-review_queue_writeback_plan_count = 6
-review_queue_no_auto_mutation = true
-review_queue_public_mcp_surface_change = false
-review_queue_item_type_count = 6
-
-review_workflow_source_queue_item_count = 6
-review_workflow_item_count = 6
-review_workflow_manual_step_count = 27
-review_workflow_requires_human_count = 6
-review_workflow_auto_write_count = 0
-review_workflow_no_auto_writeback = true
-review_workflow_public_mcp_surface_change = false
-review_workflow_item_type_count = 6
-
-task_brief_used_count = 2
-task_brief_ignored_count = 1
-task_brief_needs_review_count = 4
-task_brief_review_queue_item_count = 2
-task_brief_active_signal_count = 1
-task_brief_no_auto_writeback = true
-task_brief_public_mcp_surface_change = false
-task_brief_needs_review_source_type_count = 3
-
-v019_case_count = 12
-v019_pass_count = 12
-v019_pass_rate = 1.0
-v019_retrieval_case_count = 4
-v019_retrieval_pass_rate = 1.0
-v019_task_brief_case_count = 4
-v019_task_brief_pass_rate = 1.0
-v019_first_run_adoption_case_count = 4
-v019_first_run_adoption_pass_rate = 1.0
-v019_public_mcp_tool_count = 10
-v019_public_mcp_surface_change = false
-v019_client_config_write_count = 0
-v019_durable_writeback_count = 0
-v019_amh_required = false
-v019_native_memory_comparison_required = true
-
-v020_case_count = 6
-v020_pass_count = 6
-v020_pass_rate = 1.0
-v020_import_sanity_pass = true
-v020_stdio_round_trip_pass = true
-v020_first_run_pass = true
-v020_task_brief_pass = true
-v020_public_mcp_tool_count = 10
-v020_public_mcp_surface_change = false
-v020_client_config_write_count = 0
-v020_explicit_demo_memory_write_count = 1
-v020_explicit_demo_signal_write_count = 0
-v020_non_demo_durable_writeback_count = 0
-v020_amh_required = false
-v020_external_vendor_adoption_claim = false
-
-v021_case_count = 20
-v021_category_count = 4
-v021_flat_baseline_hazards = 17
-v021_flat_baseline_hazards_expected = 17/20
-v021_governed_case_pass_count = 20
-v021_governed_failures = 0
-v021_governed_failures_target = 0/20
-v021_governed_checkpoint_passes = 40
-v021_governed_checkpoint_passes_target = 40/40
-v021_governed_checkpoint_result_count = 40
-v021_useful_current_retention_pass = true
-v021_suppress_all_can_pass = false
-v021_public_mcp_tool_count = 10
-v021_public_mcp_surface_change = false
-v021_auto_writeback_count = 0
-v021_config_write_count = 0
-v021_durable_live_writeback_count = 0
-```
-
-</details>
-
-完整 proof 见 [benchmark/README.md](benchmark/README.md)。
-
-## 边界
-
-AMB 不是 graph database、通用 unlearning system、hosted memory platform、HTTP MCP service、Tasks 或 Apps runtime、OAuth/ACL system、scheduler、worker runtime、distributed lock、exactly-once coordination system、packet API、active reranker、ANN/vector database、automatic policy engine、compliance certification、authenticated identity system，也不是从原始 transcript 自动 durable writeback 的通道。它的 episode ledger 是 evidence authority，不是 autonomous task runtime。`forget` 仍然是显式 mutating operation；governed change 让它更保守、可审计，而不是自动执行。`feedback` 仍是 shadow evidence，不是 ranking、policy 或 memory mutation channel。
-
-替代方案和取舍见 [docs/COMPARISON.md](docs/COMPARISON.md)。
+公共接口刻意保持精简。上下文组装、审查报告和其他派生视图在这些工具之后演进，而不会增加单独的任务包或上下文编译器工具。本地协议缓存契约为 discovery 的 `300000/public` 与工具列表的 `0/private`；详细内容请见 [MCP 兼容性](docs/MCP-2026-COMPATIBILITY.md)。
 
 ## 文档
 
-- [Client integrations](docs/INTEGRATIONS.md)
-- [Configuration](docs/CONFIGURATION.md)
-- [Authority contract](docs/AUTHORITY-CONTRACT.md)
-- [Trust boundary](docs/TRUST-BOUNDARY.md)
-- [Agent install protocol](INSTALL_FOR_AGENTS.md)
-- [Benchmark and proof harness](benchmark/README.md)
-- [v0.27.4 announcement](docs/v0.27.4-announcement.md)
-- [v0.27.3 announcement](docs/v0.27.3-announcement.md)（历史）
-- [v0.27.2 announcement](docs/v0.27.2-announcement.md)
-- [v0.27.1 announcement](docs/v0.27.1-announcement.md)（历史）
-- [v0.27.0 announcement](docs/v0.27.0-announcement.md)（历史）
-- [v0.26.1 announcement](docs/v0.26.1-announcement.md)（历史）
-- [Release communications](docs/RELEASE-COMMUNICATIONS.md)
-- [Context assembly](docs/CONTEXT-ASSEMBLY.md)
-- [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
-- [Promotion rules](docs/PROMOTION-RULES.md)
-- [Client provenance](docs/CLIENT-PROVENANCE.md)
-- [Examples](examples/README.md)
-- [Contributing](CONTRIBUTING.md)
-- [Security](SECURITY.md)
+| 从这里开始 | 用途 |
+|---|---|
+| [架构](docs/ARCHITECTURE.md) | 当前高层系统与权威流。 |
+| [生产状态](docs/PRODUCTION-STATUS.md) | 当前源码事实、已实现能力摘要、验证证据和已知边界。 |
+| [面向智能体的安装指南](INSTALL_FOR_AGENTS.md) | 从安装到首次成功的详细流程。 |
+| [集成](docs/INTEGRATIONS.md) | 客户端专用本地 stdio MCP 设置。 |
+| [配置](docs/CONFIGURATION.md) | 完整配置参考。 |
+| [权威契约](docs/AUTHORITY-CONTRACT.md) | 持久权威、派生视图、审查和纠正规则。 |
+| [信任边界](docs/TRUST-BOUNDARY.md) | 本地信任、来源、隐私与非目标。 |
+| [示例](examples/README.md) | 已净化的示例与演示。 |
 
-## License
+## 当前成熟度
 
-MIT. See [LICENSE](LICENSE).
+当前源码使用 schema v12 和冻结的 17 工具 MCP 接口。`v0.27.4` Git 标签存在；最新已发布 GitHub Release 为 `v0.27.3`；经验证的 main 基线已有成功的推送 CI。当前源码事实、验证结果和非声明由[生产状态](docs/PRODUCTION-STATUS.md)维护。
+
+## 路线图
+
+未来方向按能力组织，并刻意保持保守。请见[路线图](docs/ROADMAP.md)；历史公告仍是证据，而不是理解当前产品故事的必读材料。
+
+## 贡献与安全
+
+请阅读[CONTRIBUTING.md](CONTRIBUTING.md)了解开发与公共表面要求，并阅读[SECURITY.md](SECURITY.md)了解本地优先安全模型和漏洞报告流程。
+
+采用 [MIT](LICENSE) 许可证。

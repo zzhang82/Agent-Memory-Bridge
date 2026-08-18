@@ -26,6 +26,7 @@ PUBLIC_DOC_PATHS = (
     Path("benchmark/latest-v0.21-governed-change-report.json"),
     Path("benchmark/v0.19-fixture-manifest.json"),
     Path("benchmark/v0.21-governed-change-manifest.json"),
+    Path("docs/ARCHITECTURE.md"),
     Path("docs/AUTHORITY-CONTRACT.md"),
     Path("docs/CLIENT-PROVENANCE.md"),
     Path("docs/COMPARISON.md"),
@@ -120,8 +121,6 @@ BLOCKED_DOC_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 BLOCKED_README_LINKS = (
-    "docs/ROADMAP.md",
-    "docs/PRODUCTION-STATUS.md",
     "docs/PUBLIC-README-RELEASE-OUTLINE.md",
     "docs/0.7-CUTOVER-READINESS.md",
     "docs/0.7-NARRATIVE.md",

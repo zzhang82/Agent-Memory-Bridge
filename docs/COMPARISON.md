@@ -4,7 +4,9 @@ This note is about positioning, not benchmarks. It is intentionally narrow and
 source-linked so Agent Memory Bridge can describe its wedge without pretending to
 be a universal memory platform.
 
-Last reviewed: 2026-04-30.
+Last externally reviewed: 2026-04-30. **External competitor claims are stale and need fresh web research before they are updated.**
+
+For the current AMB architecture and authority boundaries, see [Architecture](ARCHITECTURE.md).
 
 ## Short Version
 

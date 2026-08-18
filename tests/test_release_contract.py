@@ -315,15 +315,14 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
 
     readme = root / "README.md"
     readme.write_text(
-        readme.read_text(encoding="utf-8")
-        .replace("Current source test collection: `146 tests`", "Current source test collection: `140 tests`")
-        .replace("`classifier_exact_match_rate = 0.875`", "`classifier_exact_match_rate = 0.9`")
-        .replace("`13` public MCP tools", "`11` public MCP tools"),
+        readme.read_text(encoding="utf-8").replace("`13` public MCP tools", "`11` public MCP tools"),
         encoding="utf-8",
     )
     production_status = root / "docs" / "PRODUCTION-STATUS.md"
     production_status.write_text(
-        production_status.read_text(encoding="utf-8").replace("`146 passed`", "`140 passed`"),
+        production_status.read_text(encoding="utf-8")
+        .replace("Current source test collection: `146 tests`", "Current source test collection: `140 tests`")
+        .replace("classifier_exact_match_rate = 0.875", "classifier_exact_match_rate = 0.9"),
         encoding="utf-8",
     )
 
@@ -336,8 +335,8 @@ def test_run_release_contract_check_reports_specific_mismatches(tmp_path: Path) 
     check_names = {check["name"]: check for check in report["checks"]}
     assert check_names["pyproject_version_matches_readmes"]["ok"] is False
     assert check_names["v020_proof_version_matches_pyproject"]["ok"] is False
-    assert check_names["readme_facts_match_snapshot_reports"]["ok"] is False
-    assert check_names["readme_test_count_matches_collected_suite"]["ok"] is False
+    assert check_names["production_status_facts_match_snapshot_reports"]["ok"] is False
+    assert check_names["production_status_test_count_matches_collected_suite"]["ok"] is False
     assert check_names["public_mcp_tool_count_matches_server_surface"]["ok"] is False
     assert check_names["current_demo_assets_exist"]["ok"] is False
     assert check_names["current_demo_assets_exist"]["missing_assets"] == [str(svg_path)]
@@ -471,11 +470,11 @@ def test_release_contract_rejects_stale_v020_cli_version_evidence(tmp_path: Path
     ]
 
 
-def test_release_contract_rejects_v021_readme_fact_drift(tmp_path: Path) -> None:
+def test_release_contract_rejects_v021_production_status_fact_drift(tmp_path: Path) -> None:
     root = create_v021_release_fixture(tmp_path)
-    readme = root / "README.md"
-    readme.write_text(
-        readme.read_text(encoding="utf-8").replace(
+    production_status = root / "docs" / "PRODUCTION-STATUS.md"
+    production_status.write_text(
+        production_status.read_text(encoding="utf-8").replace(
             "v021_governed_failures = 0",
             "v021_governed_failures = 1",
         ),
@@ -486,7 +485,7 @@ def test_release_contract_rejects_v021_readme_fact_drift(tmp_path: Path) -> None
 
     checks = {check["name"]: check for check in report["checks"]}
     assert checks["v021_governed_change_proof_matches_release_gate"]["ok"] is True
-    fact_check = checks["readme_facts_match_snapshot_reports"]
+    fact_check = checks["production_status_facts_match_snapshot_reports"]
     assert fact_check["ok"] is False
     assert any(
         mismatch["key"] == "v021_governed_failures" and mismatch["expected"] == 0 and mismatch["actual"] == [1]
@@ -806,7 +805,7 @@ def test_check_release_contract_script_exits_zero_for_aligned_fixture(tmp_path: 
 
 # The fixture creates a fully synthetic release tree with fixed counts.
 # All numeric facts (test count, benchmark values, calibration values) are
-# pinned to the same values in the README, report JSON, and test_count_provider
+# pinned to the same values in the canonical production status, report JSON, and test_count_provider
 # so the contract check passes without touching the live codebase.
 # This count (146) is NOT required to match the live test count.
 def create_v027_episode_contract_fixture(root: Path) -> Path:
@@ -1069,8 +1068,9 @@ def create_release_fixture(root: Path) -> Path:
         """
     write_file(root / "README.md", readme_text)
     write_file(root / "README.zh-CN.md", readme_text)
-    write_file(root / "docs" / "PRODUCTION-STATUS.md", "Current source test collection: `146 tests`\n")
-    write_file(root / "docs" / "v0.9.0-announcement.md", "Current source test collection: `146 tests`\n")
+    current_fact_text = readme_text.split("## Evidence", maxsplit=1)[1].split("## MCP Tools", maxsplit=1)[0]
+    write_file(root / "docs" / "PRODUCTION-STATUS.md", current_fact_text)
+    write_file(root / "docs" / "v0.9.0-announcement.md", "Historical test snapshot: 146 tests\n")
     write_file(
         root / "benchmark" / "latest-report.json",
         json.dumps(
@@ -1402,9 +1402,7 @@ def create_v021_release_fixture(root: Path, *, package_version: str = "0.21.0") 
         ),
         encoding="utf-8",
     )
-    for readme_name in ("README.md", "README.zh-CN.md"):
-        readme = root / readme_name
-        v021_facts = """
+    v021_facts = """
 
 v021_case_count = 20
 v021_category_count = 4
@@ -1421,13 +1419,20 @@ v021_auto_writeback_count = 0
 v021_config_write_count = 0
 v021_durable_live_writeback_count = 0
 """
+    for readme_name in ("README.md", "README.zh-CN.md"):
+        readme = root / readme_name
         readme.write_text(
-            readme.read_text(encoding="utf-8").replace("`0.9.0`", f"`{package_version}`") + v021_facts,
+            readme.read_text(encoding="utf-8").replace("`0.9.0`", f"`{package_version}`"),
             encoding="utf-8",
         )
+    production_status = root / "docs" / "PRODUCTION-STATUS.md"
+    production_status.write_text(
+        production_status.read_text(encoding="utf-8") + v021_facts,
+        encoding="utf-8",
+    )
     write_file(
         root / "docs" / f"v{package_version}-announcement.md",
-        "Current source test collection: `146 tests`\n",
+        "Historical test snapshot: 146 tests\n",
     )
     write_visual_claim_inventory(root, release=package_version)
     write_file(

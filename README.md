@@ -3,554 +3,121 @@
 [简体中文](README.zh-CN.md)
 
 [![MCP](https://img.shields.io/badge/MCP_Server-Enabled-4A90E2?logo=protocolsdotio&logoColor=white)](https://modelcontextprotocol.io)
-[![Glama](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge/badges/score.svg)](https://glama.ai/mcp/servers/zzhang82/Agent-Memory-Bridge)
 [![CI](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/zzhang82/Agent-Memory-Bridge/actions/workflows/ci.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/zzhang82/Agent-Memory-Bridge?logo=github&color=2ea44f)](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-Give coding agents one shared, governed record of project decisions across tools and sessions.
-
-Agent Memory Bridge is shared engineering memory for developers and teams that use more than one coding agent. It complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory rather than replacing them. SQLite/WAL is the durable authority, with FTS5 and optional local embeddings as derived indexes for lexical, semantic, or hybrid retrieval.
+**Agent Memory Bridge (AMB)** gives coding agents one shared, governed record of project decisions across tools and sessions. It is local-first engineering memory over SQLite/WAL, exposed through a deliberately small MCP surface.
 
 Current source release: `0.27.4`
 
-This is a local, unpublished source candidate; it does not assert a tag, push,
-publication, remote CI result, host certification, or productivity result. The
-candidate carries schema v12 and exactly 17 MCP tools. Governed-v2 episode
-authority, watcher continuity, credit/consolidation closure, and their existing
-shadow-only boundaries remain unchanged. The new internal Dynamic State MVP is
-an exact-key release-state lane over SQLite/WAL: typed status transitions,
-owner assignment, optimistic version and database-epoch preconditions,
-lifecycle idempotency, immutable mutation/request-outcome history, and a
-rebuildable state-head projection. It adds no MCP tools and does not change
-semantic-memory, embedding, FTS, ranking, policy, prompts, ordinary memory, or
-automatic writeback behavior.
+> AMB complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory; it does not replace them. It is not a hosted agent runtime, scheduler, queue, or general-purpose memory platform.
 
-> Codex is the reference workflow, not the product boundary. AMB uses local stdio MCP; client integrations are documented or locally verified only where labeled below.
+## Why AMB
 
-<p align="center">
-  <img src="examples/diagrams/v0.22-shared-memory-hero.png" alt="Rendered workspace scene with three code workstations connected by bridges to a central cabinet holding cards and a scroll." width="900">
-</p>
+Coding agents often lose useful engineering knowledge between sessions, clients, and handoffs. A plain summary can become stale; opaque retrieval can hide why an item was selected; and mutable operational state should not be mistaken for durable knowledge.
 
-<p align="center"><em>Conceptual visual only: a shared-memory workspace metaphor for AMB. It is not product evidence, identity evidence, certification, distribution, or use proof.</em></p>
+AMB keeps those concerns separate. It stores inspectable engineering memory, applies lifecycle-aware governance before task context is assembled, maintains exact-key mutable state through a distinct authority boundary, and keeps prompt-facing context transient.
 
-Try it locally after install: `<venv-python> -m agent_mem_bridge first-run --client generic --example`
+## What AMB Provides
 
-## Why It Exists
+| Capability | What it means |
+|---|---|
+| Durable engineering memory | Local records for decisions, gotchas, procedures, concepts, beliefs, supporting evidence, and coordination signals. |
+| Lifecycle-aware retrieval | Eligibility, revision, supersession, validity, relation, and governance boundaries are applied before guidance is used. |
+| Dynamic State authority | An internal exact-key release-state lane with version and database-epoch preconditions; it is not semantic memory. |
+| Governed task-memory assembly | Task-time selection is derived from the existing governed memory path rather than a second retrieval system. |
+| Transient Context Compiler | A bounded, deterministic derived view over governed task memory, Dynamic State snapshots, and explicit session-local items. |
+| Episode and verification evidence | Explicit runs, artifacts, outcomes, and receipts support reviewable evidence without asserting causality or automatic learning. |
+| Cross-client MCP access | A stable local stdio interface for supported and documented MCP clients. |
 
-Most agent memory either feels too shallow or too heavy:
-
-- summaries become stale blobs
-- vector stores hide why something was recalled
-- every new session starts cold or gets a stale context dump
-- handoff state turns into ad hoc notes or a queue you did not want to build
-
-AMB takes a smaller path: local SQLite authority, explicit namespaces, inspectable records, capability-labeled retrieval, and a signal lifecycle for lightweight coordination.
-
-## What You Get
-
-- Durable memory: decisions, gotchas, procedures, concepts, beliefs, and supporting records.
-- Coordination signals: `claim -> extend -> ack / expire / reclaim` without pretending to be a scheduler.
-- Review-first writeback: learning candidates can be staged for human review before explicit promotion into durable records.
-- Context assembly: startup and task-time context can be rendered from procedures, concepts, beliefs, gotchas, and linked support without adding more MCP tools.
-- Governed change: explicit deletion, supersession, changed premises, and task-domain applicability are checked before guidance becomes actionable.
-- Cross-client activation receipts: a read-only CLI receipt can show that two distinct declared client labels participated in one memory loop without exposing paths, content, session IDs, or model IDs.
-- Retrieval feedback: callers can append a receipt-bound vote, correction, or retraction while AMB exposes at most one current effective vote without changing ranking or memory.
-- Episode ledger: callers can create explicit server-minted runs/work items, append structured events, recover state after reconnect or compaction, and record evidence-backed outcomes without changing ranking or policy.
-- Evidence context: recall can sign bounded SHA-256 digests for optional caller-declared `model`, `harness`, and `chat_template` labels without including raw values or treating them as authenticated identity.
-- Proof discipline: release contract checks, public-surface checks, onboarding checks, benchmark snapshots, visual inventory checks, and targeted receipt/feedback regressions.
+AMB does **not** automatically write lessons back to memory, change ranking from feedback, promote self-generated reflection, or acquire skills autonomously.
 
 ## How It Works
 
-AMB keeps the runtime path small: MCP-compatible coding agents call 17 public
-MCP tools, including four explicit episode tools; SQLite/WAL remains the durable authority; FTS5 and optional local
-embeddings are derived indexes; governed context and CLI reports are rendered
-without automatic durable writeback. Release checks, benchmarks, and the visual
-claim inventory stay outside that runtime path.
+```mermaid
+flowchart LR
+    A[Durable Memory] --> C[Lifecycle-aware Recall]
+    B[Dynamic State Authority] --> D[Context Compiler]
+    C --> E[Governed Task Memory]
+    E --> D
+    D --> F[Transient Bounded Context]
+    F --> G[Metadata-only Context Attestation]
+    G --> H[Episode and Run Authority]
+    H --> I[Verification Receipt]
+    I --> J[Current Verified Outcome]
+```
 
-## Who It Is For
+Context bodies are rendered in process and are not durably persisted by the compiler. An attestation stores bounded metadata and digests, not the prompt-facing body. A selected context does not prove memory application, and memory application does not prove causality.
 
-- You use more than one coding agent and want project decisions, gotchas, and handoffs to remain shared across them.
-- You already use `AGENTS.md`, `CLAUDE.md`, or native preference memory and need a governed cross-agent layer alongside it.
-- You want memory that is local and inspectable instead of a hosted platform or opaque vector stack.
-- You run review, handoff, or multi-agent workflows and need coordination signals without building a full task queue.
+Read the complete authority and data-flow story in [Architecture](docs/ARCHITECTURE.md).
 
-## Install
+## Quick Start
 
-Requirements:
-
-- Python 3.11+
-- SQLite with FTS5 support; optional local embeddings are derived indexes, not durable authority
-- any MCP-compatible client that can launch a local stdio server
-- optional `uv` / `uvx` for a pinned one-command GitHub smoke test
-
-Pinned GitHub install with Python:
+AMB runs locally with **Python 3.11+**, SQLite with FTS5, and an MCP-compatible client that can launch a local stdio server.
 
 ```bash
 python -m venv .amb-venv
-python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())"
+<venv-python> -m pip install -e .
+<venv-python> -m agent_mem_bridge first-run --client generic --example
 ```
 
-Treat the printed value as `<venv-python>`. Keep that resolved local path out of
-commits and issue reports. In a POSIX shell, shell-quote that path when needed.
-In Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
+Then use the rendered client configuration, reload the client, and run:
 
-The pinned GitHub tag route is the published `v0.27.0` baseline. The local
-source candidate has no release tag; use a source checkout with
-`<venv-python> -m pip install -e .` to evaluate it.
-
-```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
+```bash
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
 
-An optional smoke test against the published baseline with `uvx` is:
+`first-run` renders setup guidance and a placeholder-safe configuration example. It does not write client configuration or durable memory. For the pinned-release route, source-versus-release gate, client-specific snippets, Docker, and the full verify/restart/registration journey, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
 
-```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.27.0 agent-memory-bridge verify
-```
+## Integrations
 
-### Quick Start: Unified First-Run
+AMB is a local stdio MCP server. Generic stdio MCP is supported; Codex is the reference workflow; Claude Code, Claude Desktop, Cursor, and Cline are documented; and Antigravity, OpenCode, and Hermes have locally tested configuration paths. Integration status labels are intentionally narrow and do not imply host certification.
 
-Use `first-run` when you want a complete copy/paste setup guide for a client.
-It renders install steps, a placeholder-safe config snippet, verification
-commands, and a first Task Brief preview. It does not write client config files
-or durable memory records.
+See [Integrations](docs/INTEGRATIONS.md) for client-specific configuration and boundaries.
 
-```bash
-<venv-python> -m agent_mem_bridge first-run --client generic --example
-<venv-python> -m agent_mem_bridge first-run --client codex --example
-<venv-python> -m agent_mem_bridge first-run --client opencode --example
-<venv-python> -m agent_mem_bridge first-run --client hermes --example
-```
+## Trust and Privacy
 
-If you only need the config snippet, use `config` directly:
+SQLite/WAL is the durable local authority. FTS5 and optional local embeddings are derived indexes, not memory authority. Dynamic State is separate from semantic memory. Run artifacts retain bounded metadata only, and AMB rejects raw transcript, hidden-reasoning, and inline artifact-body fields from the durable episode path.
 
-```bash
-<venv-python> -m agent_mem_bridge config --client generic --example
-<venv-python> -m agent_mem_bridge config --client codex --example
-<venv-python> -m agent_mem_bridge config --client opencode --example
-<venv-python> -m agent_mem_bridge config --client hermes --example
-<venv-python> -m agent_mem_bridge config --client cursor --example
-```
-
-Dockerized stdio works too when you want an isolated runtime:
-
-```bash
-docker build -t agent-memory-bridge:local .
-docker run --rm -i -e AGENT_MEMORY_BRIDGE_HOME=/data/agent-memory-bridge -v /path/to/bridge-home:/data/agent-memory-bridge agent-memory-bridge:local
-```
-
-Client-specific notes live in [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). Runtime configuration lives in [docs/CONFIGURATION.md](docs/CONFIGURATION.md). Authority and correction rules live in [docs/AUTHORITY-CONTRACT.md](docs/AUTHORITY-CONTRACT.md). Security guidance lives in [SECURITY.md](SECURITY.md). Agents that are installing the bridge should start with [INSTALL_FOR_AGENTS.md](INSTALL_FOR_AGENTS.md).
-
-## The First Useful Loop
-
-Session 1 discovers a project rule:
-
-```text
-store(
-  namespace="project:demo",
-  kind="memory",
-  content="claim: Use WAL mode for concurrent SQLite readers."
-)
-```
-
-Session 2 asks about the same project:
-
-```text
-recall(namespace="project:demo", query="SQLite concurrent readers")
-```
-
-The agent gets the rule back without the user typing it again.
-
-For coordination, use signals:
-
-```text
-store(namespace="project:demo", kind="signal", content="release note review ready")
-claim_signal(namespace="project:demo", consumer="reviewer-a", lease_seconds=300)
-extend_signal_lease(id="<signal_id>", consumer="reviewer-a", lease_seconds=300)
-ack_signal(id="<signal_id>", consumer="reviewer-a")
-```
-
-For polling, use an empty query with `kind="signal"` and pass the previous
-`next_since` value back as `since`. Polling returns later insertions in ascending
-order. Missing, deleted, or cross-namespace anchors fail explicitly. The cursor
-does not report later claim or ack transitions on older Signals. Text and memory
-recall return `next_since: null`.
-
-For a cross-client activation receipt, keep one correlation id across both
-clients:
-
-```text
-# Client A stores one reviewed project memory.
-store(
-  namespace="project:demo",
-  kind="memory",
-  title="Reviewed SQLite guidance",
-  content="record_type: gotcha\nclaim: Use WAL mode for concurrent SQLite readers.",
-  tags=["workflow:cross-client-activation", "activation-role:writer", "reviewed:true"],
-  correlation_id="activation-demo-001",
-  source_client="client-a"
-)
-
-# Client B recalls it, then records and acknowledges the read signal.
-recall(namespace="project:demo", query="SQLite concurrent readers", correlation_id="activation-demo-001")
-store(
-  namespace="project:demo",
-  kind="signal",
-  content="{\"observed_memory_id\":\"<writer_memory_id>\"}",
-  tags=["workflow:cross-client-activation", "activation-role:reader"],
-  correlation_id="activation-demo-001",
-  source_client="client-b"
-)
-ack_signal(id="<reader_signal_id>")
-```
-
-Then render the local receipt:
-
-```bash
-<venv-python> -m agent_mem_bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
-```
-
-The receipt reports hashes and pass/review status. It does not print raw memory
-content, private paths, session ids, model ids, or authenticated identity claims.
-
-The short version:
-
-```text
-WITHOUT AMB
-user> We hit this last time too: run the generator after schema edits.
-
-WITH AMB
-agent> I found the previous gotcha: run the generator after schema edits.
-```
-
-Task Briefs do not require Agent Memory Harness (AMH). The AMB CLI can render a
-derived task context report over recalled records, including what context was
-used, ignored, or marked for review. That brief is a derived view over AMB
-memory; it is not a second durable store and does not add MCP tools.
-
-The terminal demo and the before/after gotcha story are in [examples/demo](examples/demo/README.md), with the story source at [examples/demo/before-after-gotcha.cast.md](examples/demo/before-after-gotcha.cast.md).
-
-## Client Support
-
-Status labels are intentionally narrow.
-
-| Client | Status | Notes |
-|---|---|---|
-| Generic stdio MCP | supported | Any client that can launch a local stdio server |
-| Codex | verified | Reference workflow and deepest dogfood path |
-| Claude Code | documented | CLI or project-level stdio MCP config |
-| Claude Desktop | documented | Local stdio server config; remote/extension flows are separate |
-| Cursor | documented | JSON `mcpServers` config |
-| Cline | documented | JSON `mcpServers` config |
-| Antigravity | locally tested | Exercised in a local setup; UI/config details can vary |
-| OpenCode | locally tested | JSON `mcp` config shape for local commands |
-| Hermes | locally tested | YAML `mcp_servers` shape in local profiles; adapter workflows remain manual |
+Detailed boundaries are in the [Authority Contract](docs/AUTHORITY-CONTRACT.md), [Trust Boundary](docs/TRUST-BOUNDARY.md), and [Closed-Loop Episode Authority](docs/CLOSED-LOOP-EPISODE.md).
 
 ## MCP Tools
 
-The bridge exposes `17` public MCP tools:
+AMB exposes **17 public MCP tools**:
 
-| Tool | Lane | Boundary |
-|---|---|---|
-| `store` | memory/signal write | Durable memories may deduplicate; Signals stay coordination events. |
-| `recall` | retrieval | Explicit memory text recall can include a snapshot-bound receipt and optional caller-declared evidence-context digests. |
-| `browse` | inspection | Filtered namespace view without text-ranking claims. |
-| `stats` | inspection | Counts and derived health signals, not durable authority changes. |
-| `forget` | governed mutation | Explicit deletion with audit boundaries. |
-| `feedback` | retrieval evidence | Receipt-bound votes, corrections, and retractions are append-only and shadow-only; no ranking or memory mutation. |
-| `promote` | governed mutation | Review-only path into durable authority. |
-| `annotate` | metadata mutation | Adds non-policy tags and provenance without rewriting content. |
-| `revise` | governed mutation | Creates a successor plus supersession receipt in one transaction. |
-| `export` | inspection | Sanitized export over existing records. |
-| `begin_run` | episode authority | Mints an explicit run and root work-item handle; there is no implicit current run. |
-| `record_run_event` | episode authority | Appends a bounded structured event with transactional per-run sequencing and optional expected-sequence/status compare-and-swap preconditions. |
-| `get_run` | episode inspection | Reads one coherent SQLite snapshot, derives authority state, and reports snapshot and projection health for recovery. |
-| `complete_run` | outcome evidence | Appends or corrects an evidence-bound outcome while preserving the original terminal time; legacy v1 verification remains readable but non-authoritative for strong downstream uses. |
-| `claim_signal` | signal lifecycle | Claims one pending or expired Signal for a local consumer. |
-| `extend_signal_lease` | signal lifecycle | Extends the current owner lease. |
-| `ack_signal` | signal lifecycle | Acknowledges with owner checks for active claims. |
+- `store`, `recall`, `browse`, and `stats`
+- `forget`, `feedback`, `promote`, `annotate`, `revise`, and `export`
+- `begin_run`, `record_run_event`, `get_run`, and `complete_run`
+- `claim_signal`, `extend_signal_lease`, and `ack_signal`
 
-Same tools by group:
+The public surface is intentionally small. Context assembly, review reports, and other derived views evolve behind these tools rather than adding separate task-packet or context-compiler tools. The local protocol cache contract is `300000/public` for discovery and `0/private` for the tool list; see [MCP Compatibility](docs/MCP-2026-COMPATIBILITY.md) for detail.
 
-- `store`, `recall`, `browse`, `stats`
-- `forget`, `feedback`, `promote`, `annotate`, `revise`, `export`
-- `begin_run`, `record_run_event`, `get_run`, `complete_run`
-- `claim_signal`, `extend_signal_lease`, `ack_signal`
+## Documentation
 
-`annotate` adds non-policy tags and provenance without rewriting the original
-content. `revise` creates a successor record and an auditable supersession
-receipt in one transaction. Both operations preserve the review boundary:
-callers cannot mint reserved governance tags or revise hidden learning
-candidates into authority.
-
-Receipt-bearing recall returns rows and creates the signed complete exposure set
-from one SQLite read snapshot. Every exposure binds `memory_id`, rank, and exact
-content version. Optional `evidence_context` accepts only `model`, `harness`,
-and `chat_template`; the receipt contains bounded SHA-256 digests rather than
-raw caller-declared values. These labels do not affect retrieval order or
-feedback identity.
-
-`feedback` defaults to a root `vote`. A `correction` or `retraction` must name
-the current `supersedes_feedback_id`, preserving the complete append-only event
-history while exposing at most one current effective vote. Caller-declared
-client and session labels cannot create additional votes for the same signed
-retrieval subject. `receipt_hash` remains the hash of the actual token;
-`feedback_identity_digest` is a separate canonical subject identity.
-
-The richer behavior stays behind that surface: reviewed promotion helpers, consolidation, startup/task-time assembly, procedure policies, telemetry summaries, signal contention checks, learning-candidate review queues, Task Brief reports, human review workflows, and activation receipts. There are no separate `task_packet`, `startup_packet`, `learning_candidate`, `task_brief`, `review_queue`, `review_workflow`, or `activation_receipt` MCP tools, and no MCP Tasks, rerank, auth, ACL, ANN, graph, or auto-policy interface.
-
-For normal service use, log capture helpers, promotion helpers, and strong consolidation are disabled by default. During each cycle, every enabled lane has its own exception boundary: one lane failure is reported with a failure count and bounded retry delay without stopping its siblings. The lanes still execute sequentially, so a slow call can delay later lanes; lane duration and slow-lane warnings make that delay visible. Watcher, reflex, consolidation, governance, and embedding scheduler state use tolerant atomic JSON and reset when a restored database has a different epoch. The service writes `service-health.json`, holds a local bridge-home singleton lock, exits `1` from `service --once` when any enabled lane fails, and exits `3` when another service owns the lock. Use `--allow-multiple-services` only when duplicate processing is deliberate.
-
-Restore is an offline maintenance operation. Stop the service and every MCP/client
-process that can write the database before restoring, and reopen clients only
-after verification completes. The service lock excludes the background daemon;
-arbitrary MCP writers do not participate in that lock.
-
-Operator review work is available as CLI reports, not MCP tools:
-
-```bash
-<venv-python> -m agent_mem_bridge review-queue --namespace project:demo --format markdown
-<venv-python> -m agent_mem_bridge review-workflow --namespace project:demo --format markdown
-<venv-python> -m agent_mem_bridge task-brief --namespace project:demo --query "release handoff" --format markdown
-<venv-python> -m agent_mem_bridge activation-receipt --namespace project:demo --correlation-id activation-demo-001 --format markdown
-```
-
-`review-queue` shows staged candidates, review receipts, tombstones, stale records, and quarantined claims. `review-workflow` turns those queue items into explicit human decision prompts and manual steps. `task-brief` composes existing task-memory assembly, review queue items, and active signals into `Used`, `Ignored`, and `Needs Review` sections. `activation-receipt` reads existing rows for one namespace and correlation id and emits a sanitized declared-provenance receipt. These reports perform no automatic durable writeback.
-
-### MCP 2026-07-28 stdio compatibility
-
-AMB 0.27.4 keeps modern MCP 2026-07-28 `server/discover` and legacy
-`initialize` over local stdio, with the same deterministic 17-tool surface.
-The independently exercised 0.27.0 interoperability run remains historical:
-it used `mcp==2.0.0`, a separate `mcp==1.28.1` legacy client, and the official
-`@modelcontextprotocol/client@2.0.0`. Modern successful wire results contain
-`resultType: "complete"`; `server/discover` uses `ttlMs: 300000` /
-`cacheScope: "public"`; the current canonical surface is deterministic and
-`tools/list` remains `ttlMs: 0` / `cacheScope: "private"`.
-
-This is local Linux/Python 3.12 project-interoperability evidence only, not a
-GitHub CI result, official conformance, host certification, Windows proof, tag,
-publication, or productivity result.
-
-The compact cache contract is `300000/public` for discover and `0/private` for
-the tool list.
-
-Meaningful per-request `clientInfo` is caller-declared provenance, not
-authenticated identity. `source_client` precedence is explicit tool input,
-then meaningful MCP context, then the environment default; generic SDK names
-such as `mcp` are ignored.
-
-### Static-schema client compatibility
-
-Some MCP clients generate one static input schema per tool and may send signal-only fields on `kind="memory"` paths: for example `ttl_seconds` or `expires_at` on `store`, and `signal_status` on `recall`, `browse`, or `export`. AMB drops those fields at the MCP transport boundary before creating or querying memory records. The lower-level memory store contract stays strict: durable memory and coordination signals remain separate lanes, and real signal lifecycle fields still belong only to `kind="signal"` operations.
-
-## Proof Snapshot
-
-`0.27.4` advances the durable schema to v12 while retaining the frozen 17-tool
-MCP surface and prior episode authority. Dynamic State is a narrow internal
-release-state authority lane: exact-key reads; typed `status_transition`,
-`owner_assignment`, and `restore` commands; optimistic `expected_version` and
-`expected_database_epoch` guards; immutable accepted mutations and terminal
-request outcomes; deterministic restore-as-a-new-version; and a rebuildable
-state-head projection derived from SQLite/WAL history. It does not expose a
-new MCP tool or change semantic-memory, embedding, FTS, ranking, policy,
-prompts, ordinary memory, or automatic writeback behavior. The exact 17-tool
-surface remains frozen by `mcp_boundary.PUBLIC_TOOL_ORDER` with schema digest
-`24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`.
-The local suite reports `850 tests passed`; this is local evidence only, not a
-remote CI, tag, publication, host-certification, ranking, auto-writeback, or
-self-improvement claim.
-
-| Track | Current signal |
+| Start here | Use it for |
 |---|---|
-| Retrieval | `memory_expected_top1_accuracy = 1.0`, `file_scan_expected_top1_accuracy = 0.636` |
-| Calibration | `classifier_exact_match_rate = 0.875`, `fallback_exact_match_rate = 0.062` |
-| Procedure governance | `governed_case_pass_rate = 1.0`, `governed_blocked_procedure_leak_rate = 0.0` |
-| Learning candidates | policy-gated staging records are suppressed from normal recall, browse, export, and stats unless explicitly queried with review tags; candidates are not durable authority until reviewed/promoted |
-| Signal contention | serialized lifecycle benchmark: `signal_contention_case_pass_rate = 1.0`, `duplicate_active_claim_count = 0`; multiprocessing exact-ID claim test: 8 processes, 1 winner |
-| Inherited v0.24 correctness | schema v4 `exact_content_hash`; read-only semantic/hybrid recall over precomputed vectors; degraded completeness metadata; warmed benchmark/proof embeddings; service-locked index rebuild; documented cooperative trust boundary |
-| Inherited Signal correctness | 10,000-Signal polling acceptance: exact insertion order, `missing = 0`, `unexpected = 0`, `unique = 10000`; owner-matched active-claim ack and promotion-preservation regressions included in the suite |
-| Adversarial memory governance | `adversarial_case_count = 6`, `adversarial_task_count = 7`, `adversarial_governed_task_pass_rate = 1.0`, `adversarial_governed_blocked_record_leak_rate = 0.0` |
-| Reviewed memory evolution | `memory_evolution_case_count = 6`, `memory_evolution_task_count = 7`, `memory_evolution_governed_task_pass_rate = 1.0`, `memory_evolution_governed_blocked_record_leak_rate = 0.0` |
-| Reviewed memory operations | `review_queue_item_count = 6`, `review_queue_actionable_count = 6`, `review_queue_no_auto_mutation = true`, `review_queue_public_mcp_surface_change = false` |
-| Human review workflow | `review_workflow_item_count = 6`, `review_workflow_manual_step_count = 27`, `review_workflow_auto_write_count = 0`, `review_workflow_public_mcp_surface_change = false` |
-| Task Brief | `task_brief_used_count = 2`, `task_brief_ignored_count = 1`, `task_brief_needs_review_count = 4`, `task_brief_no_auto_writeback = true`, `task_brief_public_mcp_surface_change = false` |
-| v0.19 adoption proof | synthetic fixture proof only, not clean-room external adoption: `v019_case_count = 12`, `v019_pass_rate = 1.0`, `v019_public_mcp_surface_change = false`, `v019_client_config_write_count = 0` |
-| v0.20 clean-room proof | local reproducible proof only, not vendor certification: `v020_case_count = 6`, `v020_pass_rate = 1.0`, `v020_stdio_round_trip_pass = true`, `v020_client_config_write_count = 0`, `v020_external_vendor_adoption_claim = false` |
-| v0.21 governed change proof | fixed local executable proof: `v021_case_count = 20`, `v021_flat_baseline_hazards = 17`, `v021_governed_failures = 0`, `v021_governed_checkpoint_passes = 40`, `v021_auto_writeback_count = 0` |
-| v0.22 activation receipt | declared-provenance local receipt only; requires distinct declared `source_client` labels and an acked reader signal; `public_mcp_surface_change = false`, `durable_writeback_count = 0`, `config_write_count = 0` |
-| v0.22 visual assets | machine inventory: `examples/diagrams/visual-claims.json`; native-size and README-width raster render gate requires no clipping, overlap, or crossed labels; hero PNG is marked conceptual with semantic validation not performed; SVG assets carry title/desc metadata |
-| v0.27.2 governed-v2 and watcher continuity | governed-v2 profiles, typed events/CAS, operator CLI verification receipts, incremental watcher cursor, explicit close, and explicit continuation; no public MCP surface expansion |
-| v0.27.4 internal Dynamic State authority MVP | schema v12; exact-key release state; typed status/owner/restore commands; version and database-epoch guards; lifecycle idempotency; immutable mutations and terminal outcomes; deterministic rebuild/restore; no MCP, semantic-memory, embedding, FTS, ranking, policy, or automatic-writeback change |
-| v0.27.3 credit/consolidation/authority closure | schema v10; effective-feedback/relation/outcome consistency; distinct `not_applicable` and `not_used`; keyset pagination; stable candidate subjects vs evidence revisions; contested procedures; structured opposition; declared vs verified independence; immutable/provenance/artifact/privacy closure; shadow-only utility/consolidation |
-| v0.27.1 episode authority and recovery (historical) | schema v9; terminal timestamps with authority-preserving migration; explicit work-item FSM and terminal-reopen rejection; optional event CAS; one-snapshot `get_run` with projection-health metadata; fail-closed writes on projection drift; canonical 17-tool digest `a2e3dbbb48c87a7ce23bc4be1c8ea37c8cd176ff8f7fd2318d1374bc9e089e4a`; legacy v1 verification is `legacy_declared`; utility/consolidation remained shadow-only |
-| Client provenance | meaningful per-request `clientInfo` is caller-declared provenance; precedence is explicit `source_client` > meaningful MCP context > environment default; generic `mcp` is ignored |
-| Inherited retrieval receipts and feedback | schema v7; same-snapshot complete exposure sets with exact content versions; optional model/harness/chat-template digests; append-only vote/correction/retraction history with one effective vote; separate token hash and feedback identity digest |
-| Test suite | Current source test collection is recorded below; release gates include raw-wire negotiation, real old-client and TypeScript client jobs, dual-era operator checks, 20-process shared-SQLite proof, 100 connect/disconnect cycles, and inherited receipt/feedback/migration regressions |
+| [Architecture](docs/ARCHITECTURE.md) | Current high-level system and authority flow. |
+| [Production Status](docs/PRODUCTION-STATUS.md) | Current source facts, implemented capability summary, validation evidence, and known boundaries. |
+| [Install for Agents](INSTALL_FOR_AGENTS.md) | Detailed install-to-first-success workflow. |
+| [Integrations](docs/INTEGRATIONS.md) | Client-specific local stdio MCP setup. |
+| [Configuration](docs/CONFIGURATION.md) | Complete configuration reference. |
+| [Authority Contract](docs/AUTHORITY-CONTRACT.md) | Durable authority, derived views, review, and correction rules. |
+| [Trust Boundary](docs/TRUST-BOUNDARY.md) | Local trust, provenance, privacy, and non-goals. |
+| [Examples](examples/README.md) | Sanitized examples and demos. |
 
-Current source test collection: `850 tests`
+## Current Maturity
 
-<details>
-<summary>Release contract facts</summary>
+The current source uses schema v12 and a frozen 17-tool MCP surface. The `v0.27.4` Git tag exists; the latest published GitHub Release is `v0.27.3`; and the verified main baseline has a successful push CI run. Current source facts, validation results, and non-claims are maintained in [Production Status](docs/PRODUCTION-STATUS.md).
 
-Snapshot facts checked by the release contract:
+## Roadmap
 
-```text
-question_count = 11
-memory_expected_top1_accuracy = 1.0
-memory_mrr = 1.0
-file_scan_expected_top1_accuracy = 0.636
-file_scan_mrr = 0.909
+Future direction is capability-based and deliberately conservative. See the [Roadmap](docs/ROADMAP.md); historical announcements remain evidence, not required reading for the current product story.
 
-sample_count = 16
-classifier_exact_match_rate = 0.875
-fallback_exact_match_rate = 0.062
-classifier_better_count = 13
-fallback_better_count = 2
-classifier_filtered_low_confidence_count = 2
+## Contributing and Security
 
-case_count = 7
-flat_case_pass_rate = 0.429
-governed_case_pass_rate = 1.0
-flat_blocked_procedure_leak_rate = 1.0
-governed_blocked_procedure_leak_rate = 0.0
-governed_governance_field_completeness = 1.0
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for development and public-surface expectations, and [SECURITY.md](SECURITY.md) for the local-first security model and vulnerability reporting process.
 
-signal_contention_case_count = 5
-signal_contention_case_pass_rate = 1.0
-unique_active_claim_rate = 1.0
-duplicate_active_claim_count = 0
-active_reclaim_block_rate = 1.0
-stale_ack_blocked_rate = 1.0
-stale_reclaim_success_rate = 1.0
-pending_under_pressure_claim_rate = 1.0
-initial_hard_expiry_cap_rate = 1.0
-
-adversarial_case_count = 6
-adversarial_task_count = 7
-adversarial_governed_task_pass_rate = 1.0
-adversarial_governed_blocked_record_leak_rate = 0.0
-
-memory_evolution_case_count = 6
-memory_evolution_task_count = 7
-memory_evolution_governed_task_pass_rate = 1.0
-memory_evolution_governed_blocked_record_leak_rate = 0.0
-memory_evolution_governed_disposition_reason_hit_rate = 1.0
-
-review_queue_item_count = 6
-review_queue_actionable_count = 6
-review_queue_hidden_lane_count = 2
-review_queue_writeback_plan_count = 6
-review_queue_no_auto_mutation = true
-review_queue_public_mcp_surface_change = false
-review_queue_item_type_count = 6
-
-review_workflow_source_queue_item_count = 6
-review_workflow_item_count = 6
-review_workflow_manual_step_count = 27
-review_workflow_requires_human_count = 6
-review_workflow_auto_write_count = 0
-review_workflow_no_auto_writeback = true
-review_workflow_public_mcp_surface_change = false
-review_workflow_item_type_count = 6
-
-task_brief_used_count = 2
-task_brief_ignored_count = 1
-task_brief_needs_review_count = 4
-task_brief_review_queue_item_count = 2
-task_brief_active_signal_count = 1
-task_brief_no_auto_writeback = true
-task_brief_public_mcp_surface_change = false
-task_brief_needs_review_source_type_count = 3
-
-v019_case_count = 12
-v019_pass_count = 12
-v019_pass_rate = 1.0
-v019_retrieval_case_count = 4
-v019_retrieval_pass_rate = 1.0
-v019_task_brief_case_count = 4
-v019_task_brief_pass_rate = 1.0
-v019_first_run_adoption_case_count = 4
-v019_first_run_adoption_pass_rate = 1.0
-v019_public_mcp_tool_count = 10
-v019_public_mcp_surface_change = false
-v019_client_config_write_count = 0
-v019_durable_writeback_count = 0
-v019_amh_required = false
-v019_native_memory_comparison_required = true
-
-v020_case_count = 6
-v020_pass_count = 6
-v020_pass_rate = 1.0
-v020_import_sanity_pass = true
-v020_stdio_round_trip_pass = true
-v020_first_run_pass = true
-v020_task_brief_pass = true
-v020_public_mcp_tool_count = 10
-v020_public_mcp_surface_change = false
-v020_client_config_write_count = 0
-v020_explicit_demo_memory_write_count = 1
-v020_explicit_demo_signal_write_count = 0
-v020_non_demo_durable_writeback_count = 0
-v020_amh_required = false
-v020_external_vendor_adoption_claim = false
-
-v021_case_count = 20
-v021_category_count = 4
-v021_flat_baseline_hazards = 17
-v021_flat_baseline_hazards_expected = 17/20
-v021_governed_case_pass_count = 20
-v021_governed_failures = 0
-v021_governed_failures_target = 0/20
-v021_governed_checkpoint_passes = 40
-v021_governed_checkpoint_passes_target = 40/40
-v021_governed_checkpoint_result_count = 40
-v021_useful_current_retention_pass = true
-v021_suppress_all_can_pass = false
-v021_public_mcp_tool_count = 10
-v021_public_mcp_surface_change = false
-v021_auto_writeback_count = 0
-v021_config_write_count = 0
-v021_durable_live_writeback_count = 0
-```
-
-</details>
-
-Full proof details are in [benchmark/README.md](benchmark/README.md).
-
-## Boundaries
-
-AMB is not a graph database, general unlearning system, hosted memory platform, HTTP MCP service, Tasks or Apps runtime, OAuth/ACL system, scheduler, worker runtime, distributed lock, exactly-once coordination system, packet API, reranker, automatic policy engine, compliance certification, authenticated identity system, or unreviewed durable writeback path from raw transcripts. Its episode ledger is evidence authority, not an autonomous task runtime. `forget` remains an explicit mutating operation; governed change makes that operation more conservative and auditable rather than automatic.
-
-For alternatives and trade-offs, see [docs/COMPARISON.md](docs/COMPARISON.md).
-
-## Docs
-
-- [Client integrations](docs/INTEGRATIONS.md)
-- [Configuration](docs/CONFIGURATION.md)
-- [Authority contract](docs/AUTHORITY-CONTRACT.md)
-- [Trust boundary](docs/TRUST-BOUNDARY.md)
-- [Agent install protocol](INSTALL_FOR_AGENTS.md)
-- [Benchmark and proof harness](benchmark/README.md)
-- [v0.27.4 announcement](docs/v0.27.4-announcement.md)
-- [v0.27.3 announcement](docs/v0.27.3-announcement.md) (historical)
-- [v0.27.2 announcement](docs/v0.27.2-announcement.md)
-- [v0.27.1 announcement](docs/v0.27.1-announcement.md) (historical)
-- [v0.27.0 announcement](docs/v0.27.0-announcement.md) (historical)
-- [v0.26.1 announcement](docs/v0.26.1-announcement.md) (historical)
-- [Release communications](docs/RELEASE-COMMUNICATIONS.md)
-- [Context assembly](docs/CONTEXT-ASSEMBLY.md)
-- [Memory taxonomy](docs/MEMORY-TAXONOMY.md)
-- [Promotion rules](docs/PROMOTION-RULES.md)
-- [Client provenance](docs/CLIENT-PROVENANCE.md)
-- [Examples](examples/README.md)
-- [Contributing](CONTRIBUTING.md)
-- [Security](SECURITY.md)
-
-## License
-
-MIT. See [LICENSE](LICENSE).
+Licensed under [MIT](LICENSE).
