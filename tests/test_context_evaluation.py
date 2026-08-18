@@ -340,3 +340,131 @@ def test_evaluation_view_follows_current_outcome_correction_and_context_inclusio
             == 0
         )
         assert conn.execute("SELECT COUNT(*) FROM memory_utility_shadow").fetchone()[0] == 0
+
+
+def _canonical_digest(value: dict[str, object]) -> str:
+    import hashlib
+
+    encoded = json.dumps(value, ensure_ascii=True, allow_nan=False, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _record_generic_artifact(
+    store: MemoryStore,
+    *,
+    begun: dict[str, object],
+    predecessor: dict[str, object],
+    metadata: dict[str, object],
+    suffix: str,
+) -> dict[str, object]:
+    digest = str(metadata["attestation_sha256"])
+    return store.record_run_event(
+        workspace_key="project:bridge",
+        run_id=str(begun["run_id"]),
+        work_item_id=str(begun["root_work_item_id"]),
+        event_type="artifact_created",
+        event_schema_version=2,
+        summary="Recorded caller-declared generic artifact metadata.",
+        payload={
+            "artifact": {
+                "digest": digest,
+                "mime_type": CONTEXT_ATTESTATION_MIME_TYPE,
+                "uri": f"context-attestation://sha256/{digest}",
+                "metadata": metadata,
+            }
+        },
+        idempotency_key=f"context-evaluation:generic:{suffix}",
+        expected_database_epoch=str(predecessor["database_epoch"]),
+        expected_run_generation=int(predecessor["run_generation"]),
+        expected_last_sequence=int(predecessor["sequence"]),
+        expected_work_item_status="active",
+    )
+
+
+def test_context_evaluation_linkage_reads_one_wal_snapshot_across_concurrent_writer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = _store(tmp_path)
+    manifest = _manifest(store)
+    begun, preflight = _begin_governed_run(store, "snapshot")
+    first = _record_attestation(store, begun=begun, predecessor=preflight, manifest=manifest, suffix="snapshot-one")
+    _mint_receipt(store, begun=begun, preflight=preflight, suffix="snapshot-one")
+
+    writer_store = MemoryStore(store.db_path, log_dir=tmp_path / "writer-logs")
+    original_connect = store._connect
+    reader_connection = original_connect()
+    writer_started: list[bool] = []
+
+    def write_newer_evidence() -> None:
+        writer_started.append(True)
+        second = _record_attestation(
+            writer_store,
+            begun=begun,
+            predecessor=first,
+            manifest=manifest,
+            suffix="snapshot-two",
+        )
+        completed = _finish_work_item(writer_store, begun=begun, predecessor=second, suffix="snapshot")
+        fresh_receipt = _mint_receipt(writer_store, begun=begun, preflight=preflight, suffix="snapshot-two")
+        _complete_verified(
+            writer_store,
+            begun=begun,
+            completed=completed,
+            receipt=fresh_receipt,
+            suffix="snapshot",
+        )
+
+    class TriggeringConnection:
+        def __enter__(self) -> "TriggeringConnection":
+            reader_connection.__enter__()
+            return self
+
+        def __exit__(self, *args: object) -> object:
+            return reader_connection.__exit__(*args)
+
+        def execute(self, statement: str, parameters: object = ()) -> object:
+            if "SELECT outcome.*" in statement and not writer_started:
+                write_newer_evidence()
+            return reader_connection.execute(statement, parameters)
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(reader_connection, name)
+
+    monkeypatch.setattr(store, "_connect", lambda: TriggeringConnection())
+    view = get_context_evaluation_linkage(store, workspace_key="project:bridge", run_id=str(begun["run_id"]))
+
+    assert writer_started == [True]
+    assert [item["artifact_id"] for item in view["context_attestations"]] == [first["artifact"]["artifact_id"]]
+    assert view["current_outcome_id"] is None
+    assert view["verification_receipt_id"] is None
+    assert view["strong_verified"] is False
+
+
+def test_context_evaluation_ignores_real_generic_artifact_spoofs_outside_closed_v1_schema(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    manifest = _manifest(store)
+    begun, preflight = _begin_governed_run(store, "spoof")
+    valid = build_context_attestation(manifest)
+    spoof = {
+        **valid,
+        "compiler_version": "invalid compiler label!",
+        "used_tokens": int(valid["budget_tokens"]) + 1,
+        "unexpected_caller_field": "generic artifact data",
+    }
+    unsigned = {key: value for key, value in spoof.items() if key != "attestation_sha256"}
+    spoof["attestation_sha256"] = _canonical_digest(unsigned)
+    raw_event = _record_generic_artifact(
+        store,
+        begun=begun,
+        predecessor=preflight,
+        metadata=spoof,
+        suffix="spoof",
+    )
+
+    run = store.get_run(workspace_key="project:bridge", run_id=str(begun["run_id"]))
+    view = get_context_evaluation_linkage(store, workspace_key="project:bridge", run_id=str(begun["run_id"]))
+
+    assert raw_event["artifact"]["metadata"] == spoof
+    assert len(run["artifacts"]) == 1
+    assert view["context_attestations"] == []
+    assert view["latest_context_attestation"] is None

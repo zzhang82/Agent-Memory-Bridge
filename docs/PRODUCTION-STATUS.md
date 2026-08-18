@@ -8,7 +8,7 @@ publication, GitHub Actions result, host certification, or productivity result.
 
 Current source release: `0.27.4`
 
-Current source test collection: `848 tests`
+Current source test collection: `850 tests`
 
 ## Current 0.27.4 Source Surface
 
@@ -215,7 +215,7 @@ labeled.
 
 ## Verified On 2026-08-15
 
-- current branch denominator: `848 tests collected`
+- current branch denominator: `850 tests collected`
 - MCP dependency is `mcp==2.0.0`
 - the independently exercised local Linux/Python 3.12 interoperability run
   for the prior 0.27.0 source remains historical; current 0.27.4 source keeps

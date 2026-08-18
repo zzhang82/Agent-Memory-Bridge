@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -20,6 +21,33 @@ from .run_outcome_authority import is_strong_verified_outcome, outcome_authority
 CONTEXT_ATTESTATION_TYPE = "context_attestation"
 CONTEXT_ATTESTATION_VERSION = "context-attestation-v1"
 CONTEXT_ATTESTATION_MIME_TYPE = "application/vnd.agent-memory-bridge.context-attestation+json"
+_ATTESTATION_DIGEST_FIELDS = frozenset(
+    {
+        "manifest_fingerprint",
+        "input_fingerprint",
+        "rendered_context_sha256",
+        "task_identifier_sha256",
+        "metadata_manifest_sha256",
+        "attestation_sha256",
+    }
+)
+_ATTESTATION_FIELDS = frozenset(
+    {
+        "attestation_type",
+        "attestation_version",
+        *_ATTESTATION_DIGEST_FIELDS,
+        "compiler_version",
+        "selection_policy_version",
+        "budget_tokens",
+        "used_tokens",
+        "selected_item_count",
+        "omission_count",
+    }
+)
+_HEX_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_VERSION_LABEL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,127}$")
+_MAX_ATTESTATION_TOKENS = 1_000_000
+_MAX_ATTESTATION_COUNT = 100_000
 
 
 def build_context_attestation(manifest: ContextManifest) -> dict[str, Any]:
@@ -47,7 +75,10 @@ def build_context_attestation(manifest: ContextManifest) -> dict[str, Any]:
         "omission_count": len(manifest.omissions),
         "metadata_manifest_sha256": metadata_manifest_sha256,
     }
-    return {**attestation, "attestation_sha256": _attestation_digest(attestation)}
+    result = {**attestation, "attestation_sha256": _attestation_digest(attestation)}
+    if not _is_valid_context_attestation(result):
+        raise ValueError("manifest cannot produce a bounded valid context attestation")
+    return result
 
 
 def record_context_attestation(
@@ -112,75 +143,127 @@ def get_context_evaluation_linkage(
     strong verified outcome.
     """
     with store._connect() as conn:
-        run = conn.execute(
-            "SELECT run_id FROM agent_runs WHERE run_id = ? AND workspace_key = ?",
-            (run_id, workspace_key),
-        ).fetchone()
-        if run is None:
-            raise ValueError("run_id does not exist in the declared workspace")
-        artifact_rows = conn.execute(
-            """
-            SELECT artifact.artifact_id, artifact.artifact_version, artifact.digest,
-                   artifact.mime_type, artifact.uri, artifact.metadata_json,
-                   artifact.producing_event_id, artifact.created_at, event.sequence
-            FROM run_artifacts artifact
-            JOIN run_events event
-              ON event.run_id = artifact.run_id AND event.event_id = artifact.producing_event_id
-            WHERE artifact.run_id = ?
-            ORDER BY event.sequence, artifact.artifact_id, artifact.artifact_version
-            """,
-            (run_id,),
-        ).fetchall()
-        attestations = [_attestation_payload(row) for row in artifact_rows if _is_context_attestation_artifact(row)]
-        outcome_row = conn.execute(
-            """
-            SELECT outcome.*
-            FROM run_outcomes outcome
-            LEFT JOIN run_outcomes child ON child.supersedes_outcome_id = outcome.outcome_id
-            WHERE outcome.run_id = ? AND child.outcome_id IS NULL
-            """,
-            (run_id,),
-        ).fetchone()
-        outcome = _outcome_payload(outcome_row)
-        receipt = _receipt_for_current_outcome(conn, outcome)
-        receipt_artifact_refs = _receipt_artifact_refs(receipt)
-        receipt_artifact_keys = {
-            (str(item["artifact_id"]), int(item["artifact_version"]), str(item["digest"]))
-            for item in receipt_artifact_refs
-        }
-        bound_attestations = [
-            item
-            for item in attestations
-            if (item["artifact_id"], item["artifact_version"], item["artifact_digest"]) in receipt_artifact_keys
-        ]
-        strong_verified = is_strong_verified_outcome(outcome)
-        return {
-            "run_id": run_id,
-            "current_outcome_id": outcome.get("outcome_id") if outcome else None,
-            "current_outcome_type": outcome.get("outcome_type") if outcome else None,
-            "outcome_authority_class": outcome_authority_class(outcome),
-            "strong_verified": strong_verified,
-            "context_attestations": attestations,
-            "latest_context_attestation": attestations[-1] if attestations else None,
-            "verification_receipt_id": receipt.get("verification_receipt_id") if receipt else None,
-            "context_bound_to_current_verification": bool(strong_verified and bound_attestations),
-            "context_attestations_bound_to_current_verification": bound_attestations,
-        }
+        conn.execute("BEGIN")
+        try:
+            run = conn.execute(
+                "SELECT run_id FROM agent_runs WHERE run_id = ? AND workspace_key = ?",
+                (run_id, workspace_key),
+            ).fetchone()
+            if run is None:
+                raise ValueError("run_id does not exist in the declared workspace")
+            artifact_rows = conn.execute(
+                """
+                SELECT artifact.artifact_id, artifact.artifact_version, artifact.digest,
+                       artifact.mime_type, artifact.uri, artifact.metadata_json,
+                       artifact.producing_event_id, artifact.created_at, event.sequence
+                FROM run_artifacts artifact
+                JOIN run_events event
+                  ON event.run_id = artifact.run_id AND event.event_id = artifact.producing_event_id
+                WHERE artifact.run_id = ?
+                ORDER BY event.sequence, artifact.artifact_id, artifact.artifact_version
+                """,
+                (run_id,),
+            ).fetchall()
+            attestations = [_attestation_payload(row) for row in artifact_rows if _is_context_attestation_artifact(row)]
+            outcome_row = conn.execute(
+                """
+                SELECT outcome.*
+                FROM run_outcomes outcome
+                LEFT JOIN run_outcomes child ON child.supersedes_outcome_id = outcome.outcome_id
+                WHERE outcome.run_id = ? AND child.outcome_id IS NULL
+                """,
+                (run_id,),
+            ).fetchone()
+            outcome = _outcome_payload(outcome_row)
+            receipt = _receipt_for_current_outcome(conn, outcome)
+            receipt_artifact_refs = _receipt_artifact_refs(receipt)
+            receipt_artifact_keys = {
+                (str(item["artifact_id"]), int(item["artifact_version"]), str(item["digest"]))
+                for item in receipt_artifact_refs
+            }
+            bound_attestations = [
+                item
+                for item in attestations
+                if (item["artifact_id"], item["artifact_version"], item["artifact_digest"]) in receipt_artifact_keys
+            ]
+            strong_verified = is_strong_verified_outcome(outcome)
+            response = {
+                "run_id": run_id,
+                "current_outcome_id": outcome.get("outcome_id") if outcome else None,
+                "current_outcome_type": outcome.get("outcome_type") if outcome else None,
+                "outcome_authority_class": outcome_authority_class(outcome),
+                "strong_verified": strong_verified,
+                "context_attestations": attestations,
+                "latest_context_attestation": attestations[-1] if attestations else None,
+                "verification_receipt_id": receipt.get("verification_receipt_id") if receipt else None,
+                "context_bound_to_current_verification": bool(strong_verified and bound_attestations),
+                "context_attestations_bound_to_current_verification": bound_attestations,
+            }
+            conn.commit()
+            return response
+        except BaseException:
+            conn.rollback()
+            raise
 
 
 def _is_context_attestation_artifact(row: Mapping[str, Any]) -> bool:
     if str(row["mime_type"]) != CONTEXT_ATTESTATION_MIME_TYPE:
         return False
-    metadata = _json_object(str(row["metadata_json"]))
-    declared_digest = metadata.get("attestation_sha256")
-    unsigned_attestation = {key: value for key, value in metadata.items() if key != "attestation_sha256"}
+    try:
+        metadata = _json_object(str(row["metadata_json"]))
+        artifact_digest = str(row["digest"])
+        artifact_version = int(row["artifact_version"])
+        uri = str(row["uri"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError, RuntimeError):
+        return False
     return (
-        metadata.get("attestation_type") == CONTEXT_ATTESTATION_TYPE
-        and metadata.get("attestation_version") == CONTEXT_ATTESTATION_VERSION
-        and isinstance(declared_digest, str)
-        and declared_digest == str(row["digest"])
-        and declared_digest == _attestation_digest(unsigned_attestation)
+        artifact_version == 1
+        and _is_valid_context_attestation(metadata)
+        and artifact_digest == metadata["attestation_sha256"]
+        and uri == f"context-attestation://sha256/{artifact_digest}"
     )
+
+
+def _is_valid_context_attestation(attestation: Mapping[str, Any]) -> bool:
+    if set(attestation) != _ATTESTATION_FIELDS:
+        return False
+    if (
+        attestation.get("attestation_type") != CONTEXT_ATTESTATION_TYPE
+        or attestation.get("attestation_version") != CONTEXT_ATTESTATION_VERSION
+    ):
+        return False
+    if not all(_is_sha256(attestation.get(field)) for field in _ATTESTATION_DIGEST_FIELDS):
+        return False
+    if not all(
+        _is_bounded_version_label(attestation.get(field)) for field in ("compiler_version", "selection_policy_version")
+    ):
+        return False
+    if not all(
+        _is_bounded_nonnegative_int(attestation.get(field), maximum=_MAX_ATTESTATION_TOKENS)
+        for field in ("budget_tokens", "used_tokens")
+    ):
+        return False
+    if not all(
+        _is_bounded_nonnegative_int(attestation.get(field), maximum=_MAX_ATTESTATION_COUNT)
+        for field in ("selected_item_count", "omission_count")
+    ):
+        return False
+    if int(attestation["used_tokens"]) > int(attestation["budget_tokens"]):
+        return False
+    unsigned_attestation = {key: value for key, value in attestation.items() if key != "attestation_sha256"}
+    return str(attestation["attestation_sha256"]) == _attestation_digest(unsigned_attestation)
+
+
+def _is_sha256(value: Any) -> bool:
+    return isinstance(value, str) and _HEX_SHA256_RE.fullmatch(value) is not None
+
+
+def _is_bounded_version_label(value: Any) -> bool:
+    return isinstance(value, str) and _VERSION_LABEL_RE.fullmatch(value) is not None
+
+
+def _is_bounded_nonnegative_int(value: Any, *, maximum: int) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= maximum
 
 
 def _attestation_payload(row: Mapping[str, Any]) -> dict[str, Any]:
