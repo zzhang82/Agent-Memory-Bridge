@@ -19,16 +19,16 @@ def test_scan_text_for_blocked_patterns_flags_operator_specific_examples() -> No
     assert violations[0]["kind"] == "blocked-pattern"
 
 
-def test_scan_readme_links_flags_maintainer_docs() -> None:
+def test_scan_readme_links_allows_canonical_docs_and_flags_maintainer_docs() -> None:
     violations = scan_readme_links(
         Path("README.md"),
-        "- [docs/ROADMAP.md](docs/ROADMAP.md)\n- [docs/PRODUCTION-STATUS.md](docs/PRODUCTION-STATUS.md)\n",
+        "- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)\n"
+        "- [docs/ROADMAP.md](docs/ROADMAP.md)\n"
+        "- [docs/PRODUCTION-STATUS.md](docs/PRODUCTION-STATUS.md)\n"
+        "- [docs/STARTUP-PROTOCOL.md](docs/STARTUP-PROTOCOL.md)\n",
     )
 
-    assert [item["target"] for item in violations] == [
-        "docs/ROADMAP.md",
-        "docs/PRODUCTION-STATUS.md",
-    ]
+    assert [item["target"] for item in violations] == ["docs/STARTUP-PROTOCOL.md"]
 
 
 def test_public_surface_check_repository_passes() -> None:
@@ -38,6 +38,7 @@ def test_public_surface_check_repository_passes() -> None:
     assert report["violations"] == []
     assert {
         str(Path("benchmark/latest-v0.21-governed-change-report.json")),
+        str(Path("docs/ARCHITECTURE.md")),
         str(Path("benchmark/v0.21-governed-change-manifest.json")),
         str(Path("docs/v0.21.0-announcement.md")),
         str(Path("docs/v0.21.1-announcement.md")),

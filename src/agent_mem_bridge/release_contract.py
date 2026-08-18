@@ -235,7 +235,7 @@ def run_release_contract_check(
 
     pyproject_version = load_pyproject_version(project_root / "pyproject.toml")
     expected_facts = load_expected_facts(project_root)
-    evidence_paths = build_release_evidence_paths(project_root, pyproject_version)
+    current_status_path = project_root / "docs" / "PRODUCTION-STATUS.md"
     main_readme_path = project_root / "README.md"
     main_readme_text = main_readme_path.read_text(encoding="utf-8")
     server_tools = load_server_tool_names(project_root / "src" / "agent_mem_bridge" / "server.py")
@@ -253,14 +253,14 @@ def run_release_contract_check(
     )
     checks.append(
         build_fact_check(
-            readme_paths=readme_paths,
+            fact_paths=[current_status_path],
             expected_facts=expected_facts,
         )
     )
     checks.append(build_release_proof_check(project_root, pyproject_version))
     checks.append(
         build_test_count_check(
-            evidence_paths=evidence_paths,
+            evidence_paths=[current_status_path],
             expected_test_count=test_count,
         )
     )
@@ -710,7 +710,7 @@ def build_v021_governed_change_proof_check(
     }
 
 
-def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | float | bool]) -> dict[str, Any]:
+def build_fact_check(fact_paths: list[Path], expected_facts: dict[str, int | float | bool]) -> dict[str, Any]:
     required_keys = (
         REQUIRED_BENCHMARK_KEYS
         + REQUIRED_CALIBRATION_KEYS
@@ -727,7 +727,18 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
     )
     mismatches: list[dict[str, Any]] = []
     ok = True
-    for path in readme_paths:
+    for path in fact_paths:
+        if not path.exists():
+            ok = False
+            mismatches.append(
+                {
+                    "path": str(path),
+                    "key": "current_source_facts",
+                    "expected": "canonical production-status document",
+                    "actual": "missing",
+                }
+            )
+            continue
         facts = extract_key_values(path.read_text(encoding="utf-8"))
         for key in required_keys:
             actual_values = facts.get(key, [])
@@ -743,20 +754,11 @@ def build_fact_check(readme_paths: list[Path], expected_facts: dict[str, int | f
                     }
                 )
     return {
-        "name": "readme_facts_match_snapshot_reports",
+        "name": "production_status_facts_match_snapshot_reports",
         "ok": ok,
         "expected_facts": expected_facts,
         "mismatches": mismatches,
     }
-
-
-def build_release_evidence_paths(project_root: Path, pyproject_version: str) -> list[Path]:
-    candidates = [
-        *(project_root / name for name in README_NAMES),
-        project_root / "docs" / "PRODUCTION-STATUS.md",
-        project_root / "docs" / f"v{pyproject_version}-announcement.md",
-    ]
-    return [path for path in candidates if path.exists()]
 
 
 def build_test_count_check(evidence_paths: list[Path], expected_test_count: int) -> dict[str, Any]:
@@ -774,7 +776,7 @@ def build_test_count_check(evidence_paths: list[Path], expected_test_count: int)
                 }
             )
     return {
-        "name": "readme_test_count_matches_collected_suite",
+        "name": "production_status_test_count_matches_collected_suite",
         "ok": ok,
         "expected_test_count": expected_test_count,
         "source": "pytest --collect-only -q tests",
