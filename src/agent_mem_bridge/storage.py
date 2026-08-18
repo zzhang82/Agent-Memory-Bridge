@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 import sys
+import threading
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -156,6 +157,7 @@ class MemoryStore:
         if self.log_max_bytes <= 0 or self.log_backup_count < 0:
             raise ValueError("log rotation limits must use max_bytes > 0 and backup_count >= 0")
         self.telemetry = telemetry or Telemetry.from_env()
+        self._run_event_write_lock = threading.RLock()
         bridge_home = resolve_bridge_home()
         ensure_private_directory(
             self.db_path.parent,
@@ -246,29 +248,34 @@ class MemoryStore:
         thread_id: str | None = None,
         provenance: dict[str, str | None] | None = None,
     ) -> dict[str, Any]:
-        return record_run_event_entry(
-            self,
-            workspace_key=workspace_key,
-            run_id=run_id,
-            event_type=event_type,
-            summary=summary,
-            idempotency_key=idempotency_key,
-            event_schema_version=event_schema_version,
-            expected_database_epoch=expected_database_epoch,
-            expected_run_generation=expected_run_generation,
-            expected_last_sequence=expected_last_sequence,
-            expected_work_item_status=expected_work_item_status,
-            work_item_id=work_item_id,
-            parent_work_item_id=parent_work_item_id,
-            work_item_goal=work_item_goal,
-            owner_agent_id=owner_agent_id,
-            payload=payload,
-            evidence=evidence,
-            memory_attribution=memory_attribution,
-            agent_id=agent_id,
-            thread_id=thread_id,
-            provenance=provenance,
-        )
+        # SQLite permits one writer at a time. Serializing callers sharing this
+        # MemoryStore avoids same-process BEGIN IMMEDIATE contention while the
+        # run-ledger transaction and retry contract continue to handle other
+        # processes and store instances.
+        with self._run_event_write_lock:
+            return record_run_event_entry(
+                self,
+                workspace_key=workspace_key,
+                run_id=run_id,
+                event_type=event_type,
+                summary=summary,
+                idempotency_key=idempotency_key,
+                event_schema_version=event_schema_version,
+                expected_database_epoch=expected_database_epoch,
+                expected_run_generation=expected_run_generation,
+                expected_last_sequence=expected_last_sequence,
+                expected_work_item_status=expected_work_item_status,
+                work_item_id=work_item_id,
+                parent_work_item_id=parent_work_item_id,
+                work_item_goal=work_item_goal,
+                owner_agent_id=owner_agent_id,
+                payload=payload,
+                evidence=evidence,
+                memory_attribution=memory_attribution,
+                agent_id=agent_id,
+                thread_id=thread_id,
+                provenance=provenance,
+            )
 
     def get_run(
         self,
