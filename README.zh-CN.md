@@ -110,7 +110,7 @@ AMB 提供 **17 个公共 MCP 工具**：
 
 ## 当前成熟度
 
-当前源码使用 schema v12 和冻结的 17 工具 MCP 接口。`v0.27.4` Git 标签存在；最新已发布 GitHub Release 为 `v0.27.3`；经验证的 main 基线已有成功的推送 CI。当前源码事实、验证结果和非声明由[生产状态](docs/PRODUCTION-STATUS.md)维护。
+当前源码使用 schema v12 和冻结的 17 工具 MCP 接口。已检入的源码事实、验证证据和非声明由[生产状态](docs/PRODUCTION-STATUS.md)维护。实时 CI 请查看 [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) 或上方 CI badge；已发布版本请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) 或上方 release badge。
 
 ## 路线图
 

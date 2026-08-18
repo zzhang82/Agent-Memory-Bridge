@@ -110,7 +110,7 @@ The public surface is intentionally small. Context assembly, review reports, and
 
 ## Current Maturity
 
-The current source uses schema v12 and a frozen 17-tool MCP surface. The `v0.27.4` Git tag exists; the latest published GitHub Release is `v0.27.3`; and the verified main baseline has a successful push CI run. Current source facts, validation results, and non-claims are maintained in [Production Status](docs/PRODUCTION-STATUS.md).
+The current source uses schema v12 and a frozen 17-tool MCP surface. Checked-in source facts, validation evidence, and non-claims are maintained in [Production Status](docs/PRODUCTION-STATUS.md). For live CI, use [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) or the CI badge above; for published versions, use [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) or the release badge above.
 
 ## Roadmap
 
