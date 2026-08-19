@@ -253,13 +253,29 @@ def _build_client_plan(
 
     executable_present = bool(known_path.detection_executable and which(known_path.detection_executable))
     config_exists = known_path.path.is_file()
-    detection_status: DetectionStatus = "detected" if executable_present or config_exists else "not_detected"
-    inspection = _inspect_config(
-        path=known_path.path,
-        config_format=known_path.config_format or rendered.format,
-        client=client,
-        proposed_fragment=rendered.content,
+    alternate_marker = _unsupported_config_marker(
+        client,
+        cwd=cwd,
+        environ=environ,
+        default_path=known_path.path,
     )
+    detection_status: DetectionStatus = (
+        "detected" if executable_present or config_exists or alternate_marker else "not_detected"
+    )
+    if not config_exists and alternate_marker is not None:
+        inspection = ConfigInspection(
+            exists=True,
+            state="inspection_unavailable",
+            unrelated_server_count=None,
+            note="An alternate OpenCode configuration marker exists, but P2A cannot inspect it safely.",
+        )
+    else:
+        inspection = _inspect_config(
+            path=known_path.path,
+            config_format=known_path.config_format or rendered.format,
+            client=client,
+            proposed_fragment=rendered.content,
+        )
     action = _recommended_action(inspection)
     if known_path.note:
         notes.append(known_path.note)
@@ -324,6 +340,29 @@ def _known_client_path(
     )
 
 
+def _unsupported_config_marker(
+    client: str,
+    *,
+    cwd: Path,
+    environ: Mapping[str, str],
+    default_path: Path,
+) -> Path | None:
+    """Return a known marker that P2A deliberately does not parse or inspect."""
+
+    if client != "opencode":
+        return None
+    configured = environ.get("OPENCODE_CONFIG")
+    candidates = (
+        Path(configured).expanduser() if configured else None,
+        cwd / "opencode.json",
+        cwd / "opencode.jsonc",
+    )
+    for candidate in candidates:
+        if candidate is not None and candidate != default_path and candidate.exists():
+            return candidate
+    return None
+
+
 def _inspect_config(
     *,
     path: Path,
@@ -367,10 +406,24 @@ def _inspect_config(
         )
 
     container_key = _server_container_key(client)
-    existing_servers = payload.get(container_key)
-    expected_servers = expected.get(container_key)
-    if not isinstance(existing_servers, dict) or not isinstance(expected_servers, dict):
+    if container_key not in payload:
         return ConfigInspection(exists=True, state="absent", unrelated_server_count=0)
+    existing_servers = payload[container_key]
+    expected_servers = expected.get(container_key)
+    if not isinstance(existing_servers, dict):
+        return ConfigInspection(
+            exists=True,
+            state="unreadable",
+            unrelated_server_count=None,
+            note="The existing server container is present but does not have the expected object shape.",
+        )
+    if not isinstance(expected_servers, dict):
+        return ConfigInspection(
+            exists=True,
+            state="unreadable",
+            unrelated_server_count=None,
+            note="The proposed server container does not have the expected object shape.",
+        )
     existing_entry = existing_servers.get(DEFAULT_SERVER_NAME)
     expected_entry = expected_servers.get(DEFAULT_SERVER_NAME)
     unrelated_count = len([name for name in existing_servers if name != DEFAULT_SERVER_NAME])

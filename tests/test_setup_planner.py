@@ -112,6 +112,46 @@ def test_existing_json_without_amb_entry_is_bounded_and_secret_safe(tmp_path: Pa
     assert "private-server" not in json.dumps(plan.as_dict())
 
 
+def test_missing_json_server_container_is_absent(tmp_path: Path) -> None:
+    initial = _client_plan(tmp_path, "claude-code")
+    _write_config(initial, json.dumps({"other": {}}))
+
+    client = _client_plan(tmp_path, "claude-code")
+
+    assert client.existing_amb_state == "absent"
+    assert client.recommended_action == "would_merge"
+
+
+def test_wrong_json_server_container_shape_fails_closed(tmp_path: Path) -> None:
+    initial = _client_plan(tmp_path, "claude-code")
+    _write_config(initial, json.dumps({"mcpServers": []}))
+
+    client = _client_plan(tmp_path, "claude-code")
+
+    assert client.existing_amb_state == "unreadable"
+    assert client.recommended_action == "manual_review"
+
+
+def test_missing_toml_server_container_is_absent(tmp_path: Path) -> None:
+    initial = _client_plan(tmp_path, "codex")
+    _write_config(initial, 'profile = "local"\n')
+
+    client = _client_plan(tmp_path, "codex")
+
+    assert client.existing_amb_state == "absent"
+    assert client.recommended_action == "would_merge"
+
+
+def test_wrong_toml_server_container_shape_fails_closed(tmp_path: Path) -> None:
+    initial = _client_plan(tmp_path, "codex")
+    _write_config(initial, 'mcp_servers = "not-an-object"\n')
+
+    client = _client_plan(tmp_path, "codex")
+
+    assert client.existing_amb_state == "unreadable"
+    assert client.recommended_action == "manual_review"
+
+
 def test_existing_equivalent_json_entry_is_no_change(tmp_path: Path) -> None:
     initial = _client_plan(tmp_path, "claude-code")
     _write_config(initial, initial.proposed_fragment)
@@ -185,6 +225,53 @@ def test_yaml_inspection_is_unavailable_without_runtime_parser(tmp_path: Path) -
     assert inspection.state == "inspection_unavailable"
     assert inspection.unrelated_server_count is None
     assert "super-secret-token" not in (inspection.note or "")
+
+
+def test_opencode_project_alternate_marker_requires_manual_review(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "opencode.jsonc").write_text('{"mcp": {}}', encoding="utf-8")
+
+    plan = build_setup_plan(
+        clients=["opencode"],
+        cwd=project,
+        home=tmp_path / "home",
+        environ={},
+        platform="linux",
+        python_path="/opt/amb/python",
+        bridge_home=tmp_path / "missing-bridge-home",
+        bridge_config_path=tmp_path / "missing-amb-config.toml",
+        which=lambda command: None,
+    )
+    client = plan.clients[0]
+
+    assert client.detection_status == "detected"
+    assert client.existing_amb_state == "inspection_unavailable"
+    assert client.recommended_action == "manual_review"
+
+
+def test_opencode_custom_alternate_marker_requires_manual_review(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    custom_config = tmp_path / "custom-opencode.json"
+    custom_config.write_text('{"mcp": {}}', encoding="utf-8")
+
+    plan = build_setup_plan(
+        clients=["opencode"],
+        cwd=project,
+        home=tmp_path / "home",
+        environ={"OPENCODE_CONFIG": str(custom_config)},
+        platform="linux",
+        python_path="/opt/amb/python",
+        bridge_home=tmp_path / "missing-bridge-home",
+        bridge_config_path=tmp_path / "missing-amb-config.toml",
+        which=lambda command: None,
+    )
+    client = plan.clients[0]
+
+    assert client.detection_status == "detected"
+    assert client.existing_amb_state == "inspection_unavailable"
+    assert client.recommended_action == "manual_review"
 
 
 def test_platform_path_fixtures_are_explicit(tmp_path: Path) -> None:
