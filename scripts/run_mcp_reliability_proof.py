@@ -65,10 +65,18 @@ async def _writer(project_root: Path, runtime_dir: Path, index: int) -> dict[str
             },
         )
         payload = result.structured_content or {}
+        stored = payload.get("stored") if isinstance(payload.get("stored"), bool) else None
+        write_disposition = payload.get("write_disposition")
+        memory_id = payload.get("id")
         return {
-            "ok": result.is_error is False and bool(payload.get("stored")),
+            "ok": result.is_error is False and stored is True,
+            "index": index,
             "mode": mode,
             "protocol_version": client.protocol_version,
+            "is_error": result.is_error,
+            "stored": stored,
+            "write_disposition": write_disposition if isinstance(write_disposition, str) else None,
+            "memory_id": memory_id if isinstance(memory_id, str) else None,
         }
 
 
@@ -95,6 +103,20 @@ async def run_proof(project_root: Path, runtime_dir: Path, *, writers: int, cycl
     )
     writer_errors = [type(item).__name__ for item in writer_results if isinstance(item, BaseException)]
     writer_reports = [item for item in writer_results if isinstance(item, dict)]
+    writer_diagnostics = [
+        {
+            "index": index,
+            "mode": item["mode"],
+            "protocol_version": item["protocol_version"],
+            "is_error": item["is_error"],
+            "stored": item["stored"],
+            "write_disposition": item["write_disposition"],
+            "memory_id": item["memory_id"],
+        }
+        if isinstance(item, dict)
+        else {"index": index, "exception_type": type(item).__name__}
+        for index, item in enumerate(writer_results)
+    ]
     stored_count = MemoryStore(runtime_dir / "shared.db", log_dir=runtime_dir / "logs").stats(
         "project:mcp-concurrency-proof"
     )["total_count"]
@@ -128,6 +150,7 @@ async def run_proof(project_root: Path, runtime_dir: Path, *, writers: int, cycl
         "cycles": cycles,
         "stored_count": stored_count,
         "writer_errors": writer_errors,
+        "writer_diagnostics": [] if checks["concurrent_writes"] else writer_diagnostics,
         "cycle_errors": cycle_errors,
         "process_cleanup_supported": remaining_child_processes is not None,
         "remaining_child_processes": remaining_child_processes,

@@ -421,25 +421,33 @@ class MemoryStore:
                 "has_validity_window": relation_metadata["has_validity_window"],
             },
         ) as span:
-            payload = store_entry(
-                self,
-                namespace=namespace,
-                content=content,
-                kind=kind,
-                tags=tags,
-                session_id=session_id,
-                actor=actor,
-                title=title,
-                correlation_id=correlation_id,
-                source_app=source_app,
-                source_client=source_client,
-                source_model=source_model,
-                client_session_id=client_session_id,
-                client_workspace=client_workspace,
-                client_transport=client_transport,
-                expires_at=expires_at,
-                ttl_seconds=ttl_seconds,
-            )
+            for attempt in range(3):
+                try:
+                    payload = store_entry(
+                        self,
+                        namespace=namespace,
+                        content=content,
+                        kind=kind,
+                        tags=tags,
+                        session_id=session_id,
+                        actor=actor,
+                        title=title,
+                        correlation_id=correlation_id,
+                        source_app=source_app,
+                        source_client=source_client,
+                        source_model=source_model,
+                        client_session_id=client_session_id,
+                        client_workspace=client_workspace,
+                        client_transport=client_transport,
+                        expires_at=expires_at,
+                        ttl_seconds=ttl_seconds,
+                    )
+                    break
+                except sqlite3.OperationalError as exc:
+                    retryable = "locked" in str(exc).casefold() or "busy" in str(exc).casefold()
+                    if not retryable or attempt == 2:
+                        raise
+                    time.sleep(0.05 * (attempt + 1))
             span.set_attributes(
                 {
                     "stored": payload.get("stored"),
