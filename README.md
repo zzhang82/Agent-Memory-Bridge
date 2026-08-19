@@ -101,6 +101,7 @@ The public surface is intentionally small. Context assembly, review reports, and
 |---|---|
 | [Architecture](docs/ARCHITECTURE.md) | Current high-level system and authority flow. |
 | [Production Status](docs/PRODUCTION-STATUS.md) | Current source facts, implemented capability summary, validation evidence, and known boundaries. |
+| [Capability History](CHANGELOG.md) | Durable historical capability milestones and retained proof/evidence references. |
 | [Install for Agents](INSTALL_FOR_AGENTS.md) | Detailed install-to-first-success workflow. |
 | [Integrations](docs/INTEGRATIONS.md) | Client-specific local stdio MCP setup. |
 | [Configuration](docs/CONFIGURATION.md) | Complete configuration reference. |

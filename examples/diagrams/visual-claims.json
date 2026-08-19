@@ -43,7 +43,7 @@
       "asset_type": "svg",
       "claim": "The trustworthy retrieval diagram distinguishes lexical, hashed-lexical, and declared semantic capability; shows semantic-provider gating, precomputed-valid-only vector use, explicit degradation, read-only recall, and optional signed recall receipts.",
       "evidence_paths": [
-        "docs/v0.25.1-announcement.md",
+        "CHANGELOG.md",
         "docs/CONFIGURATION.md",
         "docs/PRODUCTION-STATUS.md",
         "src/agent_mem_bridge/embedding_index.py",
@@ -63,7 +63,7 @@
       "asset_type": "svg",
       "claim": "The feedback diagram presents receipt-bound outcome submission, canonical token and receipt validation, append-only idempotent storage, and the current boundary that feedback does not mutate memory, indexes, beliefs, review state, or ranking.",
       "evidence_paths": [
-        "docs/v0.25.1-announcement.md",
+        "CHANGELOG.md",
         "docs/AUTHORITY-CONTRACT.md",
         "docs/TRUST-BOUNDARY.md",
         "docs/PRODUCTION-STATUS.md",

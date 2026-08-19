@@ -1,0 +1,28 @@
+# Capability History
+
+This document records the durable capability milestones in Agent Memory Bridge (AMB). It is **not** a release-by-release ledger, a current-status page, or a substitute for detailed proof artifacts. Current implementation facts belong in [Production Status](docs/PRODUCTION-STATUS.md); future work belongs in the [Roadmap](docs/ROADMAP.md); detailed development chronology remains in Git history and published GitHub Releases where available.
+
+| Historical period | Capability milestone | Material change and trust boundary | Durable references |
+|---|---|---|---|
+| v0.5–v0.6 | **Persistent Memory, Signals, and Measurable Retrieval** | AMB established local durable engineering memory alongside a distinct signal lifecycle, then added benchmark and calibration discipline. Classifier assistance remained controlled rather than becoming automatic authority. | [Benchmark and proof overview](benchmark/README.md), [Authority Contract](docs/AUTHORITY-CONTRACT.md) |
+| v0.9–v0.11 | **Applicable and Governed Task Memory** | Memory evolved from broadly retrievable records to relation-aware task assembly and governed procedures. Superseded, contradicted, expired, unsafe, or inapplicable guidance could be suppressed before task context was assembled. | [Context Assembly](docs/CONTEXT-ASSEMBLY.md), [task-memory and procedure benchmarks](benchmark/README.md#task-memory-packet-benchmark) |
+| v0.13–v0.18 | **Controlled Coordination, Learning, and Human Review** | Signal contention semantics became explicit; learning candidates were staged behind policy and review; review queue, workflow, and Task Brief reports remained read-only/operator-facing rather than autonomous writeback. | [Signal contention benchmark](benchmark/README.md#signal-contention-benchmark), [Authority Contract](docs/AUTHORITY-CONTRACT.md) |
+| v0.19–v0.20 | **Reproducible Adoption Proofs** | AMB added fixed-denominator adoption evidence and a clean-room local stdio proof while keeping configuration writes manual and product surface stable. | [v0.20 clean-room proof](docs/v0.20-clean-room-proof.md), [adoption proof artifacts](benchmark/README.md#planning-manifests) |
+| v0.21–v0.22 | **Governed Memory Evolution and Cross-Client Evidence** | AMB made stored guidance more conservative under deletion, supersession, premise, and domain changes, then added a sanitized declared-provenance cross-client activation receipt. Neither capability asserted authenticated identity or automatic memory mutation. | [Governed-change report](benchmark/latest-v0.21-governed-change-report.json), [Client Provenance](docs/CLIENT-PROVENANCE.md), [Trust Boundary](docs/TRUST-BOUNDARY.md) |
+| v0.23–v0.25 | **Reliability, Retrieval Integrity, and Shadow Feedback** | The local store and derived retrieval path gained stronger migration, service, exact-identity, receipt, and feedback integrity. Feedback became auditable shadow evidence, not a ranking, policy, or memory-mutation control channel. | [Trust Boundary](docs/TRUST-BOUNDARY.md), [Architecture](docs/ARCHITECTURE.md), [retrieval and feedback tests](tests/test_v0250_retrieval_capabilities.py) |
+| v0.26 | **Dual-Era Local Stdio Compatibility** | Modern `server/discover` and legacy `initialize` interoperability were proven over local stdio with explicit cache and declared-provenance boundaries. | [MCP 2026 compatibility](docs/MCP-2026-COMPATIBILITY.md) |
+| v0.27.0–v0.27.2 | **Episode Authority, Verification, and Continuity** | AMB introduced durable run/work-item/event/artifact/outcome authority, governed-v2 verification receipts, and watcher continuity. Projections and downstream learning/consolidation effects remained shadow-only. | [Closed-Loop Episode Authority](docs/CLOSED-LOOP-EPISODE.md), [v0.27.2 historical evidence](docs/v0.27.2-announcement.md) |
+| v0.27.3–v0.27.4 | **Authority Closure and Dynamic State** | Credit/consolidation evidence was constrained by current outcome and feedback heads; Dynamic State introduced a separate exact-key mutable state authority with version, database-epoch, idempotency, and rebuild boundaries. | [Run Consolidation](docs/RUN-CONSOLIDATION.md), [v0.27.3 historical evidence](docs/v0.27.3-announcement.md), [v0.27.4 historical evidence](docs/v0.27.4-announcement.md) |
+
+## Historical Evidence Retained in the Repository
+
+The following versioned documents remain because they are a detailed reproducibility or contract-evidence owner rather than release chronology:
+
+| Document | Retention reason |
+|---|---|
+| [v0.20 clean-room proof](docs/v0.20-clean-room-proof.md) | Defines the bounded proof contract, fixed case denominator, runnable proof entrypoints, validation, and explicit non-claims for the clean-room adoption lane. |
+| [v0.27.2 announcement](docs/v0.27.2-announcement.md) | Carries release-contract-validated historical evidence for governed-v2, verification receipts, explicit close, and continuation. |
+| [v0.27.3 announcement](docs/v0.27.3-announcement.md) | Carries release-contract-validated historical evidence for authority closure, current heads, opposition, and verified independence. |
+| [v0.27.4 announcement](docs/v0.27.4-announcement.md) | Carries release-contract-validated historical evidence for the Dynamic State authority MVP. |
+
+The retained historical documents describe their own snapshots. They do not establish current version, CI, release, or product-status facts.

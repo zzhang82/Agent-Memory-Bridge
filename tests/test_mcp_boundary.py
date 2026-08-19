@@ -90,8 +90,8 @@ def test_protocol_documentation_matches_cache_and_tool_order_contract() -> None:
     for readme in readmes:
         assert "300000/public" in readme
         assert "0/private" in readme
-    release_text = compatibility + "\n" + episode_contract + "\n" + "\n".join(readmes)
-    release_text += (root / "docs" / "v0.26.1-announcement.md").read_text(encoding="utf-8")
+    capability_history = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    release_text = compatibility + "\n" + episode_contract + "\n" + "\n".join(readmes) + "\n" + capability_history
     assert "fully conformant" not in release_text.casefold()
 
 

@@ -101,6 +101,7 @@ AMB 提供 **17 个公共 MCP 工具**：
 |---|---|
 | [架构](docs/ARCHITECTURE.md) | 当前高层系统与权威流。 |
 | [生产状态](docs/PRODUCTION-STATUS.md) | 当前源码事实、已实现能力摘要、验证证据和已知边界。 |
+| [能力历史](CHANGELOG.md) | 持久的历史能力里程碑，以及保留的证明和证据引用。 |
 | [面向智能体的安装指南](INSTALL_FOR_AGENTS.md) | 从安装到首次成功的详细流程。 |
 | [集成](docs/INTEGRATIONS.md) | 客户端专用本地 stdio MCP 设置。 |
 | [配置](docs/CONFIGURATION.md) | 完整配置参考。 |

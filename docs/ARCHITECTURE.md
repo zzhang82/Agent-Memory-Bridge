@@ -108,4 +108,4 @@ The [run-consolidation reference](RUN-CONSOLIDATION.md) describes the current sh
 | What is implemented in the checked-out source? | [Production Status](PRODUCTION-STATUS.md) |
 | What is planned rather than implemented? | [Roadmap](ROADMAP.md) |
 
-Historical release announcements and benchmark/proof artifacts remain available as evidence. They are no longer required reading for the current architecture story.
+[Capability History](../CHANGELOG.md) summarizes durable historical milestones; retained release announcements and benchmark/proof artifacts remain available as detailed evidence. They are no longer required reading for the current architecture story.
