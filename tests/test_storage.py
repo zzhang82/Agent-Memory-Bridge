@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -61,6 +62,34 @@ def test_store_and_recall_round_trip(tmp_path: Path) -> None:
     assert recall["items"][0]["client_session_id"] == "client-session-1"
     assert recall["items"][0]["client_workspace"] == "project:agent-memory-bridge"
     assert recall["items"][0]["client_transport"] == "stdio"
+
+
+def test_store_retries_a_transient_sqlite_lock_before_acknowledging(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    actual_store_entry = storage_module.store_entry
+    attempts = 0
+
+    def locked_once(*args, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise sqlite3.OperationalError("database is locked")
+        return actual_store_entry(*args, **kwargs)
+
+    monkeypatch.setattr(storage_module, "store_entry", locked_once)
+
+    result = store.store(
+        namespace="project:store-retry",
+        content="A transient lock must not produce a false negative store acknowledgement.",
+    )
+
+    assert attempts == 2
+    assert result["stored"] is True
+    assert result["duplicate"] is False
+    assert store.stats("project:store-retry")["total_count"] == 1
 
 
 @pytest.mark.parametrize(("field", "limit"), sorted(PROVENANCE_LENGTH_LIMITS.items()))
