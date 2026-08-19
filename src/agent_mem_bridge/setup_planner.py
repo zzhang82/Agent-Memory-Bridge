@@ -262,7 +262,7 @@ def _build_client_plan(
     detection_status: DetectionStatus = (
         "detected" if executable_present or config_exists or alternate_marker else "not_detected"
     )
-    if not config_exists and alternate_marker is not None:
+    if alternate_marker is not None:
         inspection = ConfigInspection(
             exists=True,
             state="inspection_unavailable",
@@ -352,13 +352,13 @@ def _unsupported_config_marker(
     if client != "opencode":
         return None
     configured = environ.get("OPENCODE_CONFIG")
-    candidates = (
-        Path(configured).expanduser() if configured else None,
-        cwd / "opencode.json",
-        cwd / "opencode.jsonc",
-    )
-    for candidate in candidates:
-        if candidate is not None and candidate != default_path and candidate.exists():
+    if configured:
+        custom_path = Path(configured).expanduser()
+        if custom_path != default_path:
+            return custom_path
+
+    for candidate in (cwd / "opencode.json", cwd / "opencode.jsonc"):
+        if candidate != default_path and candidate.exists():
             return candidate
     return None
 

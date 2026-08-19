@@ -274,6 +274,66 @@ def test_opencode_custom_alternate_marker_requires_manual_review(tmp_path: Path)
     assert client.recommended_action == "manual_review"
 
 
+def test_opencode_custom_config_env_nonexistent_fails_closed(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    custom_config = tmp_path / "custom" / "opencode.json"
+    before = _tree_snapshot(tmp_path)
+
+    plan = build_setup_plan(
+        clients=["opencode"],
+        cwd=project,
+        home=tmp_path / "home",
+        environ={"OPENCODE_CONFIG": str(custom_config)},
+        platform="linux",
+        python_path="/opt/amb/python",
+        bridge_home=tmp_path / "missing-bridge-home",
+        bridge_config_path=tmp_path / "missing-amb-config.toml",
+        which=lambda command: None,
+    )
+    client = plan.clients[0]
+
+    assert client.detection_status == "detected"
+    assert client.existing_amb_state == "inspection_unavailable"
+    assert client.recommended_action == "manual_review"
+    assert not custom_config.exists()
+    assert not custom_config.parent.exists()
+    assert _tree_snapshot(tmp_path) == before
+    assert plan.write_count == 0
+
+
+def test_opencode_custom_config_env_wins_over_default_config(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    home = tmp_path / "home"
+    default_config = home / ".config" / "opencode" / "opencode.json"
+    default_config.parent.mkdir(parents=True)
+    default_config.write_text('{"mcp": {}}', encoding="utf-8")
+    custom_config = tmp_path / "custom" / "opencode.json"
+    before = _tree_snapshot(tmp_path)
+
+    plan = build_setup_plan(
+        clients=["opencode"],
+        cwd=project,
+        home=home,
+        environ={"OPENCODE_CONFIG": str(custom_config)},
+        platform="linux",
+        python_path="/opt/amb/python",
+        bridge_home=tmp_path / "missing-bridge-home",
+        bridge_config_path=tmp_path / "missing-amb-config.toml",
+        which=lambda command: None,
+    )
+    client = plan.clients[0]
+
+    assert client.detection_status == "detected"
+    assert client.existing_amb_state == "inspection_unavailable"
+    assert client.recommended_action == "manual_review"
+    assert not custom_config.exists()
+    assert not custom_config.parent.exists()
+    assert _tree_snapshot(tmp_path) == before
+    assert plan.write_count == 0
+
+
 def test_platform_path_fixtures_are_explicit(tmp_path: Path) -> None:
     linux_codex = _client_plan(tmp_path / "linux", "codex", platform="linux")
     mac_vscode = _client_plan(tmp_path / "mac", "vscode", platform="darwin")
