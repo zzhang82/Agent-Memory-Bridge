@@ -83,7 +83,7 @@ def test_json_merge_preserves_unrelated_structure_backup_and_privacy(tmp_path: P
         target,
         {
             "other": {"keep": [1, 2, 3]},
-            "mcpServers": {"private": {"command": "private", "env": {"API_KEY": "super-secret"}}},
+            "mcpServers": {"unrelated-mcp-server": {"command": "private", "env": {"API_KEY": "super-secret"}}},
         },
     )
     plan = _rebuild(tmp_path, "claude-code")
@@ -99,10 +99,13 @@ def test_json_merge_preserves_unrelated_structure_backup_and_privacy(tmp_path: P
     assert Path(client.backup_path).read_bytes() == original
     written = json.loads(target.read_text(encoding="utf-8"))
     assert written["other"] == {"keep": [1, 2, 3]}
-    assert written["mcpServers"]["private"] == {"command": "private", "env": {"API_KEY": "super-secret"}}
+    assert written["mcpServers"]["unrelated-mcp-server"] == {
+        "command": "private",
+        "env": {"API_KEY": "super-secret"},
+    }
     rendered = json.dumps(result.as_dict())
     assert "super-secret" not in rendered
-    assert "private" not in rendered
+    assert "unrelated-mcp-server" not in rendered
 
 
 def test_json_update_only_replaces_amb_owned_entry(tmp_path: Path) -> None:
