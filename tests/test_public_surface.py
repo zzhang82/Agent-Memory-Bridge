@@ -37,47 +37,35 @@ def test_public_surface_check_repository_passes() -> None:
     assert report["ok"] is True
     assert report["violations"] == []
     assert {
+        str(Path("CHANGELOG.md")),
         str(Path("benchmark/latest-v0.21-governed-change-report.json")),
-        str(Path("docs/ARCHITECTURE.md")),
         str(Path("benchmark/v0.21-governed-change-manifest.json")),
-        str(Path("docs/v0.21.0-announcement.md")),
-        str(Path("docs/v0.21.1-announcement.md")),
-        str(Path("docs/v0.21.2-announcement.md")),
-        str(Path("docs/v0.22.0-announcement.md")),
+        str(Path("docs/ARCHITECTURE.md")),
+        str(Path("docs/v0.20-clean-room-proof.md")),
+        str(Path("docs/v0.27.2-announcement.md")),
+        str(Path("docs/v0.27.3-announcement.md")),
+        str(Path("docs/v0.27.4-announcement.md")),
         str(Path("examples/diagrams/amb-overview.svg")),
         str(Path("examples/diagrams/v0.22-shared-memory-hero.png")),
         str(Path("llms-install.md")),
     }.issubset(set(report["checked_files"]))
 
 
-def test_v022_release_announcements_are_on_public_surface() -> None:
-    assert {
-        Path("docs/v0.22.1-announcement.md"),
-        Path("docs/v0.22.2-announcement.md"),
-        Path("docs/v0.22.3-announcement.md"),
-    }.issubset(set(PUBLIC_DOC_PATHS))
+def test_public_surface_keeps_only_retained_versioned_history() -> None:
+    versioned_public_docs = {
+        path for path in PUBLIC_DOC_PATHS if path.parent == Path("docs") and path.name.startswith("v")
+    }
 
-
-def test_v023_through_v027_release_docs_are_on_public_surface() -> None:
-    assert {
-        Path("docs/v0.23.0-announcement.md"),
-        Path("docs/v0.23.1-announcement.md"),
-        Path("docs/TRUST-BOUNDARY.md"),
-        Path("docs/v0.24.0-announcement.md"),
-        Path("docs/v0.25.0-announcement.md"),
-        Path("docs/v0.25.1-announcement.md"),
-        Path("docs/v0.25.2-announcement.md"),
-        Path("docs/MCP-2026-COMPATIBILITY.md"),
-        Path("docs/v0.26.0-announcement.md"),
-        Path("docs/v0.26.1-announcement.md"),
-        Path("docs/v0.27.0-announcement.md"),
-        Path("docs/v0.27.1-announcement.md"),
+    assert versioned_public_docs == {
+        Path("docs/v0.20-clean-room-proof.md"),
         Path("docs/v0.27.2-announcement.md"),
         Path("docs/v0.27.3-announcement.md"),
         Path("docs/v0.27.4-announcement.md"),
-        Path("docs/CLOSED-LOOP-EPISODE.md"),
-        Path("docs/RUN-CONSOLIDATION.md"),
-    }.issubset(set(PUBLIC_DOC_PATHS))
+    }
+
+
+def test_capability_history_is_on_public_surface() -> None:
+    assert Path("CHANGELOG.md") in PUBLIC_DOC_PATHS
 
 
 def test_visual_release_assets_are_on_public_surface_with_png_binary_only() -> None:
