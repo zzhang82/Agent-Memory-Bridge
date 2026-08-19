@@ -193,9 +193,14 @@ def test_platform_path_fixtures_are_explicit(tmp_path: Path) -> None:
     windows_claude = _client_plan(tmp_path / "windows", "claude-code", platform="win32")
     windows_opencode = _client_plan(tmp_path / "windows-opencode", "opencode", platform="win32")
 
-    assert linux_codex.config_path is not None and linux_codex.config_path.endswith(".codex/config.toml")
-    assert mac_vscode.config_path is not None and mac_vscode.config_path.endswith(".vscode/mcp.json")
-    assert windows_claude.config_path is not None and windows_claude.config_path.endswith(".mcp.json")
+    assert linux_codex.config_path is not None
+    assert Path(linux_codex.config_path).name == "config.toml"
+    assert Path(linux_codex.config_path).parent.name == ".codex"
+    assert mac_vscode.config_path is not None
+    assert Path(mac_vscode.config_path).name == "mcp.json"
+    assert Path(mac_vscode.config_path).parent.name == ".vscode"
+    assert windows_claude.config_path is not None
+    assert Path(windows_claude.config_path).name == ".mcp.json"
     assert windows_opencode.detection_status == "path_unknown"
     assert windows_opencode.existing_amb_state == "inspection_unavailable"
 
