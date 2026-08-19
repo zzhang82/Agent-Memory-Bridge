@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -376,7 +377,7 @@ def test_atomic_replace_failure_preserves_existing_original(tmp_path: Path, monk
     plan = _rebuild(tmp_path, "claude-code")
     monkeypatch.setattr(
         apply_module,
-        "_atomic_write_bytes",
+        "_publish_prepared_bytes",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("replace")),
     )
 
@@ -447,3 +448,271 @@ def test_cli_human_confirmation_can_apply_only_after_yes_response(
     assert "Client: vscode" in output
     assert "Configuration files changed: 1" in output
     assert _target(plan).is_file()
+
+
+def test_nonregular_config_target_fails_closed_without_receipt(tmp_path: Path) -> None:
+    initial = _plan(tmp_path, "claude-code")
+    target = _target(initial)
+    target.mkdir(parents=True)
+    plan = _rebuild(tmp_path, "claude-code")
+
+    snapshot = capture_setup_apply_snapshot(plan)
+    result = apply_setup_plan(plan, current_plan=plan, snapshot=snapshot)
+
+    assert result.clients[0].status == "skipped_manual_review"
+    assert result.write_count == 0
+    assert result.backup_count == 0
+    assert target.is_dir()
+    assert not (target.parent / f".{target.name}.amb-setup-receipt.json").exists()
+
+
+def test_snapshot_read_failure_fails_closed_without_writing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    plan = _plan(tmp_path, "claude-code")
+    target = _target(plan)
+    snapshot = capture_setup_apply_snapshot(plan)
+    real_snapshot = apply_module._file_snapshot
+
+    def unreadable(path: Path) -> object:
+        if path == target:
+            return apply_module.FileSnapshot(True, None, None, None, None, None, True, False)
+        return real_snapshot(path)
+
+    monkeypatch.setattr(apply_module, "_file_snapshot", unreadable)
+    result = apply_setup_plan(plan, current_plan=_rebuild(tmp_path, "claude-code"), snapshot=snapshot)
+
+    assert result.clients[0].status == "changed_since_plan"
+    assert result.write_count == 0
+    assert result.backup_count == 0
+    assert not target.exists()
+    assert not (target.parent / f".{target.name}.amb-setup-receipt.json").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX creation mode is the contract under test")
+def test_backup_is_private_at_creation_with_exclusive_primitive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import stat
+
+    initial = _plan(tmp_path, "claude-code")
+    target = _target(initial)
+    _write(target, {"mcpServers": {"other": {"command": "keep"}}})
+    plan = _rebuild(tmp_path, "claude-code")
+    real_open = apply_module.os.open
+    observed: list[tuple[str, int, int]] = []
+
+    def observing_open(path: object, flags: int, mode: int = 0o777) -> int:
+        if flags & os.O_CREAT:
+            observed.append((str(path), flags, mode))
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(apply_module.os, "open", observing_open)
+    result = apply_setup_plan(
+        plan,
+        current_plan=_rebuild(tmp_path, "claude-code"),
+        snapshot=capture_setup_apply_snapshot(plan),
+    )
+
+    backup = Path(result.clients[0].backup_path or "")
+    assert result.clients[0].status == "merged"
+    assert observed
+    backup_create = next(item for item in observed if item[0].endswith(".bak"))
+    _, flags, mode = backup_create
+    assert flags & os.O_EXCL
+    assert mode == 0o600
+    assert stat.S_IMODE(backup.stat().st_mode) == 0o600
+
+
+def test_confirmation_renderer_uses_actual_newlines(tmp_path: Path) -> None:
+    plan = _plan(tmp_path, "claude-code")
+    rendered = apply_module.render_setup_apply_confirmation(plan)
+
+    assert "\n  Client:" in rendered
+    assert "\\n" not in rendered
+
+
+def test_receipt_is_durable_before_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    initial = _plan(tmp_path, "claude-code")
+    target = _target(initial)
+    original = _write(target, {"mcpServers": {"other": {"command": "keep"}}})
+    plan = _rebuild(tmp_path, "claude-code")
+    observed: list[dict[str, object]] = []
+
+    def inspect_receipt(_temporary: Path, destination: Path, **_kwargs: object) -> None:
+        receipt = json.loads((destination.parent / f".{destination.name}.amb-setup-receipt.json").read_text())
+        observed.append(receipt)
+        assert destination.read_bytes() == original
+        raise OSError("stop before publication")
+
+    monkeypatch.setattr(apply_module, "_publish_prepared_bytes", inspect_receipt)
+    result = apply_setup_plan(
+        plan,
+        current_plan=_rebuild(tmp_path, "claude-code"),
+        snapshot=capture_setup_apply_snapshot(plan),
+    )
+
+    assert result.clients[0].status == "failed"
+    assert result.write_count == 0
+    assert observed and observed[0]["before_digest"]
+    assert target.read_bytes() == original
+    assert not (target.parent / f".{target.name}.amb-setup-receipt.json").exists()
+
+
+@pytest.mark.parametrize("client", ["claude-code", "vscode"])
+def test_post_publication_durability_failure_retains_valid_rollback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    client: str,
+) -> None:
+    if client == "claude-code":
+        initial = _plan(tmp_path, client)
+        target = _target(initial)
+        original = _write(target, {"mcpServers": {"other": {"command": "keep"}}})
+        plan = _rebuild(tmp_path, client)
+    else:
+        plan = _plan(tmp_path, client)
+        target = _target(plan)
+        original = None
+    real_fsync = apply_module._fsync_replaced_path
+
+    def fail_after_target_publication(path: Path) -> None:
+        if path == target:
+            raise OSError("durability after publication")
+        real_fsync(path)
+
+    monkeypatch.setattr(apply_module, "_fsync_replaced_path", fail_after_target_publication)
+    result = apply_setup_plan(
+        plan,
+        current_plan=_rebuild(tmp_path, client),
+        snapshot=capture_setup_apply_snapshot(plan),
+    )
+
+    receipt_path = target.parent / f".{target.name}.amb-setup-receipt.json"
+    assert result.clients[0].status == "failed"
+    assert result.write_count == 1
+    assert result.rollback_available is True
+    assert target.is_file()
+    assert receipt_path.is_file()
+
+    monkeypatch.setattr(apply_module, "_fsync_replaced_path", real_fsync)
+    rollback = rollback_setup_plan(_rebuild(tmp_path, client))
+    assert rollback.write_count == 1
+    if original is None:
+        assert rollback.clients[0].status == "removed_created"
+        assert not target.exists()
+    else:
+        assert rollback.clients[0].status == "restored"
+        assert target.read_bytes() == original
+
+
+def test_rollback_refuses_tampered_backup_bytes(tmp_path: Path) -> None:
+    initial = _plan(tmp_path, "claude-code")
+    target = _target(initial)
+    _write(target, {"mcpServers": {"other": {"command": "keep"}}})
+    plan = _rebuild(tmp_path, "claude-code")
+    applied = apply_setup_plan(
+        plan,
+        current_plan=_rebuild(tmp_path, "claude-code"),
+        snapshot=capture_setup_apply_snapshot(plan),
+    )
+    backup = Path(applied.clients[0].backup_path or "")
+    before = target.read_bytes()
+    backup.write_bytes(b"tampered backup")
+
+    rollback = rollback_setup_plan(_rebuild(tmp_path, "claude-code"))
+
+    assert rollback.clients[0].status == "skipped_manual_review"
+    assert target.read_bytes() == before
+
+
+def test_rollback_refuses_tampered_backup_path_without_reading_it(tmp_path: Path) -> None:
+    initial = _plan(tmp_path, "claude-code")
+    target = _target(initial)
+    _write(target, {"mcpServers": {"other": {"command": "keep"}}})
+    plan = _rebuild(tmp_path, "claude-code")
+    apply_setup_plan(
+        plan,
+        current_plan=_rebuild(tmp_path, "claude-code"),
+        snapshot=capture_setup_apply_snapshot(plan),
+    )
+    receipt_path = target.parent / f".{target.name}.amb-setup-receipt.json"
+    receipt = json.loads(receipt_path.read_text())
+    unrelated = tmp_path / "unrelated-backup.bak"
+    unrelated.write_bytes(b"do not read me")
+    receipt["backup_path"] = str(unrelated)
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    before = target.read_bytes()
+
+    rollback = rollback_setup_plan(_rebuild(tmp_path, "claude-code"))
+
+    assert rollback.clients[0].status == "skipped_manual_review"
+    assert target.read_bytes() == before
+    assert unrelated.read_bytes() == b"do not read me"
+
+
+def test_create_race_preserves_competitor_and_cleans_temp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    plan = _plan(tmp_path, "vscode")
+    target = _target(plan)
+    competitor = b'{"servers": {"competitor": {}}}'
+
+    monkeypatch.setattr(apply_module, "_before_publication", lambda path: path.write_bytes(competitor))
+    result = apply_setup_plan(
+        plan,
+        current_plan=_rebuild(tmp_path, "vscode"),
+        snapshot=capture_setup_apply_snapshot(plan),
+    )
+
+    assert result.clients[0].status == "changed_since_plan"
+    assert result.write_count == 0
+    assert target.read_bytes() == competitor
+    assert not (target.parent / f".{target.name}.amb-setup-receipt.json").exists()
+    assert not list(target.parent.glob(f".{target.name}.amb-*.tmp"))
+
+
+def test_update_race_preserves_newer_target_before_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    initial = _plan(tmp_path, "claude-code")
+    target = _target(initial)
+    _write(target, {"mcpServers": {"other": {"command": "original"}}})
+    plan = _rebuild(tmp_path, "claude-code")
+    newer = b'{"mcpServers": {"other": {"command": "newer"}}}'
+
+    monkeypatch.setattr(apply_module, "_before_publication_revalidation", lambda path: path.write_bytes(newer))
+    result = apply_setup_plan(
+        plan,
+        current_plan=_rebuild(tmp_path, "claude-code"),
+        snapshot=capture_setup_apply_snapshot(plan),
+    )
+
+    assert result.clients[0].status == "changed_since_plan"
+    assert result.write_count == 0
+    assert target.read_bytes() == newer
+    assert not (target.parent / f".{target.name}.amb-setup-receipt.json").exists()
+    assert not list(target.parent.glob(f".{target.name}.amb-*.tmp"))
+
+
+@pytest.mark.skipif(os.name != "posix", reason="portable symlink permissions are not guaranteed on Windows runners")
+def test_rollback_refuses_expected_backup_symlink(tmp_path: Path) -> None:
+    initial = _plan(tmp_path, "claude-code")
+    target = _target(initial)
+    _write(target, {"mcpServers": {"other": {"command": "keep"}}})
+    plan = _rebuild(tmp_path, "claude-code")
+    applied = apply_setup_plan(
+        plan,
+        current_plan=_rebuild(tmp_path, "claude-code"),
+        snapshot=capture_setup_apply_snapshot(plan),
+    )
+    backup = Path(applied.clients[0].backup_path or "")
+    unrelated = tmp_path / "unrelated-bytes"
+    unrelated.write_bytes(b"unrelated")
+    backup.unlink()
+    backup.symlink_to(unrelated)
+    before = target.read_bytes()
+
+    rollback = rollback_setup_plan(_rebuild(tmp_path, "claude-code"))
+
+    assert rollback.clients[0].status == "skipped_manual_review"
+    assert target.read_bytes() == before
+    assert unrelated.read_bytes() == b"unrelated"
