@@ -32,6 +32,7 @@ from .run_consolidation import (
     stage_run_consolidation_report,
 )
 from .service_lock import ServiceFileLock, ServiceLockConflict
+from .setup_planner import build_setup_plan, render_setup_plan
 from .storage import MemoryStore
 from .task_brief import build_task_brief_report, render_task_brief_markdown
 
@@ -59,6 +60,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_service(namespace)
     if namespace.command == "config":
         return _run_config(namespace)
+    if namespace.command == "setup":
+        return _run_setup(namespace)
     if namespace.command == "first-run":
         return _run_first_run(namespace)
     if namespace.command == "doctor":
@@ -151,6 +154,43 @@ def _build_parser() -> argparse.ArgumentParser:
         "--example",
         action="store_true",
         help="Render placeholder-safe example output instead of local runtime paths.",
+    )
+
+    setup_parser = subparsers.add_parser(
+        "setup",
+        help="Preview a read-only client setup plan; no configuration is written.",
+    )
+    setup_parser.add_argument(
+        "--client",
+        action="append",
+        choices=supported_client_names(),
+        default=None,
+        help="Supported client to plan. Repeat for multiple clients; default plans every supported client.",
+    )
+    setup_parser.add_argument("--json", action="store_true", help="Emit deterministic JSON instead of plain text.")
+    setup_parser.add_argument(
+        "--python",
+        dest="python_path",
+        default=sys.executable,
+        help="Python executable shown in the proposed fragment; it is not executed.",
+    )
+    setup_parser.add_argument(
+        "--cwd",
+        type=Path,
+        default=Path.cwd(),
+        help="Project directory used only for bounded workspace-config inspection.",
+    )
+    setup_parser.add_argument(
+        "--bridge-home",
+        type=Path,
+        default=resolve_bridge_home(),
+        help="Bridge home path shown in the proposed fragment; it is not created.",
+    )
+    setup_parser.add_argument(
+        "--config-path",
+        type=Path,
+        default=resolve_config_path(),
+        help="AMB config path shown in the proposed fragment; it is not read or created by setup.",
     )
 
     first_run_parser = subparsers.add_parser(
@@ -470,6 +510,21 @@ def _run_config(namespace: argparse.Namespace) -> int:
         return 0
 
     print(rendered.content)
+    return 0
+
+
+def _run_setup(namespace: argparse.Namespace) -> int:
+    plan = build_setup_plan(
+        clients=namespace.client,
+        cwd=namespace.cwd,
+        python_path=namespace.python_path,
+        bridge_home=namespace.bridge_home,
+        bridge_config_path=namespace.config_path,
+    )
+    if namespace.json:
+        print(json.dumps(plan.as_dict(), indent=2, sort_keys=True))
+    else:
+        print(render_setup_plan(plan))
     return 0
 
 

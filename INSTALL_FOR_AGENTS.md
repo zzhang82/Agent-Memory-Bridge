@@ -57,6 +57,23 @@ baseline below. Local editable checkout, optional `uvx`, and Docker remain
 optional routes. For the Phase 1 pilot, all clients must share the same
 user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
 
+## Read-Only Setup Preview
+
+Before any manual client configuration, run the P2A planner when the installed
+CLI is available:
+
+```text
+agent-memory-bridge setup --client <client>
+agent-memory-bridge setup --client <client> --json
+```
+
+`setup` currently **previews only**. It detects only bounded supported-client
+evidence, inspects a known config path when that path is safe to read, renders
+the proposed AMB fragment, and reports a future action. It always reports
+`Changes written: 0`; it does not install AMB, create bridge paths or databases,
+write client config, create backups, or launch a client. A later setup phase
+may add a separately reviewed apply flow; P2A does not include one.
+
 ## Safe Install Path
 
 1. Inspect `llms-install.md`, `docs/INTEGRATIONS.md`, and
