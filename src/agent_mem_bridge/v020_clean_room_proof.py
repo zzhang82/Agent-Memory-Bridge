@@ -160,7 +160,8 @@ def render_v020_clean_room_markdown(report: dict[str, Any]) -> str:
             "## CLI Report Evidence",
             "",
             f"- first_run_schema: `{report['cli_reports']['first_run']['schema']}`",
-            f"- first_run_write_mode: `{report['cli_reports']['first_run']['client_config_write_mode']}`",
+            f"- first_run_memory_write_mode: `{report['cli_reports']['first_run']['memory_write_mode']}`",
+            f"- first_run_setup_owns_connection: `{str(report['cli_reports']['first_run']['setup_owns_connection']).lower()}`",
             f"- task_brief_schema: `{report['cli_reports']['task_brief']['schema']}`",
             f"- task_brief_used_count: `{report['cli_reports']['task_brief']['used_count']}`",
             f"- task_brief_needs_review_count: `{report['cli_reports']['task_brief']['needs_review_count']}`",
@@ -245,9 +246,10 @@ def _run_with_runtime(
         and set(stdio["tool_names"]) == TOOL_NAMES,
         "v020_stdio_round_trip_pass": stdio["store_recall_round_trip"]
         and "stdio" in stdio["recalled_client_transports"],
-        "v020_first_run_pass": first_run["schema"] == "memory.first_run.v1"
-        and first_run["client_config_write_mode"] == "manual_copy_only"
-        and first_run["amh_required"] is False
+        "v020_first_run_pass": first_run["schema"] == "memory.first_run.v2"
+        and first_run["memory_write_mode"] == "guided_existing_store_tool_only"
+        and first_run["setup_owns_connection"] is True
+        and first_run["mutation_allowed"] is False
         and not first_run["contains_private_path"],
         "v020_task_brief_pass": task_brief["schema"] == "memory.task_brief.v1"
         and task_brief["used_count"] >= 1
@@ -452,27 +454,21 @@ def _run_first_run_cli(
     ]
     result = _run_command(command, cwd=project_root, env=env, replacements=replacements)
     payload = _loads_json(result)
-    config = payload.get("client_config") or {}
     boundary = payload.get("boundary") or {}
-    task_brief = payload.get("first_task_brief") or {}
-    task_summary = task_brief.get("summary") or {}
+    recall = payload.get("recall") or {}
     combined_text = json.dumps(payload, sort_keys=True)
     return {
         "command": result["command"],
         "returncode": result["returncode"],
         "schema": str(payload.get("schema") or ""),
         "client": str(payload.get("client") or ""),
-        "client_status": str(payload.get("client_status") or ""),
-        "client_config_format": str(payload.get("client_config_format") or ""),
-        "client_config_write_mode": str(boundary.get("client_config_write_mode") or ""),
+        "memory_write_mode": str(boundary.get("memory_write_mode") or ""),
+        "setup_owns_connection": bool(boundary.get("setup_owns_connection")),
         "mutation_allowed": bool(boundary.get("mutation_allowed")),
         "public_mcp_surface_change": bool(boundary.get("public_mcp_surface_change")),
-        "amh_required": bool(boundary.get("amh_required")),
-        "task_brief_schema": str(task_brief.get("schema") or ""),
-        "task_brief_used_count": int(task_summary.get("used_count", 0)),
+        "recall_count": int(recall.get("count") or 0),
         "contains_private_path": _contains_private_path(combined_text),
         "placeholder_safe": "<repo>" not in combined_text and "<temp>" not in combined_text,
-        "file_hint": str(config.get("file_hint") or ""),
     }
 
 
@@ -544,8 +540,9 @@ def _build_cases(
         "v020-first-run-cli": {
             "command": first_run["command"],
             "schema": first_run["schema"],
-            "client_config_write_mode": first_run["client_config_write_mode"],
-            "task_brief_schema": first_run["task_brief_schema"],
+            "memory_write_mode": first_run["memory_write_mode"],
+            "setup_owns_connection": first_run["setup_owns_connection"],
+            "recall_count": first_run["recall_count"],
             "contains_private_path": first_run["contains_private_path"],
         },
         "v020-task-brief-cli": {

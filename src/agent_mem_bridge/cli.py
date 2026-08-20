@@ -218,13 +218,15 @@ def _build_parser() -> argparse.ArgumentParser:
 
     first_run_parser = subparsers.add_parser(
         "first-run",
-        help="Render a copy/paste first-run guide with config, verification, and a Task Brief.",
+        help="Render a read-only first-use durable-memory loop after setup connects AMB.",
     )
     first_run_parser.add_argument("--client", default="generic", choices=supported_client_names())
     first_run_parser.add_argument(
-        "--namespace", default="project:demo", help="Project namespace for the first Task Brief."
+        "--namespace", default="project:demo", help="Project namespace for the durable-memory loop."
     )
-    first_run_parser.add_argument("--query", default="first task", help="Task query for the first Task Brief.")
+    first_run_parser.add_argument(
+        "--query", default="first task", help="Realistic task question for durable-memory recall."
+    )
     first_run_parser.add_argument(
         "--python",
         dest="python_path",
