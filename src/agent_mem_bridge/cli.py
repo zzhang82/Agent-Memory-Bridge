@@ -20,6 +20,7 @@ from .database_maintenance import (
     restore_database,
     verify_backup,
 )
+from .evidence_inspect import build_memory_inspect_report, render_memory_inspect_markdown
 from .first_run import build_first_run_report, render_first_run_markdown
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
@@ -72,6 +73,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_setup(namespace)
     if namespace.command == "first-run":
         return _run_first_run(namespace)
+    if namespace.command == "inspect":
+        return _run_inspect(namespace)
     if namespace.command == "doctor":
         return _run_doctor(namespace)
     if namespace.command == "verify":
@@ -234,6 +237,17 @@ def _build_parser() -> argparse.ArgumentParser:
         default="markdown",
         help="Output format.",
     )
+    inspect_parser = subparsers.add_parser(
+        "inspect",
+        help="Explain governed task-memory selections and relevant exclusions without changing memory.",
+    )
+    inspect_parser.add_argument("--namespace", required=True, help="Project namespace to inspect.")
+    inspect_parser.add_argument("--query", required=True, help="Task question used by governed task memory.")
+    inspect_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
+    inspect_parser.add_argument(
+        "--technical", action="store_true", help="Include bounded ids, reason codes, and existing selection metadata."
+    )
+
     # Retained parser compatibility only. P2C does not inspect or render these
     # values, so they must not appear as meaningful first-run controls.
     first_run_parser.add_argument(
@@ -683,6 +697,21 @@ def _run_index_rebuild(namespace: argparse.Namespace) -> int:
     if rebuild_embeddings:
         healthy = healthy and bool(report["embeddings"]["healthy"])
     return 0 if healthy else 1
+
+
+def _run_inspect(namespace: argparse.Namespace) -> int:
+    store = MemoryStore.from_env()
+    report = build_memory_inspect_report(
+        store,
+        namespace=namespace.namespace,
+        query=namespace.query,
+        technical=namespace.technical,
+    )
+    if namespace.format == "json":
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_memory_inspect_markdown(report), end="")
+    return 0
 
 
 def _run_review_queue(namespace: argparse.Namespace) -> int:

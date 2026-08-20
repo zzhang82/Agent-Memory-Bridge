@@ -72,6 +72,18 @@ Then use the rendered client configuration, reload the client, and run:
 
 `first-run` renders setup guidance and a placeholder-safe configuration example. It does not write client configuration or durable memory. For the pinned-release route, source-versus-release gate, client-specific snippets, Docker, and the full verify/restart/registration journey, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
 
+## Inspect a recall decision
+
+After AMB surfaces task memory, inspect the governed result for a daily, read-only explanation:
+
+```bash
+agent-memory-bridge inspect \\
+  --namespace project:my-app \\
+  --query "What should I check before submitting changes?"
+```
+
+The report shows what surfaced, evidence-backed reasons, relevant governed exclusions, and review-required items. It does not list every database record, change durable memory/state/configuration, or prove a surfaced memory was applied or caused an outcome.
+
 ## Integrations
 
 AMB is a local stdio MCP server. Generic stdio MCP is supported; Codex is the reference workflow; Claude Code, Claude Desktop, Cursor, and Cline are documented; and Antigravity, OpenCode, and Hermes have locally tested configuration paths. Integration status labels are intentionally narrow and do not imply host certification.
