@@ -72,6 +72,18 @@ python -m venv .amb-venv
 
 `first-run` 会生成安装说明和占位符安全的配置示例；它不会写入客户端配置或持久记忆。固定发布版本路径、源码与发布版本门槛、客户端专用片段、Docker，以及完整的验证/重启/注册流程，请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
+## 检查一次召回决策
+
+当 AMB 已给出任务记忆时，可以用只读命令检查日常证据：
+
+```bash
+agent-memory-bridge inspect \\
+  --namespace project:my-app \\
+  --query "What should I check before submitting changes?"
+```
+
+报告会展示已出现的内容、基于现有证据的原因、相关的治理排除项以及需要人工复核的项目。它不会列出数据库中的全部记录，不会改变持久记忆、状态或配置，也不会证明某条出现的记忆被实际应用或导致某个结果。
+
 ## 集成
 
 AMB 是本地 stdio MCP 服务器。通用 stdio MCP 受支持；Codex 是参考工作流；Claude Code、Claude Desktop、Cursor 和 Cline 已有文档；Antigravity、OpenCode 与 Hermes 已有本地测试的配置路径。集成状态标签刻意保持严格，不代表宿主认证。

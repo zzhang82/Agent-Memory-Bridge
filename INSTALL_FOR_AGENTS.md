@@ -202,6 +202,17 @@ seeds user memory, writes client config, submits feedback, adds MCP tools, or
 proves client connection.
 Run `doctor` or `verify` when connection health is unresolved.
 
+## Inspect Why a Memory Surfaced
+
+After asking a task question, inspect the existing governed result without changing user memory, state, or configuration:
+
+```text
+<venv-python> -m agent_mem_bridge inspect --namespace project:demo --query "What should I check before submitting changes?"
+<venv-python> -m agent_mem_bridge inspect --namespace project:demo --query "What should I check before submitting changes?" --format json
+```
+
+`inspect` shows selected task memory, evidence-backed reasons, relevant governed exclusions, and review-required items. It does not browse every record, submit feedback, prove that a memory was applied, or claim that memory caused an outcome.
+
 ## First Useful Memory Loop
 
 After the bridge is connected, prove value with a small project memory:
