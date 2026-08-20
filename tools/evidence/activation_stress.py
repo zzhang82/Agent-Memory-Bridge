@@ -7,10 +7,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+from agent_mem_bridge.storage import MemoryStore
+
 from ._temporary_store import ScopedTemporaryMemoryStore
 from .belief_replay import BeliefReplayConfig, run_belief_replay
 from .belief_review import DEFAULT_REVIEWED_SAMPLES_PATH, run_belief_review_case
-from .storage import MemoryStore
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_ACTIVATION_STRESS_PACK_PATH = ROOT / "benchmark" / "belief-activation-stress-pack.json"

@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-from agent_mem_bridge.calibration import (
+from tools.evidence.calibration import (
     rate,
     run_classifier_calibration,
     tag_match_score,

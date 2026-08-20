@@ -8,9 +8,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from .consolidation import ConsolidationConfig
-from .paths import resolve_consolidation_actor, resolve_profile_namespace
-from .storage import MemoryStore
+from agent_mem_bridge.consolidation import ConsolidationConfig
+from agent_mem_bridge.paths import resolve_consolidation_actor, resolve_profile_namespace
+from agent_mem_bridge.storage import MemoryStore
 
 
 @dataclass(frozen=True, slots=True)

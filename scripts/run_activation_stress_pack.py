@@ -1,10 +1,16 @@
 from __future__ import annotations
+# ruff: noqa: E402, I001
 
 import argparse
 import json
 from pathlib import Path
 
-from agent_mem_bridge.activation_stress import (
+from _source_imports import ensure_source_root
+
+ensure_source_root()
+
+
+from tools.evidence.activation_stress import (
     DEFAULT_ACTIVATION_STRESS_PACK_PATH,
     render_activation_stress_text,
     run_activation_stress_pack,

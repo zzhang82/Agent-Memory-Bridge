@@ -6,16 +6,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from agent_mem_bridge.profile_assembly import build_startup_recall_plan
+from agent_mem_bridge.profile_bundle import load_profile_bundle, startup_records
+from agent_mem_bridge.profile_migration import compare_profile_migration_with_mode
+from agent_mem_bridge.storage import MemoryStore
+
 from .belief_observation import (
     BeliefObservationConfig,
     build_default_belief_observation_config,
     observe_belief_ladder,
 )
-from .profile_assembly import build_startup_recall_plan
-from .profile_bundle import load_profile_bundle, startup_records
-from .profile_migration import compare_profile_migration_with_mode
 from .rollback_cutover import build_rollback_preflight, find_latest_live_cutover_manifest
-from .storage import MemoryStore
 
 
 @dataclass(frozen=True, slots=True)

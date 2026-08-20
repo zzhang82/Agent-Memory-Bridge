@@ -1,10 +1,16 @@
 from __future__ import annotations
+# ruff: noqa: E402, I001
 
 import argparse
 import json
 from pathlib import Path
 
-from agent_mem_bridge.adversarial_benchmark import (
+from _source_imports import ensure_source_root
+
+ensure_source_root()
+
+
+from tools.evidence.adversarial_benchmark import (
     DEFAULT_CASES_PATH,
     DEFAULT_REPORT_PATH,
     run_adversarial_benchmark,

@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from agent_mem_bridge.belief_observation import (
+from agent_mem_bridge.storage import MemoryStore
+from tools.evidence.belief_observation import (
     BeliefObservationConfig,
     observe_belief_ladder,
     render_belief_observation_text,
 )
-from agent_mem_bridge.storage import MemoryStore
 
 
 def _store_ladder_record(

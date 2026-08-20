@@ -1,7 +1,8 @@
 import sys
 from pathlib import Path
 
-from agent_mem_bridge.benchmarking import (
+from agent_mem_bridge.embedding_index import embedding_health
+from tools.evidence.benchmarking import (
     DEFAULT_CORPUS_DIR,
     DEFAULT_QUESTIONS_PATH,
     build_benchmark_store,
@@ -13,7 +14,6 @@ from agent_mem_bridge.benchmarking import (
     run_benchmark,
     warm_benchmark_embeddings,
 )
-from agent_mem_bridge.embedding_index import embedding_health
 
 
 def _embedding_command() -> str:

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from agent_mem_bridge.archive_snapshot import write_live_source_manifest
-from agent_mem_bridge.live_cutover import apply_live_source_cutover, build_default_cutover_root
+from tools.evidence.live_cutover import apply_live_source_cutover, build_default_cutover_root
 
 
 def test_apply_live_source_cutover_moves_archive_first_markdown_only(tmp_path: Path) -> None:

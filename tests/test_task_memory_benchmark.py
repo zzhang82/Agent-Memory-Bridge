@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from agent_mem_bridge.task_memory_benchmark import (
+from tools.evidence.task_memory_benchmark import (
     DEFAULT_CASES_PATH,
     evaluate_task_memory_packet,
     load_task_memory_cases,

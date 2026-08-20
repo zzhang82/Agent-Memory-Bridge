@@ -9,11 +9,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from agent_mem_bridge.consolidation import ConsolidationConfig, ConsolidationEngine
+from agent_mem_bridge.paths import resolve_consolidation_actor, resolve_profile_namespace
+from agent_mem_bridge.storage import MemoryStore
+
 from ._temporary_store import ScopedTemporaryMemoryStore
 from .belief_observation import BeliefObservationConfig, observe_belief_ladder
-from .consolidation import ConsolidationConfig, ConsolidationEngine
-from .paths import resolve_consolidation_actor, resolve_profile_namespace
-from .storage import MemoryStore
 
 
 @dataclass(frozen=True, slots=True)

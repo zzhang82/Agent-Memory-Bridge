@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 
 from agent_mem_bridge.archive_snapshot import write_live_source_manifest
-from agent_mem_bridge.live_cutover import apply_live_source_cutover, build_default_cutover_root
-from agent_mem_bridge.rollback_cutover import build_rollback_preflight, rollback_live_source_cutover
+from tools.evidence.live_cutover import apply_live_source_cutover, build_default_cutover_root
+from tools.evidence.rollback_cutover import build_rollback_preflight, rollback_live_source_cutover
 
 
 def test_rollback_live_source_cutover_restores_retired_files(tmp_path: Path) -> None:

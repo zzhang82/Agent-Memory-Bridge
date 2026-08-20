@@ -5,15 +5,15 @@ from types import SimpleNamespace
 
 import pytest
 
-import agent_mem_bridge.belief_replay as belief_replay
-from agent_mem_bridge._temporary_store import ScopedTemporaryMemoryStore
-from agent_mem_bridge.belief_replay import (
+import tools.evidence.belief_replay as belief_replay
+from agent_mem_bridge.storage import MemoryStore
+from tools.evidence._temporary_store import ScopedTemporaryMemoryStore
+from tools.evidence.belief_replay import (
     BeliefReplayConfig,
     _load_source_rows,
     diff_belief_replay_reports,
     run_belief_replay,
 )
-from agent_mem_bridge.storage import MemoryStore
 
 
 def _store_source_row(

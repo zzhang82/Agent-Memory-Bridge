@@ -6,7 +6,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agent_mem_bridge.memory_evolution_benchmark import (
+from tools.evidence.memory_evolution_benchmark import (
     DEFAULT_CASES_PATH,
     evaluate_memory_evolution_case,
     load_memory_evolution_cases,

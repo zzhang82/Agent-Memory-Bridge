@@ -6,7 +6,7 @@ from pathlib import Path
 from shutil import move
 from typing import Any
 
-from .archive_snapshot import build_default_live_manifest_path, load_manifest_relative_paths
+from agent_mem_bridge.archive_snapshot import build_default_live_manifest_path, load_manifest_relative_paths
 
 RETIRED_ROOT_FILES = (
     "architecture.md",

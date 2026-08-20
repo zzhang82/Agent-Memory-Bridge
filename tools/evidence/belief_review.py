@@ -8,10 +8,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from agent_mem_bridge.consolidation import ConsolidationConfig, ConsolidationEngine
+from agent_mem_bridge.storage import MemoryStore
+
 from ._temporary_store import ScopedTemporaryMemoryStore
 from .belief_observation import BeliefObservationConfig, observe_belief_ladder
-from .consolidation import ConsolidationConfig, ConsolidationEngine
-from .storage import MemoryStore
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REVIEWED_SAMPLES_PATH = ROOT / "benchmark" / "belief-reviewed-samples.json"

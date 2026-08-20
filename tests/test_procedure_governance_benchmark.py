@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from agent_mem_bridge.procedure_governance_benchmark import (
+from tools.evidence.procedure_governance_benchmark import (
     DEFAULT_CASES_PATH,
     evaluate_procedure_governance_packet,
     load_procedure_governance_cases,

@@ -6,7 +6,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agent_mem_bridge.adversarial_benchmark import (
+from tools.evidence.adversarial_benchmark import (
     DEFAULT_CASES_PATH,
     evaluate_adversarial_case,
     load_adversarial_cases,

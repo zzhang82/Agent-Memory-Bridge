@@ -1,12 +1,18 @@
 from __future__ import annotations
+# ruff: noqa: E402, I001
 
 import argparse
 import json
 import sys
 from pathlib import Path
 
+from _source_imports import ensure_source_root
+
+ensure_source_root()
+
+
 from agent_mem_bridge.paths import resolve_profile_source_root
-from agent_mem_bridge.rollback_cutover import (
+from tools.evidence.rollback_cutover import (
     build_rollback_preflight,
     find_latest_live_cutover_manifest,
     rollback_live_source_cutover,

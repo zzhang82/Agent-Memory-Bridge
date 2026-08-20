@@ -6,7 +6,7 @@ from pathlib import Path
 from shutil import move
 from typing import Any
 
-from .archive_snapshot import load_manifest
+from agent_mem_bridge.archive_snapshot import load_manifest
 
 
 def rollback_live_source_cutover(

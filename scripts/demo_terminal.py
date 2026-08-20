@@ -1,12 +1,18 @@
 from __future__ import annotations
+# ruff: noqa: E402, I001
 
 import json
 import shutil
 import tempfile
 from pathlib import Path
+
+from _source_imports import ensure_source_root
+
+ensure_source_root()
+
 from typing import Any
 
-from agent_mem_bridge.benchmarking import run_benchmark
+from tools.evidence.benchmarking import run_benchmark
 from agent_mem_bridge.recall_first import recall_first
 from agent_mem_bridge.storage import MemoryStore
 

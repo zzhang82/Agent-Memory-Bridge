@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-import agent_mem_bridge.belief_review as belief_review
-from agent_mem_bridge._temporary_store import ScopedTemporaryMemoryStore
-from agent_mem_bridge.belief_review import (
+import tools.evidence.belief_review as belief_review
+from tools.evidence._temporary_store import ScopedTemporaryMemoryStore
+from tools.evidence.belief_review import (
     DEFAULT_REVIEWED_SAMPLES_PATH,
     run_belief_review,
     run_belief_review_case,

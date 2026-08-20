@@ -1,10 +1,16 @@
 from __future__ import annotations
+# ruff: noqa: E402, I001
 
 import argparse
 import json
 from pathlib import Path
 
-from agent_mem_bridge.v019_adoption_proof import DEFAULT_V019_REPORT_PATH, run_v019_adoption_proof
+from _source_imports import ensure_source_root
+
+ensure_source_root()
+
+
+from tools.evidence.v019_adoption_proof import DEFAULT_V019_REPORT_PATH, run_v019_adoption_proof
 
 
 def main() -> int:

@@ -1,11 +1,17 @@
 from __future__ import annotations
+# ruff: noqa: E402, I001
 
 import argparse
 import json
 import sys
 from pathlib import Path
 
-from agent_mem_bridge.calibration import DEFAULT_REVIEWED_SAMPLES_PATH, write_classifier_calibration_report
+from _source_imports import ensure_source_root
+
+ensure_source_root()
+
+
+from tools.evidence.calibration import DEFAULT_REVIEWED_SAMPLES_PATH, write_classifier_calibration_report
 from agent_mem_bridge.paths import (
     resolve_classifier_batch_size,
     resolve_classifier_command,

@@ -10,7 +10,7 @@ import pytest
 
 from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.release_contract import load_server_tool_names
-from agent_mem_bridge.v021_governed_change_proof import (
+from tools.evidence.v021_governed_change_proof import (
     DEFAULT_V021_MANIFEST_PATH,
     EXPECTED_MANIFEST_SHA256,
     FIXED_GENERATED_AT,
