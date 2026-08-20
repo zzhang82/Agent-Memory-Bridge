@@ -8,7 +8,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from .first_run import build_first_run_report
+from .client_config import build_client_config_options, render_client_config
 from .onboarding import TOOL_NAMES
 from .release_contract import load_server_tool_names
 from .storage import MemoryStore
@@ -55,7 +55,7 @@ def run_v019_adoption_proof(*, manifest_path: Path | None = None) -> dict[str, A
     v019_surface_change = not V019_PUBLIC_TOOLS.issubset(current_public_tools) or bool(
         {"v019_adoption_proof", "first_run", "task_brief"} & current_public_tools
     )
-    current_surface_matches_contract = current_public_tools == TOOL_NAMES
+    current_surface_matches_contract = _current_public_surface_matches_contract()
     summary = {
         "v019_case_count": len(cases),
         "v019_pass_count": sum(1 for case in cases if case["passed"]),
@@ -135,6 +135,13 @@ def _public_path(path: Path) -> str:
         return path.resolve().relative_to(ROOT).as_posix()
     except ValueError:
         return path.name
+
+
+def _current_public_surface_matches_contract() -> bool:
+    """Compare the parsed current server surface with the canonical public contract."""
+
+    current_public_tools = load_server_tool_names(ROOT / "src" / "agent_mem_bridge" / "server.py")
+    return current_public_tools == TOOL_NAMES
 
 
 def _run_case(store: MemoryStore, case: dict[str, Any], *, seed: dict[str, str]) -> dict[str, Any]:
@@ -303,27 +310,28 @@ def _task_brief_signal_case(store: MemoryStore, case: dict[str, Any]) -> dict[st
 
 def _first_run_case(store: MemoryStore, case: dict[str, Any], *, client: str) -> dict[str, Any]:
     before_counts = _store_counts(store)
-    report = build_first_run_report(
-        store,
-        client=client,
-        namespace=V019_PROJECT_NAMESPACE,
-        query="first task",
+    # This historical proof records renderer placeholder behavior directly. P2C
+    # intentionally removes full config bytes from first-run JSON, so the proof
+    # must not pull a deprecated manual-copy view back into that current report.
+    options = build_client_config_options(
+        client,
         python_path=None,
         cwd=None,
         bridge_home=None,
         config_path=None,
         example=True,
     )
+    rendered = render_client_config(options)
     after_counts = _store_counts(store)
-    config_content = report["client_config"]["content"]
+    config_content = rendered.content
     checks = {
-        "client_matches": report["client"] == client,
-        "manual_copy_only": report["boundary"]["client_config_write_mode"] == "manual_copy_only",
+        "client_matches": rendered.client == client,
+        "renderer_returns_fragment_without_memory_write": bool(config_content.strip())
+        and before_counts == after_counts,
         "no_mutation": before_counts == after_counts,
         "no_private_user_path": not _contains_private_user_path(config_content),
         "placeholder_safe": "/path/to/agent-memory-bridge" in config_content,
-        "amh_not_required": report["boundary"]["amh_required"] is False,
-        "public_surface_unchanged": report["boundary"]["public_mcp_surface_change"] is False,
+        "current_public_surface_contract_pass": _current_public_surface_matches_contract(),
     }
     if client in {"generic", "claude-code", "cursor"}:
         checks["json_config_parseable"] = _json_config_parseable(config_content)
@@ -333,10 +341,11 @@ def _first_run_case(store: MemoryStore, case: dict[str, Any], *, client: str) ->
         case,
         checks=checks,
         observations={
-            "client": report["client"],
-            "client_status": report["client_status"],
-            "config_format": report["client_config"]["format"],
-            "file_hint": report["client_config"]["file_hint"],
+            "client": rendered.client,
+            "client_status": rendered.status,
+            "config_format": rendered.format,
+            "file_hint": rendered.file_hint,
+            "retired_historical_assertions": ["manual_copy_only", "amh_not_required"],
         },
     )
 

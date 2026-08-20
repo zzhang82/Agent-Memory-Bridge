@@ -81,9 +81,10 @@ def test_v020_first_run_and_task_brief_cli_outputs_are_rendered_without_mutation
     first_run = report["cli_reports"]["first_run"]
     task_brief = report["cli_reports"]["task_brief"]
 
-    assert first_run["schema"] == "memory.first_run.v1"
-    assert first_run["client_config_write_mode"] == "manual_copy_only"
-    assert first_run["amh_required"] is False
+    assert first_run["schema"] == "memory.first_run.v2"
+    assert first_run["memory_write_mode"] == "guided_existing_store_tool_only"
+    assert first_run["setup_owns_connection"] is True
+    assert first_run["mutation_allowed"] is False
     assert first_run["contains_private_path"] is False
 
     assert task_brief["schema"] == "memory.task_brief.v1"
@@ -128,6 +129,7 @@ def test_v020_runner_writes_json_report_and_markdown_transcript(tmp_path: Path) 
     assert f"- release: `{project_version}`" in transcript
     assert "## Stdio MCP Evidence" in transcript
     assert "## CLI Report Evidence" in transcript
+    assert "first_run_memory_write_mode" in transcript
     assert "## Boundary" in transcript
     assert str(tmp_path) not in transcript
 

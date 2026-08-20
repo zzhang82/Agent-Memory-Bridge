@@ -178,29 +178,29 @@ Use this shape when the client supports JSON `mcpServers` config:
 
 Client-specific examples live in `docs/INTEGRATIONS.md`.
 
-## One-Command First Run
+## First Run After Setup
 
-Use `first-run --example` when the human wants one placeholder-safe view of the
-install, client config, verification, and first Task Brief flow:
+`setup` owns safe client connection. After the client is connected, use
+`first-run` as a product guide that is read-only with respect to user memory and client configuration:
 
 ```text
-<venv-python> -m agent_mem_bridge first-run --client vscode --namespace project:demo --query "first task" --example
-<venv-python> -m agent_mem_bridge first-run --client codex --namespace project:demo --query "first task" --example
-<venv-python> -m agent_mem_bridge first-run --client claude-code --namespace project:demo --query "first task" --example
-<venv-python> -m agent_mem_bridge first-run --client opencode --namespace project:demo --query "first task" --example
-<venv-python> -m agent_mem_bridge first-run --client hermes --namespace project:demo --query "first task" --example
+<venv-python> -m agent_mem_bridge first-run --namespace project:demo --query "What should I check before submitting changes?"
+<venv-python> -m agent_mem_bridge first-run --namespace project:demo --query "What should I check before submitting changes?" --format json
 ```
 
-The report includes:
+The report guides a human and connected coding agent through:
 
-- install commands
-- a copy/paste client config snippet
-- `doctor` / `verify` steps
-- a read-only Task Brief for the first namespace/query
+- remembering one or two concise project facts with the existing `store` tool
+- asking a realistic task question
+- seeing what AMB remembered and why it appeared
+- recording bounded feedback with the existing `feedback` tool
+- reopening the agent against the same durable database and asking again
 
-It does not write client config, add MCP tools, require AMH, or mutate durable
-memory. For a runnable client registration, render the real config in step 5
-without `--example` and use the approved local paths.
+It is state-aware: if suitable memory already surfaces, it shows it; otherwise
+it asks the user to remember one useful fact first. `first-run` never silently
+seeds user memory, writes client config, submits feedback, adds MCP tools, or
+proves client connection.
+Run `doctor` or `verify` when connection health is unresolved.
 
 ## First Useful Memory Loop
 
@@ -254,7 +254,9 @@ feedback(
 ```
 
 Feedback is append-only shadow evidence. It does not promote records, rewrite
-memories, update indexes, or change future ranking.
+memories, update indexes, or change future ranking. A recorded feedback receipt
+proves that the feedback event was stored for review/evaluation; it does not
+prove that feedback caused a later recall or that AMB learned automatically.
 
 The default `feedback_type` is `vote`. To change or withdraw the current vote,
 append a `correction` or `retraction` with the current

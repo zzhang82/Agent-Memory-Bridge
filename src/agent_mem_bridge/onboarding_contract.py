@@ -54,6 +54,7 @@ def run_onboarding_contract_check(root: Path) -> dict[str, Any]:
         _example_configs_check(),
         _onboarding_docs_leak_check(project_root),
         _safe_setup_apply_contract_check(project_root),
+        _first_use_memory_loop_contract_check(project_root),
         _versioned_install_tool_surface_check(project_root),
     ]
     return {
@@ -192,6 +193,40 @@ def _safe_setup_apply_contract_check(project_root: Path) -> dict[str, Any]:
     missing.extend(f"cli:{term}" for term in required_cli_terms if term not in cli_text)
     return {
         "name": "safe_setup_apply_contract_is_explicit",
+        "ok": not missing,
+        "missing": missing,
+    }
+
+
+def _first_use_memory_loop_contract_check(project_root: Path) -> dict[str, Any]:
+    install_path = project_root / "INSTALL_FOR_AGENTS.md"
+    first_run_path = project_root / "src" / "agent_mem_bridge" / "first_run.py"
+    if not install_path.exists() or not first_run_path.exists():
+        return {
+            "name": "first_use_memory_loop_contract_is_explicit",
+            "ok": False,
+            "missing": [str(path) for path in (install_path, first_run_path) if not path.exists()],
+        }
+    install_text = install_path.read_text(encoding="utf-8")
+    first_run_text = first_run_path.read_text(encoding="utf-8")
+    required_install_terms = (
+        "`setup` owns safe client connection.",
+        "`first-run` as a product guide that is read-only with respect to user memory and client configuration",
+        "existing `store` tool",
+        "existing `feedback` tool",
+        "never silently\nseeds user memory",
+        "does not\nprove that feedback caused a later recall",
+    )
+    required_first_run_terms = (
+        'FIRST_RUN_SCHEMA = "memory.first_run.v2"',
+        "guided_existing_store_tool_only",
+        "shadow_only_no_memory_or_ranking_change",
+        "Feedback is durable evaluation evidence.",
+    )
+    missing = [term for term in required_install_terms if term not in install_text]
+    missing.extend(f"first_run:{term}" for term in required_first_run_terms if term not in first_run_text)
+    return {
+        "name": "first_use_memory_loop_contract_is_explicit",
         "ok": not missing,
         "missing": missing,
     }

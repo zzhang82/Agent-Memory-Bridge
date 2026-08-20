@@ -1,222 +1,251 @@
 from __future__ import annotations
 
 import json
-import os
-import shlex
-import sqlite3
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
-import agent_mem_bridge.first_run as first_run
+import pytest
+
+from agent_mem_bridge import first_run
 from agent_mem_bridge.cli import main
-from agent_mem_bridge.first_run import (
-    GITHUB_ARCHIVE_URL,
-    PINNED_INSTALL_VERSION,
-    RELEASE_INSTALL_GATE_NOTE,
-    RELEASE_VERSION,
-    _render_python_module_command,
-    build_first_run_report,
-    render_first_run_markdown,
-)
+from agent_mem_bridge.first_run import build_first_run_report, render_first_run_markdown
 from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.release_contract import load_server_tool_names
 from agent_mem_bridge.storage import MemoryStore
 
 ROOT = Path(__file__).resolve().parents[1]
-NAMESPACE = "project:first-run-test"
-EXPECTED_PUBLIC_TOOLS = TOOL_NAMES
+NAMESPACE = "project:first-use"
+QUERY = "What should I check before submitting changes to this project?"
 
 
-def test_first_run_report_renders_install_verify_and_task_brief_without_mutation(tmp_path: Path, monkeypatch) -> None:
-    store = _seed_store(tmp_path)
-    before_counts = _table_counts(db_path=store.db_path)
-    before_stats = store.stats(NAMESPACE)
-    python_path = Path("test-fixtures") / "python"
+def _store(tmp_path: Path) -> MemoryStore:
+    return MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
 
-    report = build_first_run_report(
-        store,
-        client="opencode",
+
+def _seed(store: MemoryStore) -> dict[str, object]:
+    return store.store(
         namespace=NAMESPACE,
-        query="release handoff",
-        python_path=python_path,
-        cwd=Path("test-project"),
-        bridge_home=Path("bridge-home"),
-        config_path=Path("config.toml"),
-        example=False,
+        kind="memory",
+        title="Submission check",
+        content="Run make check before submitting changes to this project.",
+        tags=["domain:delivery"],
     )
-    after_counts = _table_counts(db_path=store.db_path)
-    after_stats = store.stats(NAMESPACE)
 
-    assert before_counts == after_counts
-    assert before_stats == after_stats
-    assert report["schema"] == "memory.first_run.v1"
-    assert "Linux systems use `python3`" in report["python_launcher_note"]
+
+def _report(store: MemoryStore) -> dict[str, object]:
+    return build_first_run_report(
+        store,
+        client="generic",
+        namespace=NAMESPACE,
+        query=QUERY,
+        python_path="unused",
+        cwd=Path("unused"),
+        bridge_home=Path("unused"),
+        config_path=Path("unused"),
+    )
+
+
+def test_first_run_is_read_only_and_surfaces_real_durable_memory(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    seeded = _seed(store)
+    before = store.stats(NAMESPACE)["total_count"]
+    direct_recall = store.recall(namespace=NAMESPACE, query=QUERY, kind="memory", limit=3)
+
+    report = _report(store)
+    after = store.stats(NAMESPACE)["total_count"]
+    rendered = json.dumps(report, sort_keys=True)
+
+    assert before == after == 1
+    assert report["schema"] == "memory.first_run.v2"
     assert report["boundary"]["mutation_allowed"] is False
-    assert report["boundary"]["public_mcp_surface_change"] is False
-    assert report["boundary"]["amh_required"] is False
-    assert report["client_config"]["format"] == "json"
-    assert report["first_task_brief"]["schema"] == "memory.task_brief.v1"
-    assert report["first_task_brief"]["public_mcp_surface_change"] is False
-    assert report["install"]["baseline"][0] == "python -m venv .amb-venv"
-    assert ".absolute()" in report["install"]["baseline"][1]
-    assert ".resolve()" not in report["install"]["baseline"][1]
-    assert report["install"]["package_version"] == RELEASE_VERSION
-    assert report["install"]["release_install_version"] == PINNED_INSTALL_VERSION
-    assert RELEASE_VERSION == "0.27.4"
-    assert PINNED_INSTALL_VERSION == "0.27.0"
-    assert report["install"]["version_mismatch_note"] == (
-        "Package/source version 0.27.4 differs from pinned release-install version 0.27.0. "
-        "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
-    )
-    assert report["install"]["release_install_gate_note"] == RELEASE_INSTALL_GATE_NOTE
-    assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in report["install"]["baseline"][2]
-    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" not in report["install"]["baseline"][2]
-    assert "<venv-python> -m pip install" in report["install"]["baseline"][2]
-    assert report["install"]["github_install"] == report["install"]["baseline"]
-    assert report["install"]["editable_install"][-1] == "<venv-python> -m pip install -e ."
-    assert report["verify"] == [
-        _render_python_module_command(str(python_path), "doctor", platform=os.name),
-        _render_python_module_command(str(python_path), "verify", platform=os.name),
-    ]
-    assert report["install"]["smoke_test"] == report["verify"][1]
-    assert report["install"]["optional_uv_smoke_test"].startswith("uvx --from git+")
-    assert f"Agent-Memory-Bridge@v{PINNED_INSTALL_VERSION}" in report["install"]["optional_uv_smoke_test"]
-    assert f"Agent-Memory-Bridge@v{RELEASE_VERSION}" not in report["install"]["optional_uv_smoke_test"]
+    assert report["boundary"]["memory_write_mode"] == "guided_existing_store_tool_only"
+    assert report["recall"]["count"] == 1
+    assert report["recall"]["items"][0]["memory_id"] == seeded["id"]
+    assert "Run make check before submitting" in report["recall"]["items"][0]["summary"]
+    assert direct_recall["recall_receipt"]["token"] not in rendered
+    assert "recall_receipt" not in rendered
+    assert "token" not in report["technical_details"]
 
+
+def test_first_run_empty_state_guides_existing_store_without_writing(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    before = store.stats(NAMESPACE)["total_count"]
+
+    report = _report(store)
     markdown = render_first_run_markdown(report)
-    assert "## Install" in markdown
-    assert "Linux systems use `python3`" in markdown
-    assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in markdown
-    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" not in markdown
-    assert markdown.index("python -m venv .amb-venv") < markdown.index(".absolute()")
-    assert markdown.index(".absolute()") < markdown.index(f'<venv-python> -m pip install "{GITHUB_ARCHIVE_URL}"')
-    assert "Editable install:" not in markdown
-    assert "Optional `uvx` shortcut (requires `uv`)" in markdown
-    assert f"Version-pinned GitHub tag install (`v{PINNED_INSTALL_VERSION}`)" in markdown
-    assert RELEASE_INSTALL_GATE_NOTE in markdown
-    assert "Package/source candidate" not in markdown
-    assert "unpublished" not in markdown
-    assert "## Verify" in markdown
-    assert "Inspect the client's MCP status/tool visibility" in markdown
-    assert "## First Task Brief" in markdown
-    assert "write_mode: `manual_copy_only`" in markdown
 
-    monkeypatch.setattr(first_run, "RELEASE_VERSION", "0.28.0")
-    future_report = build_first_run_report(
-        store,
-        client="opencode",
-        namespace=NAMESPACE,
-        query="release handoff",
-        python_path=python_path,
-        cwd=Path("test-project"),
-        bridge_home=Path("bridge-home"),
-        config_path=Path("config.toml"),
-        example=False,
-    )
-    assert future_report["install"]["version_mismatch_note"] == (
-        "Package/source version 0.28.0 differs from pinned release-install version 0.27.0. "
-        "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
-    )
-    assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in future_report["install"]["baseline"][2]
-    assert "archive/refs/tags/v0.28.0.zip" not in future_report["install"]["baseline"][2]
-    assert (
-        "Package/source version 0.28.0 differs from pinned release-install version 0.27.0."
-        in render_first_run_markdown(future_report)
-    )
-
-    posix_python = str(PurePosixPath("fixture path") / "python")
-    posix_command = _render_python_module_command(posix_python, "verify", platform="posix")
-    assert shlex.split(posix_command) == [posix_python, "-m", "agent_mem_bridge", "verify"]
-
-    windows_python = str(PureWindowsPath("fixture path") / "python.exe")
-    assert (
-        _render_python_module_command(
-            windows_python,
-            "verify",
-            platform="nt",
-        )
-        == f"& '{windows_python}' -m agent_mem_bridge verify"
-    )
+    assert store.stats(NAMESPACE)["total_count"] == before == 0
+    assert report["remember"]["state"] == "guided_action_required"
+    assert report["recall"]["count"] == 0
+    assert "No suitable memory surfaced yet." in markdown
+    assert "existing `store` tool" in report["remember"]["action"]
 
 
-def test_first_run_cli_renders_placeholder_safe_json(tmp_path: Path, monkeypatch, capsys) -> None:
-    store = _seed_store(tmp_path)
+def test_first_run_default_language_is_product_friendly_and_shadow_only(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    _seed(store)
+
+    markdown = render_first_run_markdown(_report(store))
+
+    for heading in ("Remember", "What AMB remembered", "Why this appeared", "Feedback", "Next session"):
+        assert heading in markdown
+    assert "Feedback recorded" not in markdown
+    assert "What successful feedback looks like:" in markdown
+    assert "`stored: true`" in markdown
+    assert "`feedback_id: <bounded id>`" in markdown
+    assert "`feedback_mode: shadow_only`" in markdown
+    assert "`ordering_unchanged: true`" in markdown
+    assert "`mode: shadow_only`" not in markdown
+    for prohibited in ("Context Compiler", "Context Attestation", "Episode Authority", "Verification Authority"):
+        assert prohibited not in markdown
+    assert "does not automatically rewrite memory or change ranking" in markdown
+    assert "Feedback is durable evaluation evidence." in markdown
+    assert "learned" not in markdown.casefold()
+    assert "feedback improved" not in markdown.casefold()
+
+
+def test_first_run_translates_existing_suppression_reason_metadata(tmp_path: Path, monkeypatch) -> None:
+    store = _store(tmp_path)
+    _seed(store)
+    real_task_brief = first_run.build_task_brief_report
+
+    def with_existing_reason(*args, **kwargs):
+        report = real_task_brief(*args, **kwargs)
+        report["sections"]["ignored"].append({"reason_codes": ["superseded"]})
+        report["sections"]["needs_review"].append({"reason_codes": ["procedure_status:unsafe"]})
+        return report
+
+    monkeypatch.setattr(first_run, "build_task_brief_report", with_existing_reason)
+    report = _report(store)
+    markdown = render_first_run_markdown(report)
+
+    assert "A superseded alternative was left out." in report["explanation"]["not_used"]
+    assert "An item that is not safe to use was left out." in report["explanation"]["not_used"]
+    assert "What was deliberately not used:" in markdown
+    assert "feedback" not in " ".join(report["explanation"]["reasons"]).casefold()
+
+
+def test_first_run_cli_json_is_bounded_and_keeps_mcp_surface_unchanged(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    store = _store(tmp_path)
+    _seed(store)
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(store.db_path))
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(tmp_path / "logs"))
 
-    exit_code = main(
-        [
-            "first-run",
-            "--client",
-            "hermes",
-            "--namespace",
-            NAMESPACE,
-            "--query",
-            "release handoff",
-            "--example",
-            "--format",
-            "json",
-        ]
-    )
-
-    assert exit_code == 0
+    assert main(["first-run", "--namespace", NAMESPACE, "--query", QUERY, "--format", "json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["client"] == "hermes"
-    assert payload["client_config"]["format"] == "yaml"
-    assert payload["boundary"]["client_config_write_mode"] == "manual_copy_only"
-    assert payload["boundary"]["amh_required"] is False
-    assert "/path/to/agent-memory-bridge" in payload["client_config"]["content"]
-    assert ".amb-venv/bin/python" in payload["client_config"]["content"]
-    assert "C:\\Users" not in payload["client_config"]["content"]
-    assert "Linux systems use `python3`" in payload["python_launcher_note"]
-    assert payload["install"]["baseline"][0] == "python -m venv .amb-venv"
-    assert ".absolute()" in payload["install"]["baseline"][1]
-    assert payload["install"]["package_version"] == RELEASE_VERSION
-    assert payload["install"]["release_install_version"] == PINNED_INSTALL_VERSION
-    assert payload["install"]["version_mismatch_note"] == (
-        "Package/source version 0.27.4 differs from pinned release-install version 0.27.0. "
-        "Continue to use a source checkout until its exact-commit CI gate passes and its tag is created."
-    )
-    assert payload["install"]["release_install_gate_note"] == RELEASE_INSTALL_GATE_NOTE
-    assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in payload["install"]["baseline"][2]
-    assert f"archive/refs/tags/v{RELEASE_VERSION}.zip" not in payload["install"]["baseline"][2]
+
+    assert payload["schema"] == "memory.first_run.v2"
+    assert payload["recall"]["count"] == 1
+    assert "recall_receipt" not in json.dumps(payload, sort_keys=True)
+    assert load_server_tool_names(ROOT / "src" / "agent_mem_bridge" / "server.py") == TOOL_NAMES
+    assert len(TOOL_NAMES) == 17
+    assert "first-run" not in TOOL_NAMES
 
 
-def test_first_run_stays_cli_only_not_mcp_tool() -> None:
-    tool_names = load_server_tool_names(ROOT / "src" / "agent_mem_bridge" / "server.py")
+@pytest.mark.parametrize(
+    ("reason_code", "expected"),
+    [
+        ("superseded", "A superseded alternative was left out."),
+        ("procedure_status:unsafe", "An item that is not safe to use was left out."),
+        ("validity:stale", "An out-of-date item was left out."),
+        ("depends_on:ineligible", "An item with an ineligible dependency was left out."),
+    ],
+)
+def test_first_run_explanation_only_translates_existing_reason_codes(
+    tmp_path: Path,
+    monkeypatch,
+    reason_code: str,
+    expected: str,
+) -> None:
+    store = _store(tmp_path)
+    _seed(store)
+    real_task_brief = first_run.build_task_brief_report
 
-    assert tool_names == EXPECTED_PUBLIC_TOOLS
-    assert "first_run" not in tool_names
-    assert "first-run" not in tool_names
+    def with_reason(*args, **kwargs):
+        report = real_task_brief(*args, **kwargs)
+        report["sections"]["ignored"].append({"reason_codes": [reason_code]})
+        return report
+
+    monkeypatch.setattr(first_run, "build_task_brief_report", with_reason)
+    report = _report(store)
+
+    assert expected in report["explanation"]["not_used"]
+    assert all("feedback" not in reason.casefold() for reason in report["explanation"]["reasons"])
 
 
-def _seed_store(tmp_path: Path) -> MemoryStore:
-    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
-    store.store(
-        namespace=NAMESPACE,
-        kind="memory",
-        title="[[Procedure]] release handoff path",
-        content=(
-            "record_type: procedure\n"
-            "goal: Run the release handoff path.\n"
-            "steps: assign owner | confirm queue | tag release\n"
-        ),
-        tags=["kind:procedure", "domain:release", "topic:handoff"],
-    )
-    return store
+def test_first_run_help_hides_legacy_noop_configuration_controls(capsys) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["first-run", "--help"])
+    assert exc_info.value.code == 0
+    help_text = capsys.readouterr().out
+
+    for visible in ("--namespace", "--query", "--format"):
+        assert visible in help_text
+    for hidden in ("--client", "--python", "--cwd", "--bridge-home", "--config-path", "--example"):
+        assert hidden not in help_text
 
 
-def _table_counts(*, db_path: Path) -> dict[str, int]:
-    with sqlite3.connect(db_path) as conn:
-        table_names = [
-            row[0]
-            for row in conn.execute(
-                """
-                SELECT name
-                FROM sqlite_master
-                WHERE type = 'table'
-                  AND name NOT LIKE 'sqlite_%'
-                ORDER BY name
-                """
-            )
-        ]
-        return {name: int(conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]) for name in table_names}
+def test_first_run_legacy_compatibility_flags_parse_without_changing_product_loop(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    store = _store(tmp_path)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(store.db_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(tmp_path / "logs"))
+    args = [
+        "first-run",
+        "--namespace",
+        NAMESPACE,
+        "--query",
+        QUERY,
+        "--client",
+        "codex",
+        "--python",
+        "unused-python",
+        "--cwd",
+        str(tmp_path / "unused-cwd"),
+        "--bridge-home",
+        str(tmp_path / "unused-home"),
+        "--config-path",
+        str(tmp_path / "unused-config.toml"),
+        "--example",
+        "--format",
+        "json",
+    ]
+
+    assert main(args) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["query"] == QUERY
+    assert payload["boundary"]["memory_write_mode"] == "guided_existing_store_tool_only"
+    assert payload["recall"]["count"] == 0
+    assert not (tmp_path / "unused-cwd").exists()
+    assert not (tmp_path / "unused-home").exists()
+    assert not (tmp_path / "unused-config.toml").exists()
+
+
+def test_first_run_default_loop_uses_neutral_templates_and_coherent_question(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    store = _store(tmp_path)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(store.db_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(tmp_path / "logs"))
+
+    assert main(["first-run", "--format", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    templates = payload["remember"]["examples"]
+
+    assert payload["query"] == "What should I check before submitting changes to this project?"
+    assert templates == [
+        "Before opening a PR, run <your project's test command>.",
+        "Deployments to staging are triggered from <your branch or release process>.",
+        "When editing <component>, preserve <your project-specific constraint>.",
+    ]
+    rendered = json.dumps(payload, sort_keys=True)
+    for prohibited in ("SQLite/WAL", "ambiguous client configuration", "make check"):
+        assert prohibited not in rendered
+    assert "Replace the templates below with facts that are true for your project." in payload["remember"]["action"]
