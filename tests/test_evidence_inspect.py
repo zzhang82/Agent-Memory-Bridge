@@ -104,7 +104,7 @@ def test_inspect_real_governed_projection_is_deterministic_relevant_and_read_onl
     assert any("Superseded by a newer memory." in item["why"] for item in report["excluded"])
     assert any("Out of date for this task." in item["why"] for item in report["excluded"])
     assert any("Marked unsafe to use." in item["why"] for item in report["excluded"])
-    assert any("Depends on evidence that is no longer eligible." in item["why"] for item in report["excluded"])
+    assert any("Depends on evidence that is not currently eligible." in item["why"] for item in report["excluded"])
     assert any("It belongs to this project namespace." in item["why"] for item in report["selected"])
     encoded = json.dumps(report, sort_keys=True)
     assert "recall_token" not in encoded
@@ -168,3 +168,111 @@ def test_inspect_help_exposes_only_narrow_public_controls(capsys) -> None:
     assert "--technical" in help_text
     assert "--apply" not in help_text
     assert "--html" not in help_text
+
+
+def test_inspect_preserves_task_brief_corrective_supersession_review_parity(tmp_path: Path) -> None:
+    from agent_mem_bridge.task_brief import build_task_brief_report
+
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    namespace = "project:corrective"
+    obsolete = store.store(
+        namespace=namespace,
+        kind="memory",
+        title="[[Procedure]] deploy through retired queue",
+        content="record_type: procedure\ngoal: Deploy through the retired queue.\n",
+        tags=["kind:procedure", "domain:release", "topic:deploy"],
+    )
+    corrective = store.store(
+        namespace=namespace,
+        kind="memory",
+        title="[[State Change]] governed deployment queue",
+        content=(
+            "record_type: state-change\n"
+            "current_state: The retired queue is closed; use the governed deployment queue.\n"
+            f"supersedes: {obsolete['id']}\n"
+        ),
+        tags=["kind:state-change", "domain:release", "topic:deploy"],
+    )
+
+    inspect = build_memory_inspect_report(store, namespace=namespace, query="release deploy queue", technical=True)
+    brief = build_task_brief_report(store, namespace=namespace, query="release deploy queue")
+    inspect_excluded = {item["memory_id"] for item in inspect["excluded"]}
+    inspect_review = {item["memory_id"] for item in inspect["needs_review"]}
+    brief_task_review = {
+        item["source_record_id"] for item in brief["sections"]["needs_review"] if item["source"] == "task_memory"
+    }
+
+    assert obsolete["id"] in inspect_excluded
+    assert obsolete["id"] in inspect_review
+    assert corrective["id"] in inspect_review
+    assert {obsolete["id"], corrective["id"]}.issubset(brief_task_review)
+    corrective_review = next(item for item in inspect["needs_review"] if item["memory_id"] == corrective["id"])
+    assert corrective_review["summary"] is not None
+    assert corrective_review["technical"]["selected_as"] == "corrective-evidence"
+    assert corrective_review["technical"]["source_section"] == "corrective_items"
+    assert any(
+        "Current corrective evidence may affect an older procedure" in explanation
+        for item in inspect["needs_review"]
+        if item["memory_id"] == obsolete["id"]
+        for explanation in item["why"]
+    )
+
+
+def test_inspect_does_not_duplicate_already_selected_corrective_item_as_review(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "bridge.db", log_dir=tmp_path / "logs")
+    namespace = "project:selected-corrective"
+    obsolete = store.store(
+        namespace=namespace,
+        kind="memory",
+        title="[[Procedure]] obsolete release queue",
+        content="record_type: procedure\ngoal: Use obsolete release queue.\n",
+        tags=["kind:procedure", "domain:release", "topic:deploy"],
+    )
+    corrective = store.store(
+        namespace=namespace,
+        kind="memory",
+        title="[[State Change]] release queue current state",
+        content=(
+            f"record_type: state-change\ncurrent_state: Use the current release queue.\nsupersedes: {obsolete['id']}\n"
+        ),
+        tags=["kind:state-change", "domain:release", "topic:deploy"],
+    )
+    store.store(
+        namespace=namespace,
+        kind="memory",
+        title="[[Procedure]] release current anchor",
+        content=(
+            "record_type: procedure\nprocedure_status: validated\ngoal: Deploy through current release queue.\n"
+            f"supports: {corrective['id']}\n"
+        ),
+        tags=["kind:procedure", "domain:release", "topic:deploy"],
+    )
+
+    inspect = build_memory_inspect_report(store, namespace=namespace, query="release deploy queue", technical=True)
+    selected_ids = {item["memory_id"] for item in inspect["selected"]}
+    corrective_review = [item for item in inspect["needs_review"] if item["memory_id"] == corrective["id"]]
+
+    assert corrective["id"] in selected_ids
+    assert corrective_review == []
+    assert obsolete["id"] in {item["memory_id"] for item in inspect["excluded"]}
+    assert obsolete["id"] in {item["memory_id"] for item in inspect["needs_review"]}
+
+
+@pytest.mark.parametrize(
+    ("reason", "expected", "forbidden"),
+    [
+        ("depends_on:ineligible", "Depends on evidence that is not currently eligible.", "could not be resolved"),
+        ("depends_on:unresolved", "Depends on evidence that could not be resolved.", "not currently eligible"),
+        ("validity:expired", "Out of date for this task.", "Not yet valid"),
+        ("validity:future", "Not yet valid for this task.", "Out of date"),
+        ("validity:invalid", "Its validity window is invalid, so governance left it out.", "Out of date"),
+    ],
+)
+def test_inspect_translates_each_dependency_and_validity_reason_truthfully(
+    reason: str, expected: str, forbidden: str
+) -> None:
+    from agent_mem_bridge.evidence_inspect import _suppression_explanation
+
+    explanation = _suppression_explanation(reason)
+    assert explanation == expected
+    assert forbidden not in explanation

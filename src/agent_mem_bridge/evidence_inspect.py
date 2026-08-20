@@ -49,11 +49,18 @@ def build_memory_inspect_report(
         global_namespace=cleaned_global_namespace,
     )
     selected = _selected_items(task_memory, include_technical=technical)
+    selected_ids = {item["memory_id"] for item in selected if item["memory_id"]}
     excluded, suppression_review = _excluded_items(task_memory, include_technical=technical)
-    candidate_ids = {item["memory_id"] for item in selected if item["memory_id"]}
+    corrective_review = _unselected_corrective_items(
+        task_memory,
+        selected_ids=selected_ids,
+        include_technical=technical,
+    )
+    candidate_ids = set(selected_ids)
     candidate_ids.update(item["memory_id"] for item in excluded if item["memory_id"])
     needs_review = [
         *suppression_review,
+        *corrective_review,
         *_relevant_review_queue_items(store, cleaned_namespace, candidate_ids, technical),
     ]
 
@@ -161,15 +168,20 @@ def _excluded_items(
                 "blocked_by_id": item.get("by_id"),
                 "blocked_by_title": item.get("by_title"),
                 "score": item.get("score"),
+                "blocked_by_record_type": item.get("by_record_type"),
             },
         )
         excluded.append(projected)
-        if reason in REVIEW_SUPPRESSION_REASONS:
+        if reason in REVIEW_SUPPRESSION_REASONS or _is_corrective_supersession(item, reason):
             needs_review.append(
                 {
                     **projected,
                     "status": "needs_review",
-                    "why": [_review_explanation(reason)],
+                    "why": [
+                        _corrective_supersession_explanation()
+                        if _is_corrective_supersession(item, reason)
+                        else _review_explanation(reason)
+                    ],
                 }
             )
     for item in task_memory.get("unresolved_relation_targets") or []:
@@ -191,6 +203,46 @@ def _excluded_items(
             )
         )
     return excluded, needs_review
+
+
+def _unselected_corrective_items(
+    task_memory: dict[str, Any], *, selected_ids: set[str], include_technical: bool
+) -> list[dict[str, Any]]:
+    needs_review: list[dict[str, Any]] = []
+    for item in task_memory.get("corrective_items") or []:
+        memory_id = str(item.get("id") or "")
+        if not memory_id or memory_id in selected_ids:
+            continue
+        decision = item.get("task_memory") or {}
+        needs_review.append(
+            _item(
+                memory_id=memory_id,
+                title=item.get("title"),
+                namespace=item.get("namespace"),
+                summary=_bounded_summary(item.get("content")),
+                status="needs_review",
+                why=[_corrective_supersession_explanation()],
+                reason_codes=[*list(decision.get("reasons") or []), "corrective-evidence"],
+                include_technical=include_technical,
+                technical={
+                    "selected_as": "corrective-evidence",
+                    "source_section": "corrective_items",
+                },
+            )
+        )
+    return needs_review
+
+
+def _is_corrective_supersession(item: dict[str, Any], reason: str) -> bool:
+    return (
+        reason == "superseded"
+        and item.get("section") == "procedure"
+        and item.get("by_record_type") in {"belief", "state-change"}
+    )
+
+
+def _corrective_supersession_explanation() -> str:
+    return "Current corrective evidence may affect an older procedure and should be reviewed before replacing guidance."
 
 
 def _relevant_review_queue_items(
@@ -269,16 +321,22 @@ def _selected_explanations(reason_codes: list[object]) -> list[str]:
 def _suppression_explanation(reason: str) -> str:
     if reason == "superseded" or reason == "superseded_revision":
         return "Superseded by a newer memory."
-    if reason.startswith("validity:"):
+    if reason == "validity:expired":
         return "Out of date for this task."
+    if reason == "validity:future":
+        return "Not yet valid for this task."
+    if reason == "validity:invalid":
+        return "Its validity window is invalid, so governance left it out."
     if reason == "procedure_status:unsafe":
         return "Marked unsafe to use."
     if reason == "procedure_status:stale":
         return "Marked stale and not used automatically."
     if reason == "procedure_status:replaced":
         return "Replaced by current guidance."
-    if reason.startswith("depends_on:"):
-        return "Depends on evidence that is no longer eligible."
+    if reason == "depends_on:ineligible":
+        return "Depends on evidence that is not currently eligible."
+    if reason == "depends_on:unresolved":
+        return "Depends on evidence that could not be resolved."
     if reason == "contradicted":
         return "Conflicts with stronger current guidance."
     if reason == "lineage_status:degraded":
