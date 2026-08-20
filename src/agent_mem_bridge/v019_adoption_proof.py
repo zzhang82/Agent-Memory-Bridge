@@ -55,7 +55,7 @@ def run_v019_adoption_proof(*, manifest_path: Path | None = None) -> dict[str, A
     v019_surface_change = not V019_PUBLIC_TOOLS.issubset(current_public_tools) or bool(
         {"v019_adoption_proof", "first_run", "task_brief"} & current_public_tools
     )
-    current_surface_matches_contract = current_public_tools == TOOL_NAMES
+    current_surface_matches_contract = _current_public_surface_matches_contract()
     summary = {
         "v019_case_count": len(cases),
         "v019_pass_count": sum(1 for case in cases if case["passed"]),
@@ -135,6 +135,13 @@ def _public_path(path: Path) -> str:
         return path.resolve().relative_to(ROOT).as_posix()
     except ValueError:
         return path.name
+
+
+def _current_public_surface_matches_contract() -> bool:
+    """Compare the parsed current server surface with the canonical public contract."""
+
+    current_public_tools = load_server_tool_names(ROOT / "src" / "agent_mem_bridge" / "server.py")
+    return current_public_tools == TOOL_NAMES
 
 
 def _run_case(store: MemoryStore, case: dict[str, Any], *, seed: dict[str, str]) -> dict[str, Any]:
@@ -319,12 +326,12 @@ def _first_run_case(store: MemoryStore, case: dict[str, Any], *, client: str) ->
     config_content = rendered.content
     checks = {
         "client_matches": rendered.client == client,
-        "manual_copy_only": True,
+        "renderer_returns_fragment_without_memory_write": bool(config_content.strip())
+        and before_counts == after_counts,
         "no_mutation": before_counts == after_counts,
         "no_private_user_path": not _contains_private_user_path(config_content),
         "placeholder_safe": "/path/to/agent-memory-bridge" in config_content,
-        "amh_not_required": True,
-        "public_surface_unchanged": True,
+        "current_public_surface_contract_pass": _current_public_surface_matches_contract(),
     }
     if client in {"generic", "claude-code", "cursor"}:
         checks["json_config_parseable"] = _json_config_parseable(config_content)
@@ -338,6 +345,7 @@ def _first_run_case(store: MemoryStore, case: dict[str, Any], *, client: str) ->
             "client_status": rendered.status,
             "config_format": rendered.format,
             "file_hint": rendered.file_hint,
+            "retired_historical_assertions": ["manual_copy_only", "amh_not_required"],
         },
     )
 

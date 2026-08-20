@@ -90,8 +90,11 @@ def test_first_run_default_language_is_product_friendly_and_shadow_only(tmp_path
         assert heading in markdown
     assert "Feedback recorded" not in markdown
     assert "What successful feedback looks like:" in markdown
-    assert "stored: true" in markdown
-    assert "mode: shadow_only" in markdown
+    assert "`stored: true`" in markdown
+    assert "`feedback_id: <bounded id>`" in markdown
+    assert "`feedback_mode: shadow_only`" in markdown
+    assert "`ordering_unchanged: true`" in markdown
+    assert "`mode: shadow_only`" not in markdown
     for prohibited in ("Context Compiler", "Context Attestation", "Episode Authority", "Verification Authority"):
         assert prohibited not in markdown
     assert "does not automatically rewrite memory or change ranking" in markdown

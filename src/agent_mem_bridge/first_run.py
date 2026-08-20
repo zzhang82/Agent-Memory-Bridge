@@ -110,7 +110,10 @@ def build_first_run_report(
         "explanation": explanation,
         "feedback": {
             "action": "After a memory surfaces, tell your connected coding agent to record `helpful`, `misleading`, `outdated`, `not_applicable`, or `not_used` with the existing `feedback` tool.",
-            "success_evidence": "After the existing feedback tool succeeds, its actual response shows `stored: true`, a bounded feedback id, and `mode: shadow_only`.",
+            "success_evidence": (
+                "After the existing feedback tool succeeds, its actual response shows `stored: true`, "
+                "`feedback_id: <bounded id>`, `feedback_mode: shadow_only`, and `ordering_unchanged: true`."
+            ),
             "policy": "Feedback is durable evaluation evidence. It does not automatically rewrite memory or change ranking.",
             "state": "not_recorded_by_first_run",
         },
