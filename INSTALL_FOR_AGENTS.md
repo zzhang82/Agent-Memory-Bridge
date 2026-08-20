@@ -181,7 +181,7 @@ Client-specific examples live in `docs/INTEGRATIONS.md`.
 ## First Run After Setup
 
 `setup` owns safe client connection. After the client is connected, use
-`first-run` as a read-only product guide for one useful durable-memory loop:
+`first-run` as a product guide that is read-only with respect to user memory and client configuration:
 
 ```text
 <venv-python> -m agent_mem_bridge first-run --namespace project:demo --query "What should I check before submitting changes?"
@@ -197,8 +197,9 @@ The report guides a human and connected coding agent through:
 - reopening the agent against the same durable database and asking again
 
 It is state-aware: if suitable memory already surfaces, it shows it; otherwise
-it asks the user to remember one useful fact first. `first-run` never seeds
-memory, writes client config, adds MCP tools, or proves client connection.
+it asks the user to remember one useful fact first. `first-run` never silently
+seeds user memory, writes client config, submits feedback, adds MCP tools, or
+proves client connection.
 Run `doctor` or `verify` when connection health is unresolved.
 
 ## First Useful Memory Loop

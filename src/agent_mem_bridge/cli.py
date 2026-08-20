@@ -218,43 +218,15 @@ def _build_parser() -> argparse.ArgumentParser:
 
     first_run_parser = subparsers.add_parser(
         "first-run",
-        help="Render a read-only first-use durable-memory loop after setup connects AMB.",
+        help="Guide a read-only durable-memory loop after setup connects AMB.",
     )
-    first_run_parser.add_argument("--client", default="generic", choices=supported_client_names())
     first_run_parser.add_argument(
         "--namespace", default="project:demo", help="Project namespace for the durable-memory loop."
     )
     first_run_parser.add_argument(
-        "--query", default="first task", help="Realistic task question for durable-memory recall."
-    )
-    first_run_parser.add_argument(
-        "--python",
-        dest="python_path",
-        default=sys.executable,
-        help="Python executable that should launch `-m agent_mem_bridge`.",
-    )
-    first_run_parser.add_argument(
-        "--cwd",
-        type=Path,
-        default=Path.cwd(),
-        help="Working directory to embed in the client config.",
-    )
-    first_run_parser.add_argument(
-        "--bridge-home",
-        type=Path,
-        default=resolve_bridge_home(),
-        help="Bridge home path to embed in the client config.",
-    )
-    first_run_parser.add_argument(
-        "--config-path",
-        type=Path,
-        default=resolve_config_path(),
-        help="Config path to embed in the client config.",
-    )
-    first_run_parser.add_argument(
-        "--example",
-        action="store_true",
-        help="Render placeholder-safe setup output instead of local runtime paths.",
+        "--query",
+        default="What should I check before submitting changes to this project?",
+        help="Realistic task question for durable-memory recall.",
     )
     first_run_parser.add_argument(
         "--format",
@@ -262,6 +234,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default="markdown",
         help="Output format.",
     )
+    # Retained parser compatibility only. P2C does not inspect or render these
+    # values, so they must not appear as meaningful first-run controls.
+    first_run_parser.add_argument(
+        "--client", default="generic", choices=supported_client_names(), help=argparse.SUPPRESS
+    )
+    first_run_parser.add_argument("--python", dest="python_path", default=sys.executable, help=argparse.SUPPRESS)
+    first_run_parser.add_argument("--cwd", type=Path, default=Path.cwd(), help=argparse.SUPPRESS)
+    first_run_parser.add_argument("--bridge-home", type=Path, default=resolve_bridge_home(), help=argparse.SUPPRESS)
+    first_run_parser.add_argument("--config-path", type=Path, default=resolve_config_path(), help=argparse.SUPPRESS)
+    first_run_parser.add_argument("--example", action="store_true", help=argparse.SUPPRESS)
 
     doctor_parser = subparsers.add_parser("doctor", help="Run non-invasive onboarding checks.")
     doctor_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")

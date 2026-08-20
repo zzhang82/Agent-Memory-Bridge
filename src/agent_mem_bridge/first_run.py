@@ -17,7 +17,7 @@ from .storage import MemoryStore
 from .task_brief import build_task_brief_report
 
 FIRST_RUN_SCHEMA = "memory.first_run.v2"
-FIRST_RUN_BOUNDARY = "read_only_product_loop_no_silent_memory_write"
+FIRST_RUN_BOUNDARY = "read_only_with_respect_to_user_memory_and_configuration"
 RELEASE_VERSION = package_version()
 # Retained stable install-contract constants. P2C intentionally removes them from
 # default first-run rendering because `setup` owns connection/configuration.
@@ -30,9 +30,9 @@ RELEASE_INSTALL_GATE_NOTE = (
 )
 
 _DEFAULT_MEMORY_PROMPTS = (
-    "Run `make check` before submitting changes to this project.",
-    "The project uses SQLite/WAL as its local durable authority.",
-    "Do not automatically overwrite ambiguous client configuration.",
+    "Before opening a PR, run <your project's test command>.",
+    "Deployments to staging are triggered from <your branch or release process>.",
+    "When editing <component>, preserve <your project-specific constraint>.",
 )
 
 _SUPPRESSION_LANGUAGE = {
@@ -60,12 +60,12 @@ def build_first_run_report(
 ) -> dict[str, Any]:
     """Build a read-only first-use loop from existing durable-memory facts.
 
-    The retained client/path parameters preserve CLI compatibility and provide a
-    bounded connection hint.  They are not inspected, written, or rendered as a
+    The retained client/path parameters preserve parser compatibility only. They
+    do not affect recall, inspect a client, write configuration, or render a
     client configuration in P2C.
     """
 
-    del python_path, cwd, bridge_home, config_path, example
+    del client, python_path, cwd, bridge_home, config_path, example
     cleaned_namespace = namespace.strip()
     cleaned_query = query.strip()
     if not cleaned_namespace:
@@ -88,7 +88,6 @@ def build_first_run_report(
         "package_version": RELEASE_VERSION,
         "namespace": cleaned_namespace,
         "query": cleaned_query,
-        "client": client,
         "mutation_boundary": FIRST_RUN_BOUNDARY,
         "boundary": {
             "mutation_allowed": False,
@@ -103,7 +102,7 @@ def build_first_run_report(
         },
         "remember": {
             "state": "guided_action_required" if not recall["items"] else "memory_already_available",
-            "action": "Tell your connected coding agent to use the existing `store` tool for one or two useful project facts.",
+            "action": "Tell your connected coding agent to use the existing `store` tool for one or two real project facts. Replace the templates below with facts that are true for your project.",
             "examples": list(_DEFAULT_MEMORY_PROMPTS),
             "no_silent_write": True,
         },
@@ -111,13 +110,13 @@ def build_first_run_report(
         "explanation": explanation,
         "feedback": {
             "action": "After a memory surfaces, tell your connected coding agent to record `helpful`, `misleading`, `outdated`, `not_applicable`, or `not_used` with the existing `feedback` tool.",
-            "recorded_receipt": "The feedback tool response reports `stored` and a bounded feedback id when it records the event.",
-            "policy": "Feedback is recorded for review and evaluation. It does not automatically rewrite memory or change ranking.",
+            "success_evidence": "After the existing feedback tool succeeds, its actual response shows `stored: true`, a bounded feedback id, and `mode: shadow_only`.",
+            "policy": "Feedback is durable evaluation evidence. It does not automatically rewrite memory or change ranking.",
             "state": "not_recorded_by_first_run",
         },
         "next_session": {
             "action": "Reopen your coding agent against the same AMB database, then ask this question again or ask a related task question.",
-            "durability_claim": "The same durable memory remains available across a fresh server session when the same database is used.",
+            "durability_claim": "The same durable memory can remain available across a fresh server session when the same database is used.",
         },
         "technical_details": _technical_details(recall_payload, task_brief, explanation),
     }
@@ -177,12 +176,11 @@ def render_first_run_markdown(report: dict[str, Any]) -> str:
             "",
             feedback["action"],
             "",
-            "## 6. Feedback recorded",
-            "",
-            feedback["recorded_receipt"],
+            "What successful feedback looks like:",
+            feedback["success_evidence"],
             feedback["policy"],
             "",
-            "## 7. Next session",
+            "## 6. Next session",
             "",
             report["next_session"]["action"],
             report["next_session"]["durability_claim"],

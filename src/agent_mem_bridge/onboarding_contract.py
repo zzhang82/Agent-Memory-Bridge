@@ -211,17 +211,17 @@ def _first_use_memory_loop_contract_check(project_root: Path) -> dict[str, Any]:
     first_run_text = first_run_path.read_text(encoding="utf-8")
     required_install_terms = (
         "`setup` owns safe client connection.",
-        "`first-run` as a read-only product guide",
+        "`first-run` as a product guide that is read-only with respect to user memory and client configuration",
         "existing `store` tool",
         "existing `feedback` tool",
-        "never seeds\nmemory",
+        "never silently\nseeds user memory",
         "does not\nprove that feedback caused a later recall",
     )
     required_first_run_terms = (
         'FIRST_RUN_SCHEMA = "memory.first_run.v2"',
         "guided_existing_store_tool_only",
         "shadow_only_no_memory_or_ranking_change",
-        "Feedback is recorded for review and evaluation.",
+        "Feedback is durable evaluation evidence.",
     )
     missing = [term for term in required_install_terms if term not in install_text]
     missing.extend(f"first_run:{term}" for term in required_first_run_terms if term not in first_run_text)

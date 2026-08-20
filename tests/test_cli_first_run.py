@@ -86,11 +86,16 @@ def test_first_run_default_language_is_product_friendly_and_shadow_only(tmp_path
 
     markdown = render_first_run_markdown(_report(store))
 
-    for heading in ("Remember", "What AMB remembered", "Why this appeared", "Feedback recorded", "Next session"):
+    for heading in ("Remember", "What AMB remembered", "Why this appeared", "Feedback", "Next session"):
         assert heading in markdown
+    assert "Feedback recorded" not in markdown
+    assert "What successful feedback looks like:" in markdown
+    assert "stored: true" in markdown
+    assert "mode: shadow_only" in markdown
     for prohibited in ("Context Compiler", "Context Attestation", "Episode Authority", "Verification Authority"):
         assert prohibited not in markdown
     assert "does not automatically rewrite memory or change ranking" in markdown
+    assert "Feedback is durable evaluation evidence." in markdown
     assert "learned" not in markdown.casefold()
     assert "feedback improved" not in markdown.casefold()
 
@@ -166,3 +171,78 @@ def test_first_run_explanation_only_translates_existing_reason_codes(
 
     assert expected in report["explanation"]["not_used"]
     assert all("feedback" not in reason.casefold() for reason in report["explanation"]["reasons"])
+
+
+def test_first_run_help_hides_legacy_noop_configuration_controls(capsys) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["first-run", "--help"])
+    assert exc_info.value.code == 0
+    help_text = capsys.readouterr().out
+
+    for visible in ("--namespace", "--query", "--format"):
+        assert visible in help_text
+    for hidden in ("--client", "--python", "--cwd", "--bridge-home", "--config-path", "--example"):
+        assert hidden not in help_text
+
+
+def test_first_run_legacy_compatibility_flags_parse_without_changing_product_loop(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    store = _store(tmp_path)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(store.db_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(tmp_path / "logs"))
+    args = [
+        "first-run",
+        "--namespace",
+        NAMESPACE,
+        "--query",
+        QUERY,
+        "--client",
+        "codex",
+        "--python",
+        "unused-python",
+        "--cwd",
+        str(tmp_path / "unused-cwd"),
+        "--bridge-home",
+        str(tmp_path / "unused-home"),
+        "--config-path",
+        str(tmp_path / "unused-config.toml"),
+        "--example",
+        "--format",
+        "json",
+    ]
+
+    assert main(args) == 0
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["query"] == QUERY
+    assert payload["boundary"]["memory_write_mode"] == "guided_existing_store_tool_only"
+    assert payload["recall"]["count"] == 0
+    assert not (tmp_path / "unused-cwd").exists()
+    assert not (tmp_path / "unused-home").exists()
+    assert not (tmp_path / "unused-config.toml").exists()
+
+
+def test_first_run_default_loop_uses_neutral_templates_and_coherent_question(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    store = _store(tmp_path)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(store.db_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(tmp_path / "logs"))
+
+    assert main(["first-run", "--format", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    templates = payload["remember"]["examples"]
+
+    assert payload["query"] == "What should I check before submitting changes to this project?"
+    assert templates == [
+        "Before opening a PR, run <your project's test command>.",
+        "Deployments to staging are triggered from <your branch or release process>.",
+        "When editing <component>, preserve <your project-specific constraint>.",
+    ]
+    rendered = json.dumps(payload, sort_keys=True)
+    for prohibited in ("SQLite/WAL", "ambiguous client configuration", "make check"):
+        assert prohibited not in rendered
+    assert "Replace the templates below with facts that are true for your project." in payload["remember"]["action"]
