@@ -57,22 +57,57 @@ baseline below. Local editable checkout, optional `uvx`, and Docker remain
 optional routes. For the Phase 1 pilot, all clients must share the same
 user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
 
-## Read-Only Setup Preview
+## Safe Setup Preview and Apply
 
-Before any manual client configuration, run the P2A planner when the installed
-CLI is available:
+Start with the bounded P2A preview. It remains read-only and always reports
+`Changes written: 0`:
 
 ```text
 agent-memory-bridge setup --client <client>
 agent-memory-bridge setup --client <client> --json
 ```
 
-`setup` currently **previews only**. It detects only bounded supported-client
-evidence, inspects a known config path when that path is safe to read, renders
-the proposed AMB fragment, and reports a future action. It always reports
-`Changes written: 0`; it does not install AMB, create bridge paths or databases,
-write client config, create backups, or launch a client. A later setup phase
-may add a separately reviewed apply flow; P2A does not include one.
+P2B can apply only a fresh P2A plan whose target, format, ownership state, and
+bytes remain eligible at the time of the write. For a human-reviewed change,
+run:
+
+```text
+agent-memory-bridge setup --apply --client <client>
+```
+
+The command displays the client, target, classified existing state, planned
+action, and backup behavior, then requires `Apply these changes? [y/N]`.
+Declining or EOF writes nothing. Machine-readable automation is deliberately
+narrow: use `agent-memory-bridge setup --apply --yes --json`; `--yes` requires
+`--apply` and never bypasses a safety check. There is no `--force` switch.
+
+Automatic mutation is limited to structurally parsed JSON plans for Claude
+Code, VS Code, and the normal supported OpenCode JSON path when P2A has no
+alternate/project/custom/JSONC marker. Conflict, unreadable,
+inspection-unavailable, path-unknown, unsupported, and manual-review plans are
+never overwritten. Codex TOML remains preview-only in P2B because this source
+has a TOML parser but no safe TOML writer; P2B does not use string replacement
+or an ad-hoc TOML serializer.
+
+Before replacing an existing config, P2B re-plans, checks that target metadata
+is unchanged, writes a unique adjacent byte-for-byte backup, applies an
+atomic same-directory replacement, and re-reads the JSON to verify the AMB
+entry and preserved structure. It creates only the exact missing target parent
+for an eligible new config; it does not create bridge paths, a database, logs,
+or package-manager state. A metadata-only adjacent receipt supports one latest
+safe rollback per target:
+
+```text
+agent-memory-bridge setup --rollback --client <client>
+```
+
+Rollback is interactive and restores an exact backup for modified files, or
+removes a P2B-created file only if its digest still matches the applied result.
+It stops for post-apply user edits and never recursively removes user
+directories. Apply configures a client file only; it does not prove that a
+client loaded AMB or that AMB connected successfully. Follow with
+`agent-memory-bridge doctor --include-stdio` and `agent-memory-bridge verify`
+when their runtime prerequisites are available.
 
 ## Safe Install Path
 

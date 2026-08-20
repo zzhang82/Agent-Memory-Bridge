@@ -32,6 +32,14 @@ from .run_consolidation import (
     stage_run_consolidation_report,
 )
 from .service_lock import ServiceFileLock, ServiceLockConflict
+from .setup_apply import (
+    apply_setup_plan,
+    capture_setup_apply_snapshot,
+    render_setup_apply_confirmation,
+    render_setup_apply_result,
+    render_setup_rollback_result,
+    rollback_setup_plan,
+)
 from .setup_planner import build_setup_plan, render_setup_plan
 from .storage import MemoryStore
 from .task_brief import build_task_brief_report, render_task_brief_markdown
@@ -168,6 +176,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Supported client to plan. Repeat for multiple clients; default plans every supported client.",
     )
     setup_parser.add_argument("--json", action="store_true", help="Emit deterministic JSON instead of plain text.")
+    setup_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Explicitly apply only P2A-classified safe configuration changes after confirmation.",
+    )
+    setup_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Confirm a JSON safe apply non-interactively; requires --apply and never bypasses safety checks.",
+    )
+    setup_parser.add_argument(
+        "--rollback",
+        action="store_true",
+        help="Interactively roll back only the latest matching P2B-owned configuration change.",
+    )
     setup_parser.add_argument(
         "--python",
         dest="python_path",
@@ -514,18 +537,66 @@ def _run_config(namespace: argparse.Namespace) -> int:
 
 
 def _run_setup(namespace: argparse.Namespace) -> int:
-    plan = build_setup_plan(
-        clients=namespace.client,
-        cwd=namespace.cwd,
-        python_path=namespace.python_path,
-        bridge_home=namespace.bridge_home,
-        bridge_config_path=namespace.config_path,
-    )
+    if namespace.yes and not namespace.apply:
+        print("setup --yes requires --apply", file=sys.stderr)
+        return 2
+    if namespace.apply and namespace.rollback:
+        print("setup --apply and --rollback cannot be combined", file=sys.stderr)
+        return 2
+    if namespace.rollback and namespace.json:
+        print("setup --rollback requires interactive human confirmation and cannot use --json", file=sys.stderr)
+        return 2
+
+    def build_plan():
+        return build_setup_plan(
+            clients=namespace.client,
+            cwd=namespace.cwd,
+            python_path=namespace.python_path,
+            bridge_home=namespace.bridge_home,
+            bridge_config_path=namespace.config_path,
+        )
+
+    plan = build_plan()
+    if namespace.rollback:
+        print(render_setup_apply_confirmation(plan))
+        if not _confirm_setup_mutation("Rollback P2B-owned changes? [y/N] "):
+            print("No changes were made.")
+            return 0
+        rollback_result = rollback_setup_plan(plan)
+        print(render_setup_rollback_result(rollback_result))
+        return 1 if any(client.status == "failed" for client in rollback_result.clients) else 0
+
+    if not namespace.apply:
+        if namespace.json:
+            print(json.dumps(plan.as_dict(), indent=2, sort_keys=True))
+        else:
+            print(render_setup_plan(plan))
+        return 0
+
+    if namespace.json and not namespace.yes:
+        print("setup --apply --json requires --yes to avoid an interactive machine-readable prompt", file=sys.stderr)
+        return 2
+
+    snapshot = capture_setup_apply_snapshot(plan)
+    if not namespace.yes:
+        print(render_setup_apply_confirmation(plan))
+        if not _confirm_setup_mutation("Apply these changes? [y/N] "):
+            print("No changes were made.")
+            return 0
+
+    apply_result = apply_setup_plan(plan, current_plan=build_plan(), snapshot=snapshot)
     if namespace.json:
-        print(json.dumps(plan.as_dict(), indent=2, sort_keys=True))
+        print(json.dumps(apply_result.as_dict(), indent=2, sort_keys=True))
     else:
-        print(render_setup_plan(plan))
-    return 0
+        print(render_setup_apply_result(apply_result))
+    return 1 if any(client.status == "failed" for client in apply_result.clients) else 0
+
+
+def _confirm_setup_mutation(prompt: str) -> bool:
+    try:
+        return input(prompt).strip().lower() in {"y", "yes"}
+    except EOFError:
+        return False
 
 
 def _run_first_run(namespace: argparse.Namespace) -> int:

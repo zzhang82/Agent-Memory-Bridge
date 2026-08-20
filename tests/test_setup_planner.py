@@ -380,7 +380,7 @@ def test_cli_explicit_client_selection_and_json_zero_writes(tmp_path: Path, caps
     assert not (tmp_path / "missing-config.toml").exists()
 
 
-def test_cli_setup_help_has_no_mutation_switches(capsys) -> None:
+def test_cli_setup_help_has_only_gated_safe_mutation_switches(capsys) -> None:
     try:
         main(["setup", "--help"])
     except SystemExit as exc:
@@ -388,7 +388,9 @@ def test_cli_setup_help_has_no_mutation_switches(capsys) -> None:
     help_text = capsys.readouterr().out
 
     assert "--json" in help_text
-    assert "--apply" not in help_text
+    assert "--apply" in help_text
+    assert "--yes" in help_text
+    assert "--rollback" in help_text
     assert "--write" not in help_text
     assert "--force" not in help_text
 
