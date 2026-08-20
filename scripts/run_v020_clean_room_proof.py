@@ -1,10 +1,16 @@
 from __future__ import annotations
+# ruff: noqa: E402, I001
 
 import argparse
 import json
 from pathlib import Path
 
-from agent_mem_bridge.v020_clean_room_proof import (
+from _source_imports import ensure_source_root
+
+ensure_source_root()
+
+
+from tools.evidence.v020_clean_room_proof import (
     DEFAULT_V020_REPORT_PATH,
     DEFAULT_V020_TRANSCRIPT_PATH,
     ROOT,

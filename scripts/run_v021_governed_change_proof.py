@@ -1,10 +1,16 @@
 from __future__ import annotations
+# ruff: noqa: E402, I001
 
 import argparse
 import json
 from pathlib import Path
 
-from agent_mem_bridge.v021_governed_change_proof import (
+from _source_imports import ensure_source_root
+
+ensure_source_root()
+
+
+from tools.evidence.v021_governed_change_proof import (
     DEFAULT_V021_MANIFEST_PATH,
     DEFAULT_V021_REPORT_PATH,
     run_v021_governed_change_proof,

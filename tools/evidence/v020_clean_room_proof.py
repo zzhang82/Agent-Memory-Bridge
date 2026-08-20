@@ -18,8 +18,8 @@ from typing import Any
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from .onboarding import TOOL_NAMES
-from .release_contract import load_pyproject_version, load_server_tool_names
+from agent_mem_bridge.onboarding import TOOL_NAMES
+from agent_mem_bridge.release_contract import load_pyproject_version, load_server_tool_names
 
 ROOT = Path(__file__).resolve().parents[2]
 V020_CLEAN_ROOM_PROOF_SCHEMA = "memory.v0_20_clean_room_proof.v1"

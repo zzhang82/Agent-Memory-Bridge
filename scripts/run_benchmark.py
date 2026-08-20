@@ -1,10 +1,16 @@
 from __future__ import annotations
+# ruff: noqa: E402, I001
 
 import json
 import sys
 from pathlib import Path
 
-from agent_mem_bridge.benchmarking import run_benchmark
+from _source_imports import ensure_source_root
+
+ensure_source_root()
+
+
+from tools.evidence.benchmarking import run_benchmark
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_PATH = ROOT / "benchmark" / "latest-report.json"

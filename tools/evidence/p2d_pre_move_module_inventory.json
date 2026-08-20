@@ -1,0 +1,453 @@
+{
+  "baseline_sha": "9aeffe1c9c78201212c5060ff637a39b2838cc99",
+  "classification_kind": "mutually_exclusive_primary",
+  "classification_notes": {
+    "cli_runtime": "Direct normal CLI, python -m, onboarding, first-run, or setup entrypoint module.",
+    "compatibility_required": "Package or MCP compatibility boundary module.",
+    "development_only": "Repository contract, operator, profile, health, or verification helper not reached by normal product entrypoints.",
+    "historical_release_evidence": "Historical proof or cutover evidence retained for source reproducibility.",
+    "proof_or_benchmark": "Offline proof, benchmark, calibration, or their dedicated helper.",
+    "runtime_required": "Current installed runtime required by the static normal-entrypoint graph or current runtime contract.",
+    "unclear": "Reserved for modules lacking a confident primary placement."
+  },
+  "descriptive_attributes_are_not_primary_classes": [
+    "test_referenced",
+    "script_referenced",
+    "source_distribution_retained"
+  ],
+  "module_count": 100,
+  "modules": [
+    {
+      "module": "__init__",
+      "primary_class": "compatibility_required"
+    },
+    {
+      "module": "__main__",
+      "primary_class": "cli_runtime"
+    },
+    {
+      "module": "_temporary_store",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "activation_stress",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "adversarial_benchmark",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "archive_snapshot",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "belief_observation",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "belief_replay",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "belief_review",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "benchmarking",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "calibration",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "classifier",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "cli",
+      "primary_class": "cli_runtime"
+    },
+    {
+      "module": "client_config",
+      "primary_class": "cli_runtime"
+    },
+    {
+      "module": "codex_rollout",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "command_provider",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "consolidation",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "context_evaluation",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "context_manifest",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "contradiction",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "cross_client_activation",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "cutover_dashboard",
+      "primary_class": "historical_release_evidence"
+    },
+    {
+      "module": "database_maintenance",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "durable_data_policy",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "dynamic_state",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "embedding_index",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "embedding_scheduler",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "enrichment_rules",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "exporters",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "failure_report",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "filesystem_safety",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "first_run",
+      "primary_class": "cli_runtime"
+    },
+    {
+      "module": "governance_trigger",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "healthcheck",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "index_health",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "learning_candidates",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "learning_policy",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "lineage",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "live_cutover",
+      "primary_class": "historical_release_evidence"
+    },
+    {
+      "module": "log_maintenance",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "mcp_boundary",
+      "primary_class": "compatibility_required"
+    },
+    {
+      "module": "memory_evolution_benchmark",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "onboarding",
+      "primary_class": "cli_runtime"
+    },
+    {
+      "module": "onboarding_contract",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "paths",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "poll_cursor",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "procedure_governance",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "procedure_governance_benchmark",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "profile_assembly",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "profile_bundle",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "profile_migration",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "promotion",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "promotion_governance",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "proof",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "provenance",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "public_surface",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "query",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "recall_eligibility",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "recall_first",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "record_projection",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "reflex",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "relation_metadata",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "release_contract",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "repository",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "retrieval_feedback",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "review_queue",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "review_workflow",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "revisions",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "rollback_cutover",
+      "primary_class": "historical_release_evidence"
+    },
+    {
+      "module": "run_consolidation",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "run_ledger",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "run_outcome_authority",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "run_projection",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "run_verification_receipts",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "schema",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "server",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "service",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "service_health",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "service_lock",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "session_closeout",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "setup_apply",
+      "primary_class": "cli_runtime"
+    },
+    {
+      "module": "setup_planner",
+      "primary_class": "cli_runtime"
+    },
+    {
+      "module": "signal_contention_benchmark",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "signals",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "source_sync",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "state_io",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "stdio_probe",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "storage",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "structured_record",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "sync_notes",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "task_brief",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "task_memory",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "task_memory_benchmark",
+      "primary_class": "proof_or_benchmark"
+    },
+    {
+      "module": "telemetry",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "telemetry_summary",
+      "primary_class": "development_only"
+    },
+    {
+      "module": "v019_adoption_proof",
+      "primary_class": "historical_release_evidence"
+    },
+    {
+      "module": "v020_clean_room_proof",
+      "primary_class": "historical_release_evidence"
+    },
+    {
+      "module": "v021_governed_change_proof",
+      "primary_class": "historical_release_evidence"
+    },
+    {
+      "module": "watcher",
+      "primary_class": "runtime_required"
+    },
+    {
+      "module": "watcher_health",
+      "primary_class": "development_only"
+    }
+  ],
+  "moved_modules": [
+    "_temporary_store",
+    "activation_stress",
+    "adversarial_benchmark",
+    "belief_observation",
+    "belief_replay",
+    "belief_review",
+    "benchmarking",
+    "calibration",
+    "cutover_dashboard",
+    "live_cutover",
+    "memory_evolution_benchmark",
+    "procedure_governance_benchmark",
+    "rollback_cutover",
+    "signal_contention_benchmark",
+    "task_memory_benchmark",
+    "v019_adoption_proof",
+    "v020_clean_room_proof",
+    "v021_governed_change_proof"
+  ],
+  "primary_class_counts": {
+    "cli_runtime": 7,
+    "compatibility_required": 2,
+    "development_only": 14,
+    "historical_release_evidence": 6,
+    "proof_or_benchmark": 12,
+    "runtime_required": 59,
+    "unclear": 0
+  },
+  "retained_runtime_module_notes": {
+    "codex_rollout": "runtime_required: reachable through normal CLI/service/watcher behavior and retained in the installed runtime."
+  }
+}

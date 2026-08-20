@@ -7,10 +7,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .index_health import rebuild_embedding_index
-from .proof import parse_markdown_entry, run_deterministic_proof
-from .query import recall_candidates
-from .storage import MemoryStore
+from agent_mem_bridge.index_health import rebuild_embedding_index
+from agent_mem_bridge.proof import parse_markdown_entry, run_deterministic_proof
+from agent_mem_bridge.query import recall_candidates
+from agent_mem_bridge.storage import MemoryStore
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CORPUS_DIR = ROOT / "benchmark" / "corpus"

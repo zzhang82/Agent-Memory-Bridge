@@ -8,12 +8,12 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from .client_config import build_client_config_options, render_client_config
-from .onboarding import TOOL_NAMES
-from .release_contract import load_server_tool_names
-from .storage import MemoryStore
-from .task_brief import build_task_brief_report
-from .task_memory import assemble_task_memory
+from agent_mem_bridge.client_config import build_client_config_options, render_client_config
+from agent_mem_bridge.onboarding import TOOL_NAMES
+from agent_mem_bridge.release_contract import load_server_tool_names
+from agent_mem_bridge.storage import MemoryStore
+from agent_mem_bridge.task_brief import build_task_brief_report
+from agent_mem_bridge.task_memory import assemble_task_memory
 
 ROOT = Path(__file__).resolve().parents[2]
 V019_ADOPTION_PROOF_SCHEMA = "memory.v0_19_adoption_proof.v1"

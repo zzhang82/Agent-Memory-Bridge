@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-import agent_mem_bridge.activation_stress as activation_stress
-from agent_mem_bridge._temporary_store import ScopedTemporaryMemoryStore
-from agent_mem_bridge.activation_stress import (
+import tools.evidence.activation_stress as activation_stress
+from tools.evidence._temporary_store import ScopedTemporaryMemoryStore
+from tools.evidence.activation_stress import (
     DEFAULT_ACTIVATION_STRESS_PACK_PATH,
     render_activation_stress_text,
     run_activation_stress_pack,

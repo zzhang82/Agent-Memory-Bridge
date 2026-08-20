@@ -11,15 +11,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
-from .embedding_index import EmbeddingConfig, ensure_embeddings_for_rows
-from .onboarding import TOOL_NAMES
-from .query import recall_via_semantic
-from .recall_eligibility import HISTORICAL_RECALL_ELIGIBILITY
-from .relation_metadata import parse_relation_metadata
-from .release_contract import load_server_tool_names
-from .storage import MemoryStore
-from .task_brief import build_task_brief_report
-from .task_memory import assemble_task_memory
+from agent_mem_bridge.embedding_index import EmbeddingConfig, ensure_embeddings_for_rows
+from agent_mem_bridge.onboarding import TOOL_NAMES
+from agent_mem_bridge.query import recall_via_semantic
+from agent_mem_bridge.recall_eligibility import HISTORICAL_RECALL_ELIGIBILITY
+from agent_mem_bridge.relation_metadata import parse_relation_metadata
+from agent_mem_bridge.release_contract import load_server_tool_names
+from agent_mem_bridge.storage import MemoryStore
+from agent_mem_bridge.task_brief import build_task_brief_report
+from agent_mem_bridge.task_memory import assemble_task_memory
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_V021_MANIFEST_PATH = ROOT / "benchmark" / "v0.21-governed-change-manifest.json"
@@ -882,7 +882,7 @@ def _memory(
 ) -> str:
     original_new_id = state.store._new_id
     if fixed_id is not None:
-        state.store._new_id = lambda: fixed_id  # type: ignore[method-assign]
+        state.store._new_id = lambda: fixed_id
     try:
         result = state.store.store(
             namespace=namespace,
@@ -895,7 +895,7 @@ def _memory(
         )
     finally:
         if fixed_id is not None:
-            state.store._new_id = original_new_id  # type: ignore[method-assign]
+            state.store._new_id = original_new_id
     memory_id = str(result["id"])
     state.labels[memory_id] = label
     return memory_id

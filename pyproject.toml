@@ -45,6 +45,10 @@ dev = [
 [project.scripts]
 agent-memory-bridge = "agent_mem_bridge.cli:main"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["agent_mem_bridge"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

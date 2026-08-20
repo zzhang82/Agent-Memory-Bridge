@@ -8,10 +8,10 @@ import sys
 import textwrap
 from pathlib import Path
 
-import agent_mem_bridge.v019_adoption_proof as v019_adoption_proof
+import tools.evidence.v019_adoption_proof as v019_adoption_proof
 from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.release_contract import load_server_tool_names
-from agent_mem_bridge.v019_adoption_proof import (
+from tools.evidence.v019_adoption_proof import (
     DEFAULT_V019_MANIFEST_PATH,
     EXPECTED_PUBLIC_TOOL_COUNT,
     V019_ADOPTION_PROOF_SCHEMA,

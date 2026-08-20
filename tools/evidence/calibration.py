@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .classifier import ClassifierConfig, EnrichmentCandidate, EnrichmentClassifier
-from .enrichment_rules import infer_keyword_tags
+from agent_mem_bridge.classifier import ClassifierConfig, EnrichmentCandidate, EnrichmentClassifier
+from agent_mem_bridge.enrichment_rules import infer_keyword_tags
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REVIEWED_SAMPLES_PATH = ROOT / "benchmark" / "classifier-reviewed-samples.json"

@@ -9,8 +9,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .storage import MemoryStore
-from .task_memory import assemble_task_memory
+from agent_mem_bridge.storage import MemoryStore
+from agent_mem_bridge.task_memory import assemble_task_memory
+
 from .task_memory_benchmark import seed_case_store
 
 ROOT = Path(__file__).resolve().parents[2]

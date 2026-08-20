@@ -9,7 +9,7 @@ import pytest
 
 from agent_mem_bridge.onboarding import TOOL_NAMES
 from agent_mem_bridge.release_contract import load_pyproject_version, load_server_tool_names
-from agent_mem_bridge.v020_clean_room_proof import (
+from tools.evidence.v020_clean_room_proof import (
     EXPECTED_PUBLIC_TOOL_COUNT,
     PROOF_KIND,
     V020_CASE_MANIFEST,

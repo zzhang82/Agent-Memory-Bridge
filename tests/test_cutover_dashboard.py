@@ -2,16 +2,16 @@ import json
 from pathlib import Path
 
 from agent_mem_bridge.archive_snapshot import write_live_source_manifest
-from agent_mem_bridge.cutover_dashboard import (
+from agent_mem_bridge.profile_migration import import_profile_memory
+from agent_mem_bridge.storage import MemoryStore
+from tools.evidence.cutover_dashboard import (
     CutoverDashboardConfig,
     StartupCase,
     build_cutover_dashboard,
     load_startup_cases,
     render_cutover_dashboard_text,
 )
-from agent_mem_bridge.live_cutover import apply_live_source_cutover, build_default_cutover_root
-from agent_mem_bridge.profile_migration import import_profile_memory
-from agent_mem_bridge.storage import MemoryStore
+from tools.evidence.live_cutover import apply_live_source_cutover, build_default_cutover_root
 
 
 def test_load_startup_cases_accepts_object_wrapper(tmp_path: Path) -> None:
