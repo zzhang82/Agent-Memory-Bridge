@@ -10,7 +10,7 @@
 
 **Agent Memory Bridge（AMB）**为编码智能体提供一份跨工具、跨会话共享且受治理的工程知识记录。它以 SQLite/WAL 为本地优先的权威存储，通过刻意保持精简的 MCP 接口提供能力。
 
-当前源码发布版本：`0.27.4`
+当前源码发布版本：`0.28.0`
 
 > AMB 补充而非替代 `AGENTS.md`、`CLAUDE.md` 与客户端原生偏好记忆。它不是托管式智能体运行时、调度器、队列，也不是通用记忆平台。
 
@@ -60,7 +60,8 @@ AMB 在本地运行，需要 **Python 3.11+**、支持 FTS5 的 SQLite，以及�
 ```bash
 python -m venv .amb-venv
 <venv-python> -m pip install -e .
-<venv-python> -m agent_mem_bridge first-run --client generic --example
+<venv-python> -m agent_mem_bridge setup --client generic
+<venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
 ```
 
 随后使用生成的客户端配置，重新加载客户端，并运行：
@@ -70,7 +71,7 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`first-run` 会生成安装说明和占位符安全的配置示例；它不会写入客户端配置或持久记忆。固定发布版本路径、源码与发布版本门槛、客户端专用片段、Docker，以及完整的验证/重启/注册流程，请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
+`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码候选版本为 `0.28.0`，尚未创建标签或发布；发布后的固定安装路径将使用 `v0.28.0`，当前已发布版本状态以 GitHub Releases 为准。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
 ## 检查一次召回决策
 

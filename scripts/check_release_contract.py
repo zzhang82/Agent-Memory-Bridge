@@ -19,7 +19,9 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    report = run_release_contract_check(args.root)
+    canonical_root = Path(__file__).resolve().parents[1]
+    enforce_current_identity = args.root.resolve() == canonical_root
+    report = run_release_contract_check(args.root, enforce_current_source_identity=enforce_current_identity)
     print(json.dumps(report, indent=2))
     return 0 if report["ok"] else 1
 

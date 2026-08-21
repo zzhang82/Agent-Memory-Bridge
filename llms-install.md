@@ -40,7 +40,7 @@ path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
-The pinned GitHub tag route is the published `v0.27.0` baseline. The local source candidate has no release tag; use a source checkout with `<venv-python> -m pip install -e .` to evaluate it.
+The pinned `v0.27.0` route is a historical published baseline. The current `0.28.0` source candidate has no release tag yet; use a source checkout with `<venv-python> -m pip install -e .` to evaluate it. Current published-release state belongs to GitHub Releases. After v0.28.0 is published, use the `v0.28.0` tag route.
 
 ```text
 <venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
@@ -80,7 +80,7 @@ loaded.
 
 The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
 
-Source `0.27.4` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
+Source `0.28.0` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
 
 ## Optional `uvx` Shortcut
 

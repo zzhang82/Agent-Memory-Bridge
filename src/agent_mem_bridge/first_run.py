@@ -24,9 +24,10 @@ RELEASE_VERSION = package_version()
 PINNED_INSTALL_VERSION = "0.27.0"
 GITHUB_ARCHIVE_URL = f"https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip"
 RELEASE_INSTALL_GATE_NOTE = (
-    "The pinned GitHub tag route is the published `v0.27.0` baseline. "
-    "The local source candidate has no release tag; use a source checkout with "
-    "`<venv-python> -m pip install -e .` to evaluate it."
+    "The pinned `v0.27.0` route is a historical published baseline. "
+    "The current `0.28.0` source candidate has no release tag yet; use a source checkout with "
+    "`<venv-python> -m pip install -e .` to evaluate it. Current published-release state belongs to GitHub Releases. "
+    "After v0.28.0 is published, use the `v0.28.0` tag route."
 )
 
 _DEFAULT_MEMORY_PROMPTS = (

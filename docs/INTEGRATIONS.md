@@ -9,7 +9,7 @@ Agent Memory Bridge is a local-first stdio MCP server. The stable contract is:
 
 That means the generic stdio shape matters more than any one IDE's UI.
 
-The current local source candidate is `0.27.4` with exactly 17 public MCP tools.
+The current local source candidate is `0.28.0` with exactly 17 public MCP tools. It is not yet tagged or published; use a source checkout for the candidate.
 Its schema digest is
 `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`.
 Schema v12 retains governed-v2 receipts, typed event/CAS rules, one-snapshot
@@ -18,9 +18,11 @@ Dynamic State release lane. Dynamic State uses typed commands, version/database-
 epoch guards, lifecycle idempotency, immutable history, and rebuildable heads;
 it adds no MCP tool and does not alter client integration behavior. Watcher
 continuity uses incremental cursors, explicit close, and explicit continuation.
-Utility and consolidation remain shadow-only. The pinned GitHub tag route is the
-published `v0.27.0` baseline. The local candidate has no release tag; evaluate
-it from a source checkout until its exact-commit CI/tag gate is complete.
+Utility and consolidation remain shadow-only. The pinned `v0.27.0` route is a
+historical published baseline. The current `0.28.0` candidate has no release tag;
+evaluate it from a source checkout. Current published-release state belongs to
+GitHub Releases. After publication, the pinned candidate route is the
+`v0.28.0` archive URL.
 
 ## Status Labels
 
@@ -424,7 +426,7 @@ Use `opencode mcp add` for the guided flow or merge the generated shape into the
 intended user or project config:
 
 ```bash
-<venv-python> -m agent_mem_bridge first-run --client opencode --example
+<venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
 <venv-python> -m agent_mem_bridge config --client opencode --example
 ```
 
@@ -460,7 +462,7 @@ adapter commands remain a manual helper workflow; AMB itself remains a separate
 MCP store.
 
 ```bash
-<venv-python> -m agent_mem_bridge first-run --client hermes --example
+<venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
 <venv-python> -m agent_mem_bridge config --client hermes --example
 ```
 

@@ -23,9 +23,9 @@ The pinned `v0.27.0` and local `0.27.4` source surfaces both expose 17 tools:
 
 The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
 
-Source `0.27.4` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
+Source `0.28.0` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
 
-The pinned GitHub tag route is the published `v0.27.0` baseline. The local source candidate has no release tag; use a source checkout with `<venv-python> -m pip install -e .` to evaluate it.
+The pinned `v0.27.0` route is a historical published baseline. The current `0.28.0` source candidate has no release tag yet; use a source checkout with `<venv-python> -m pip install -e .` to evaluate it. Current published-release state belongs to GitHub Releases. After v0.28.0 is published, use the `v0.28.0` tag route.
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.

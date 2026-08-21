@@ -183,6 +183,7 @@ V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V026_PATCH_PATTERN,
 )
 V027_EPISODE_RELEASE = "0.27.4"
+CURRENT_SOURCE_RELEASE = "0.28.0"
 V027_EPISODE_FOUNDATION_PATTERNS = (V027_PATCH_PATTERN,)
 V027_SCHEMA_VERSION = 12
 V027_PUBLIC_TOOL_ORDER = (
@@ -227,6 +228,7 @@ def run_release_contract_check(
     root: Path,
     *,
     test_count_provider: Callable[[Path], int] | None = None,
+    enforce_current_source_identity: bool = False,
 ) -> dict[str, Any]:
     project_root = root.resolve()
     readme_paths = [project_root / name for name in README_NAMES if (project_root / name).exists()]
@@ -251,6 +253,8 @@ def run_release_contract_check(
             readme_paths=readme_paths,
         )
     )
+    if enforce_current_source_identity:
+        checks.append(build_current_source_release_identity_check(pyproject_version))
     checks.append(
         build_fact_check(
             fact_paths=[current_status_path],
@@ -290,6 +294,15 @@ def run_release_contract_check(
         "test_count": test_count,
         "test_count_source": "pytest_collect_only",
         "checks": checks,
+    }
+
+
+def build_current_source_release_identity_check(pyproject_version: str) -> dict[str, Any]:
+    return {
+        "name": "current_source_release_is_0_28_0",
+        "ok": pyproject_version == CURRENT_SOURCE_RELEASE,
+        "expected_version": CURRENT_SOURCE_RELEASE,
+        "actual_version": pyproject_version,
     }
 
 
@@ -391,6 +404,11 @@ def build_v020_proof_version_check(project_root: Path, pyproject_version: str) -
 
 
 def build_release_proof_check(project_root: Path, pyproject_version: str) -> dict[str, Any]:
+    if pyproject_version == CURRENT_SOURCE_RELEASE:
+        result = build_v027_episode_release_check(project_root, V027_EPISODE_RELEASE)
+        result["name"] = "historical_v027_episode_contract_retained_for_v028_candidate"
+        result["candidate_version"] = pyproject_version
+        return result
     if uses_v027_episode_foundation(pyproject_version):
         return build_v027_episode_release_check(project_root, pyproject_version)
     if uses_v021_governed_change_foundation(pyproject_version):
