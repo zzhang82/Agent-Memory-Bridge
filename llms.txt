@@ -36,9 +36,7 @@ The pinned `v0.27.0` release-install route exposes these public MCP tools:
 - extend_signal_lease
 - ack_signal
 
-The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
-
-Source `0.28.0` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.28.0`; for live release availability, consult GitHub Releases.
 
 Important boundaries:
 
@@ -64,7 +62,7 @@ Important boundaries:
 - Feedback remains shadow evidence. It does not mutate memory, indexes, recall
   results, or ranking behavior.
 - Run events and outcomes use explicit server-minted handles and are durable
-  authority. The local 0.27.4 source uses schema v12 with retained governed-v2
+  authority. The current 0.28.0 source/package line uses schema v12 with retained governed-v2
   evidence, CAS, operator receipts, watcher continuity, and authority closure.
   Its internal Dynamic State lane uses exact-key typed commands, version/database-
   epoch guards, lifecycle idempotency, immutable history, and rebuildable heads;
@@ -84,10 +82,10 @@ python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scr
 Treat the printed path as `<venv-python>`. Shell-quote it on POSIX when needed;
 in Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
-The pinned `v0.27.0` route is a historical published baseline. The current `0.28.0` source candidate has no release tag yet; use a source checkout with `<venv-python> -m pip install -e .` to evaluate it. Current published-release state belongs to GitHub Releases. After v0.28.0 is published, use the `v0.28.0` tag route.
+Current package/source version is `0.28.0`. Use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult GitHub Releases. When using the `v0.28.0` tagged release, use the pinned archive route documented in the release notes. The historical `v0.27.0` release-install archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.28.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```

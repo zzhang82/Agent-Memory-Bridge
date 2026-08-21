@@ -71,7 +71,7 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码候选版本为 `0.28.0`，尚未创建标签或发布；发布后的固定安装路径将使用 `v0.28.0`，当前已发布版本状态以 GitHub Releases 为准。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
+`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.28.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。实时发布可用性请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。使用 `v0.28.0` 标签版本时，采用发布说明中记录的固定归档路径。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
 ## 检查一次召回决策
 

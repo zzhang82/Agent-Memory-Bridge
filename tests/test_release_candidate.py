@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CURRENT = "0.28.0"
 
 
-def test_current_package_and_source_docs_use_v028_candidate_identity() -> None:
+def test_current_package_and_source_docs_use_v028_identity() -> None:
     package_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     assert package_version == CURRENT
     assert "Current source release: `0.28.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
@@ -23,7 +23,8 @@ def test_historical_v0274_evidence_remains_historical() -> None:
     assert "The `v0.27.4` tag identifies the historical source snapshot" in status
     assert "unpublished source candidate" in announcement
     assert "v0.27.3–v0.27.4" in changelog
-    assert "v0.28.0 candidate" in changelog
+    assert "v0.28.0 source/release line" in changelog
+    assert "v0.28.0 candidate" not in changelog
 
 
 def test_current_quick_start_does_not_advertise_hidden_first_run_controls() -> None:
@@ -35,20 +36,45 @@ def test_current_quick_start_does_not_advertise_hidden_first_run_controls() -> N
         assert "first-run --namespace" in quick_start
 
 
-def test_install_guides_distinguish_candidate_from_published_route() -> None:
+def test_install_guides_use_publication_invariant_routes() -> None:
     for name in ("INSTALL_FOR_AGENTS.md", "llms-install.md", "llms.txt", "docs/INTEGRATIONS.md"):
         text = (ROOT / name).read_text(encoding="utf-8")
         assert "0.28.0" in text
-        assert "no release tag" in text or "尚未创建标签" in text
         assert "GitHub Releases" in text
-    assert "v0.28.0" in (ROOT / "INSTALL_FOR_AGENTS.md").read_text(encoding="utf-8")
+        assert (
+            "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.28.0.zip" in text or "v0.28.0" in text
+        )
+    assert "v0.27.0" in (ROOT / "INSTALL_FOR_AGENTS.md").read_text(encoding="utf-8")
 
 
 def test_current_docs_do_not_claim_live_publication() -> None:
-    for name in ("README.md", "README.zh-CN.md", "INSTALL_FOR_AGENTS.md", "llms-install.md", "llms.txt"):
+    docs = (
+        "README.md",
+        "README.zh-CN.md",
+        "INSTALL_FOR_AGENTS.md",
+        "llms-install.md",
+        "llms.txt",
+        "docs/INTEGRATIONS.md",
+    )
+    files = (*docs, "src/agent_mem_bridge/first_run.py")
+    transient_phrases = (
+        "no release tag yet",
+        "not yet tagged",
+        "not yet tagged or published",
+        "尚未创建标签",
+        "candidate has no release tag",
+        "After v0.28.0 is published",
+    )
+    for name in files:
         text = (ROOT / name).read_text(encoding="utf-8")
         assert not re.search(r"latest (?:published )?GitHub Release is v0\.28\.0", text, re.IGNORECASE)
-    assert "not yet tagged or published" in (ROOT / "README.md").read_text(encoding="utf-8")
+        assert not any(phrase in text for phrase in transient_phrases)
+    for name in docs:
+        assert "GitHub Releases" in (ROOT / name).read_text(encoding="utf-8")
+    assert "Current package/source version is `0.28.0`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
+        encoding="utf-8"
+    )
+    assert "archive/refs/tags/v0.28.0.zip" in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
 
 
 def test_public_surface_and_schema_facts_remain_stable() -> None:

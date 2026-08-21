@@ -1,6 +1,6 @@
 # Capability History
 
-For use after publication, the reviewed install command is:
+The v0.28.0 tagged archive route, when using that tag, is:
 
 ```bash
 <venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.28.0.zip"
@@ -19,7 +19,7 @@ This document records the durable capability milestones in Agent Memory Bridge (
 | v0.26 | **Dual-Era Local Stdio Compatibility** | Modern `server/discover` and legacy `initialize` interoperability were proven over local stdio with explicit cache and declared-provenance boundaries. | [MCP 2026 compatibility](docs/MCP-2026-COMPATIBILITY.md) |
 | v0.27.0–v0.27.2 | **Episode Authority, Verification, and Continuity** | AMB introduced durable run/work-item/event/artifact/outcome authority, governed-v2 verification receipts, and watcher continuity. Projections and downstream learning/consolidation effects remained shadow-only. | [Closed-Loop Episode Authority](docs/CLOSED-LOOP-EPISODE.md), [v0.27.2 historical evidence](docs/v0.27.2-announcement.md) |
 | v0.27.3–v0.27.4 | **Authority Closure and Dynamic State** | Credit/consolidation evidence was constrained by current outcome and feedback heads; Dynamic State introduced a separate exact-key mutable state authority with version, database-epoch, idempotency, and rebuild boundaries. | [Run Consolidation](docs/RUN-CONSOLIDATION.md), [v0.27.3 historical evidence](docs/v0.27.3-announcement.md), [v0.27.4 historical evidence](docs/v0.27.4-announcement.md) |
-| v0.28.0 candidate (current source milestone after v0.27.4) | **Governed Memory, Safe Setup, and Inspectable Evidence** | The candidate productizes lifecycle-governed recall/context linkage, safe setup preview/apply/rollback, the first useful memory loop, runtime/evidence package separation, and the read-only task-centric `inspect` evidence surface. It keeps feedback shadow-only and makes no claim of autonomous learning, ranking adaptation, productivity improvement, causal success, or external adoption. | [Architecture](docs/ARCHITECTURE.md), [Context Assembly](docs/CONTEXT-ASSEMBLY.md), [Closed-Loop Episode Authority](docs/CLOSED-LOOP-EPISODE.md) |
+| v0.28.0 source/release line | **Governed Memory, Safe Setup, and Inspectable Evidence** | The v0.28.0 product line includes lifecycle-governed recall/context linkage, safe setup preview/apply/rollback, the first useful memory loop, runtime/evidence package separation, and the read-only task-centric `inspect` evidence surface. It keeps feedback shadow-only and makes no claim of autonomous learning, ranking adaptation, productivity improvement, causal success, or external adoption. | [Architecture](docs/ARCHITECTURE.md), [Context Assembly](docs/CONTEXT-ASSEMBLY.md), [Closed-Loop Episode Authority](docs/CLOSED-LOOP-EPISODE.md) |
 
 ## Historical Evidence Retained in the Repository
 

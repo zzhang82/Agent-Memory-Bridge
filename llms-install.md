@@ -40,10 +40,10 @@ path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
-The pinned `v0.27.0` route is a historical published baseline. The current `0.28.0` source candidate has no release tag yet; use a source checkout with `<venv-python> -m pip install -e .` to evaluate it. Current published-release state belongs to GitHub Releases. After v0.28.0 is published, use the `v0.28.0` tag route.
+Current package/source version is `0.28.0`. Use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult GitHub Releases. When using the `v0.28.0` tagged release, use the pinned archive route documented in the release notes. The historical `v0.27.0` release-install archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"
+<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.28.0.zip"
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -78,16 +78,14 @@ to confirm the server connects and exposes the documented 17-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
 
-The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
-
-Source `0.28.0` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.28.0`; for live release availability, consult GitHub Releases.
 
 ## Optional `uvx` Shortcut
 
 If `uvx` is already installed, it can run the GitHub source directly:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.27.0 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.28.0 agent-memory-bridge verify
 ```
 
 Do not make this the only install instruction. `uv` is not a project baseline
