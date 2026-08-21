@@ -23,11 +23,7 @@ RELEASE_VERSION = package_version()
 # default first-run rendering because `setup` owns connection/configuration.
 PINNED_INSTALL_VERSION = "0.27.0"
 GITHUB_ARCHIVE_URL = f"https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip"
-RELEASE_INSTALL_GATE_NOTE = (
-    "The pinned GitHub tag route is the published `v0.27.0` baseline. "
-    "The local source candidate has no release tag; use a source checkout with "
-    "`<venv-python> -m pip install -e .` to evaluate it."
-)
+RELEASE_INSTALL_GATE_NOTE = "Current package/source version is `0.28.0`."
 
 _DEFAULT_MEMORY_PROMPTS = (
     "Before opening a PR, run <your project's test command>.",

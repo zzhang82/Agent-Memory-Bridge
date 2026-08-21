@@ -254,15 +254,10 @@ def _versioned_install_tool_surface_check(project_root: Path) -> dict[str, Any]:
     package_version = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))["project"]["version"]
     source_tool_count = release_install_tool_count(str(package_version))
     expected_markers = [
-        f"The pinned `v{PINNED_INSTALL_VERSION}` release-install route exposes "
+        f"The historical `v{PINNED_INSTALL_VERSION}` release-install route exposed "
         f"`{release_install_tool_count_value}` public MCP tools at client registration.",
         RELEASE_INSTALL_GATE_NOTE,
     ]
-    if package_version != PINNED_INSTALL_VERSION:
-        expected_markers.append(
-            f"Source `{package_version}` differs from pinned release-install `{PINNED_INSTALL_VERSION}`; "
-            "use a source checkout until its exact-commit CI gate passes and its tag is created."
-        )
 
     missing: list[dict[str, Any]] = []
     for relative_path in VERSIONED_INSTALL_GUIDES:

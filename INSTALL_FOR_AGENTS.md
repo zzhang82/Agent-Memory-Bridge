@@ -14,18 +14,16 @@ For the shortest GitHub-source procedure, start with
 Agent Memory Bridge is a local-first stdio MCP server for reusable engineering
 memory and lightweight coordination.
 
-The pinned `v0.27.0` and local `0.27.4` source surfaces both expose 17 tools:
+Current package/source version is `0.28.0`. The current source/package line exposes 17 public MCP tools. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
 
 - `store`, `recall`, `browse`, `stats`, `export`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`
 - `begin_run`, `record_run_event`, `get_run`, `complete_run`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The pinned `v0.27.0` release-install route exposes `17` public MCP tools at client registration.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration.
 
-Source `0.27.4` differs from pinned release-install `0.27.0`; use a source checkout until its exact-commit CI gate passes and its tag is created.
-
-The pinned GitHub tag route is the published `v0.27.0` baseline. The local source candidate has no release tag; use a source checkout with `<venv-python> -m pip install -e .` to evaluate it.
+The current source/package line is `0.28.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult GitHub Releases. When using the `v0.28.0` tagged release, use the pinned archive route documented in the release notes.
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
@@ -36,7 +34,7 @@ current effective vote per receipt-bound subject. It remains shadow-only and
 does not change memory records, recall results, or ranking behavior.
 
 Run tools create explicit server-minted handles and append bounded episode
-evidence. The local 0.27.4 source uses schema v12 with existing governed-v2
+evidence. The current 0.28.0 source/package line uses schema v12 with existing governed-v2
 episode authority plus an internal exact-key Dynamic State lane. Dynamic State
 uses typed status/owner/restore commands, version/database-epoch guards,
 lifecycle idempotency, immutable mutation/request-outcome history, and a

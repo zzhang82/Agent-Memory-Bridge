@@ -10,7 +10,7 @@
 
 **Agent Memory Bridge (AMB)** gives coding agents one shared, governed record of project decisions across tools and sessions. It is local-first engineering memory over SQLite/WAL, exposed through a deliberately small MCP surface.
 
-Current source release: `0.27.4`
+Current source release: `0.28.0`
 
 > AMB complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory; it does not replace them. It is not a hosted agent runtime, scheduler, queue, or general-purpose memory platform.
 
@@ -60,7 +60,8 @@ AMB runs locally with **Python 3.11+**, SQLite with FTS5, and an MCP-compatible 
 ```bash
 python -m venv .amb-venv
 <venv-python> -m pip install -e .
-<venv-python> -m agent_mem_bridge first-run --client generic --example
+<venv-python> -m agent_mem_bridge setup --client generic
+<venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
 ```
 
 Then use the rendered client configuration, reload the client, and run:
@@ -70,7 +71,7 @@ Then use the rendered client configuration, reload the client, and run:
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`first-run` renders setup guidance and a placeholder-safe configuration example. It does not write client configuration or durable memory. For the pinned-release route, source-versus-release gate, client-specific snippets, Docker, and the full verify/restart/registration journey, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
+`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.28.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). When using the `v0.28.0` tagged release, use the pinned archive route documented in the release notes. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
 
 ## Inspect a recall decision
 
