@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -80,20 +79,25 @@ def test_no_network_and_no_durable_memory(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_symlink_escape_binary_large_and_secret_exclusion(tmp_path: Path) -> None:
-    repo = fixture_repo(tmp_path)
-    shutil.rmtree(repo / ".git")
+    repo = tmp_path / "fixture"
+    repo.mkdir()
     outside = tmp_path / "outside.txt"
     outside.write_text("outside", encoding="utf-8")
-    (repo / "escaped.txt").symlink_to(outside)
+    symlink_created = True
+    try:
+        (repo / "escaped.txt").symlink_to(outside)
+    except (OSError, NotImplementedError):
+        symlink_created = False
     (repo / ".env").write_text("TOKEN=do-not-read", encoding="utf-8")
     (repo / "Dockerfile").write_bytes(b"\x00\x01")
     (repo / "requirements.txt").write_bytes(b"x" * 70_000)
     snapshot = compile_repository_snapshot(repo)
     reasons = " ".join(item["reason"] for item in snapshot["excluded"])
-    assert "symlink escapes" in reasons
+    if symlink_created:
+        assert "symlink escapes" in reasons
     assert "binary file" in reasons
     assert "65536" in reasons
-    assert "secret-like" in reasons or "escaped" not in reasons
+    assert "secret-like" in reasons
 
 
 def test_malformed_manifest_missing_optional_and_unicode(tmp_path: Path) -> None:
