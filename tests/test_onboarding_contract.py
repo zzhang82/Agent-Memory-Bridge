@@ -65,7 +65,7 @@ def test_release_install_tool_count_tracks_the_release_cut() -> None:
 
 
 def test_onboarding_contract_requires_source_checkout_wording_for_version_mismatch(tmp_path: Path) -> None:
-    source_version = "0.28.0"
+    source_version = "0.29.0"
     route_marker = (
         f"The historical `v{PINNED_INSTALL_VERSION}` release-install route exposed "
         "`17` public MCP tools at client registration."

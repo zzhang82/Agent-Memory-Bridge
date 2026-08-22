@@ -10,7 +10,7 @@
 
 **Agent Memory Bridge（AMB）**为编码智能体提供一份跨工具、跨会话共享且受治理的工程知识记录。它以 SQLite/WAL 为本地优先的权威存储，通过刻意保持精简的 MCP 接口提供能力。
 
-当前源码发布版本：`0.28.0`
+当前源码发布版本：`0.29.0`
 
 > AMB 补充而非替代 `AGENTS.md`、`CLAUDE.md` 与客户端原生偏好记忆。它不是托管式智能体运行时、调度器、队列，也不是通用记忆平台。
 
@@ -31,6 +31,7 @@ AMB 将这些问题分开处理：它存储可检查的工程记忆，在组装�
 | 瞬态 Context Compiler | 基于受治理任务记忆、Dynamic State 快照和显式会话局部条目的有界确定性派生视图。 |
 | 回合与验证证据 | 显式运行、工件、结果和回执支持可复核的证据，而不宣称因果关系或自动学习。 |
 | 跨客户端 MCP 访问 | 面向已支持和已文档化 MCP 客户端的稳定本地 stdio 接口。 |
+| 确定性仓库引导 | 有界的本地 `bootstrap-repo <path>` 视图，提供提交溯源和明确的安全排除；与持久记忆保持分离。 |
 
 AMB **不会**自动把经验写回记忆、根据反馈改变排序、提升自生成反思，也不会自主获得技能。
 
@@ -71,7 +72,7 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.28.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。实时发布可用性请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。使用 `v0.28.0` 标签版本时，采用发布说明中记录的固定归档路径。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
+`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.29.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。实时发布可用性请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。使用 `v0.29.0` 标签版本时，采用发布说明中记录的固定归档路径。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
 ## 检查一次召回决策
 

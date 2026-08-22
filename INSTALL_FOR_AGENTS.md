@@ -14,16 +14,16 @@ For the shortest GitHub-source procedure, start with
 Agent Memory Bridge is a local-first stdio MCP server for reusable engineering
 memory and lightweight coordination.
 
-Current package/source version is `0.28.0`. The current source/package line exposes 17 public MCP tools. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
+Current package/source version is `0.29.0`. The current source/package line exposes 17 public MCP tools. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
 
 - `store`, `recall`, `browse`, `stats`, `export`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`
 - `begin_run`, `record_run_event`, `get_run`, `complete_run`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. Its historical archive URL was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
-The current source/package line is `0.28.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult GitHub Releases. When using the `v0.28.0` tagged release, use the pinned archive route documented in the release notes.
+The current source/package line is `0.29.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult GitHub Releases. When using the `v0.29.0` tagged release, use the pinned archive route documented in the release notes.
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
@@ -34,7 +34,7 @@ current effective vote per receipt-bound subject. It remains shadow-only and
 does not change memory records, recall results, or ranking behavior.
 
 Run tools create explicit server-minted handles and append bounded episode
-evidence. The current 0.28.0 source/package line uses schema v12 with existing governed-v2
+evidence. The current 0.29.0 source/package line uses schema v12 with existing governed-v2
 episode authority plus an internal exact-key Dynamic State lane. Dynamic State
 uses typed status/owner/restore commands, version/database-epoch guards,
 lifecycle idempotency, immutable mutation/request-outcome history, and a
@@ -119,9 +119,8 @@ when their runtime prerequisites are available.
    python -m venv .amb-venv
    ```
 
-3. Derive the venv interpreter as described in `llms-install.md`, then install
-   the published pinned `v0.27.0` archive with `<venv-python> -m pip install
-   "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip"`.
+3. Derive the venv interpreter as described in `llms-install.md`, then install the published pinned `v0.29.0` archive with `<venv-python> -m pip install
+   "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.29.0.zip"`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:
@@ -143,7 +142,7 @@ when their runtime prerequisites are available.
 8. If the client already has a running MCP server process, ask the human to
    restart that client, then use its MCP status/tool view to confirm the server
    registration and its 17-tool public surface. This is the client registration
-   gate for the published `v0.27.0` route.
+   gate for the selected `v0.29.0` route.
 
 The custom `config.toml` path emitted by the renderer is optional for this
 baseline. If its default path has no file, `doctor` may warn and the baseline

@@ -6,7 +6,7 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.28.0` |
+| Package/source version | `0.29.0` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
@@ -19,6 +19,8 @@ Current source test collection: `949 tests`
 ## Historical Tag Reference
 
 The `v0.27.4` tag identifies the historical source snapshot `e8210cb204e501650a59876502a2028c7aae9afe`. This is a stable tag fact, not a claim about the checked-out `main` commit, current publication state, or live CI status.
+
+The `v0.28.0` tag identifies the historical release merge snapshot `c6e3568a59852c5b589d6aba00b89ab580c228e6`. This is a stable historical release fact, not a claim about the current source head or current publication state.
 
 ## Implemented Capability Summary
 

@@ -10,7 +10,7 @@
 
 **Agent Memory Bridge (AMB)** gives coding agents one shared, governed record of project decisions across tools and sessions. It is local-first engineering memory over SQLite/WAL, exposed through a deliberately small MCP surface.
 
-Current source release: `0.28.0`
+Current source release: `0.29.0`
 
 > AMB complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory; it does not replace them. It is not a hosted agent runtime, scheduler, queue, or general-purpose memory platform.
 
@@ -31,6 +31,7 @@ AMB keeps those concerns separate. It stores inspectable engineering memory, app
 | Transient Context Compiler | A bounded, deterministic derived view over governed task memory, Dynamic State snapshots, and explicit session-local items. |
 | Episode and verification evidence | Explicit runs, artifacts, outcomes, and receipts support reviewable evidence without asserting causality or automatic learning. |
 | Cross-client MCP access | A stable local stdio interface for supported and documented MCP clients. |
+| Deterministic repository bootstrap | A bounded local `bootstrap-repo <path>` view with commit provenance and explicit security exclusions; it remains separate from durable memory. |
 
 AMB does **not** automatically write lessons back to memory, change ranking from feedback, promote self-generated reflection, or acquire skills autonomously.
 
@@ -71,7 +72,7 @@ Then use the rendered client configuration, reload the client, and run:
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.28.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). When using the `v0.28.0` tagged release, use the pinned archive route documented in the release notes. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
+`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.29.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). When using the `v0.29.0` tagged release, use the pinned archive route documented in the release notes. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
 
 ## Inspect a recall decision
 
