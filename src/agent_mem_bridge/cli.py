@@ -25,6 +25,7 @@ from .first_run import build_first_run_report, render_first_run_markdown
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
 from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_bridge_log_dir, resolve_config_path
+from .repository_bootstrap import compile_repository_snapshot, render_snapshot_markdown
 from .review_queue import build_review_queue_report, render_review_queue_markdown
 from .review_workflow import build_review_workflow_report, render_review_workflow_markdown
 from .run_consolidation import (
@@ -73,6 +74,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_setup(namespace)
     if namespace.command == "first-run":
         return _run_first_run(namespace)
+    if namespace.command == "bootstrap-repo":
+        return _run_bootstrap_repo(namespace)
     if namespace.command == "inspect":
         return _run_inspect(namespace)
     if namespace.command == "doctor":
@@ -218,6 +221,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=resolve_config_path(),
         help="AMB config path shown in the proposed fragment; it is not read or created by setup.",
     )
+
+    bootstrap_parser = subparsers.add_parser(
+        "bootstrap-repo",
+        help="Derive a bounded, commit-bound repository knowledge snapshot without changing memory.",
+    )
+    bootstrap_parser.add_argument("path", type=Path, help="Repository directory to inspect locally.")
+    bootstrap_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
 
     first_run_parser = subparsers.add_parser(
         "first-run",
@@ -697,6 +707,15 @@ def _run_index_rebuild(namespace: argparse.Namespace) -> int:
     if rebuild_embeddings:
         healthy = healthy and bool(report["embeddings"]["healthy"])
     return 0 if healthy else 1
+
+
+def _run_bootstrap_repo(namespace: argparse.Namespace) -> int:
+    snapshot = compile_repository_snapshot(namespace.path)
+    if namespace.format == "json":
+        print(json.dumps(snapshot, indent=2, sort_keys=True))
+    else:
+        print(render_snapshot_markdown(snapshot), end="")
+    return 0
 
 
 def _run_inspect(namespace: argparse.Namespace) -> int:
