@@ -70,6 +70,8 @@ def test_current_docs_do_not_claim_live_publication() -> None:
     for name in files:
         text = (ROOT / name).read_text(encoding="utf-8")
         assert not re.search(r"latest (?:published )?GitHub Release is v0\.29\.0", text, re.IGNORECASE)
+        assert not re.search(r"published(?: pinned)? [`']?v0\.29\.0", text, re.IGNORECASE)
+        assert not re.search(r"published v0\.29\.0 archive", text, re.IGNORECASE)
         assert not any(phrase in text for phrase in transient_phrases)
     for name in docs:
         assert "GitHub Releases" in (ROOT / name).read_text(encoding="utf-8")
@@ -77,6 +79,13 @@ def test_current_docs_do_not_claim_live_publication() -> None:
         encoding="utf-8"
     )
     assert "archive/refs/tags/v0.28.0.zip" in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+
+
+def test_changelog_durable_references_exist() -> None:
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "docs/REPOSITORY-BOOTSTRAP.md" not in changelog
+    for relative in ("docs/ARCHITECTURE.md", "docs/PRODUCTION-STATUS.md"):
+        assert (ROOT / relative).is_file()
 
 
 def test_public_surface_and_schema_facts_remain_stable() -> None:

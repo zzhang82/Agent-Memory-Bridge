@@ -19,9 +19,9 @@ enable automatic tool approval without the human's approval.
 
 ## Python-Only Install
 
-Create an isolated environment and install the project source archive from
-GitHub. Use the available Python 3.11+ launcher: examples use `python`; on many
-Linux systems use `python3`; on Windows `py -3` may be appropriate.
+Create an isolated environment and install the exact source checkout. Use the
+available Python 3.11+ launcher: examples use `python`; on many Linux systems
+use `python3`; on Windows `py -3` may be appropriate.
 
 ```bash
 python -m venv .amb-venv
@@ -40,10 +40,14 @@ path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
-Current package/source version is `0.29.0`. Use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult GitHub Releases. When using the `v0.29.0` tagged release, use the pinned archive route documented in the release notes. The historical `v0.27.0` release-install archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
+Current package/source version is `0.29.0`. From the exact source checkout,
+install with `<venv-python> -m pip install -e .`. For live publication availability,
+consult GitHub Releases. When using the `v0.29.0` tagged release, use its pinned
+archive route from the release notes. The historical `v0.27.0` release-install
+archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
 ```text
-<venv-python> -m pip install "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.29.0.zip"
+<venv-python> -m pip install -e .
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```

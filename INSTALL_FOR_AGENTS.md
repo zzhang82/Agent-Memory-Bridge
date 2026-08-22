@@ -1,7 +1,8 @@
 # Install Agent Memory Bridge For Agents
 
 This guide is written for coding agents that are helping a human install Agent
-Memory Bridge into an MCP-compatible client.
+Memory Bridge into an MCP-compatible client. The exact source checkout is the
+publication-independent evaluation path.
 
 Use it as an agent-readable setup protocol. Do not treat it as a runtime,
 watcher, scheduler, or hosted service.
@@ -119,8 +120,10 @@ when their runtime prerequisites are available.
    python -m venv .amb-venv
    ```
 
-3. Derive the venv interpreter as described in `llms-install.md`, then install the published pinned `v0.29.0` archive with `<venv-python> -m pip install
-   "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.29.0.zip"`.
+3. Derive the venv interpreter as described in `llms-install.md`, then from
+   the exact source checkout install with `<venv-python> -m pip install -e .`.
+   For a tagged-release install, first consult GitHub Releases; when using the
+   `v0.29.0` tagged release, use its pinned archive route from the release notes.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:
