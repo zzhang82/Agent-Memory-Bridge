@@ -111,12 +111,15 @@ def compile_repository_snapshot(repo: Path) -> dict[str, Any]:
             "root": str(root),
             "commit": None,
             "extractor_version": EXTRACTOR_VERSION,
+            "binding": "unbound",
+            "worktree_clean": None,
             "facts": [],
             "excluded": [{"source": str(repo), "reason": "not a directory"}],
             "uncertain": [],
         }
     commit = _git(root, "rev-parse", "HEAD")
     git_root = _git(root, "rev-parse", "--show-toplevel")
+    status = _git(root, "status", "--porcelain", "--untracked-files=all") if git_root else None
     if git_root:
         actual_root = Path(git_root).resolve()
         if actual_root != root:
@@ -129,9 +132,31 @@ def compile_repository_snapshot(repo: Path) -> dict[str, Any]:
     repository_name = root.name
     if remote:
         repository_name = remote.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git") or repository_name
-    _fact(facts, "repository_name", repository_name, "remote.origin.url" if remote else ".", root, commit)
-    _fact(facts, "repository_root", str(root), ".", root, commit)
-    if commit:
+    if git_root and status:
+        return {
+            "repository": repository_name,
+            "root": str(root),
+            "commit": commit,
+            "extractor_version": EXTRACTOR_VERSION,
+            "binding": "unavailable",
+            "worktree_clean": False,
+            "reason": "dirty_worktree",
+            "authority": "derived_repository_knowledge",
+            "facts": [],
+            "excluded": [],
+            "uncertain": [
+                {
+                    "source": ".",
+                    "reason": "dirty_worktree; repository content facts withheld rather than attributed to HEAD",
+                }
+            ],
+        }
+    binding = "git_commit" if git_root and commit else "unbound"
+    worktree_clean: bool | None = True if git_root and commit else None
+    fact_commit = commit if binding == "git_commit" else None
+    _fact(facts, "repository_name", repository_name, "remote.origin.url" if remote else ".", root, fact_commit)
+    _fact(facts, "repository_root", str(root), ".", root, fact_commit)
+    if commit and binding == "git_commit":
         _fact(facts, "commit_sha", commit, ".git/HEAD", root, commit)
     else:
         uncertain.append({"source": ".git/HEAD", "reason": "commit binding unavailable"})
@@ -158,8 +183,8 @@ def compile_repository_snapshot(repo: Path) -> dict[str, Any]:
             entries.append(entry.name + ("/" if entry.is_dir() else ""))
     except OSError as exc:
         uncertain.append({"source": ".", "reason": f"directory listing failed: {exc.__class__.__name__}"})
-    _fact(facts, "top_level_structure", entries, ".", root, commit)
-    names = sorted({p.name for p in root.iterdir()} if root.exists() else [])
+    _fact(facts, "top_level_structure", entries, ".", root, fact_commit)
+    names = [p.name for p in top_level_entries] if "top_level_entries" in locals() else []
     for name in names:
         if name in MANIFEST_NAMES or name.startswith(DOC_PREFIXES):
             text = _safe_read(root, name, excluded, uncertain)
@@ -172,46 +197,48 @@ def compile_repository_snapshot(repo: Path) -> dict[str, Any]:
 
                     parsed = tomllib.loads(text)
                     project = parsed.get("project", {})
-                    _fact(facts, "python_package", True, name, root, commit)
+                    _fact(facts, "python_package", True, name, root, fact_commit)
                     if isinstance(project, dict) and project.get("requires-python"):
-                        _fact(facts, "python_requires", project["requires-python"], name, root, commit)
+                        _fact(facts, "python_requires", project["requires-python"], name, root, fact_commit)
                 except (tomllib.TOMLDecodeError, ValueError):
                     excluded.append({"source": name, "reason": "malformed TOML manifest"})
                     continue
             elif name == "package.json":
                 try:
                     parsed = json.loads(text)
-                    _fact(facts, "node_package", True, name, root, commit)
+                    _fact(facts, "node_package", True, name, root, fact_commit)
                     if isinstance(parsed, dict) and parsed.get("packageManager"):
-                        _fact(facts, "package_manager", parsed["packageManager"], name, root, commit)
+                        _fact(facts, "package_manager", parsed["packageManager"], name, root, fact_commit)
                 except json.JSONDecodeError:
                     excluded.append({"source": name, "reason": "malformed JSON manifest"})
                     continue
             elif name == "go.mod":
-                _fact(facts, "go_module", True, name, root, commit)
+                _fact(facts, "go_module", True, name, root, fact_commit)
             elif name == "Cargo.toml":
-                _fact(facts, "rust_package", True, name, root, commit)
+                _fact(facts, "rust_package", True, name, root, fact_commit)
             elif name in {"Makefile", "Taskfile"}:
-                _fact(facts, "task_runner", name, name, root, commit)
+                _fact(facts, "task_runner", name, name, root, fact_commit)
             elif name.startswith("Dockerfile") or name.startswith("compose") or name.startswith("docker-compose"):
-                _fact(facts, "container_config", name, name, root, commit)
+                _fact(facts, "container_config", name, name, root, fact_commit)
             elif name.startswith(DOC_PREFIXES):
-                _fact(facts, "project_document", name, name, root, commit)
+                _fact(facts, "project_document", name, name, root, fact_commit)
             if name.endswith(
                 (".toml", ".json", ".xml", ".gradle", ".kts", ".txt", ".mod", ".yml", ".yaml", "Makefile", "Taskfile")
             ):
-                _fact(facts, "source_digest", {"path": name, "sha256": digest}, name, root, commit)
+                _fact(facts, "source_digest", {"path": name, "sha256": digest}, name, root, fact_commit)
     workflows = root / ".github" / "workflows"
     if workflows.is_dir() and _under(root, workflows.resolve()):
         files = sorted(p.name for p in workflows.iterdir() if p.is_file() and p.suffix in {".yml", ".yaml"})[
             :MAX_STRUCTURE_ENTRIES
         ]
-        _fact(facts, "github_actions_workflows", files, ".github/workflows", root, commit)
+        _fact(facts, "github_actions_workflows", files, ".github/workflows", root, fact_commit)
     return {
-        "repository": root.name,
+        "repository": repository_name,
         "root": str(root),
         "commit": commit,
         "extractor_version": EXTRACTOR_VERSION,
+        "binding": binding,
+        "worktree_clean": worktree_clean,
         "authority": "derived_repository_knowledge",
         "facts": facts,
         "excluded": excluded,
@@ -223,6 +250,8 @@ def render_snapshot_markdown(snapshot: dict[str, Any]) -> str:
     lines = [
         f"Repository: {snapshot['repository']}",
         f"Commit: {snapshot['commit'] or 'unavailable'}",
+        f"Binding: {snapshot.get('binding', 'unbound')}",
+        f"Worktree clean: {snapshot.get('worktree_clean')}",
         f"Extractor: {snapshot['extractor_version']}",
         "",
         "Detected:",
@@ -236,7 +265,12 @@ def render_snapshot_markdown(snapshot: dict[str, Any]) -> str:
         lines.append(f"- {item['source']}: {item['reason']}")
     if len(lines) == 5:
         lines.append("- none recorded")
+    binding_note = (
+        "explicitly commit-bound because the worktree is clean"
+        if snapshot.get("binding") == "git_commit"
+        else "not commit-bound; content attribution is unavailable"
+    )
     lines.append(
-        "\nThis snapshot is derived, bounded, commit-bound, and rebuildable. It is not durable project memory and makes no completeness claim."
+        f"\nThis snapshot is derived, bounded, rebuildable, and {binding_note}. It is not durable project memory and makes no completeness claim."
     )
     return "\n".join(lines) + "\n"

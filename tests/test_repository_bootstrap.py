@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -80,6 +81,7 @@ def test_no_network_and_no_durable_memory(tmp_path: Path, monkeypatch) -> None:
 
 def test_symlink_escape_binary_large_and_secret_exclusion(tmp_path: Path) -> None:
     repo = fixture_repo(tmp_path)
+    shutil.rmtree(repo / ".git")
     outside = tmp_path / "outside.txt"
     outside.write_text("outside", encoding="utf-8")
     (repo / "escaped.txt").symlink_to(outside)
@@ -125,3 +127,47 @@ def test_cli_surface_does_not_add_mcp_tools() -> None:
 
     parser = _build_parser()
     assert parser.parse_args(["bootstrap-repo", "."]).command == "bootstrap-repo"
+
+
+def test_dirty_git_worktree_fails_closed_without_content_facts(tmp_path: Path) -> None:
+    repo = fixture_repo(tmp_path)
+    before = compile_repository_snapshot(repo)
+    (repo / "README.md").write_text("changed but uncommitted\n", encoding="utf-8")
+    dirty = compile_repository_snapshot(repo)
+    assert before["binding"] == "git_commit"
+    assert before["worktree_clean"] is True
+    assert dirty["binding"] == "unavailable"
+    assert dirty["worktree_clean"] is False
+    assert dirty["reason"] == "dirty_worktree"
+    assert dirty["facts"] == []
+    assert any("withheld" in item["reason"] for item in dirty["uncertain"])
+    dirty_markdown = render_snapshot_markdown(dirty).lower()
+    assert "explicitly commit-bound because the worktree is clean" not in dirty_markdown
+    assert "not commit-bound" in dirty_markdown
+
+
+def test_directory_listing_failure_is_bounded(tmp_path: Path, monkeypatch) -> None:
+    repo = fixture_repo(tmp_path)
+    import agent_mem_bridge.repository_bootstrap as module
+
+    original = Path.iterdir
+
+    def fail_listing(self: Path):
+        if self == repo:
+            raise OSError("simulated listing failure")
+        return original(self)
+
+    monkeypatch.setattr(Path, "iterdir", fail_listing)
+    snapshot = module.compile_repository_snapshot(repo)
+    assert snapshot["facts"]
+    assert any("directory listing failed" in item["reason"] for item in snapshot["uncertain"])
+
+
+def test_clean_worktree_report_is_explicitly_commit_bound(tmp_path: Path) -> None:
+    snapshot = compile_repository_snapshot(fixture_repo(tmp_path))
+    assert snapshot["binding"] == "git_commit"
+    assert snapshot["worktree_clean"] is True
+    assert all(item["commit"] == snapshot["commit"] for item in snapshot["facts"])
+    markdown = render_snapshot_markdown(snapshot)
+    assert "Binding: git_commit" in markdown
+    assert "Worktree clean: True" in markdown
