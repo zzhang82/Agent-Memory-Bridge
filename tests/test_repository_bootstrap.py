@@ -175,3 +175,16 @@ def test_clean_worktree_report_is_explicitly_commit_bound(tmp_path: Path) -> Non
     markdown = render_snapshot_markdown(snapshot)
     assert "Binding: git_commit" in markdown
     assert "Worktree clean: True" in markdown
+
+
+def test_git_status_failure_fails_closed(monkeypatch, tmp_path: Path) -> None:
+    repo = fixture_repo(tmp_path)
+    import agent_mem_bridge.repository_bootstrap as module
+
+    monkeypatch.setattr(module, "_git_status", lambda _root: (False, ""))
+    snapshot = module.compile_repository_snapshot(repo)
+    assert snapshot["facts"] == []
+    assert snapshot["binding"] != "git_commit"
+    assert snapshot["worktree_clean"] is not True
+    assert snapshot["reason"] == "worktree_status_unavailable"
+    assert "explicitly commit-bound because the worktree is clean" not in render_snapshot_markdown(snapshot).lower()

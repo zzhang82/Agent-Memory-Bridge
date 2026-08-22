@@ -58,6 +58,20 @@ def _git(root: Path, *args: str) -> str | None:
     return result.stdout.strip() or None
 
 
+def _git_status(root: Path) -> tuple[bool, str]:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False, ""
+    return True, result.stdout.strip()
+
+
 def _safe_read(
     root: Path, relative: str, excluded: list[dict[str, str]], uncertain: list[dict[str, str]]
 ) -> str | None:
@@ -119,7 +133,7 @@ def compile_repository_snapshot(repo: Path) -> dict[str, Any]:
         }
     commit = _git(root, "rev-parse", "HEAD")
     git_root = _git(root, "rev-parse", "--show-toplevel")
-    status = _git(root, "status", "--porcelain", "--untracked-files=all") if git_root else None
+    status_ok, status = _git_status(root) if git_root else (False, "")
     if git_root:
         actual_root = Path(git_root).resolve()
         if actual_root != root:
@@ -132,6 +146,22 @@ def compile_repository_snapshot(repo: Path) -> dict[str, Any]:
     repository_name = root.name
     if remote:
         repository_name = remote.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git") or repository_name
+    if git_root and not status_ok:
+        return {
+            "repository": repository_name,
+            "root": str(root),
+            "commit": commit,
+            "extractor_version": EXTRACTOR_VERSION,
+            "binding": "unavailable",
+            "worktree_clean": None,
+            "reason": "worktree_status_unavailable",
+            "authority": "derived_repository_knowledge",
+            "facts": [],
+            "excluded": [],
+            "uncertain": [
+                {"source": ".git", "reason": "worktree_status_unavailable; repository content facts withheld"}
+            ],
+        }
     if git_root and status:
         return {
             "repository": repository_name,
@@ -151,8 +181,8 @@ def compile_repository_snapshot(repo: Path) -> dict[str, Any]:
                 }
             ],
         }
-    binding = "git_commit" if git_root and commit else "unbound"
-    worktree_clean: bool | None = True if git_root and commit else None
+    binding = "git_commit" if git_root and commit and status_ok and not status else "unbound"
+    worktree_clean: bool | None = True if binding == "git_commit" else None
     fact_commit = commit if binding == "git_commit" else None
     _fact(facts, "repository_name", repository_name, "remote.origin.url" if remote else ".", root, fact_commit)
     _fact(facts, "repository_root", str(root), ".", root, fact_commit)
