@@ -10,9 +10,9 @@
 
 **Agent Memory Bridge (AMB)** is a local-first shared project memory layer for AI coding agents. Code tells AMB what the project is; conversations teach AMB why it is that way. Repository-derived **WHAT** and governed durable project **WHY** remain distinct and are available across tools and sessions through a small local MCP surface.
 
-Current source version: `0.30.0`
+Current source version: `0.31.0`
 
-Latest published release: `v0.30.0`
+Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
 > AMB complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory; it does not replace them. It is not a hosted agent runtime, scheduler, queue, or general-purpose memory platform.
 
@@ -35,6 +35,7 @@ AMB keeps those concerns separate. It stores inspectable engineering memory, app
 | Cross-client MCP access | A stable local stdio interface for supported and documented MCP clients. |
 | Repository Knowledge / WHAT | Derived, bounded, rebuildable, namespace-bound repository facts. They are commit-bound only when a clean worktree is proven; stale or unavailable states fail closed, and normal MCP recall exposes only bounded selected WHAT. |
 | Durable Project Memory / WHY | Governed durable memory remains in normal recall `items`, retaining memory IDs, receipts, and lifecycle authority; repository facts never become durable memory rows. |
+| Knowledge Explorer | A local, read-only, bounded, deterministic, namespace-bound, rebuildable, provenance-bearing projection over existing repository WHAT and governed decision/constraint WHY; it is not a new authority. |
 
 AMB does **not** automatically write lessons back to memory, change ranking from feedback, promote self-generated reflection, or acquire skills autonomously.
 
@@ -77,7 +78,7 @@ Then use the rendered client configuration, reload the client, and run:
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.30.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. The latest published GitHub release is [`v0.30.0`](https://github.com/zzhang82/Agent-Memory-Bridge/releases/tag/v0.30.0); its pinned source archive is `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
+`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.31.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); the source-checkout route above evaluates the current unreleased source. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
 
 ## Inspect a recall decision
 
@@ -87,6 +88,14 @@ After AMB surfaces task memory, inspect the governed result for a daily, read-on
 agent-memory-bridge inspect \\
   --namespace project:my-app \\
   --query "What should I check before submitting changes?"
+```
+
+
+Explore the bounded project projection locally:
+
+```bash
+agent-memory-bridge explore \\
+  --namespace project:my-app
 ```
 
 The report shows what surfaced, evidence-backed reasons, relevant governed exclusions, and review-required items. It does not list every database record, change durable memory/state/configuration, or prove a surfaced memory was applied or caused an outcome.
@@ -130,7 +139,7 @@ The public surface is intentionally small. Context assembly, review reports, and
 
 ## Current Maturity
 
-The current source is `0.30.0`, uses schema v12, and retains the frozen 17-tool MCP surface. Checked-in source facts, validation evidence, and non-claims are maintained in [Production Status](docs/PRODUCTION-STATUS.md). For live CI, use [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) or the CI badge above; for published versions, use [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) or the release badge above.
+The current source is `0.31.0`, uses schema v12, and retains the frozen 17-tool MCP surface. Knowledge Explorer is implemented as a CLI-only read-only derived projection over existing project knowledge. Checked-in source facts, validation evidence, and non-claims are maintained in [Production Status](docs/PRODUCTION-STATUS.md). For live CI, use [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) or the CI badge above; for published versions, use [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) or the release badge above.
 
 ## Roadmap
 

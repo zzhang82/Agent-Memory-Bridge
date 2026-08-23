@@ -6,7 +6,7 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.30.0` |
+| Package/source version | `0.31.0` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
@@ -27,6 +27,10 @@ The `v0.28.0` tag identifies the historical release merge snapshot `c6e3568a5985
 ### Project Knowledge Activation
 
 V0.30 adds a persistent, bounded, rebuildable derived repository snapshot. Explicit namespace binding and canonical local Git roots isolate independent clones and worktrees; a clean HEAD is required for commit-bound eligibility, while dirty, stale, moved, or unavailable sources fail closed. The existing MCP `recall` response keeps selected repository WHAT in `repository_knowledge` and governed durable WHY in normal `items`; repository facts are never promoted into durable memory.
+
+### Knowledge Explorer
+
+V0.31 implements a local, read-only, bounded, deterministic, namespace-bound, rebuildable, provenance-bearing projection over existing project knowledge. Repository WHAT remains `derived_repository`; governed durable decision/constraint WHY remains `governed_durable_memory`; the namespace connector is `derived_projection`. Stale repository snapshots fail closed. The primary durable-memory raw scan is bounded at 500 rows, and relation targets use at most 100 unique IDs through direct same-namespace query-only lookup. Missing, existing-but-ineligible, and budget-exhausted targets are distinct diagnostics. Explorer adds no ranking, learning, writeback, graph database, or new MCP tool.
 
 ### Durable memory and governed recall
 

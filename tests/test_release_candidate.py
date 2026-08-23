@@ -5,17 +5,17 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT = "0.30.0"
+CURRENT = "0.31.0"
 
 
-def test_current_package_and_source_docs_use_v030_identity() -> None:
+def test_current_package_and_source_docs_use_v031_identity() -> None:
     package_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     assert package_version == CURRENT
-    assert "Current source version: `0.30.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "当前源码版本：`0.30.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert "Latest published release: `v0.30.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "最新发布版本：`v0.30.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert "| Package/source version | `0.30.0` |" in (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
+    assert "Current source version: `0.31.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "当前源码版本：`0.31.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    assert "Published releases: see [GitHub Releases]" in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "已发布版本：请见 [GitHub Releases]" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    assert "| Package/source version | `0.31.0` |" in (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
 
 
 def test_historical_v0274_evidence_remains_historical() -> None:
@@ -50,7 +50,7 @@ def test_install_guides_use_publication_invariant_routes() -> None:
     assert "v0.27.0" in (ROOT / "INSTALL_FOR_AGENTS.md").read_text(encoding="utf-8")
 
 
-def test_current_docs_record_published_v030_without_hypothetical_wording() -> None:
+def test_current_docs_record_v031_source_without_hypothetical_wording() -> None:
     docs = (
         "README.md",
         "README.zh-CN.md",
@@ -73,11 +73,11 @@ def test_current_docs_record_published_v030_without_hypothetical_wording() -> No
     for name in docs:
         text = (ROOT / name).read_text(encoding="utf-8")
         assert "GitHub Releases" in text
-        assert "v0.30.0" in text
+        assert "GitHub Releases" in text
         assert not any(phrase.casefold() in text.casefold() for phrase in hypothetical_phrases)
-    assert "Latest published release: `v0.30.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "最新发布版本：`v0.30.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert "Current package/source version is `0.30.0`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
+    assert "Published releases: see [GitHub Releases]" in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "已发布版本：请见 [GitHub Releases]" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    assert "Current package/source version is `0.31.0`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
         encoding="utf-8"
     )
     assert "archive/refs/tags/v0.28.0.zip" in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")

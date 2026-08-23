@@ -10,9 +10,9 @@
 
 **Agent Memory Bridge（AMB）**是面向 AI 编码智能体的本地优先共享项目记忆层。代码告诉 AMB 项目是什么；对话教会 AMB 项目为什么如此。派生的仓库 **WHAT** 与受治理的持久项目 **WHY** 保持分离，并通过精简的本地 MCP 接口跨工具、跨会话提供。
 
-当前源码版本：`0.30.0`
+当前源码版本：`0.31.0`
 
-最新发布版本：`v0.30.0`
+已发布版本：请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
 > AMB 补充而非替代 `AGENTS.md`、`CLAUDE.md` 与客户端原生偏好记忆。它不是托管式智能体运行时、调度器、队列，也不是通用记忆平台。
 
@@ -77,7 +77,7 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.30.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。最新发布的 GitHub 版本是 [`v0.30.0`](https://github.com/zzhang82/Agent-Memory-Bridge/releases/tag/v0.30.0)，其固定源码归档为 `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
+`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.31.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。已发布版本和固定归档请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)；上面的源码检出路径用于评估当前尚未发布的源码。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
 ## 检查一次召回决策
 
@@ -87,6 +87,14 @@ python -m venv .amb-venv
 agent-memory-bridge inspect \\
   --namespace project:my-app \\
   --query "What should I check before submitting changes?"
+```
+
+
+在本地探索有界的项目投影：
+
+```bash
+agent-memory-bridge explore \\
+  --namespace project:my-app
 ```
 
 报告会展示已出现的内容、基于现有证据的原因、相关的治理排除项以及需要人工复核的项目。它不会列出数据库中的全部记录，不会改变持久记忆、状态或配置，也不会证明某条出现的记忆被实际应用或导致某个结果。
@@ -130,7 +138,7 @@ AMB 提供 **17 个公共 MCP 工具**：
 
 ## 当前成熟度
 
-当前源码版本为 `0.30.0`，使用 schema v12 和冻结的 17 工具 MCP 接口。已检入的源码事实、验证证据和非声明由[生产状态](docs/PRODUCTION-STATUS.md)维护。实时 CI 请查看 [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) 或上方 CI badge；已发布版本请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) 或上方 release badge。
+当前源码版本为 `0.31.0`，使用 schema v12 和冻结的 17 工具 MCP 接口。Knowledge Explorer 已实现为仅 CLI 的只读派生投影，建立在现有项目知识之上。已检入的源码事实、验证证据和非声明由[生产状态](docs/PRODUCTION-STATUS.md)维护。实时 CI 请查看 [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) 或上方 CI badge；已发布版本请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) 或上方 release badge。
 
 ## 路线图
 
