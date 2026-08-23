@@ -21,6 +21,14 @@ The checked-in demo is meant to show both coordination state and a later
 the current benchmark snapshot.
 Historical `v0.5` demo assets are kept separately and are not the primary public demo.
 
+The v0.30 Project Knowledge Activation adoption demo is separate at
+[`v030-project-knowledge/`](v030-project-knowledge/). It is a reproducible
+four-stage local proof of a commit-bound repository WHAT fact plus a durable
+explicit project-decision WHY written and read through fresh MCP stdio
+processes. Code tells the derived, rebuildable WHAT; conversations teach the
+WHY; `inspect` reports only the supported repository/provenance boundary. It
+does not replace or regenerate the historical terminal demos.
+
 Files:
 
 - `before-after-gotcha.cast.md` as a text-only source transcript for the before/after gotcha story
@@ -28,6 +36,7 @@ Files:
 - `scripts/build_demo_cast.py` to regenerate the asciicast
 - `terminal-demo.cast` as the canonical recorded source
 - `terminal-demo.tape` as an optional VHS source
+- `v030-project-knowledge/README.md` and `v030-project-knowledge/run_demo.py` for the v0.30 project-knowledge activation proof
 
 To use the before/after gotcha story:
 
