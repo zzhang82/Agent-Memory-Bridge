@@ -1,6 +1,6 @@
 # Closed-Loop Episode Contract
 
-This document defines the current `0.27.4` development contract for explicit run
+This document defines the current `0.30.0` source contract for explicit run
 state in Agent Memory Bridge. The v10 governed-v2 episode evidence and authority
 closure remain intact; the additive v11/v12 Dynamic State migrations are an
 isolated internal release-state lane and do not rewrite earlier episode rows. It

@@ -12,6 +12,8 @@
 
 当前源码版本：`0.30.0`
 
+最新发布版本：`v0.30.0`
+
 > AMB 补充而非替代 `AGENTS.md`、`CLAUDE.md` 与客户端原生偏好记忆。它不是托管式智能体运行时、调度器、队列，也不是通用记忆平台。
 
 ## 为什么需要 AMB
@@ -28,7 +30,7 @@ AMB 将这些问题分开处理：它存储可检查的工程记忆，在组装�
 | 生命周期感知检索 | 在指导信息被用于任务之前，应用资格、修订、替代、有效期、关系和治理边界。 |
 | Dynamic State 权威 | 内部精确键发布状态通道，使用版本与数据库纪元前置条件；它不是语义记忆。 |
 | 受治理的任务记忆组装 | 任务时选择来自既有受治理记忆路径，而不是第二套检索系统。 |
-| 瞬态 Context Compiler | 基于受治理任务记忆、Dynamic State 快照和显式会话局部条目的有界确定性派生视图。 |
+| 瞬态 Context Compiler | 基于仓库派生 WHAT、受治理任务记忆、Dynamic State 快照和显式会话局部条目的有界确定性派生视图。 |
 | 回合与验证证据 | 显式运行、工件、结果和回执支持可复核的证据，而不宣称因果关系或自动学习。 |
 | 跨客户端 MCP 访问 | 面向已支持和已文档化 MCP 客户端的稳定本地 stdio 接口。 |
 | 仓库知识 / WHAT | 派生、有界、可重建、按命名空间绑定的仓库事实。只有在确认工作区干净时才按提交绑定；过期或不可用状态会 fail closed，普通 MCP 召回只暴露有界的已选择 WHAT。 |
@@ -42,7 +44,6 @@ AMB **不会**自动把经验写回记忆、根据反馈改变排序、提升自
 flowchart LR
     A[持久记忆 / WHY] --> C[生命周期感知检索]
     B[仓库知识 / WHAT] --> D[Context Compiler]
-    A --> D
     S[Dynamic State 权威] --> D
     C --> E[受治理任务记忆]
     E --> D
@@ -76,7 +77,7 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.30.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。实时发布可用性请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。如果/当 `v0.30.0` 标签版本出现在 GitHub Releases 中，再使用发布说明中记录的归档路径。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
+`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.30.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。最新发布的 GitHub 版本是 [`v0.30.0`](https://github.com/zzhang82/Agent-Memory-Bridge/releases/tag/v0.30.0)，其固定源码归档为 `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
 ## 检查一次召回决策
 

@@ -83,8 +83,9 @@ Treat the printed path as `<venv-python>`. Shell-quote it on POSIX when needed;
 in Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
 Current package/source version is `0.30.0`. From the exact source checkout,
-install with `<venv-python> -m pip install -e .`. For live publication availability,
-consult GitHub Releases. If/when a `v0.30.0` tagged release appears in GitHub Releases, use its archive route from the release notes. The historical `v0.27.0` release-install
+install with `<venv-python> -m pip install -e .`. The latest published GitHub
+release is `v0.30.0`; its pinned source archive is
+`https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The historical `v0.27.0` release-install
 archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
 ```text

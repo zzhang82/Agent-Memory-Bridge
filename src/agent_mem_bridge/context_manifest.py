@@ -1,10 +1,11 @@
 """Transient deterministic context manifests over governed task-memory inputs.
 
 The Context Compiler is a derived-view boundary. It receives an already
-relation-aware task-memory report, exact Dynamic State read snapshots, and
-explicit session-local items. It never queries storage, ranks records, or
-persists a manifest. Render text exists only in-process; serialized manifests
-contain source references, digests, governance metadata, and selection facts.
+relation-aware task-memory report, exact Dynamic State read snapshots, explicit
+session-local items, and bounded repository facts supplied as a distinct derived
+input. It never queries storage, ranks records, or persists a manifest. Render
+text exists only in-process; serialized manifests contain source references,
+digests, governance metadata, and selection facts.
 """
 
 from __future__ import annotations

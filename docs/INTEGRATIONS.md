@@ -19,9 +19,9 @@ epoch guards, lifecycle idempotency, immutable history, and rebuildable heads;
 it adds no MCP tool and does not alter client integration behavior. Watcher
 continuity uses incremental cursors, explicit close, and explicit continuation.
 Utility and consolidation remain shadow-only. The pinned `v0.27.0` route is a
-historical published baseline. If/when a `v0.30.0` tagged release appears in
-GitHub Releases, use the archive URL documented in its release notes; live
-publication availability belongs to GitHub Releases.
+historical published baseline. The latest published GitHub release is `v0.30.0`;
+its pinned source archive is
+`https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
 
 ## Status Labels
 

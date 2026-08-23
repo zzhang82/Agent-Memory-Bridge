@@ -1,9 +1,10 @@
 # Context Assembly
 
 Agent Memory Bridge can be described as a small context compiler for coding
-agents: it turns stored project memory into the context an agent needs at
-startup or during a task, so a session starts with the right context instead of
-a stale dump.
+agents: it combines governed durable project WHY with explicit derived repository
+WHAT, Dynamic State snapshots, and session-local material into the context an
+agent needs at startup or during a task. These inputs keep their separate
+authority boundaries; the compiler does not turn them into a new storage authority.
 
 This is a story over the existing MCP surface. It does not add `task_packet`,
 `startup_packet`, or any other new MCP tool.
@@ -17,9 +18,10 @@ The public MCP contract stays:
 - `begin_run`, `record_run_event`, `get_run`, `complete_run`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-Assembly happens behind that surface by selecting, filtering, and rendering
-records that were already stored through ordinary memory operations. AMB remains
-the durable authority; assembled context is a derived view.
+Assembly happens behind that surface. Durable WHY is selected and filtered through
+the existing lifecycle-aware memory path; bounded repository WHAT may be supplied
+as a distinct derived input. AMB remains the durable memory authority, repository
+knowledge remains rebuildable, and assembled context is a transient derived view.
 
 ## Startup Context
 
@@ -45,6 +47,7 @@ combine:
 - beliefs or decisions that should guide judgment
 - gotchas that prevent repeated mistakes
 - linked supporting records, when relation metadata makes the inclusion useful
+- bounded repository facts that describe current project WHAT without becoming durable memory
 
 The result can look like a task packet, but it is not a separate public tool. It
 is a compact rendering of existing records for the current job.
