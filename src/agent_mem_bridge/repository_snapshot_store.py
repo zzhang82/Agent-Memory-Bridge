@@ -123,11 +123,18 @@ class RepositorySnapshotStore:
 
     def load_snapshot(self, repository_id: str) -> dict[str, Any] | None:
         path = self.snapshot_path(repository_id)
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                stored = json.load(handle)
-        except (OSError, json.JSONDecodeError):
-            return None
+        stored: object | None = None
+        for attempt in range(8):
+            try:
+                with path.open("r", encoding="utf-8") as handle:
+                    stored = json.load(handle)
+                break
+            except PermissionError:
+                if attempt == 7:
+                    return None
+                time.sleep(0.01 * (attempt + 1))
+            except (OSError, json.JSONDecodeError):
+                return None
         if not isinstance(stored, dict) or stored.get("store_schema") != SNAPSHOT_STORE_SCHEMA:
             return None
         snapshot = stored.get("snapshot")
