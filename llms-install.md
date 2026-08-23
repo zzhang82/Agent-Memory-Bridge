@@ -97,9 +97,29 @@ requirement.
 
 ## First Useful Check
 
-In the configured MCP client, call the `store(...)` and `recall(...)` MCP tools
-to store one non-sensitive project gotcha and recall it from a later task or
-session. They are not terminal subcommands. Keep the first check small and
+The human-facing first-value path is connect, bootstrap repository WHAT, teach
+one explicit WHY in natural language, then prove it in a fresh session. `first-run`
+is optional secondary guided memory help, not the modern Project Learning
+entrypoint.
+
+When the human explicitly says something equivalent to "Remember that we decided
+X because Y," call the public MCP `store(...)` tool with `kind="memory"` and
+content conceptually equivalent to:
+
+```text
+record_type: decision
+claim: <the decision>
+reason: <why it was made>
+scope: project:<namespace>
+confidence: observed
+```
+
+Use `record_type: constraint` for an explicit constraint. Do not silently infer
+a durable decision from repository code, automatically promote chat, or archive
+transcripts.
+
+You can also store one non-sensitive project gotcha and later `recall(...)` it.
+These MCP tools are not terminal subcommands. Keep the first check small and
 review tool input before approval.
 
 For non-empty `kind="memory"` text recall, AMB can return a 15-minute

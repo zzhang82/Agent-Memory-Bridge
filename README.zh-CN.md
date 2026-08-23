@@ -62,41 +62,146 @@ flowchart LR
 
 AMB 在本地运行，需要 **Python 3.11+**、支持 FTS5 的 SQLite，以及能启动本地 stdio 服务的 MCP 客户端。
 
+当前源码/包版本为 `0.31.0`。使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。已发布版本和固定归档请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。此源码不是已发布的 `v0.31.1`，也不存在 `pip install agent-memory-bridge==0.31.1` 安装路径。
+
+### 1. 把 AMB 连接到编码客户端
+
 ```bash
 python -m venv .amb-venv
 <venv-python> -m pip install -e .
 <venv-python> -m agent_mem_bridge setup --client generic
-<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:my-app
+```
+
+使用生成的客户端配置并重新加载客户端。`setup` 负责连接与配置规划。
+
+### 2. 引导仓库 WHAT
+
+```bash
+<venv-python> -m agent_mem_bridge bootstrap-repo . \
+  --namespace project:my-app
+```
+
+AMB 从当前仓库派生出一份有界、可重建的视图。
+
+**代码告诉 AMB 项目“是什么”（WHAT）。**
+
+### 3. 用自然语言教会一条项目 WHY
+
+在已连接的编码智能体里，直接说类似这样的话：
+
+> 请记住：我们决定不引入 Redis，因为这个项目刻意保持本地优先、单节点。
+
+已连接的智能体会用 AMB 现有的公共记忆工具保存这条明确的决策和理由。人类快速开始不需要填写内部记录 schema。
+
+**对话告诉 AMB 项目“为什么这样”（WHY）。**
+
+AMB 不会从仓库代码静默推断持久决策，不会自动提升对话文本，也不会归档转录。
+
+### 4. 用新会话验证
+
+打开或重新打开一个使用同一 AMB 主目录和数据库的编码智能体会话。提出相关问题，然后使用 Inspect 和 Explore。
+
+**Inspect** 回答：这次问题里，AMB 为什么会给出这些信息？
+
+```bash
+<venv-python> -m agent_mem_bridge inspect \
+  --namespace project:my-app \
+  --query "Should we add Redis?"
+```
+
+Inspect 解释该问题对应的受治理结果。它不会列出全部持久记录，不会改写记忆，也不能证明模型实际使用了某条记忆。
+
+**Explore** 回答：AMB 目前知道这个项目的哪些内容，它们如何关联？
+
+```bash
+<venv-python> -m agent_mem_bridge explore \
+  --namespace project:my-app
+```
+
+Explore 是基于现有项目知识的本地、只读派生投影。它仅提供 CLI，不是 MCP 工具 #18，也不会为模型排序上下文。
+
+### 项目知识心智模型
+
+这是概念视图，不是当前 CLI 的逐字输出：
+
+```text
+PROJECT: MY APP
+
+CODE / WHAT                  CONVERSATION / WHY
+───────────                  ──────────────────
+Runtime: Python >=3.11       Decision: Avoid Redis
+Tests: pytest                Reason: single-node,
+CI: GitHub Actions           local-first project
+Container: Docker
+Guidance: AGENTS.md
+```
+
+仓库 WHAT 来自当前干净代码。它可以重建，但不是人类决策权威。
+
+对话 WHY 是通过 AMB 保存的明确决策或约束。它是受治理的持久项目记忆。
+
+Explorer 是现有知识的只读投影，不是新的权威来源。
+
+更完整的权威说明见[项目知识激活](docs/PROJECT-KNOWLEDGE-ACTIVATION.md)和[架构](docs/ARCHITECTURE.md)。
+
+### 当仓库 WHAT 不可用时
+
+**脏工作区。** 检出含有未提交更改时，仓库 WHAT 暂时不可用。AMB 不会把这些更改归因到当前 Git 提交。请先提交、暂存或恢复工作区，然后显式重新运行 `bootstrap-repo`。
+
+**干净 HEAD 已变化。** 保存快照之后 HEAD 已变化，仓库 WHAT 暂时过期。
+
+先前快照：`<old SHA>`
+
+当前干净 HEAD：`<new SHA>`
+
+AMB 不会把旧快照当作当前仓库真相。请显式重新运行：
+
+```bash
+<venv-python> -m agent_mem_bridge bootstrap-repo . \
+  --namespace project:<name>
+```
+
+随后仓库 WHAT 会刷新，持久项目 WHY 保持不变。刷新不是自动发生的。
+
+**缺少绑定。** 当前没有找到该项目命名空间的仓库绑定。当前 v0.31.x 运行时不会交互式建议命名空间。请选择要绑定到此检出的项目命名空间，然后运行：
+
+```bash
+<venv-python> -m agent_mem_bridge bootstrap-repo . \
+  --namespace project:<name>
+```
+
+### 用本仓库做一次演示
+
+把 AMB 连接到共享同一 AMB 主目录的客户端后：
+
+```bash
+<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:amb
+```
+
+用自然语言教会：
+
+> 请记住：我们决定不给 Knowledge Explorer 使用图数据库，因为 Explorer 应保持为派生的只读投影。
+
+打开新会话，问“Should Knowledge Explorer use a graph database?”，然后运行 Inspect 和 Explore。这证明一条明确决策可以被恢复，并不宣称生产力，也不证明模型使用了该记忆。
+
+### 可选的引导式记忆循环
+
+`first-run` 仍可作为次要的引导式持久记忆帮助。它不是现代 Project Learning 的入口。
+
+```bash
 <venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
 ```
 
-随后使用生成的客户端配置，重新加载客户端，并运行：
+### 如果连接健康状态不确定
+
+`doctor` 和 `verify` 是可选的健康检查与排障命令。引导仓库 WHAT 之前不需要先运行它们。
 
 ```bash
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.31.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。已发布版本和固定归档请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)；使用上面的源码检出路径评估此源码。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
-
-## 检查一次召回决策
-当 AMB 已给出任务记忆时，可以用只读命令检查日常证据：
-```bash
-agent-memory-bridge inspect \\
-  --namespace project:my-app \\
-  --query "What should I check before submitting changes?"
-```
-
-报告会展示已出现的内容、基于现有证据的原因、相关的治理排除项以及需要人工复核的项目。它不会列出数据库中的全部记录，不会改变持久记忆、状态或配置，也不会证明某条出现的记忆被实际应用或导致某个结果。
-
-## 探索项目知识
-
-Explore 是基于现有项目知识的本地、只读、有界派生投影。它仅提供 CLI，不是 MCP 工具 #18，也不是新的权威：
-
-```bash
-agent-memory-bridge explore \\
-  --namespace project:my-app
-```
+详细智能体流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
 
 ## 集成
@@ -130,6 +235,8 @@ AMB 提供 **17 个公共 MCP 工具**：
 | [生产状态](docs/PRODUCTION-STATUS.md) | 当前源码事实、已实现能力摘要、验证证据和已知边界。 |
 | [能力历史](CHANGELOG.md) | 持久的历史能力里程碑，以及保留的证明和证据引用。 |
 | [面向智能体的安装指南](INSTALL_FOR_AGENTS.md) | 从安装到首次成功的详细流程。 |
+| [项目知识激活](docs/PROJECT-KNOWLEDGE-ACTIVATION.md) | 仓库 WHAT、持久 WHY，以及显式刷新规则。 |
+| [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) | 当前项目知识的只读派生视图。 |
 | [集成](docs/INTEGRATIONS.md) | 客户端专用本地 stdio MCP 设置。 |
 | [配置](docs/CONFIGURATION.md) | 完整配置参考。 |
 | [权威契约](docs/AUTHORITY-CONTRACT.md) | 持久权威、派生视图、审查和纠正规则。 |

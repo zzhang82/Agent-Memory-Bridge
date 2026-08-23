@@ -41,6 +41,56 @@ def test_current_quick_start_does_not_advertise_hidden_first_run_controls() -> N
         assert "first-run --namespace" in quick_start
 
 
+def test_project_learning_promotion_docs_stay_human_and_truthful() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    readme_zh = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    agents = (ROOT / "INSTALL_FOR_AGENTS.md").read_text(encoding="utf-8")
+    llms_install = (ROOT / "llms-install.md").read_text(encoding="utf-8")
+    status = (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
+    english_quick = readme.split("## Quick Start", 1)[1].split("## Integrations", 1)[0]
+    chinese_quick = readme_zh.split("## 快速开始", 1)[1].split("## 集成", 1)[0]
+
+    assert "Code tells AMB WHAT the project is." in english_quick
+    assert "Conversations teach AMB WHY it is that way." in english_quick
+    assert "conceptual view, not verbatim CLI output" in english_quick
+    assert "代码告诉 AMB 项目“是什么”（WHAT）" in chinese_quick
+    assert "对话告诉 AMB 项目“为什么这样”（WHY）" in chinese_quick
+    assert "record_type: decision" not in english_quick
+    assert "record_type: constraint" not in english_quick
+    assert "record_type: decision" not in chinese_quick
+    assert "not the modern Project Learning entrypoint" in english_quick
+    assert "不是现代 Project Learning 的入口" in chinese_quick
+    assert "Refresh is not automatic." in english_quick
+    assert "刷新不是自动发生的" in chinese_quick
+    assert "bootstrap-repo . \\\n  --namespace project:<name>" in english_quick
+    assert "does not interactively suggest a namespace" in english_quick
+    assert "CLI-only, not MCP tool #18" in english_quick
+    assert "不是 MCP 工具 #18" in chinese_quick
+    assert "schema v12" in readme
+    assert "17 public MCP tools" in readme
+    assert "Exactly 17 public MCP tools" in status
+    assert "pip install agent-memory-bridge==0.31.1" in english_quick
+    assert "there is no `pip install agent-memory-bridge==0.31.1` route" in english_quick
+    assert "automatically remembers repository decisions" not in readme.casefold()
+    assert "automatic learning" not in english_quick.casefold()
+    assert "record_type: decision" in agents
+    assert "existing public MCP `store` contract" in agents
+    assert "Do not silently infer a durable decision" in agents
+    assert "record_type: decision" in llms_install
+    assert "not the modern Project Learning" in llms_install
+    assert "not required before bootstrap" in agents
+
+    for quick_start in (english_quick, chinese_quick):
+        after_venv = quick_start.split("python -m venv .amb-venv", 1)[1]
+        assert not any(line.strip().startswith("agent-memory-bridge ") for line in after_venv.splitlines())
+        step1 = quick_start.split("### 1.", 1)[1].split("### 2.", 1)[0]
+        assert "doctor" not in step1
+        assert "verify" not in step1
+        assert "agent_mem_bridge bootstrap-repo" in quick_start.split("### 2.", 1)[1]
+        assert quick_start.index("agent_mem_bridge bootstrap-repo") < quick_start.index("agent_mem_bridge doctor")
+        assert "agent_mem_bridge verify" in quick_start.split("### 2.", 1)[1]
+
+
 def test_install_guides_use_publication_invariant_routes() -> None:
     for name in ("INSTALL_FOR_AGENTS.md", "llms-install.md", "llms.txt", "docs/INTEGRATIONS.md"):
         text = (ROOT / name).read_text(encoding="utf-8")

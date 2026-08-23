@@ -36,7 +36,11 @@ No LLM-generated edges, filename-only architectural inference, ranking, learning
 
 ## `inspect` distinction
 
-`inspect` explains why information appeared for a question and why it was included or excluded. `explore` answers what currently eligible project knowledge exists and how eligible relationships connect it. Explorer does not replace inspect; both remain read-only and provenance-bearing.
+Inspect answers: "Why did AMB surface this for this question?"
+
+Explore answers: "What does AMB currently know about this project, and how is it connected?"
+
+`inspect` explains why information appeared for a question and why it was included or excluded. It does not list every durable record. `explore` shows currently eligible project knowledge and how eligible relationships connect it. It does not rank context for the model. Explorer does not replace inspect; both remain read-only and provenance-bearing.
 
 ## Deliberate non-goals
 
