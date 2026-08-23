@@ -69,6 +69,9 @@ def _safe_remote_identity(remote: str) -> str | None:
         return None
     if value.startswith(("/", "./", "../")):
         return f"file/{Path(value).expanduser().resolve().as_posix().rstrip('/').removesuffix('.git')}"
+    if re.match(r"^[A-Za-z]:[\\\\/]", value):
+        normalized_path = value.replace("\\\\", "/").rstrip("/").removesuffix(".git")
+        return f"file/{normalized_path.casefold()}"
     if "@" in value and ":" in value:
         user_host, path = value.split(":", 1)
         host = user_host.rsplit("@", 1)[-1].strip()
