@@ -20,7 +20,7 @@ The default Markdown output shows bounded relationships, the authority of each t
 | Source | Explorer role | Authority | Freshness/rebuild rule |
 |---|---|---|---|
 | Bound repository snapshot | Repository-derived nodes and relationships | `derived_repository` | Current clean commit only; stale, dirty, moved, unavailable, or missing snapshots contribute no repository nodes |
-| Existing governed durable memory | Explicit decision/constraint nodes and existing relation metadata | `governed_durable_memory` | Original memory IDs remain authoritative; Explorer never rewrites them |
+| Existing governed durable memory | Explicit decision/constraint nodes and existing relation metadata after existing lifecycle/eligibility checks | `governed_durable_memory` | Original memory IDs remain authoritative; Explorer never rewrites them |
 | Dynamic State | Not re-modeled by this MVP | Existing Dynamic State authority | Future Explorer extensions must reference existing snapshots rather than duplicate state |
 | Episodes/evidence | Not re-modeled by this MVP | Existing episode/evidence authority | Future extensions must retain the existing evidence surface |
 
@@ -28,13 +28,15 @@ Every node carries `authority` and `source_ref`; every edge carries `evidence`. 
 
 ## Relationship vocabulary
 
-Repository relationships are mapped only from existing extracted fact keys: `uses`, `tests_with`, `uses_ci`, `governed_by`, `contains`, `uses_storage`, and the bounded fallback `has_fact`. Durable memory relationships are emitted only for explicit structured `record_type: decision` or `record_type: constraint` records, using `has_decision` or `has_constraint`, plus existing `supports`, `contradicts`, `supersedes`, and `depends_on` metadata.
+Repository relationships are mapped only from existing extracted fact keys: `uses`, `tests_with`, `uses_ci`, `governed_by`, `contains`, `uses_storage`, and the bounded fallback `has_fact`. Durable memory relationships are emitted only for explicit structured `record_type: decision` or `record_type: constraint` records that pass the existing applicable governance semantics: revision-predecessor suppression, shared validity status, structured-metadata validation, and degraded-lineage suppression. Explorer does not invent a second lifecycle policy. Relationships are emitted using `has_decision` or `has_constraint`, plus existing `supports`, `contradicts`, `supersedes`, and `depends_on` metadata.
+
+A relation target is resolved by durable memory ID and must itself exist in the same namespace and pass those eligibility checks. Missing or ineligible targets never become active nodes or active edges. The bounded `diagnostics` section may report `suppressed_memory` or `unresolved_relation` records, which are structurally distinct from active project knowledge.
 
 No LLM-generated edges, filename-only architectural inference, ranking, learning, promotion, or durable writeback is performed.
 
 ## `inspect` distinction
 
-`inspect` explains why information appeared for a question and why it was included or excluded. `explore` answers what known project knowledge exists and how eligible relationships connect it. Both remain read-only and provenance-bearing.
+`inspect` explains why information appeared for a question and why it was included or excluded. `explore` answers what currently eligible project knowledge exists and how eligible relationships connect it. Explorer does not replace inspect; both remain read-only and provenance-bearing.
 
 ## Deliberate non-goals
 

@@ -74,7 +74,11 @@ def test_projection_is_deterministic_and_authority_explicit(tmp_path: Path) -> N
     assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
     assert first["read_only"] is True
     assert first["rebuildable"] is True
-    assert {node["authority"] for node in first["nodes"]} == {"derived_repository", "governed_durable_memory"}
+    assert {node["authority"] for node in first["nodes"]} == {
+        "derived_projection",
+        "derived_repository",
+        "governed_durable_memory",
+    }
     assert any(edge["relation"] == "has_decision" for edge in first["edges"])
     assert any(edge["relation"] == "supports" for edge in first["edges"])
     assert all("source_ref" in node for node in first["nodes"])
@@ -184,3 +188,91 @@ def test_read_only_database_projection_does_not_change_database(tmp_path: Path, 
     )
     assert any(node["id"] == f"memory:{stored['id']}" for node in projection["nodes"])
     assert db_path.read_bytes() == before
+
+
+def _real_store(tmp_path: Path, monkeypatch):
+    from agent_mem_bridge.storage import MemoryStore
+
+    db_path = tmp_path / "governed.db"
+    monkeypatch.setattr("agent_mem_bridge.knowledge_explorer.resolve_bridge_db_path", lambda: db_path)
+    return MemoryStore(db_path, log_dir=tmp_path / "logs")
+
+
+def _active_decision(store, content: str, title: str = "Decision") -> dict[str, object]:
+    return store.store(
+        namespace="project:fixture",
+        title=title,
+        content=f"record_type: decision\n{content}",
+        kind="memory",
+    )
+
+
+def test_superseded_decision_is_not_active_but_successor_is(tmp_path: Path, monkeypatch) -> None:
+    store = _real_store(tmp_path, monkeypatch)
+    predecessor = _active_decision(store, "claim: old decision", "Old")
+    successor = store.revise(
+        str(predecessor["id"]),
+        replacement_content="record_type: decision\nclaim: new decision",
+        title="New",
+    )
+    projection = build_explorer_projection(
+        namespace="project:fixture", snapshot_root=tmp_path / "snapshots", memory_store=None
+    )
+    node_ids = {node["id"] for node in projection["nodes"]}
+    assert f"memory:{predecessor['id']}" not in node_ids
+    assert f"memory:{successor['successor_id']}" in node_ids
+    assert any(
+        item["memory_id"] == predecessor["id"] and item["reason"] == "superseded_revision"
+        for item in projection["diagnostics"]
+    )
+
+
+def test_validity_ineligible_decision_is_not_active(tmp_path: Path, monkeypatch) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    store = _real_store(tmp_path, monkeypatch)
+    expired = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    item = _active_decision(store, f"claim: expired decision\nvalid_until: {expired}", "Expired")
+    projection = build_explorer_projection(
+        namespace="project:fixture", snapshot_root=tmp_path / "snapshots", memory_store=None
+    )
+    assert f"memory:{item['id']}" not in {node["id"] for node in projection["nodes"]}
+    assert any(
+        diagnostic["memory_id"] == item["id"] and diagnostic["reason"] == "validity:expired"
+        for diagnostic in projection["diagnostics"]
+    )
+
+
+def test_missing_relation_target_is_diagnostic_only(tmp_path: Path, monkeypatch) -> None:
+    store = _real_store(tmp_path, monkeypatch)
+    source = _active_decision(store, "claim: source\nsupports: does-not-exist", "Source")
+    projection = build_explorer_projection(
+        namespace="project:fixture", snapshot_root=tmp_path / "snapshots", memory_store=None
+    )
+    assert not any(edge["relation"] == "supports" for edge in projection["edges"])
+    assert "memory:does-not-exist" not in {node["id"] for node in projection["nodes"]}
+    assert any(item["target_memory_id"] == "does-not-exist" for item in projection["diagnostics"])
+    assert f"memory:{source['id']}" in {node["id"] for node in projection["nodes"]}
+
+
+def test_ineligible_relation_target_is_not_active_edge_or_node(tmp_path: Path, monkeypatch) -> None:
+    store = _real_store(tmp_path, monkeypatch)
+    target = _active_decision(store, "claim: old target", "Old target")
+    source = _active_decision(store, f"claim: source\nsupports: {target['id']}", "Source")
+    successor = store.revise(
+        str(target["id"]),
+        replacement_content="record_type: decision\nclaim: replacement target",
+        title="Replacement target",
+    )
+    projection = build_explorer_projection(
+        namespace="project:fixture", snapshot_root=tmp_path / "snapshots", memory_store=None
+    )
+    ids = {node["id"] for node in projection["nodes"]}
+    assert f"memory:{target['id']}" not in ids
+    assert f"memory:{successor['successor_id']}" in ids
+    assert not any(edge["target"] == f"memory:{target['id']}" for edge in projection["edges"])
+    assert any(
+        diagnostic.get("memory_id") == target["id"] or diagnostic.get("target_memory_id") == target["id"]
+        for diagnostic in projection["diagnostics"]
+    )
+    assert f"memory:{source['id']}" in ids
