@@ -6,13 +6,15 @@ from pathlib import Path
 from typing import Any
 
 from .paths import resolve_bridge_db_path
-from .recall_eligibility import direct_lookup_ineligibility_reasons, filter_default_recall_candidates
+from .recall_eligibility import direct_lookup_ineligibility_reasons
 from .relation_metadata import parse_content_fields, parse_relation_metadata
 from .repository_snapshot_store import RepositorySnapshotStore
 
 RELATION_EDGE_NAMES = frozenset({"supports", "contradicts", "supersedes", "depends_on"})
 GOVERNED_MEMORY_KINDS = frozenset({"memory"})
 INELIGIBLE_VALIDITY = frozenset({"expired", "future", "invalid"})
+PRIMARY_SCAN_CEILING = 500
+RELATION_TARGET_CEILING = 100
 
 
 def build_explorer_projection(
@@ -103,16 +105,27 @@ def build_explorer_projection(
                 }
             )
 
-    memory_items, suppressed = _read_governed_memories(
+    eligible_items, suppressed = _read_governed_memories(
         memory_store=memory_store,
         db_path=resolve_bridge_db_path(),
         namespace=cleaned_namespace,
         limit=bounded_limit,
     )
     diagnostics.extend(suppressed)
-    eligible_by_id = {str(item["id"]): item for item in memory_items if str(item.get("id") or "")}
+    eligible_by_id = {str(item["id"]): item for item in eligible_items if str(item.get("id") or "")}
+    primary_items = eligible_items[:bounded_limit]
+    relation_targets: list[str] = []
+    for item in primary_items:
+        metadata = parse_relation_metadata(str(item.get("content") or ""))
+        relation_targets.extend(
+            target
+            for relation_name in sorted(RELATION_EDGE_NAMES)
+            for target in metadata["relations"].get(relation_name, [])
+        )
+    relation_target_ids = set(dict.fromkeys(sorted(relation_targets)))
+    bounded_relation_target_ids = set(sorted(relation_target_ids)[:RELATION_TARGET_CEILING])
 
-    for item in sorted(eligible_by_id.values(), key=lambda row: str(row.get("id") or "")):
+    for item in primary_items:
         memory_id = str(item["id"])
         fields = parse_content_fields(str(item.get("content") or ""))
         record_type = str(item.get("record_type") or fields.get("record_type") or "")
@@ -146,6 +159,17 @@ def build_explorer_projection(
         metadata = parse_relation_metadata(str(item.get("content") or ""))
         for relation_name in sorted(RELATION_EDGE_NAMES):
             for target in metadata["relations"].get(relation_name, []):
+                if target not in bounded_relation_target_ids:
+                    diagnostics.append(
+                        {
+                            "kind": "unresolved_relation",
+                            "source_memory_id": memory_id,
+                            "relation": relation_name,
+                            "target_memory_id": target,
+                            "reason": "relation_resolution_budget_exhausted",
+                        }
+                    )
+                    continue
                 target_item = eligible_by_id.get(target)
                 if target_item is None:
                     diagnostics.append(
@@ -159,6 +183,20 @@ def build_explorer_projection(
                     )
                     continue
                 target_node = f"memory:{target}"
+                target_fields = parse_content_fields(str(target_item.get("content") or ""))
+                target_record_type = str(target_item.get("record_type") or target_fields.get("record_type") or "")
+                add_node(
+                    target_node,
+                    type="durable_memory",
+                    label=str(target_item.get("title") or target_item.get("content") or target),
+                    authority="governed_durable_memory",
+                    source_ref={
+                        "memory_id": target,
+                        "kind": target_item.get("kind"),
+                        "record_type": target_record_type,
+                        "namespace": cleaned_namespace,
+                    },
+                )
                 edges.append(
                     {
                         "source": node_id,
@@ -253,7 +291,7 @@ def _read_governed_memories(
             ORDER BY m.created_at ASC, m.id ASC
             LIMIT ?
             """,
-            (namespace, max(1, min(limit, 500))),
+            (namespace, PRIMARY_SCAN_CEILING),
         ).fetchall()
         items: list[dict[str, Any]] = []
         for row in rows:
@@ -272,34 +310,35 @@ def _apply_memory_governance(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     suppressed: list[dict[str, Any]] = []
     candidates = [item for item in items if str(item.get("kind") or "") in GOVERNED_MEMORY_KINDS]
-    if memory_store is not None and hasattr(memory_store, "_connect"):
-        candidates, _reason_counts = filter_default_recall_candidates(memory_store, candidates)
-    else:
-        reasons: dict[str, str] = (
-            direct_lookup_ineligibility_reasons(memory_store, candidates, connection=connection)
-            if connection is not None
-            else {}
+    reasons: dict[str, str] = (
+        direct_lookup_ineligibility_reasons(memory_store, candidates, connection=connection)
+        if connection is not None or (memory_store is not None and hasattr(memory_store, "_connect"))
+        else {}
+    )
+    filtered: list[dict[str, Any]] = []
+    for item in candidates:
+        memory_id = str(item.get("id") or "")
+        reason: str | None = reasons.get(memory_id)
+        metadata_issues = item.get("validation_issues_json") or item.get("validation_issues") or []
+        if isinstance(metadata_issues, str):
+            metadata_issues = _json_list(metadata_issues)
+        validity = str(
+            item.get("validity_status") or parse_relation_metadata(str(item.get("content") or ""))["validity_status"]
         )
-        filtered: list[dict[str, Any]] = []
-        for item in candidates:
-            memory_id = str(item.get("id") or "")
-            reason: str | None = reasons.get(memory_id)
-            metadata_issues = _json_list(item.get("validation_issues_json"))
-            validity = parse_relation_metadata(str(item.get("content") or ""))["validity_status"]
-            fields = parse_content_fields(str(item.get("content") or ""))
-            persisted_lineage = str(item.get("lineage_status") or "intact").strip().lower()
-            declared_lineage = str(fields.get("lineage_status") or "").strip().lower()
-            if reason is None and metadata_issues:
-                reason = "invalid_structured_metadata"
-            if reason is None and (persisted_lineage == "degraded" or declared_lineage == "degraded"):
-                reason = "lineage_status:degraded"
-            if reason is None and validity in INELIGIBLE_VALIDITY:
-                reason = f"validity:{validity}"
-            if reason is None:
-                filtered.append(item)
-            else:
-                suppressed.append({"kind": "suppressed_memory", "memory_id": memory_id, "reason": reason})
-        candidates = filtered
+        fields = parse_content_fields(str(item.get("content") or ""))
+        persisted_lineage = str(item.get("lineage_status") or "intact").strip().lower()
+        declared_lineage = str(fields.get("lineage_status") or "").strip().lower()
+        if reason is None and metadata_issues:
+            reason = "invalid_structured_metadata"
+        if reason is None and (persisted_lineage == "degraded" or declared_lineage == "degraded"):
+            reason = "lineage_status:degraded"
+        if reason is None and validity in INELIGIBLE_VALIDITY:
+            reason = f"validity:{validity}"
+        if reason is None:
+            filtered.append(item)
+        else:
+            suppressed.append({"kind": "suppressed_memory", "memory_id": memory_id, "reason": reason})
+    candidates = filtered
     candidates = [
         item
         for item in candidates

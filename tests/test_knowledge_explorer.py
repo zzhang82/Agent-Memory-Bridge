@@ -276,3 +276,123 @@ def test_ineligible_relation_target_is_not_active_edge_or_node(tmp_path: Path, m
         for diagnostic in projection["diagnostics"]
     )
     assert f"memory:{source['id']}" in ids
+
+
+def test_limit_refills_after_suppressed_rows(tmp_path: Path, monkeypatch) -> None:
+    store = _real_store(tmp_path, monkeypatch)
+    from datetime import UTC, datetime, timedelta
+
+    expired = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    _active_decision(store, f"claim: expired one\nvalid_until: {expired}", "Expired one")
+    _active_decision(store, f"claim: expired two\nvalid_until: {expired}", "Expired two")
+    current_one = _active_decision(store, "claim: current one", "Current one")
+    current_two = _active_decision(store, "claim: current two", "Current two")
+    projection = build_explorer_projection(
+        namespace="project:fixture", snapshot_root=tmp_path / "snapshots", memory_store=None, limit=2
+    )
+    ids = {node["id"] for node in projection["nodes"]}
+    assert f"memory:{current_one['id']}" in ids
+    assert f"memory:{current_two['id']}" in ids
+    assert len([node for node in projection["nodes"] if node["type"] == "durable_memory"]) == 2
+
+
+def test_eligible_relation_target_outside_primary_window_is_resolved() -> None:
+    target = {
+        "id": "target-outside-window",
+        "kind": "memory",
+        "title": "Target",
+        "content": "record_type: decision\nclaim: target",
+    }
+    source = {
+        "id": "source-inside-window",
+        "kind": "memory",
+        "title": "Source",
+        "content": "record_type: decision\nclaim: source\nsupports: target-outside-window",
+    }
+    filler = {
+        "id": "filler-inside-window",
+        "kind": "memory",
+        "title": "Filler",
+        "content": "record_type: decision\nclaim: filler",
+    }
+    projection = build_explorer_projection(
+        namespace="project:fixture",
+        snapshot_root=Path("/tmp/no-snapshot"),
+        memory_store=FakeMemoryStore([source, filler, target]),
+        limit=2,
+    )
+    ids = {node["id"] for node in projection["nodes"]}
+    assert "memory:target-outside-window" in ids
+    assert any(
+        edge["relation"] == "supports" and edge["target"] == "memory:target-outside-window"
+        for edge in projection["edges"]
+    )
+    assert not any(
+        diagnostic.get("target_memory_id") == "target-outside-window" for diagnostic in projection["diagnostics"]
+    )
+
+
+def test_relation_resolution_has_a_hard_bound() -> None:
+    targets = [
+        {
+            "id": f"target-{index:03d}",
+            "kind": "memory",
+            "title": f"Target {index}",
+            "content": "record_type: decision\nclaim: target",
+        }
+        for index in range(150)
+    ]
+    source = {
+        "id": "source-many-relations",
+        "kind": "memory",
+        "title": "Source",
+        "content": "record_type: decision\nclaim: source\nsupports: " + "|".join(item["id"] for item in targets),
+    }
+    projection = build_explorer_projection(
+        namespace="project:fixture",
+        snapshot_root=Path("/tmp/no-snapshot"),
+        memory_store=FakeMemoryStore([source, *targets]),
+        limit=1,
+    )
+    support_edges = [edge for edge in projection["edges"] if edge["relation"] == "supports"]
+    budget_diagnostics = [
+        item for item in projection["diagnostics"] if item.get("reason") == "relation_resolution_budget_exhausted"
+    ]
+    assert len(support_edges) == 100
+    assert len(budget_diagnostics) == 50
+    assert len(projection["nodes"]) <= 102
+
+
+def test_injected_and_query_only_paths_share_validity_governance(tmp_path: Path, monkeypatch) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    expired = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    expired_item = {
+        "id": "expired-parity",
+        "kind": "memory",
+        "title": "Expired",
+        "content": f"record_type: decision\nclaim: expired\nvalid_until: {expired}",
+    }
+    current_item = {
+        "id": "current-parity",
+        "kind": "memory",
+        "title": "Current",
+        "content": "record_type: decision\nclaim: current",
+    }
+    injected = build_explorer_projection(
+        namespace="project:fixture",
+        snapshot_root=tmp_path / "snapshots",
+        memory_store=FakeMemoryStore([expired_item, current_item]),
+        limit=2,
+    )
+    db_store = _real_store(tmp_path, monkeypatch)
+    db_store.store(namespace="project:fixture", title="Expired", content=expired_item["content"], kind="memory")
+    db_store.store(namespace="project:fixture", title="Current", content=current_item["content"], kind="memory")
+    query_only = build_explorer_projection(
+        namespace="project:fixture", snapshot_root=tmp_path / "other-snapshots", memory_store=None, limit=2
+    )
+    injected_ids = {node["id"] for node in injected["nodes"] if node["type"] == "durable_memory"}
+    query_ids = {node["id"] for node in query_only["nodes"] if node["type"] == "durable_memory"}
+    assert injected_ids == {"memory:current-parity"}
+    assert len(query_ids) == 1
+    assert any(item["reason"] == "validity:expired" for item in injected["diagnostics"])
