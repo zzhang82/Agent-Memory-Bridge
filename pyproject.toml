@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-bridge"
-version = "0.29.0"
-description = "Persistent engineering memory for coding agents over MCP"
+version = "0.30.0"
+description = "Local-first shared project memory for AI coding agents over MCP"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

@@ -16,7 +16,7 @@ Each stored snapshot records a repository identity, identity basis, Git root, op
 
 ## Repository Identity
 
-When an origin remote is available, the identity basis is the normalized remote URL. For local repositories without an origin, the identity basis is the resolved Git root. This is a bounded local identity, not a globally unique repository identity service. Multiple clones sharing a remote identity intentionally resolve to one logical local project source; repositories without remotes can change identity if they are moved.
+When an origin remote is available, the sanitized remote is retained as logical grouping metadata, but it is not the local source identity. The `local_repository_source_id` incorporates the canonical local Git root, so two clones or worktrees of the same logical remote have distinct local source IDs and distinct snapshot slots. Repositories without remotes likewise use their canonical local Git root. Moving a local clone changes its local source identity; explicit re-bootstrap/rebind is required, and AMB does not silently follow moved roots.
 
 ## Namespace Binding
 
