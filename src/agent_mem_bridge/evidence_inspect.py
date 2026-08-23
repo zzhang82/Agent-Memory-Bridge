@@ -12,6 +12,8 @@ MEMORY_INSPECT_SCHEMA = "memory.inspect.v1"
 MEMORY_INSPECT_BOUNDARY = "read_only_with_respect_to_user_memory_state_and_configuration"
 USED_TASK_SECTIONS = (
     "procedure_hits",
+    "decision_hits",
+    "constraint_hits",
     "concept_hits",
     "belief_hits",
     "domain_hits",
@@ -372,6 +374,8 @@ def _item(
 def _selected_explanations(reason_codes: list[object]) -> list[str]:
     mapping = {
         "direct:procedure": "It directly matches this task as a procedure.",
+        "direct:decision": "It directly matches this task as a project decision.",
+        "direct:constraint": "It directly matches this task as a project constraint.",
         "direct:concept": "It directly matches this task as project guidance.",
         "direct:belief": "It directly matches this task as a current belief.",
         "direct:domain": "It directly matches this task as domain context.",
@@ -408,6 +412,8 @@ def _suppression_explanation(reason: str) -> str:
         return "Conflicts with stronger current guidance."
     if reason == "lineage_status:degraded":
         return "Has incomplete lineage evidence."
+    if reason == "invalid_structured_metadata":
+        return "Its structured metadata failed validation, so governance left it out."
     return "Existing governance kept this candidate out of the task-memory result."
 
 

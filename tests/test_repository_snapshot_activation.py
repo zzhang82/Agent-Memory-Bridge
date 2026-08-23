@@ -327,6 +327,8 @@ def test_context_compiler_accepts_repository_what_as_derived_input() -> None:
         "global_namespace": "global",
         "summary": "",
         "procedure_hits": [],
+        "decision_hits": [],
+        "constraint_hits": [],
         "concept_hits": [],
         "belief_hits": [],
         "domain_hits": [],

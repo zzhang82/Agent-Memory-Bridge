@@ -35,6 +35,8 @@ def _actionable_ids(report: dict[str, Any]) -> list[str]:
     actionables: list[str] = []
     for section in (
         "procedure_hits",
+        "decision_hits",
+        "constraint_hits",
         "concept_hits",
         "belief_hits",
         "domain_hits",

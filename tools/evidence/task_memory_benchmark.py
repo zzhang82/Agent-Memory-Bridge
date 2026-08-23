@@ -17,8 +17,23 @@ DEFAULT_CASES_PATH = ROOT / "benchmark" / "task-memory-cases.json"
 DEFAULT_REPORT_PATH = ROOT / "benchmark" / "latest-task-memory-report.json"
 
 TaskAssembler = Callable[..., dict[str, Any]]
-PACKET_SECTIONS = ("procedure_hits", "concept_hits", "belief_hits", "domain_hits", "supporting_hits")
-PRIMARY_SECTIONS = ("procedure_hits", "concept_hits", "belief_hits", "domain_hits")
+PACKET_SECTIONS = (
+    "procedure_hits",
+    "decision_hits",
+    "constraint_hits",
+    "concept_hits",
+    "belief_hits",
+    "domain_hits",
+    "supporting_hits",
+)
+PRIMARY_SECTIONS = (
+    "procedure_hits",
+    "decision_hits",
+    "constraint_hits",
+    "concept_hits",
+    "belief_hits",
+    "domain_hits",
+)
 
 
 def run_task_memory_benchmark(

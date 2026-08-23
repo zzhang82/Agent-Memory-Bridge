@@ -380,7 +380,15 @@ def test_recall_first_suppresses_stale_procedure_status(tmp_path: Path) -> None:
 
 def _task_packet_titles(result: dict[str, object]) -> set[str]:
     titles: set[str] = set()
-    for key in ("procedure_hits", "concept_hits", "belief_hits", "domain_hits", "supporting_hits"):
+    for key in (
+        "procedure_hits",
+        "decision_hits",
+        "constraint_hits",
+        "concept_hits",
+        "belief_hits",
+        "domain_hits",
+        "supporting_hits",
+    ):
         for item in result.get(key, []) or []:  # type: ignore[union-attr]
             if isinstance(item, dict) and item.get("title"):
                 titles.add(str(item["title"]))

@@ -904,7 +904,15 @@ def _memory(
 def _actionable_labels(state: CaseState, task_memory: dict[str, Any]) -> set[str]:
     items = [
         item
-        for section in ("procedure_hits", "concept_hits", "belief_hits", "domain_hits", "supporting_hits")
+        for section in (
+            "procedure_hits",
+            "decision_hits",
+            "constraint_hits",
+            "concept_hits",
+            "belief_hits",
+            "domain_hits",
+            "supporting_hits",
+        )
         for item in task_memory.get(section) or []
     ]
     return _labels(state, items)
