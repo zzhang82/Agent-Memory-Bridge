@@ -12,7 +12,7 @@ This page is the canonical reference for **checked-in current-source facts**: im
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
 | Runtime model | Local stdio MCP over SQLite/WAL; FTS5 and optional local embeddings are derived indexes |
 
-Current source test collection: `968 tests`
+Current source test collection: `984 tests`
 
 > A tag is not a GitHub Release, and live CI state is not host certification, a distribution claim, or a productivity result. Installation guidance retains its own pinned-release and source-checkout gates.
 
