@@ -593,19 +593,19 @@ def _recall_project_why_hits(
 ) -> list[dict[str, Any]]:
     """Recall project-scoped decision/constraint candidates without kind-tag workarounds.
 
-    Uses existing bounded semantic recall (no tags_any filter), then keeps only
-    matching record_type rows. Candidate window is capped by PROJECT_WHY_CANDIDATE_CEILING
-    so unrelated memories cannot require an unbounded durable scan.
+    Request the existing bounded recall ceiling, then keep only matching
+    record_type rows in that recalled order. Unrelated memories therefore cannot
+    crowd eligible project WHY out before PROJECT_WHY_CANDIDATE_CEILING, and the
+    helper never opens a second ranking path or an unbounded durable scan.
     """
     if not namespace or limit <= 0 or record_type not in PROJECT_WHY_RECORD_TYPES:
         return []
-    window = min(max(limit, _candidate_limit(limit)), PROJECT_WHY_CANDIDATE_CEILING)
     hits = _recall_hits(
         store,
         namespace=namespace,
         query=query,
         tags_any=[],
-        limit=window,
+        limit=PROJECT_WHY_CANDIDATE_CEILING,
     )
     matched: list[dict[str, Any]] = []
     for item in hits:
@@ -980,7 +980,7 @@ def _apply_structured_metadata_suppression(
     for item_id, candidate in candidates.items():
         if item_id not in active_ids:
             continue
-        if candidate.section not in PROJECT_WHY_RECORD_TYPES:
+        if _item_record_type(candidate.item) not in PROJECT_WHY_RECORD_TYPES:
             continue
         if not _has_invalid_structured_metadata(candidate.item):
             continue
