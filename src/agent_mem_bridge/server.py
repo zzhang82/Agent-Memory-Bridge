@@ -30,6 +30,7 @@ from .paths import (
     resolve_default_source_client,
     resolve_default_source_model,
 )
+from .repository_snapshot_store import load_repository_knowledge
 from .storage import MemoryStore
 
 mcp_logger = logging.getLogger("mcp.server.lowlevel.server")
@@ -449,7 +450,7 @@ def recall(
     if kind == "memory":
         signal_status = None
 
-    return _bridge_for(ctx).recall(
+    result = _bridge_for(ctx).recall(
         namespace=namespace,
         query=query,
         limit=limit,
@@ -462,6 +463,9 @@ def recall(
         since=since,
         evidence_context=evidence_context,
     )
+    if kind in (None, "memory") and query:
+        result["repository_knowledge"] = load_repository_knowledge(namespace=namespace, query=query, limit=limit)
+    return result
 
 
 def browse(

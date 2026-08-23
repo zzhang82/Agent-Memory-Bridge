@@ -40,10 +40,9 @@ path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
-Current package/source version is `0.29.0`. From the exact source checkout,
+Current package/source version is `0.30.0`. From the exact source checkout,
 install with `<venv-python> -m pip install -e .`. For live publication availability,
-consult GitHub Releases. When using the `v0.29.0` tagged release, use its pinned
-archive route from the release notes. The historical `v0.27.0` release-install
+consult GitHub Releases. If/when a `v0.30.0` tagged release appears in GitHub Releases, use its archive route from the release notes. The historical `v0.27.0` release-install
 archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
 ```text
@@ -82,14 +81,14 @@ to confirm the server connects and exposes the documented 17-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
 
-The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.29.0`; for live release availability, consult GitHub Releases.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.30.0`; for live release availability, consult GitHub Releases.
 
 ## Optional `uvx` Shortcut
 
 If `uvx` is already installed, it can run the GitHub source directly:
 
 ```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.29.0 agent-memory-bridge verify
+uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.30.0 agent-memory-bridge verify
 ```
 
 Do not make this the only install instruction. `uv` is not a project baseline

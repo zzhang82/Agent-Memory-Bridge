@@ -24,8 +24,15 @@ from .evidence_inspect import build_memory_inspect_report, render_memory_inspect
 from .first_run import build_first_run_report, render_first_run_markdown
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
-from .paths import resolve_bridge_db_path, resolve_bridge_home, resolve_bridge_log_dir, resolve_config_path
+from .paths import (
+    resolve_bridge_db_path,
+    resolve_bridge_home,
+    resolve_bridge_log_dir,
+    resolve_config_path,
+    resolve_repository_snapshot_root,
+)
 from .repository_bootstrap import compile_repository_snapshot, render_snapshot_markdown
+from .repository_snapshot_store import RepositorySnapshotStore
 from .review_queue import build_review_queue_report, render_review_queue_markdown
 from .review_workflow import build_review_workflow_report, render_review_workflow_markdown
 from .run_consolidation import (
@@ -76,6 +83,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_first_run(namespace)
     if namespace.command == "bootstrap-repo":
         return _run_bootstrap_repo(namespace)
+    if namespace.command == "unbind-repo":
+        return _run_unbind_repo(namespace)
     if namespace.command == "inspect":
         return _run_inspect(namespace)
     if namespace.command == "doctor":
@@ -228,6 +237,17 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     bootstrap_parser.add_argument("path", type=Path, help="Repository directory to inspect locally.")
     bootstrap_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
+    bootstrap_parser.add_argument("--namespace", help="Explicit project namespace to bind to this repository.")
+    bootstrap_parser.add_argument(
+        "--rebind", action="store_true", help="Allow explicit replacement of an existing different namespace binding."
+    )
+
+    unbind_parser = subparsers.add_parser(
+        "unbind-repo",
+        help="Remove one explicit local repository binding without deleting snapshots or memory.",
+    )
+    unbind_parser.add_argument("--namespace", required=True, help="Project namespace to unbind locally.")
+    unbind_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
 
     first_run_parser = subparsers.add_parser(
         "first-run",
@@ -711,20 +731,49 @@ def _run_index_rebuild(namespace: argparse.Namespace) -> int:
 
 def _run_bootstrap_repo(namespace: argparse.Namespace) -> int:
     snapshot = compile_repository_snapshot(namespace.path)
+    if namespace.namespace:
+        store = RepositorySnapshotStore(resolve_repository_snapshot_root())
+        stored = store.save_snapshot(snapshot)
+        if snapshot.get("binding") != "git_commit":
+            stored["binding_action"] = "not_bound"
+        else:
+            stored["binding_action"] = store.bind_namespace(
+                namespace.namespace,
+                str(stored["repository_id"]),
+                allow_rebind=namespace.rebind,
+            )
+        snapshot = stored
     if namespace.format == "json":
         print(json.dumps(snapshot, indent=2, sort_keys=True))
     else:
         print(render_snapshot_markdown(snapshot), end="")
+        if namespace.namespace:
+            action = snapshot.get("binding_action")
+            print(f"Namespace binding: {json.dumps(action, sort_keys=True)}")
+    return 0
+
+
+def _run_unbind_repo(namespace: argparse.Namespace) -> int:
+    store = RepositorySnapshotStore(resolve_repository_snapshot_root())
+    removed = store.unbind_namespace(namespace.namespace)
+    result = {"namespace": namespace.namespace.strip(), "unbound": removed, "memory_unchanged": True}
+    if namespace.format == "json":
+        print(json.dumps(result, sort_keys=True))
+    else:
+        print(f"Namespace: {result['namespace']}\nUnbound: {str(removed).lower()}\nMemory unchanged: true")
     return 0
 
 
 def _run_inspect(namespace: argparse.Namespace) -> int:
     store = MemoryStore.from_env()
+    repository_store = RepositorySnapshotStore(resolve_repository_snapshot_root())
+    repository_snapshot = repository_store.load_bound_snapshot(namespace.namespace)
     report = build_memory_inspect_report(
         store,
         namespace=namespace.namespace,
         query=namespace.query,
         technical=namespace.technical,
+        repository_snapshot=repository_snapshot,
     )
     if namespace.format == "json":
         print(json.dumps(report, indent=2, sort_keys=True))

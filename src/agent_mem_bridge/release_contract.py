@@ -183,7 +183,7 @@ V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V026_PATCH_PATTERN,
 )
 V027_EPISODE_RELEASE = "0.27.4"
-CURRENT_SOURCE_RELEASE = "0.29.0"
+CURRENT_SOURCE_RELEASE = "0.30.0"
 V027_EPISODE_FOUNDATION_PATTERNS = (V027_PATCH_PATTERN,)
 V027_SCHEMA_VERSION = 12
 V027_PUBLIC_TOOL_ORDER = (
@@ -208,8 +208,8 @@ V027_PUBLIC_TOOL_ORDER = (
 V027_PUBLIC_TOOL_SCHEMA_SHA256 = "24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8"
 SEMVER_PATTERN = re.compile(r"(?<![A-Za-z0-9-])v?(\d+\.\d+\.\d+)(?![A-Za-z0-9-])")
 CURRENT_RELEASE_IDENTITY_PATTERNS = (
-    re.compile(r"(?m)^Current source release:\s*`?v?(\d+\.\d+\.\d+)`?\s*$"),
-    re.compile(r"(?m)^当前源码发布版本：\s*`?v?(\d+\.\d+\.\d+)`?\s*$"),
+    re.compile(r"(?m)^Current source (?:release|version):\s*`?v?(\d+\.\d+\.\d+)`?\s*$"),
+    re.compile(r"(?m)^当前源码(?:发布)?版本：\s*`?v?(\d+\.\d+\.\d+)`?\s*$"),
 )
 CURRENT_TEST_COLLECTION_PATTERNS = (
     re.compile(r"(?m)^Current source test collection:\s*`?(\d+) tests`?\s*$"),
@@ -299,7 +299,7 @@ def run_release_contract_check(
 
 def build_current_source_release_identity_check(pyproject_version: str) -> dict[str, Any]:
     return {
-        "name": "current_source_release_is_0_28_0",
+        "name": "current_source_release_is_0_30_0",
         "ok": pyproject_version == CURRENT_SOURCE_RELEASE,
         "expected_version": CURRENT_SOURCE_RELEASE,
         "actual_version": pyproject_version,

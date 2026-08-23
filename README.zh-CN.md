@@ -8,9 +8,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-**Agent Memory Bridge（AMB）**为编码智能体提供一份跨工具、跨会话共享且受治理的工程知识记录。它以 SQLite/WAL 为本地优先的权威存储，通过刻意保持精简的 MCP 接口提供能力。
+**Agent Memory Bridge（AMB）**是面向 AI 编码智能体的本地优先共享项目记忆层。代码告诉 AMB 项目是什么；对话教会 AMB 项目为什么如此。派生的仓库 **WHAT** 与受治理的持久项目 **WHY** 保持分离，并通过精简的本地 MCP 接口跨工具、跨会话提供。
 
-当前源码发布版本：`0.29.0`
+当前源码版本：`0.30.0`
 
 > AMB 补充而非替代 `AGENTS.md`、`CLAUDE.md` 与客户端原生偏好记忆。它不是托管式智能体运行时、调度器、队列，也不是通用记忆平台。
 
@@ -31,7 +31,8 @@ AMB 将这些问题分开处理：它存储可检查的工程记忆，在组装�
 | 瞬态 Context Compiler | 基于受治理任务记忆、Dynamic State 快照和显式会话局部条目的有界确定性派生视图。 |
 | 回合与验证证据 | 显式运行、工件、结果和回执支持可复核的证据，而不宣称因果关系或自动学习。 |
 | 跨客户端 MCP 访问 | 面向已支持和已文档化 MCP 客户端的稳定本地 stdio 接口。 |
-| 确定性仓库引导 | 有界的本地 `bootstrap-repo <path>` 视图，提供提交溯源和明确的安全排除；与持久记忆保持分离。 |
+| 仓库知识 / WHAT | 派生、有界、可重建、按命名空间绑定的仓库事实。只有在确认工作区干净时才按提交绑定；过期或不可用状态会 fail closed，普通 MCP 召回只暴露有界的已选择 WHAT。 |
+| 持久项目记忆 / WHY | 受治理的持久记忆仍保留在普通召回的 `items` 中，并保留记忆 ID、回执和生命周期权威；仓库事实不会变成持久记忆记录。 |
 
 AMB **不会**自动把经验写回记忆、根据反馈改变排序、提升自生成反思，也不会自主获得技能。
 
@@ -39,8 +40,10 @@ AMB **不会**自动把经验写回记忆、根据反馈改变排序、提升自
 
 ```mermaid
 flowchart LR
-    A[持久记忆] --> C[生命周期感知检索]
-    B[Dynamic State 权威] --> D[Context Compiler]
+    A[持久记忆 / WHY] --> C[生命周期感知检索]
+    B[仓库知识 / WHAT] --> D[Context Compiler]
+    A --> D
+    S[Dynamic State 权威] --> D
     C --> E[受治理任务记忆]
     E --> D
     D --> F[瞬态有界上下文]
@@ -62,6 +65,7 @@ AMB 在本地运行，需要 **Python 3.11+**、支持 FTS5 的 SQLite，以及�
 python -m venv .amb-venv
 <venv-python> -m pip install -e .
 <venv-python> -m agent_mem_bridge setup --client generic
+<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:my-app
 <venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
 ```
 
@@ -72,7 +76,7 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.29.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。实时发布可用性请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。使用 `v0.29.0` 标签版本时，采用发布说明中记录的固定归档路径。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
+`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.30.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。实时发布可用性请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。如果/当 `v0.30.0` 标签版本出现在 GitHub Releases 中，再使用发布说明中记录的归档路径。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
 ## 检查一次召回决策
 
@@ -125,7 +129,7 @@ AMB 提供 **17 个公共 MCP 工具**：
 
 ## 当前成熟度
 
-当前源码使用 schema v12 和冻结的 17 工具 MCP 接口。已检入的源码事实、验证证据和非声明由[生产状态](docs/PRODUCTION-STATUS.md)维护。实时 CI 请查看 [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) 或上方 CI badge；已发布版本请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) 或上方 release badge。
+当前源码版本为 `0.30.0`，使用 schema v12 和冻结的 17 工具 MCP 接口。已检入的源码事实、验证证据和非声明由[生产状态](docs/PRODUCTION-STATUS.md)维护。实时 CI 请查看 [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) 或上方 CI badge；已发布版本请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) 或上方 release badge。
 
 ## 路线图
 

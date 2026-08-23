@@ -185,6 +185,7 @@ def compile_context(
     task_memory: Mapping[str, Any],
     state_snapshots: Sequence[Mapping[str, Any]] = (),
     session_items: Sequence[Mapping[str, Any] | str] = (),
+    repository_items: Sequence[Mapping[str, Any]] = (),
     budget_tokens: int = 2_048,
 ) -> ContextManifest:
     """Compile one transient context from relation-aware governed inputs.
@@ -217,8 +218,14 @@ def compile_context(
         raise ValueError("budget_tokens cannot fit required Dynamic State context")
 
     candidates: list[ContextItemRef] = []
-    for position, raw_item in enumerate(session_items):
-        session_item, omission = _session_candidate(raw_item, position)
+    for position, repository_raw_item in enumerate(repository_items):
+        repository_item, omission = _repository_candidate(repository_raw_item, position)
+        if repository_item is not None:
+            candidates.append(repository_item)
+        elif omission is not None:
+            omissions.append(omission)
+    for position, session_raw_item in enumerate(session_items):
+        session_item, omission = _session_candidate(session_raw_item, position)
         if session_item is not None:
             candidates.append(session_item)
         elif omission is not None:
@@ -279,7 +286,7 @@ def compile_context(
         used_tokens += candidate.token_cost
 
     task_identifier_sha256 = _sha256(str(task_memory["query"]))
-    input_fingerprint = _input_fingerprint(task_memory, validated_state_snapshots, session_items)
+    input_fingerprint = _input_fingerprint(task_memory, validated_state_snapshots, session_items, repository_items)
     return ContextManifest(
         task_identifier_sha256=task_identifier_sha256,
         input_fingerprint=input_fingerprint,
@@ -390,6 +397,45 @@ def _state_candidate(snapshot: Mapping[str, Any]) -> tuple[ContextItemRef | None
             version=version,
             value_hash=value_hash,
             database_epoch=database_epoch,
+        ),
+        None,
+    )
+
+
+def _repository_candidate(
+    raw_item: Mapping[str, Any],
+    position: int,
+) -> tuple[ContextItemRef | None, dict[str, Any] | None]:
+    title = _sanitize_text(str(raw_item.get("key") or raw_item.get("fact_kind") or f"repository-fact-{position + 1}"))
+    source = _clean_label(raw_item.get("source")) or "repository"
+    commit = _clean_label(raw_item.get("commit")) or None
+    value = raw_item.get("value")
+    rendered_value = _canonical_json(value)
+    text = f"[Repository WHAT] {title}\nsource: {source}\ncommit: {commit or 'unavailable'}\nvalue: {rendered_value}"
+    sanitized = _sanitize_text(text)
+    if not sanitized:
+        return None, _omission(
+            source="derived_repository",
+            section="repository",
+            item_id=None,
+            title_sha256=_sha256(title),
+            reason="empty_after_sanitization",
+        )
+    return (
+        ContextItemRef(
+            source="derived_repository",
+            section="repository",
+            item_id=_clean_label(raw_item.get("id")) or None,
+            title_sha256=_sha256(title),
+            render_text=sanitized,
+            token_cost=_resolve_token_cost(raw_item.get("token_cost"), sanitized),
+            content_hash=_sha256(_canonical_json(value)),
+            exact_content_hash=_sha256(_canonical_json(value)),
+            provenance=(
+                ("authority", "derived_repository"),
+                ("source", source),
+                *((("commit", commit),) if commit else ()),
+            ),
         ),
         None,
     )
@@ -585,6 +631,7 @@ def _input_fingerprint(
     task_memory: Mapping[str, Any],
     state_snapshots: Sequence[Mapping[str, Any]],
     session_items: Sequence[Mapping[str, Any] | str],
+    repository_items: Sequence[Mapping[str, Any]],
 ) -> str:
     payload = {
         "assembly_mode": task_memory["assembly_mode"],
@@ -605,8 +652,24 @@ def _input_fingerprint(
         ],
         "state_refs": [_state_fingerprint_payload(item) for item in state_snapshots],
         "session_refs": [_session_fingerprint_payload(item, index) for index, item in enumerate(session_items)],
+        "repository_refs": [
+            _repository_fingerprint_payload(item, index) for index, item in enumerate(repository_items)
+        ],
     }
     return _sha256(_canonical_json(payload))
+
+
+def _repository_fingerprint_payload(item: Mapping[str, Any], index: int) -> dict[str, Any]:
+    value = item.get("value")
+    return {
+        "position": index,
+        "id": _clean_label(item.get("id")),
+        "fact_kind": _clean_label(item.get("fact_kind")) or _clean_label(item.get("key")),
+        "source": _clean_label(item.get("source")),
+        "commit": _clean_label(item.get("commit")),
+        "value_sha256": _sha256(_canonical_json(value)),
+        "token_cost": item.get("token_cost"),
+    }
 
 
 def _task_memory_fingerprint_payload(item: object, section: str) -> dict[str, Any]:

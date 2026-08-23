@@ -5,15 +5,15 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT = "0.29.0"
+CURRENT = "0.30.0"
 
 
-def test_current_package_and_source_docs_use_v029_identity() -> None:
+def test_current_package_and_source_docs_use_v030_identity() -> None:
     package_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     assert package_version == CURRENT
-    assert "Current source release: `0.29.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "当前源码发布版本：`0.29.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert "| Package/source version | `0.29.0` |" in (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
+    assert "Current source version: `0.30.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "当前源码版本：`0.30.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    assert "| Package/source version | `0.30.0` |" in (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
 
 
 def test_historical_v0274_evidence_remains_historical() -> None:
@@ -41,10 +41,10 @@ def test_current_quick_start_does_not_advertise_hidden_first_run_controls() -> N
 def test_install_guides_use_publication_invariant_routes() -> None:
     for name in ("INSTALL_FOR_AGENTS.md", "llms-install.md", "llms.txt", "docs/INTEGRATIONS.md"):
         text = (ROOT / name).read_text(encoding="utf-8")
-        assert "0.29.0" in text
+        assert "0.30.0" in text
         assert "GitHub Releases" in text
         assert (
-            "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.29.0.zip" in text or "v0.29.0" in text
+            "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip" in text or "v0.30.0" in text
         )
     assert "v0.27.0" in (ROOT / "INSTALL_FOR_AGENTS.md").read_text(encoding="utf-8")
 
@@ -65,20 +65,31 @@ def test_current_docs_do_not_claim_live_publication() -> None:
         "not yet tagged or published",
         "尚未创建标签",
         "candidate has no release tag",
-        "After v0.29.0 is published",
+        "After v0.30.0 is published",
     )
     for name in files:
         text = (ROOT / name).read_text(encoding="utf-8")
-        assert not re.search(r"latest (?:published )?GitHub Release is v0\.29\.0", text, re.IGNORECASE)
-        assert not re.search(r"published(?: pinned)? [`']?v0\.29\.0", text, re.IGNORECASE)
-        assert not re.search(r"published v0\.29\.0 archive", text, re.IGNORECASE)
+        assert not re.search(r"latest (?:published )?GitHub Release is v0\.30\.0", text, re.IGNORECASE)
+        assert not re.search(r"published(?: pinned)? [`']?v0\.30\.0", text, re.IGNORECASE)
+        assert not re.search(r"published v0\.30\.0 archive", text, re.IGNORECASE)
         assert not any(phrase in text for phrase in transient_phrases)
     for name in docs:
         assert "GitHub Releases" in (ROOT / name).read_text(encoding="utf-8")
-    assert "Current package/source version is `0.29.0`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
+    assert "Current package/source version is `0.30.0`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
         encoding="utf-8"
     )
     assert "archive/refs/tags/v0.28.0.zip" in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+
+
+def test_project_knowledge_identity_documentation_matches_clone_isolation() -> None:
+    text = (ROOT / "docs/PROJECT-KNOWLEDGE-ACTIVATION.md").read_text(encoding="utf-8")
+    assert "local_repository_source_id" in text
+    assert "two clones or worktrees of the same logical remote have distinct local source IDs" in text
+    assert "Moving a local clone changes its local source identity" in text
+    assert (
+        "Multiple clones sharing a remote identity intentionally resolve to one logical local project source"
+        not in text
+    )
 
 
 def test_changelog_durable_references_exist() -> None:

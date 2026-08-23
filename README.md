@@ -8,9 +8,9 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 
-**Agent Memory Bridge (AMB)** gives coding agents one shared, governed record of project decisions across tools and sessions. It is local-first engineering memory over SQLite/WAL, exposed through a deliberately small MCP surface.
+**Agent Memory Bridge (AMB)** is a local-first shared project memory layer for AI coding agents. Code tells AMB what the project is; conversations teach AMB why it is that way. Repository-derived **WHAT** and governed durable project **WHY** remain distinct and are available across tools and sessions through a small local MCP surface.
 
-Current source release: `0.29.0`
+Current source version: `0.30.0`
 
 > AMB complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory; it does not replace them. It is not a hosted agent runtime, scheduler, queue, or general-purpose memory platform.
 
@@ -31,7 +31,8 @@ AMB keeps those concerns separate. It stores inspectable engineering memory, app
 | Transient Context Compiler | A bounded, deterministic derived view over governed task memory, Dynamic State snapshots, and explicit session-local items. |
 | Episode and verification evidence | Explicit runs, artifacts, outcomes, and receipts support reviewable evidence without asserting causality or automatic learning. |
 | Cross-client MCP access | A stable local stdio interface for supported and documented MCP clients. |
-| Deterministic repository bootstrap | A bounded local `bootstrap-repo <path>` view with commit provenance and explicit security exclusions; it remains separate from durable memory. |
+| Repository Knowledge / WHAT | Derived, bounded, rebuildable, namespace-bound repository facts. They are commit-bound only when a clean worktree is proven; stale or unavailable states fail closed, and normal MCP recall exposes only bounded selected WHAT. |
+| Durable Project Memory / WHY | Governed durable memory remains in normal recall `items`, retaining memory IDs, receipts, and lifecycle authority; repository facts never become durable memory rows. |
 
 AMB does **not** automatically write lessons back to memory, change ranking from feedback, promote self-generated reflection, or acquire skills autonomously.
 
@@ -39,8 +40,10 @@ AMB does **not** automatically write lessons back to memory, change ranking from
 
 ```mermaid
 flowchart LR
-    A[Durable Memory] --> C[Lifecycle-aware Recall]
-    B[Dynamic State Authority] --> D[Context Compiler]
+    A[Durable Memory / WHY] --> C[Lifecycle-aware Recall]
+    B[Repository Knowledge / WHAT] --> D[Context Compiler]
+    A --> D
+    S[Dynamic State Authority] --> D
     C --> E[Governed Task Memory]
     E --> D
     D --> F[Transient Bounded Context]
@@ -62,6 +65,7 @@ AMB runs locally with **Python 3.11+**, SQLite with FTS5, and an MCP-compatible 
 python -m venv .amb-venv
 <venv-python> -m pip install -e .
 <venv-python> -m agent_mem_bridge setup --client generic
+<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:my-app
 <venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
 ```
 
@@ -72,7 +76,7 @@ Then use the rendered client configuration, reload the client, and run:
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.29.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). When using the `v0.29.0` tagged release, use the pinned archive route documented in the release notes. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
+`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.30.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. For live publication availability, consult [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). If/when a `v0.30.0` tagged release appears there, use its archive route from the release notes. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
 
 ## Inspect a recall decision
 
@@ -125,7 +129,7 @@ The public surface is intentionally small. Context assembly, review reports, and
 
 ## Current Maturity
 
-The current source uses schema v12 and a frozen 17-tool MCP surface. Checked-in source facts, validation evidence, and non-claims are maintained in [Production Status](docs/PRODUCTION-STATUS.md). For live CI, use [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) or the CI badge above; for published versions, use [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) or the release badge above.
+The current source is `0.30.0`, uses schema v12, and retains the frozen 17-tool MCP surface. Checked-in source facts, validation evidence, and non-claims are maintained in [Production Status](docs/PRODUCTION-STATUS.md). For live CI, use [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) or the CI badge above; for published versions, use [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) or the release badge above.
 
 ## Roadmap
 

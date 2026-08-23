@@ -533,6 +533,15 @@ def resolve_embedding_scheduler_backlog_delay_seconds() -> float:
     )
 
 
+def resolve_repository_snapshot_root() -> Path:
+    return _resolve_path(
+        "AGENT_MEMORY_BRIDGE_REPOSITORY_SNAPSHOT_ROOT",
+        ("repository", "snapshot_root"),
+        lambda: resolve_bridge_home() / "repository",
+        config_base_factory=resolve_bridge_home,
+    )
+
+
 def resolve_watcher_enabled() -> bool:
     return _resolve_bool(
         "AGENT_MEMORY_BRIDGE_WATCHER_ENABLED",
