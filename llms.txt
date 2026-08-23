@@ -5,7 +5,7 @@ memory that helps coding agents start with the right context.
 
 Primary docs:
 
-- README.md - product overview, install, first useful loop, public MCP tools
+- README.md - product overview, Project Learning Quick Start, public MCP tools
 - INSTALL_FOR_AGENTS.md - agent-readable install protocol
 - llms-install.md - concise GitHub-source install path for coding agents
 - docs/INTEGRATIONS.md - client configuration examples
@@ -95,8 +95,10 @@ archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v
 <venv-python> -m agent_mem_bridge verify
 ```
 
-Use that same interpreter for `first-run` or `config`. See `llms-install.md`
-for the real client-config and registration steps.
+Use that same interpreter for `bootstrap-repo`, optional `first-run`, or
+`config`. See `llms-install.md` for the real client-config, Project Learning
+store contract, and registration steps. `first-run` is secondary guided memory
+help, not the modern Project Learning entrypoint.
 
 `uvx` is an optional shortcut, not a baseline requirement. See
 `llms-install.md` before writing client config.

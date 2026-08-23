@@ -2,6 +2,8 @@
 
 Project Knowledge Activation is an internal v0.30 product-phase capability. It makes the existing repository bootstrap view reusable for local project context while keeping repository-derived facts separate from governed durable memory.
 
+The human-facing Project Learning journey lives in the [README Quick Start](../README.md#quick-start): connect AMB, bootstrap repository WHAT, teach one explicit WHY in natural language, then prove it in a fresh session with Inspect and Explore. `first-run` is optional secondary guided memory help, not that entrypoint.
+
 ## Authority Model
 
 Repository knowledge is a **derived, rebuildable, non-authoritative** view. A snapshot may be commit-bound only when Git reports a clean worktree. Dirty worktrees and unavailable Git status fail closed, and their content is not attributed to `HEAD`. Repository facts are never inserted into the authoritative `memories` table.
@@ -23,6 +25,12 @@ When an origin remote is available, the sanitized remote is retained as logical 
 A namespace can be explicitly bound to one repository identity through `bootstrap-repo <path> --namespace <namespace>`. Repeating the same binding is idempotent. A different repository cannot silently replace an existing binding; an operator must provide `--rebind`. Unbinding is local metadata removal and does not delete snapshots or durable memory.
 
 A missing snapshot, dirty worktree, unavailable status, or changed `HEAD` makes the bound source ineligible for current project truth. The system reports the reason rather than silently presenting stale repository facts. Refresh is explicit: rerun `bootstrap-repo`.
+
+User-facing recovery copy:
+
+- Dirty worktree: repository WHAT is temporarily unavailable because the checkout has uncommitted changes. AMB will not attribute those changes to the current Git commit. Commit, stash, or restore, then explicitly rerun `bootstrap-repo`.
+- Changed clean HEAD: repository WHAT is temporarily stale. AMB will not present the previous snapshot as current repository truth. Explicitly rerun `bootstrap-repo . --namespace project:<name>`. Repository WHAT refreshes; durable project WHY is unchanged. Refresh is not automatic.
+- Missing binding: no current repository binding was found for this project namespace. The current v0.31.x runtime does not interactively suggest a namespace. Choose the namespace, then run `bootstrap-repo . --namespace project:<name>`.
 
 ## Context and Inspect
 

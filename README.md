@@ -63,42 +63,144 @@ Read the complete authority and data-flow story in [Architecture](docs/ARCHITECT
 
 AMB runs locally with **Python 3.11+**, SQLite with FTS5, and an MCP-compatible client that can launch a local stdio server.
 
+The current source/package version is `0.31.0`. Use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). This source is not a published `v0.31.1`, and there is no `pip install agent-memory-bridge==0.31.1` route.
+
+### 1. Connect AMB to your coding client
+
 ```bash
 python -m venv .amb-venv
 <venv-python> -m pip install -e .
 <venv-python> -m agent_mem_bridge setup --client generic
-<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:my-app
-<venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
 ```
 
-Then use the rendered client configuration, reload the client, and run:
+Use the rendered client configuration, reload the client, then check health:
 
 ```bash
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.31.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); use the exact source checkout above to evaluate this source. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
+`setup` owns connection and configuration planning. `doctor` and `verify` are health and troubleshooting checks.
 
-## Inspect a recall decision
-
-After AMB surfaces task memory, inspect the governed result for a daily, read-only explanation:
-```bash
-agent-memory-bridge inspect \\
-  --namespace project:my-app \\
-  --query "What should I check before submitting changes?"
-```
-
-The report shows what surfaced, evidence-backed reasons, relevant governed exclusions, and review-required items. It does not list every database record, change durable memory/state/configuration, or prove a surfaced memory was applied or caused an outcome.
-
-## Explore project knowledge
-
-Explore is a local, read-only, bounded, derived projection over existing project knowledge. It is CLI-only, not MCP tool #18, and is not a new authority:
+### 2. Bootstrap repository WHAT
 
 ```bash
-agent-memory-bridge explore \\
+agent-memory-bridge bootstrap-repo . \
   --namespace project:my-app
 ```
+
+AMB derived a bounded, rebuildable view of this repository.
+
+**Code tells AMB WHAT the project is.**
+
+### 3. Teach one project WHY naturally
+
+In the connected coding agent, say something like:
+
+> Remember that we decided not to add Redis because this project is intentionally local-first and single-node.
+
+The connected agent uses AMB's existing public memory tools to persist that explicit decision and reason. You do not fill in internal record schemas in this human Quick Start.
+
+**Conversations teach AMB WHY it is that way.**
+
+AMB does not infer a durable decision from repository code, automatically promote chat text, or archive transcripts.
+
+### 4. Prove it in a fresh session
+
+Start or reopen a coding-agent session that uses the same AMB home and database. Ask a related question, then use Inspect and Explore.
+
+**Inspect** answers: why did this information surface for this question?
+
+```bash
+agent-memory-bridge inspect \
+  --namespace project:my-app \
+  --query "Should we add Redis?"
+```
+
+Inspect explains the governed result for that question. It does not list every durable record, change memory, or prove the model used a memory.
+
+**Explore** answers: what does AMB currently know about this project, and how is it connected?
+
+```bash
+agent-memory-bridge explore \
+  --namespace project:my-app
+```
+
+Explore is a local, read-only, derived projection over existing project knowledge. It is CLI-only, not MCP tool #18, and it does not rank context for the model.
+
+### Project knowledge mental model
+
+This is a conceptual view, not verbatim CLI output:
+
+```text
+PROJECT: MY APP
+
+CODE / WHAT                  CONVERSATION / WHY
+───────────                  ──────────────────
+Runtime: Python >=3.11       Decision: Avoid Redis
+Tests: pytest                Reason: single-node,
+CI: GitHub Actions           local-first project
+Container: Docker
+Guidance: AGENTS.md
+```
+
+Repository WHAT is derived from current clean code. It is rebuildable and is not durable human decision authority.
+
+Conversation WHY is an explicit decision or constraint stored through AMB. It is governed durable project memory.
+
+Explorer is a read-only projection over existing knowledge. It is not a new source of authority.
+
+Detailed authority language lives in [Project Knowledge Activation](docs/PROJECT-KNOWLEDGE-ACTIVATION.md) and [Architecture](docs/ARCHITECTURE.md).
+
+### If repository WHAT is unavailable
+
+**Dirty worktree.** Repository WHAT is temporarily unavailable because the checkout has uncommitted changes. AMB will not attribute those changes to the current Git commit. Commit, stash, or restore the worktree, then explicitly rerun `bootstrap-repo`.
+
+**Changed clean HEAD.** Repository WHAT is temporarily stale because HEAD changed since the saved snapshot.
+
+Previous snapshot: `<old SHA>`
+
+Current clean HEAD: `<new SHA>`
+
+AMB will not present the previous snapshot as current repository truth. Explicitly rerun:
+
+```bash
+agent-memory-bridge bootstrap-repo . \
+  --namespace project:<name>
+```
+
+Then repository WHAT is refreshed and durable project WHY is unchanged. Refresh is not automatic.
+
+**Missing binding.** No current repository binding was found for this project namespace. The current v0.31.x runtime does not interactively suggest a namespace. Choose the project namespace you want to bind to this checkout, then run:
+
+```bash
+agent-memory-bridge bootstrap-repo . \
+  --namespace project:<name>
+```
+
+### One demo on this repository
+
+After connecting AMB to a client that shares the same AMB home:
+
+```bash
+agent-memory-bridge bootstrap-repo . --namespace project:amb
+```
+
+Teach naturally:
+
+> Remember that we decided not to use a graph database for Knowledge Explorer because Explorer should remain a derived read-only projection.
+
+Start a fresh session, ask “Should Knowledge Explorer use a graph database?”, then run Inspect and Explore. This proves recovery of an explicit decision. It does not claim productivity or that the model used the memory.
+
+### Optional guided memory loop
+
+`first-run` remains available as secondary guided durable-memory help. It is not the modern Project Learning entrypoint.
+
+```bash
+<venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
+```
+
+For the detailed agent workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
 
 
 ## Integrations
@@ -132,6 +234,8 @@ The public surface is intentionally small. Context assembly, review reports, and
 | [Production Status](docs/PRODUCTION-STATUS.md) | Current source facts, implemented capability summary, validation evidence, and known boundaries. |
 | [Capability History](CHANGELOG.md) | Durable historical capability milestones and retained proof/evidence references. |
 | [Install for Agents](INSTALL_FOR_AGENTS.md) | Detailed install-to-first-success workflow. |
+| [Project Knowledge Activation](docs/PROJECT-KNOWLEDGE-ACTIVATION.md) | Repository WHAT, durable WHY, and explicit refresh rules. |
+| [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) | Read-only derived view of current project knowledge. |
 | [Integrations](docs/INTEGRATIONS.md) | Client-specific local stdio MCP setup. |
 | [Configuration](docs/CONFIGURATION.md) | Complete configuration reference. |
 | [Authority Contract](docs/AUTHORITY-CONTRACT.md) | Durable authority, derived views, review, and correction rules. |

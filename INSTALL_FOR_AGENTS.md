@@ -178,7 +178,43 @@ Use this shape when the client supports JSON `mcpServers` config:
 
 Client-specific examples live in `docs/INTEGRATIONS.md`.
 
-## First Run After Setup
+## Project Learning After Setup
+
+The human-facing first-value path is: connect AMB, bootstrap repository WHAT,
+teach one explicit project WHY in natural language, then prove it in a fresh
+session with Inspect and Explore. See the README Quick Start for that journey.
+
+When the human explicitly says something equivalent to "Remember that we decided
+X because Y," persist an explicit structured project decision through the
+existing public MCP `store` contract. Do not silently infer a durable decision
+from repository code, automatically promote conversational text, or archive
+transcripts.
+
+For a decision, store content conceptually equivalent to:
+
+```text
+record_type: decision
+claim: <the decision>
+reason: <why it was made>
+scope: project:<namespace>
+confidence: observed
+```
+
+For an explicit constraint, use `record_type: constraint` with the same claim
+and reason fields. Keep `kind="memory"` and `namespace="project:<name>"`. The
+human Quick Start should not require those fields.
+
+After a later session asks a related question, `inspect` explains why that
+active project WHY surfaced for the question. `explore` shows what AMB currently
+knows about the project and how eligible WHAT and WHY are connected. Inspect
+does not list every durable record. Explore does not rank context for the model.
+
+If repository WHAT is unavailable, recover with an explicit
+`bootstrap-repo . --namespace project:<name>` after the worktree is clean. Dirty
+worktrees, changed HEAD, and missing bindings do not auto-refresh, and the
+current v0.31.x runtime does not interactively suggest a namespace.
+
+## Optional First Run Guide
 
 `setup` owns safe client connection. After the client is connected, use
 `first-run` as a product guide that is read-only with respect to user memory and client configuration:
