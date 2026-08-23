@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
+from .repository_snapshot_store import select_repository_facts
 from .review_queue import REVIEW_QUEUE_SCHEMA, build_review_queue_report
 from .storage import MemoryStore
 from .task_memory import assemble_task_memory
@@ -31,6 +33,7 @@ def build_memory_inspect_report(
     query: str,
     global_namespace: str = "global",
     technical: bool = False,
+    repository_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Project existing governed task-memory decisions without durable user-authority writes."""
 
@@ -63,6 +66,7 @@ def build_memory_inspect_report(
         *corrective_review,
         *_relevant_review_queue_items(store, cleaned_namespace, candidate_ids, technical),
     ]
+    repository_selected, repository_excluded = _repository_items(repository_snapshot, cleaned_query)
 
     return {
         "schema": MEMORY_INSPECT_SCHEMA,
@@ -71,6 +75,11 @@ def build_memory_inspect_report(
         "mutation_boundary": MEMORY_INSPECT_BOUNDARY,
         "selected": selected,
         "excluded": excluded,
+        "repository_knowledge": {
+            "selected": repository_selected,
+            "excluded": repository_excluded,
+            "snapshot": _repository_snapshot_metadata(repository_snapshot),
+        },
         "needs_review": _dedupe_items(needs_review),
         "explanation": {
             "selected_means": "These records surfaced in the governed task-memory result.",
@@ -94,7 +103,20 @@ def build_memory_inspect_report(
 
 
 def render_memory_inspect_markdown(report: dict[str, Any]) -> str:
-    lines = ["# AMB Inspect", "", "## Question", "", report["query"], "", "## What AMB remembered", ""]
+    repository = report.get("repository_knowledge") or {}
+    lines = ["# AMB Inspect", "", "## Question", "", report["query"], "", "## Repository knowledge (WHAT)", ""]
+    repository_snapshot = repository.get("snapshot") or {}
+    if repository_snapshot.get("binding_state") == "current":
+        lines.extend(
+            _render_repository_items(repository.get("selected") or [], empty="No relevant repository facts surfaced.")
+        )
+    elif repository_snapshot:
+        lines.append(
+            f"Repository knowledge is unavailable for current truth: {repository_snapshot.get('stale_reason') or repository_snapshot.get('binding_state') or 'ineligible'}."
+        )
+    else:
+        lines.append("No repository is bound to this project namespace.")
+    lines.extend(["", "## What AMB remembered", "", "### Durable project memory (WHY)", ""])
     lines.extend(_render_items(report["selected"], empty="No governed memories surfaced for this question."))
     lines.extend(["## Why this appeared", ""])
     if report["selected"]:
@@ -120,6 +142,51 @@ def render_memory_inspect_markdown(report: dict[str, Any]) -> str:
             "This report shows selection and governance evidence only; it does not prove memory application or causal success."
         )
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _repository_items(snapshot: dict[str, Any] | None, query: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    if not snapshot or snapshot.get("binding_state") != "current":
+        return [], []
+    selected, excluded = select_repository_facts(snapshot, query)
+
+    def project(fact: dict[str, Any], status: str) -> dict[str, Any]:
+        return {
+            "fact_kind": str(fact.get("key") or "repository_fact"),
+            "value": fact.get("value"),
+            "source": fact.get("source"),
+            "commit": fact.get("commit"),
+            "authority": "derived_repository",
+            "status": status,
+        }
+
+    return [project(fact, "current") for fact in selected], [project(fact, "not_selected") for fact in excluded]
+
+
+def _repository_snapshot_metadata(snapshot: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not snapshot:
+        return None
+    return {
+        "repository_id": snapshot.get("repository_id"),
+        "root": snapshot.get("root"),
+        "commit": snapshot.get("commit"),
+        "current_commit": snapshot.get("current_commit"),
+        "binding": snapshot.get("binding"),
+        "binding_state": snapshot.get("binding_state"),
+        "stale_reason": snapshot.get("stale_reason"),
+        "authority": "derived_repository",
+    }
+
+
+def _render_repository_items(items: list[dict[str, Any]], *, empty: str) -> list[str]:
+    if not items:
+        return [empty]
+    lines: list[str] = []
+    for item in items:
+        lines.append(f"- **{item['fact_kind']}**: {json.dumps(item['value'], ensure_ascii=False, sort_keys=True)}")
+        lines.append(
+            f"  source: `{item.get('source')}`; commit: `{item.get('commit') or 'unavailable'}`; authority: `derived_repository`"
+        )
+    return lines
 
 
 def _selected_items(task_memory: dict[str, Any], *, include_technical: bool) -> list[dict[str, Any]]:
