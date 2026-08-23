@@ -341,7 +341,15 @@ def test_assemble_task_memory_filters_expired_and_future_relation_targets(tmp_pa
 
 def _packet_titles(report: dict[str, object]) -> set[str]:
     titles: set[str] = set()
-    for key in ("procedure_hits", "concept_hits", "belief_hits", "domain_hits", "supporting_hits"):
+    for key in (
+        "procedure_hits",
+        "decision_hits",
+        "constraint_hits",
+        "concept_hits",
+        "belief_hits",
+        "domain_hits",
+        "supporting_hits",
+    ):
         for item in report.get(key, []) or []:  # type: ignore[union-attr]
             if isinstance(item, dict) and item.get("title"):
                 titles.add(str(item["title"]))

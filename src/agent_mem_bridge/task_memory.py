@@ -21,6 +21,8 @@ from .storage import MemoryStore
 
 SECTION_LIMIT_KEYS = {
     "procedure": "procedure_limit",
+    "decision": "decision_limit",
+    "constraint": "constraint_limit",
     "concept": "concept_limit",
     "belief": "belief_limit",
     "domain": "domain_limit",
@@ -31,8 +33,14 @@ SECTION_TAGS = {
     "belief": "kind:belief",
     "domain": "kind:domain-note",
 }
+PROJECT_WHY_RECORD_TYPES = frozenset({"decision", "constraint"})
+# Bounded semantic window for project WHY refill (no unbounded durable scan).
+# Uses the same ceiling pattern as other relation-aware candidate refills.
+PROJECT_WHY_CANDIDATE_CEILING = 30
 SECTION_BASE_SCORES = {
     "procedure": 100.0,
+    "decision": 95.0,
+    "constraint": 90.0,
     "concept": 70.0,
     "belief": 55.0,
     "domain": 40.0,
@@ -40,10 +48,12 @@ SECTION_BASE_SCORES = {
 }
 SECTION_PRIORITY = {
     "procedure": 0,
-    "concept": 1,
-    "belief": 2,
-    "domain": 3,
-    "support": 4,
+    "decision": 1,
+    "constraint": 2,
+    "concept": 3,
+    "belief": 4,
+    "domain": 5,
+    "support": 6,
 }
 ELIGIBLE_VALIDITY_STATUSES = {"unbounded", "current"}
 INELIGIBLE_VALIDITY_STATUSES = {"expired", "future", "invalid"}
@@ -67,6 +77,8 @@ class TaskMemoryConfig:
     project_namespace: str
     global_namespace: str = "global"
     procedure_limit: int = 3
+    decision_limit: int = 3
+    constraint_limit: int = 3
     concept_limit: int = 3
     belief_limit: int = 3
     domain_limit: int = 2
@@ -93,6 +105,8 @@ def assemble_task_memory(
     project_namespace: str,
     global_namespace: str = "global",
     procedure_limit: int = 3,
+    decision_limit: int = 3,
+    constraint_limit: int = 3,
     concept_limit: int = 3,
     belief_limit: int = 3,
     domain_limit: int = 2,
@@ -105,6 +119,8 @@ def assemble_task_memory(
         project_namespace=project_namespace.strip(),
         global_namespace=global_namespace.strip() or "global",
         procedure_limit=procedure_limit,
+        decision_limit=decision_limit,
+        constraint_limit=constraint_limit,
         concept_limit=concept_limit,
         belief_limit=belief_limit,
         domain_limit=domain_limit,
@@ -160,10 +176,32 @@ def _assemble_flat_task_memory(store: MemoryStore, *, query: str, config: TaskMe
         tags_any=["kind:domain-note"],
         limit=config.domain_limit,
     )
+    decision_hits = _filter_project_why_hits(
+        _recall_project_why_hits(
+            store,
+            namespace=config.project_namespace,
+            query=query,
+            record_type="decision",
+            limit=config.decision_limit,
+        ),
+        record_type="decision",
+        config=config,
+    )
+    constraint_hits = _filter_project_why_hits(
+        _recall_project_why_hits(
+            store,
+            namespace=config.project_namespace,
+            query=query,
+            record_type="constraint",
+            limit=config.constraint_limit,
+        ),
+        record_type="constraint",
+        config=config,
+    )
 
     procedure_hits, suppressed = _filter_flat_procedures(procedure_hits, config=config)
     enriched_procedures = [_enrich_procedure_hit(item, task_domain=config.task_domain) for item in procedure_hits]
-    supporting_ids = _collect_supporting_ids([*procedure_hits, *concept_hits])
+    supporting_ids = _collect_supporting_ids([*procedure_hits, *concept_hits, *decision_hits, *constraint_hits])
     supporting_hits, suppressed_supports = _fetch_eligible_items_by_id(
         store,
         supporting_ids,
@@ -178,6 +216,8 @@ def _assemble_flat_task_memory(store: MemoryStore, *, query: str, config: TaskMe
         "as_of": config.as_of.isoformat() if config.as_of else None,
         "task_domain": config.task_domain or None,
         "procedure_hits": enriched_procedures,
+        "decision_hits": decision_hits,
+        "constraint_hits": constraint_hits,
         "concept_hits": concept_hits,
         "belief_hits": belief_hits,
         "domain_hits": domain_hits,
@@ -199,7 +239,14 @@ def _assemble_relation_aware_task_memory(
     config: TaskMemoryConfig,
 ) -> dict[str, Any]:
     candidate_limit = _candidate_limit(
-        max(config.procedure_limit, config.concept_limit, config.belief_limit, config.domain_limit)
+        max(
+            config.procedure_limit,
+            config.decision_limit,
+            config.constraint_limit,
+            config.concept_limit,
+            config.belief_limit,
+            config.domain_limit,
+        )
     )
     raw_procedure_hits = _merge_hits(
         _recall_hits(
@@ -219,6 +266,20 @@ def _assemble_relation_aware_task_memory(
             eligibility=PROCEDURE_GOVERNANCE_RECALL_ELIGIBILITY,
         ),
         candidate_limit * 2,
+    )
+    raw_decision_hits = _recall_project_why_hits(
+        store,
+        namespace=config.project_namespace,
+        query=query,
+        record_type="decision",
+        limit=candidate_limit,
+    )
+    raw_constraint_hits = _recall_project_why_hits(
+        store,
+        namespace=config.project_namespace,
+        query=query,
+        record_type="constraint",
+        limit=candidate_limit,
     )
     raw_concept_hits = _recall_hits(
         store,
@@ -262,6 +323,8 @@ def _assemble_relation_aware_task_memory(
     candidates = _build_direct_candidates(
         {
             "procedure": raw_procedure_hits,
+            "decision": raw_decision_hits,
+            "constraint": raw_constraint_hits,
             "concept": raw_concept_hits,
             "belief": raw_belief_hits,
             "domain": raw_domain_hits,
@@ -278,6 +341,7 @@ def _assemble_relation_aware_task_memory(
     corrective_items: list[dict[str, Any]] = []
     active_ids = set(candidates)
     _apply_relation_expansion_eligibility_suppression(store, candidates, active_ids, suppressed)
+    _apply_structured_metadata_suppression(candidates, active_ids, suppressed)
     _apply_validity_suppression(candidates, active_ids, suppressed, as_of=config.as_of)
     _apply_lineage_suppression(candidates, active_ids, suppressed)
     _apply_procedure_governance_suppression(
@@ -330,6 +394,24 @@ def _assemble_relation_aware_task_memory(
         selected_as="procedure-anchor",
     )
     selected_ids.update(_collect_ids(procedure_hits))
+    decision_hits = _select_section(
+        candidates,
+        active_ids,
+        scores,
+        section="decision",
+        limit=config.decision_limit,
+        selected_as="project-decision",
+    )
+    selected_ids.update(_collect_ids(decision_hits))
+    constraint_hits = _select_section(
+        candidates,
+        active_ids,
+        scores,
+        section="constraint",
+        limit=config.constraint_limit,
+        selected_as="project-constraint",
+    )
+    selected_ids.update(_collect_ids(constraint_hits))
     concept_hits = _select_section(
         candidates,
         active_ids,
@@ -378,6 +460,8 @@ def _assemble_relation_aware_task_memory(
         "as_of": config.as_of.isoformat() if config.as_of else None,
         "task_domain": config.task_domain or None,
         "procedure_hits": enriched_procedures,
+        "decision_hits": decision_hits,
+        "constraint_hits": constraint_hits,
         "concept_hits": concept_hits,
         "belief_hits": belief_hits,
         "domain_hits": domain_hits,
@@ -425,6 +509,26 @@ def render_task_memory_text(report: dict[str, Any]) -> str:
         if governance and governance.get("status") != "unspecified":
             lines.append(f"  procedure_status: {governance['status']}")
 
+    lines.extend(["", "Project Decisions:"])
+    decision_hits = report.get("decision_hits") or []
+    if not decision_hits:
+        lines.append("(none)")
+    for item in decision_hits:
+        lines.append(f"- {item.get('title') or item['id']}")
+        decision = item.get("task_memory") or {}
+        if decision:
+            lines.append(f"  selected_as: {decision.get('selected_as')} score={decision.get('score')}")
+
+    lines.extend(["", "Project Constraints:"])
+    constraint_hits = report.get("constraint_hits") or []
+    if not constraint_hits:
+        lines.append("(none)")
+    for item in constraint_hits:
+        lines.append(f"- {item.get('title') or item['id']}")
+        decision = item.get("task_memory") or {}
+        if decision:
+            lines.append(f"  selected_as: {decision.get('selected_as')} score={decision.get('score')}")
+
     lines.extend(["", "Concepts:"])
     concept_hits = report.get("concept_hits") or []
     if not concept_hits:
@@ -462,6 +566,85 @@ def render_task_memory_text(report: dict[str, Any]) -> str:
         if unresolved_targets:
             lines.append(f"- unresolved_relation_targets: {len(unresolved_targets)}")
     return "\n".join(lines)
+
+
+def _item_record_type(item: dict[str, Any]) -> str:
+    record_type = _normalize_field_value(item.get("record_type"))
+    if record_type:
+        return record_type
+    fields = parse_content_fields(str(item.get("content") or ""))
+    return _normalize_field_value(fields.get("record_type"))
+
+
+def _has_invalid_structured_metadata(item: dict[str, Any]) -> bool:
+    issues = item.get("metadata_validation_issues") or item.get("validation_issues") or []
+    if isinstance(issues, str):
+        return bool(issues.strip()) and issues.strip() not in {"[]", "{}"}
+    return bool(issues)
+
+
+def _recall_project_why_hits(
+    store: MemoryStore,
+    *,
+    namespace: str,
+    query: str,
+    record_type: str,
+    limit: int,
+) -> list[dict[str, Any]]:
+    """Recall project-scoped decision/constraint candidates without kind-tag workarounds.
+
+    Uses existing bounded semantic recall (no tags_any filter), then keeps only
+    matching record_type rows. Candidate window is capped by PROJECT_WHY_CANDIDATE_CEILING
+    so unrelated memories cannot require an unbounded durable scan.
+    """
+    if not namespace or limit <= 0 or record_type not in PROJECT_WHY_RECORD_TYPES:
+        return []
+    window = min(max(limit, _candidate_limit(limit)), PROJECT_WHY_CANDIDATE_CEILING)
+    hits = _recall_hits(
+        store,
+        namespace=namespace,
+        query=query,
+        tags_any=[],
+        limit=window,
+    )
+    matched: list[dict[str, Any]] = []
+    for item in hits:
+        if _item_record_type(item) != record_type:
+            continue
+        matched.append(item)
+        if len(matched) >= limit:
+            break
+    return matched
+
+
+def _filter_project_why_hits(
+    items: list[dict[str, Any]],
+    *,
+    record_type: str,
+    config: TaskMemoryConfig,
+) -> list[dict[str, Any]]:
+    """Flat-mode eligibility filter mirroring relation-aware validity/lineage gates."""
+    eligible: list[dict[str, Any]] = []
+    for item in items:
+        if _item_record_type(item) != record_type:
+            continue
+        if _has_invalid_structured_metadata(item):
+            continue
+        fields = parse_content_fields(str(item.get("content") or ""))
+        persisted_status = _normalize_field_value(item.get("lineage_status"))
+        declared_status = _normalize_field_value(fields.get("lineage_status"))
+        if persisted_status == "degraded" or declared_status == "degraded":
+            continue
+        if config.as_of is not None:
+            validity = str(parse_relation_metadata(str(item.get("content") or ""), now=config.as_of)["validity_status"])
+            if validity in INELIGIBLE_VALIDITY_STATUSES:
+                continue
+        else:
+            validity = str(parse_relation_metadata(str(item.get("content") or ""))["validity_status"])
+            if validity in INELIGIBLE_VALIDITY_STATUSES:
+                continue
+        eligible.append(item)
+    return eligible
 
 
 def _recall_hits(
@@ -789,6 +972,22 @@ def _apply_relation_expansion_eligibility_suppression(
         suppressed.append(_suppressed_payload(candidates[item_id], reason=reason))
 
 
+def _apply_structured_metadata_suppression(
+    candidates: dict[str, TaskCandidate],
+    active_ids: set[str],
+    suppressed: list[dict[str, Any]],
+) -> None:
+    for item_id, candidate in candidates.items():
+        if item_id not in active_ids:
+            continue
+        if candidate.section not in PROJECT_WHY_RECORD_TYPES:
+            continue
+        if not _has_invalid_structured_metadata(candidate.item):
+            continue
+        active_ids.remove(item_id)
+        suppressed.append(_suppressed_payload(candidate, reason="invalid_structured_metadata"))
+
+
 def _apply_validity_suppression(
     candidates: dict[str, TaskCandidate],
     active_ids: set[str],
@@ -912,7 +1111,7 @@ def _score_candidates(
 
 
 def _base_score(candidate: TaskCandidate, *, task_domain: str = "") -> float:
-    rank_penalty = 5.0 if candidate.section in {"procedure", "concept", "belief"} else 4.0
+    rank_penalty = 5.0 if candidate.section in {"procedure", "decision", "constraint", "concept", "belief"} else 4.0
     namespace_bonus = 4.0 if candidate.namespace_role == "project" else 0.0
     direct_bonus = 5.0 if candidate.direct else 0.0
     procedure_governance_bonus = _procedure_governance_score(candidate, task_domain=task_domain)

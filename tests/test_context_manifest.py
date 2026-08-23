@@ -361,6 +361,8 @@ def test_input_fingerprint_covers_session_title_and_canonical_memory_digests(tmp
         item
         for report_key in (
             "procedure_hits",
+            "decision_hits",
+            "constraint_hits",
             "concept_hits",
             "belief_hits",
             "domain_hits",

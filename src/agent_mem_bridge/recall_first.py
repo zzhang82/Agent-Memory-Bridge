@@ -154,6 +154,10 @@ def recall_first(
     recommended_action = "Search local memory first."
     if task_memory["procedure_hits"]:
         recommended_action = "Search local memory first, starting with applicable procedures and supporting concepts."
+    elif task_memory["decision_hits"] or task_memory["constraint_hits"]:
+        recommended_action = (
+            "Search local memory first, starting with applicable project decisions/constraints and supporting concepts."
+        )
     if reference_hits and not project_hits:
         recommended_action = "Profile bundle missed; fallback reference memory may help before external search."
     if (
@@ -178,6 +182,8 @@ def recall_first(
         "gotcha_hits": gotcha_hits,
         "domain_hits": domain_hits,
         "procedure_hits": task_memory["procedure_hits"],
+        "decision_hits": task_memory["decision_hits"],
+        "constraint_hits": task_memory["constraint_hits"],
         "concept_hits": task_memory["concept_hits"],
         "belief_hits": task_memory["belief_hits"],
         "supporting_hits": task_memory["supporting_hits"],

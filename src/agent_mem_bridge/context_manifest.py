@@ -23,6 +23,8 @@ COMPILER_VERSION = "context-compiler-v1"
 SELECTION_POLICY_VERSION = "session-1-governed-token-budget-v1"
 _TASK_MEMORY_SECTIONS = (
     ("procedure_hits", "procedure"),
+    ("decision_hits", "decision"),
+    ("constraint_hits", "constraint"),
     ("concept_hits", "concept"),
     ("belief_hits", "belief"),
     ("domain_hits", "domain"),
@@ -768,6 +770,8 @@ def _clean_label(value: object) -> str:
 def _section_label(section: str) -> str:
     return {
         "procedure": "Procedure",
+        "decision": "Project Decision",
+        "constraint": "Project Constraint",
         "concept": "Concept",
         "belief": "Belief",
         "domain": "Domain",

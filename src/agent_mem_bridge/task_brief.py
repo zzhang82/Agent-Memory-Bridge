@@ -20,6 +20,8 @@ DEFAULT_TASK_BRIEF_REPORT_PATH = Path(__file__).resolve().parents[2] / "benchmar
 
 USED_TASK_SECTIONS = (
     "procedure_hits",
+    "decision_hits",
+    "constraint_hits",
     "concept_hits",
     "belief_hits",
     "domain_hits",
