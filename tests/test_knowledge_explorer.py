@@ -16,7 +16,7 @@ class FakeMemoryStore:
 
     def browse(self, namespace: str, *, limit: int) -> dict[str, object]:
         self.browse_calls.append((namespace, limit))
-        return {"items": self.items}
+        return {"items": self.items[:limit]}
 
 
 def git(repo: Path, *args: str) -> None:
@@ -396,3 +396,32 @@ def test_injected_and_query_only_paths_share_validity_governance(tmp_path: Path,
     assert injected_ids == {"memory:current-parity"}
     assert len(query_ids) == 1
     assert any(item["reason"] == "validity:expired" for item in injected["diagnostics"])
+
+
+def test_production_target_lookup_resolves_beyond_primary_scan_window(tmp_path: Path, monkeypatch) -> None:
+    store = _real_store(tmp_path, monkeypatch)
+    target = _active_decision(store, "claim: target beyond primary window", "Far target")
+    source = _active_decision(store, f"claim: primary source\nsupports: {target['id']}", "Primary source")
+    for index in range(501):
+        _active_decision(store, f"claim: filler {index}", f"Filler {index}")
+    with store._connect() as connection:
+        connection.execute(
+            "UPDATE memories SET created_at = ? WHERE id = ?", ("2099-01-01T00:00:00+00:00", target["id"])
+        )
+        connection.commit()
+    projection = build_explorer_projection(
+        namespace="project:fixture", snapshot_root=tmp_path / "snapshots", memory_store=None, limit=1
+    )
+    target_node = f"memory:{target['id']}"
+    source_node = f"memory:{source['id']}"
+    assert source_node in {node["id"] for node in projection["nodes"]}
+    assert target_node in {node["id"] for node in projection["nodes"]}
+    assert any(
+        edge["source"] == source_node and edge["relation"] == "supports" and edge["target"] == target_node
+        for edge in projection["edges"]
+    )
+    assert not any(
+        diagnostic.get("target_memory_id") == target["id"]
+        and diagnostic.get("reason") in {"missing_target", "ineligible_target"}
+        for diagnostic in projection["diagnostics"]
+    )

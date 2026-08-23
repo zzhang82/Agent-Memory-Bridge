@@ -124,6 +124,14 @@ def build_explorer_projection(
         )
     relation_target_ids = set(dict.fromkeys(sorted(relation_targets)))
     bounded_relation_target_ids = set(sorted(relation_target_ids)[:RELATION_TARGET_CEILING])
+    target_items, target_suppressed, found_target_ids = _read_relation_targets(
+        memory_store=memory_store,
+        db_path=resolve_bridge_db_path(),
+        namespace=cleaned_namespace,
+        target_ids=sorted(bounded_relation_target_ids),
+    )
+    diagnostics.extend(target_suppressed)
+    eligible_by_id.update({str(item["id"]): item for item in target_items if str(item.get("id") or "")})
 
     for item in primary_items:
         memory_id = str(item["id"])
@@ -178,7 +186,7 @@ def build_explorer_projection(
                             "source_memory_id": memory_id,
                             "relation": relation_name,
                             "target_memory_id": target,
-                            "reason": "missing_or_ineligible_target",
+                            "reason": "ineligible_target" if target in found_target_ids else "missing_target",
                         }
                     )
                     continue
@@ -271,7 +279,7 @@ def _read_governed_memories(
     *, memory_store: Any | None, db_path: Path, namespace: str, limit: int
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     if memory_store is not None:
-        payload = memory_store.browse(namespace, limit=max(1, min(limit, 500)))
+        payload = memory_store.browse(namespace, limit=PRIMARY_SCAN_CEILING)
         browse_items: list[dict[str, Any]] = [item for item in payload.get("items") or [] if isinstance(item, dict)]
         eligible, suppressed = _apply_memory_governance(browse_items, memory_store=memory_store, connection=None)
         return eligible, suppressed
@@ -346,6 +354,52 @@ def _apply_memory_governance(
         in {"decision", "constraint"}
     ]
     return candidates, suppressed
+
+
+def _read_relation_targets(
+    *, memory_store: Any | None, db_path: Path, namespace: str, target_ids: list[str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], set[str]]:
+    bounded_ids = sorted(dict.fromkeys(target_ids))[:RELATION_TARGET_CEILING]
+    if not bounded_ids:
+        return [], [], set()
+    if memory_store is not None:
+        payload = memory_store.browse(namespace, limit=PRIMARY_SCAN_CEILING)
+        raw_items = [item for item in payload.get("items") or [] if isinstance(item, dict)]
+        found = {str(item.get("id") or "") for item in raw_items if str(item.get("id") or "") in bounded_ids}
+        selected = [item for item in raw_items if str(item.get("id") or "") in bounded_ids]
+        eligible, suppressed = _apply_memory_governance(selected, memory_store=memory_store, connection=None)
+        return eligible, suppressed, found
+    if not db_path.is_file():
+        return [], [], set()
+    connection = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True)
+    try:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA query_only=ON")
+        placeholders = ", ".join("?" for _ in bounded_ids)
+        rows = connection.execute(
+            f"""
+            SELECT m.id, m.kind, m.title, m.content, m.tags_json, m.created_at,
+                   m.lineage_status, mm.record_type, mm.valid_from, mm.valid_until, mm.validation_issues_json
+            FROM memories AS m
+            LEFT JOIN memory_metadata AS mm ON mm.memory_id = m.id
+            WHERE m.namespace = ? AND m.id IN ({placeholders})
+              AND COALESCE(m.is_learning_candidate, 0) = 0
+            ORDER BY m.id ASC
+            """,
+            [namespace, *bounded_ids],
+        ).fetchall()
+        found = {str(row["id"]) for row in rows}
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            item["tags"] = json.loads(item.pop("tags_json") or "[]")
+            items.append(item)
+        eligible, suppressed = _apply_memory_governance(items, memory_store=None, connection=connection)
+        return eligible, suppressed, found
+    except sqlite3.OperationalError:
+        return [], [], set()
+    finally:
+        connection.close()
 
 
 def _repository_view(snapshot: dict[str, Any] | None, limit: int) -> dict[str, Any]:
