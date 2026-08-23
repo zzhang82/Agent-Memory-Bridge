@@ -40,7 +40,7 @@ def test_snapshot_persists_and_reloads_with_stable_identity(tmp_path: Path) -> N
     loaded = store.load_snapshot(saved["repository_id"])
     assert loaded is not None
     assert loaded["repository_id"] == saved["repository_id"]
-    assert loaded["snapshot_path"].endswith("/current.json")
+    assert Path(loaded["snapshot_path"]).name == "current.json"
     assert (
         json.loads(Path(loaded["snapshot_path"]).read_text(encoding="utf-8"))["store_schema"]
         == "repository.snapshot.v1"

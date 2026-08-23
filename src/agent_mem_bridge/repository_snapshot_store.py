@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -72,7 +73,19 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        last_error: OSError | None = None
+        for attempt in range(8):
+            try:
+                os.replace(temporary, path)
+                last_error = None
+                break
+            except PermissionError as error:
+                last_error = error
+                if attempt == 7:
+                    raise
+                time.sleep(0.01 * (attempt + 1))
+        if last_error is not None:
+            raise last_error
     finally:
         try:
             os.unlink(temporary)
