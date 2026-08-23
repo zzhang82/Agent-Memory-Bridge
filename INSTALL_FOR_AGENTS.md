@@ -183,6 +183,8 @@ Client-specific examples live in `docs/INTEGRATIONS.md`.
 The human-facing first-value path is: connect AMB, bootstrap repository WHAT,
 teach one explicit project WHY in natural language, then prove it in a fresh
 session with Inspect and Explore. See the README Quick Start for that journey.
+`doctor` and `verify` remain optional health/troubleshooting checks; they are
+not required before bootstrap.
 
 When the human explicitly says something equivalent to "Remember that we decided
 X because Y," persist an explicit structured project decision through the

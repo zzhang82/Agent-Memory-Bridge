@@ -72,19 +72,12 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge setup --client generic
 ```
 
-使用生成的客户端配置，重新加载客户端，然后检查健康状态：
-
-```bash
-<venv-python> -m agent_mem_bridge doctor
-<venv-python> -m agent_mem_bridge verify
-```
-
-`setup` 负责连接与配置规划。`doctor` 和 `verify` 用于健康检查和排障。
+使用生成的客户端配置并重新加载客户端。`setup` 负责连接与配置规划。
 
 ### 2. 引导仓库 WHAT
 
 ```bash
-agent-memory-bridge bootstrap-repo . \
+<venv-python> -m agent_mem_bridge bootstrap-repo . \
   --namespace project:my-app
 ```
 
@@ -111,7 +104,7 @@ AMB 不会从仓库代码静默推断持久决策，不会自动提升对话文�
 **Inspect** 回答：这次问题里，AMB 为什么会给出这些信息？
 
 ```bash
-agent-memory-bridge inspect \
+<venv-python> -m agent_mem_bridge inspect \
   --namespace project:my-app \
   --query "Should we add Redis?"
 ```
@@ -121,7 +114,7 @@ Inspect 解释该问题对应的受治理结果。它不会列出全部持久记
 **Explore** 回答：AMB 目前知道这个项目的哪些内容，它们如何关联？
 
 ```bash
-agent-memory-bridge explore \
+<venv-python> -m agent_mem_bridge explore \
   --namespace project:my-app
 ```
 
@@ -164,7 +157,7 @@ Explorer 是现有知识的只读投影，不是新的权威来源。
 AMB 不会把旧快照当作当前仓库真相。请显式重新运行：
 
 ```bash
-agent-memory-bridge bootstrap-repo . \
+<venv-python> -m agent_mem_bridge bootstrap-repo . \
   --namespace project:<name>
 ```
 
@@ -173,7 +166,7 @@ agent-memory-bridge bootstrap-repo . \
 **缺少绑定。** 当前没有找到该项目命名空间的仓库绑定。当前 v0.31.x 运行时不会交互式建议命名空间。请选择要绑定到此检出的项目命名空间，然后运行：
 
 ```bash
-agent-memory-bridge bootstrap-repo . \
+<venv-python> -m agent_mem_bridge bootstrap-repo . \
   --namespace project:<name>
 ```
 
@@ -182,7 +175,7 @@ agent-memory-bridge bootstrap-repo . \
 把 AMB 连接到共享同一 AMB 主目录的客户端后：
 
 ```bash
-agent-memory-bridge bootstrap-repo . --namespace project:amb
+<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:amb
 ```
 
 用自然语言教会：
@@ -197,6 +190,15 @@ agent-memory-bridge bootstrap-repo . --namespace project:amb
 
 ```bash
 <venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
+```
+
+### 如果连接健康状态不确定
+
+`doctor` 和 `verify` 是可选的健康检查与排障命令。引导仓库 WHAT 之前不需要先运行它们。
+
+```bash
+<venv-python> -m agent_mem_bridge doctor
+<venv-python> -m agent_mem_bridge verify
 ```
 
 详细智能体流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。

@@ -73,19 +73,12 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge setup --client generic
 ```
 
-Use the rendered client configuration, reload the client, then check health:
-
-```bash
-<venv-python> -m agent_mem_bridge doctor
-<venv-python> -m agent_mem_bridge verify
-```
-
-`setup` owns connection and configuration planning. `doctor` and `verify` are health and troubleshooting checks.
+Use the rendered client configuration and reload the client. `setup` owns connection and configuration planning.
 
 ### 2. Bootstrap repository WHAT
 
 ```bash
-agent-memory-bridge bootstrap-repo . \
+<venv-python> -m agent_mem_bridge bootstrap-repo . \
   --namespace project:my-app
 ```
 
@@ -112,7 +105,7 @@ Start or reopen a coding-agent session that uses the same AMB home and database.
 **Inspect** answers: why did this information surface for this question?
 
 ```bash
-agent-memory-bridge inspect \
+<venv-python> -m agent_mem_bridge inspect \
   --namespace project:my-app \
   --query "Should we add Redis?"
 ```
@@ -122,7 +115,7 @@ Inspect explains the governed result for that question. It does not list every d
 **Explore** answers: what does AMB currently know about this project, and how is it connected?
 
 ```bash
-agent-memory-bridge explore \
+<venv-python> -m agent_mem_bridge explore \
   --namespace project:my-app
 ```
 
@@ -165,7 +158,7 @@ Current clean HEAD: `<new SHA>`
 AMB will not present the previous snapshot as current repository truth. Explicitly rerun:
 
 ```bash
-agent-memory-bridge bootstrap-repo . \
+<venv-python> -m agent_mem_bridge bootstrap-repo . \
   --namespace project:<name>
 ```
 
@@ -174,7 +167,7 @@ Then repository WHAT is refreshed and durable project WHY is unchanged. Refresh 
 **Missing binding.** No current repository binding was found for this project namespace. The current v0.31.x runtime does not interactively suggest a namespace. Choose the project namespace you want to bind to this checkout, then run:
 
 ```bash
-agent-memory-bridge bootstrap-repo . \
+<venv-python> -m agent_mem_bridge bootstrap-repo . \
   --namespace project:<name>
 ```
 
@@ -183,7 +176,7 @@ agent-memory-bridge bootstrap-repo . \
 After connecting AMB to a client that shares the same AMB home:
 
 ```bash
-agent-memory-bridge bootstrap-repo . --namespace project:amb
+<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:amb
 ```
 
 Teach naturally:
@@ -198,6 +191,15 @@ Start a fresh session, ask “Should Knowledge Explorer use a graph database?”
 
 ```bash
 <venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I check before submitting changes?"
+```
+
+### If setup health is uncertain
+
+`doctor` and `verify` are optional health and troubleshooting checks. They are not required before bootstrap.
+
+```bash
+<venv-python> -m agent_mem_bridge doctor
+<venv-python> -m agent_mem_bridge verify
 ```
 
 For the detailed agent workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).

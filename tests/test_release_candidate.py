@@ -78,6 +78,17 @@ def test_project_learning_promotion_docs_stay_human_and_truthful() -> None:
     assert "Do not silently infer a durable decision" in agents
     assert "record_type: decision" in llms_install
     assert "not the modern Project Learning" in llms_install
+    assert "not required before bootstrap" in agents
+
+    for quick_start in (english_quick, chinese_quick):
+        after_venv = quick_start.split("python -m venv .amb-venv", 1)[1]
+        assert not any(line.strip().startswith("agent-memory-bridge ") for line in after_venv.splitlines())
+        step1 = quick_start.split("### 1.", 1)[1].split("### 2.", 1)[0]
+        assert "doctor" not in step1
+        assert "verify" not in step1
+        assert "agent_mem_bridge bootstrap-repo" in quick_start.split("### 2.", 1)[1]
+        assert quick_start.index("agent_mem_bridge bootstrap-repo") < quick_start.index("agent_mem_bridge doctor")
+        assert "agent_mem_bridge verify" in quick_start.split("### 2.", 1)[1]
 
 
 def test_install_guides_use_publication_invariant_routes() -> None:
