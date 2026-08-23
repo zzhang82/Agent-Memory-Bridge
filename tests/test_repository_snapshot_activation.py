@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 
+from agent_mem_bridge import repository_snapshot_store as snapshot_store_module
+from agent_mem_bridge import server
 from agent_mem_bridge.cli import main
 from agent_mem_bridge.context_manifest import compile_context, render_context
 from agent_mem_bridge.evidence_inspect import build_memory_inspect_report, render_memory_inspect_markdown
@@ -17,6 +20,18 @@ from agent_mem_bridge.storage import MemoryStore
 
 def _git(root: Path, *args: str) -> str:
     return subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+
+def _bind_worker(repository_root: str, namespace: str, repository_id: str) -> None:
+    RepositorySnapshotStore(Path(repository_root)).bind_namespace(namespace, repository_id)
+
+
+def _bind_or_unbind_worker(repository_root: str, action: str, namespace: str, repository_id: str) -> None:
+    store = RepositorySnapshotStore(Path(repository_root))
+    if action == "bind":
+        store.bind_namespace(namespace, repository_id)
+    else:
+        store.unbind_namespace(namespace)
 
 
 def _make_repo(tmp_path: Path) -> Path:
@@ -45,6 +60,88 @@ def test_snapshot_persists_and_reloads_with_stable_identity(tmp_path: Path) -> N
         json.loads(Path(loaded["snapshot_path"]).read_text(encoding="utf-8"))["store_schema"]
         == "repository.snapshot.v1"
     )
+
+
+@pytest.mark.parametrize(
+    "remote",
+    [
+        "https://user:secret-token@example.com/org/repo.git",
+        "ssh://user:secret-token@example.com/org/repo.git",
+        "git@example.com:org/repo.git",
+    ],
+)
+def test_remote_identity_redacts_credentials_from_persisted_snapshot(tmp_path: Path, monkeypatch, remote: str) -> None:
+    repo = _make_repo(tmp_path)
+    original_git = snapshot_store_module._git
+
+    def fake_git(root: Path, *args: str) -> str | None:
+        if args == ("rev-parse", "--show-toplevel"):
+            return str(repo)
+        if args == ("config", "--get", "remote.origin.url"):
+            return remote
+        return original_git(root, *args)
+
+    monkeypatch.setattr(snapshot_store_module, "_git", fake_git)
+    store = RepositorySnapshotStore(tmp_path / "repository")
+    saved = store.save_snapshot(compile_repository_snapshot(repo))
+    raw = Path(saved["snapshot_path"]).read_bytes()
+    assert b"secret-token" not in raw
+    identity = snapshot_store_module.repository_identity(repo)
+    assert "secret-token" not in json.dumps(identity, sort_keys=True)
+    assert "example.com/org/repo" in identity["identity_basis"]
+
+
+def test_selection_ignores_incidental_absolute_path_metadata() -> None:
+    snapshot = {
+        "facts": [
+            {"key": "repository_root", "value": "/tmp/pytest-of-runner/repo", "source": "."},
+            {"key": "commit_sha", "value": "abc123", "source": ".git/HEAD"},
+            {"key": "python_requires", "value": ">=3.11", "source": "pyproject.toml"},
+        ]
+    }
+    selected, _ = snapshot_store_module.select_repository_facts(snapshot, "Python 3.11, please.")
+    assert [(fact["key"], fact["value"], fact["source"]) for fact in selected] == [
+        ("python_requires", ">=3.11", "pyproject.toml")
+    ]
+
+
+def test_binding_updates_from_different_processes_are_not_lost(tmp_path: Path) -> None:
+    store = RepositorySnapshotStore(tmp_path / "repository")
+    root = str(store.root)
+    context = multiprocessing.get_context("spawn")
+    processes = [
+        context.Process(target=_bind_worker, args=(root, "project:a", "repo-a")),
+        context.Process(target=_bind_worker, args=(root, "project:b", "repo-b")),
+    ]
+    for process in processes:
+        process.start()
+    for process in processes:
+        process.join(timeout=10)
+        assert process.exitcode == 0
+    bindings = store.bindings()["bindings"]
+    assert bindings["project:a"]["repository_id"] == "repo-a"
+    assert bindings["project:b"]["repository_id"] == "repo-b"
+
+
+def test_concurrent_bind_unbind_preserves_unrelated_binding(tmp_path: Path) -> None:
+    store = RepositorySnapshotStore(tmp_path / "repository")
+    store.bind_namespace("project:keep", "repo-keep")
+    store.bind_namespace("project:remove", "repo-remove")
+    root = str(store.root)
+    context = multiprocessing.get_context("spawn")
+    processes = [
+        context.Process(target=_bind_or_unbind_worker, args=(root, "bind", "project:add", "repo-add")),
+        context.Process(target=_bind_or_unbind_worker, args=(root, "unbind", "project:remove", "repo-remove")),
+    ]
+    for process in processes:
+        process.start()
+    for process in processes:
+        process.join(timeout=10)
+        assert process.exitcode == 0
+    bindings = store.bindings()["bindings"]
+    assert bindings["project:keep"]["repository_id"] == "repo-keep"
+    assert bindings["project:add"]["repository_id"] == "repo-add"
+    assert "project:remove" not in bindings
 
 
 def test_binding_conflict_requires_explicit_rebind(tmp_path: Path) -> None:
@@ -117,11 +214,50 @@ def test_cli_bootstrap_binds_and_inspect_reads_repository_what(tmp_path: Path, m
     bootstrap_output = json.loads(capsys.readouterr().out)
     assert bootstrap_output["binding"] == "git_commit"
     assert bootstrap_output["binding_action"]["namespace"] == "project:demo"
-    assert main(["inspect", "--namespace", "project:demo", "--query", "pytest", "--format", "json"]) == 0
+    assert main(["inspect", "--namespace", "project:demo", "--query", "python 3.11", "--format", "json"]) == 0
     inspect_output = json.loads(capsys.readouterr().out)
-    assert inspect_output["repository_knowledge"]["selected"]
+    assert inspect_output["repository_knowledge"]["selected"][0]["fact_kind"] == "python_requires"
+    assert inspect_output["repository_knowledge"]["selected"][0]["value"] == ">=3.11"
+    assert inspect_output["repository_knowledge"]["selected"][0]["source"] == "pyproject.toml"
     assert inspect_output["repository_knowledge"]["snapshot"]["binding_state"] == "current"
     assert not any(item["id"] == bootstrap_output["repository_id"] for item in inspect_output["selected"])
+
+
+def test_mcp_recall_exposes_repository_sidecar_without_durable_contamination(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    repo = _make_repo(tmp_path)
+    bridge_home = tmp_path / "amb-home"
+    durable_db = tmp_path / "bridge.db"
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(bridge_home))
+    durable_store = MemoryStore(durable_db, log_dir=tmp_path / "logs")
+    monkeypatch.setattr(server, "bridge", durable_store)
+    assert main(["bootstrap-repo", str(repo), "--namespace", "project:p5-proof", "--format", "json"]) == 0
+    capsys.readouterr()
+
+    first = server.recall("project:p5-proof", "Python 3.11 local-first.", kind="memory", limit=5)
+    assert first["items"] == []
+    assert first["repository_knowledge"]["selected"] == [
+        {
+            "authority": "derived_repository",
+            "commit": first["repository_knowledge"]["commit"],
+            "key": "python_requires",
+            "source": "pyproject.toml",
+            "value": ">=3.11",
+        }
+    ]
+    durable = durable_store.store(
+        namespace="project:p5-proof",
+        title="No Redis",
+        content=(
+            "Do not introduce Redis because this project intentionally remains local-first and single-node. "
+            "Python 3.11 projects remain local-first."
+        ),
+    )
+    second = server.recall("project:p5-proof", "Python 3.11 local-first.", kind="memory", limit=5)
+    assert [item["id"] for item in second["items"]] == [durable["id"]]
+    assert second["repository_knowledge"]["selected"] == first["repository_knowledge"]["selected"]
+    assert second["recall_receipt"]["result_count"] == len(second["items"])
 
 
 def test_unbind_cli_is_reversible_and_memory_preserving(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -179,13 +315,13 @@ def test_inspect_keeps_repository_what_separate_from_durable_why(tmp_path: Path)
         kind="memory",
         tags=["kind:concept-note"],
         title="Why",
-        content="Use pytest locally; keep the project local-first.",
+        content="Use Python 3.11 locally; keep the project local-first.",
     )
     snapshot = store.load_bound_snapshot("project:demo")
     report = build_memory_inspect_report(
         db,
         namespace="project:demo",
-        query="pytest",
+        query="Python 3.11, please.",
         repository_snapshot=snapshot,
     )
     assert report["repository_knowledge"]["snapshot"]["authority"] == "derived_repository"

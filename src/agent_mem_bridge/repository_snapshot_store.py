@@ -3,11 +3,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 import tempfile
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 SNAPSHOT_STORE_SCHEMA = "repository.snapshot.v1"
 BINDING_STORE_SCHEMA = "repository.binding.v1"
@@ -50,12 +53,33 @@ def _clean_status(root: Path) -> tuple[bool, bool | None]:
     return True, not bool(result.stdout.strip())
 
 
+def _safe_remote_identity(remote: str) -> str | None:
+    value = remote.strip()
+    if not value:
+        return None
+    if "://" in value:
+        parsed = urlsplit(value)
+        host = parsed.hostname
+        path = parsed.path.strip("/")
+        if host and path:
+            return f"{host.casefold()}/{path.removesuffix('.git')}"
+        return None
+    if "@" in value and ":" in value:
+        user_host, path = value.split(":", 1)
+        host = user_host.rsplit("@", 1)[-1].strip()
+        path = path.strip("/")
+        if host and path:
+            return f"{host.casefold()}/{path.removesuffix('.git')}"
+    return None
+
+
 def repository_identity(root: Path) -> dict[str, str]:
     resolved = Path(root).expanduser().resolve()
     git_root = _git(resolved, "rev-parse", "--show-toplevel")
     canonical_root = str(Path(git_root).resolve()) if git_root else str(resolved)
-    remote = _git(resolved, "config", "--get", "remote.origin.url")
-    identity_basis = f"remote:{remote.strip()}" if remote else f"root:{canonical_root}"
+    raw_remote = _git(resolved, "config", "--get", "remote.origin.url") or ""
+    remote = _safe_remote_identity(raw_remote)
+    identity_basis = f"remote:{remote}" if remote else f"root:{canonical_root}"
     return {
         "repository_id": _sha256(identity_basis)[:32],
         "identity_basis": identity_basis,
@@ -142,7 +166,32 @@ class RepositorySnapshotStore:
             return None
         return {**snapshot, "repository_id": repository_id, "snapshot_path": str(path)}
 
-    def bindings(self) -> dict[str, Any]:
+    @contextmanager
+    def _bindings_lock(self):
+        self.root.mkdir(parents=True, exist_ok=True)
+        lock_path = self.root / "bindings.lock"
+        with lock_path.open("a+b") as handle:
+            handle.seek(0)
+            handle.write(b"0")
+            handle.flush()
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                if os.name == "nt":
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+    def _read_bindings_unlocked(self) -> dict[str, Any]:
         try:
             with self.bindings_path.open("r", encoding="utf-8") as handle:
                 data = json.load(handle)
@@ -153,29 +202,35 @@ class RepositorySnapshotStore:
         bindings = data.get("bindings")
         return {"store_schema": BINDING_STORE_SCHEMA, "bindings": bindings if isinstance(bindings, dict) else {}}
 
+    def bindings(self) -> dict[str, Any]:
+        with self._bindings_lock():
+            return self._read_bindings_unlocked()
+
     def bind_namespace(self, namespace: str, repository_id: str, *, allow_rebind: bool = False) -> dict[str, Any]:
         cleaned = namespace.strip()
         if not cleaned:
             raise ValueError("namespace must not be empty")
-        data = self.bindings()
-        existing = data["bindings"].get(cleaned)
-        if isinstance(existing, dict) and existing.get("repository_id") != repository_id and not allow_rebind:
-            raise ValueError("namespace is already bound to a different repository; explicit rebind required")
-        data["bindings"][cleaned] = {"repository_id": repository_id}
-        _atomic_write_json(self.bindings_path, data)
-        return {
-            "namespace": cleaned,
-            "repository_id": repository_id,
-            "rebound": bool(existing and existing.get("repository_id") != repository_id),
-        }
+        with self._bindings_lock():
+            data = self._read_bindings_unlocked()
+            existing = data["bindings"].get(cleaned)
+            if isinstance(existing, dict) and existing.get("repository_id") != repository_id and not allow_rebind:
+                raise ValueError("namespace is already bound to a different repository; explicit rebind required")
+            data["bindings"][cleaned] = {"repository_id": repository_id}
+            _atomic_write_json(self.bindings_path, data)
+            return {
+                "namespace": cleaned,
+                "repository_id": repository_id,
+                "rebound": bool(existing and existing.get("repository_id") != repository_id),
+            }
 
     def unbind_namespace(self, namespace: str) -> bool:
         cleaned = namespace.strip()
-        data = self.bindings()
-        removed = data["bindings"].pop(cleaned, None) is not None
-        if removed:
-            _atomic_write_json(self.bindings_path, data)
-        return removed
+        with self._bindings_lock():
+            data = self._read_bindings_unlocked()
+            removed = data["bindings"].pop(cleaned, None) is not None
+            if removed:
+                _atomic_write_json(self.bindings_path, data)
+            return removed
 
     def load_bound_snapshot(self, namespace: str) -> dict[str, Any] | None:
         binding = self.bindings()["bindings"].get(namespace.strip())
@@ -216,21 +271,78 @@ class RepositorySnapshotStore:
         return result
 
 
+_SEMANTIC_TOKEN_RE = re.compile(r"[A-Za-z0-9_]+")
+_TECHNICAL_FACT_KEYS = {"repository_root", "commit_sha", "source_digest"}
+
+
+def _query_tokens(query: str) -> set[str]:
+    return {token.casefold() for token in _SEMANTIC_TOKEN_RE.findall(query) if len(token) >= 2}
+
+
 def select_repository_facts(
     snapshot: dict[str, Any], query: str, *, limit: int = 8
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     facts = snapshot.get("facts") if isinstance(snapshot.get("facts"), list) else []
-    query_terms = {part.casefold() for part in query.split() if len(part.strip()) >= 2}
+    query_terms = _query_tokens(query)
+    explicit_technical = bool(query_terms & {"root", "path", "commit", "sha", "digest", "source"})
     scored: list[tuple[int, int, dict[str, Any]]] = []
     for index, fact in enumerate(facts):
         if not isinstance(fact, dict):
             continue
-        haystack = _canonical_json(fact).casefold()
-        score = sum(1 for term in query_terms if term in haystack)
+        key = str(fact.get("key") or "").casefold()
+        if key in _TECHNICAL_FACT_KEYS and not explicit_technical:
+            continue
+        semantic_parts = [key, str(fact.get("value") or ""), str(fact.get("source") or "")]
+        semantic_tokens = set(_SEMANTIC_TOKEN_RE.findall(" ".join(semantic_parts).casefold()))
+        score = len(query_terms & semantic_tokens)
         if score:
             scored.append((score, -index, fact))
     scored.sort(reverse=True, key=lambda item: (item[0], item[1]))
-    selected = [fact for _, _, fact in scored[:limit]]
+    selected = [fact for _, _, fact in scored[: max(0, limit)]]
     selected_ids = {id(fact) for fact in selected}
     excluded = [fact for fact in facts if isinstance(fact, dict) and id(fact) not in selected_ids]
     return selected, excluded
+
+
+def load_repository_knowledge(*, namespace: str, query: str, limit: int = 8) -> dict[str, Any]:
+    from .paths import resolve_repository_snapshot_root
+
+    store = RepositorySnapshotStore(resolve_repository_snapshot_root())
+    snapshot = store.load_bound_snapshot(namespace)
+    if snapshot is None:
+        return {
+            "authority": "derived_repository",
+            "binding_state": "unbound",
+            "selected": [],
+            "excluded": [],
+        }
+    if snapshot.get("binding_state") != "current":
+        return {
+            "authority": "derived_repository",
+            "binding_state": snapshot.get("binding_state"),
+            "stale_reason": snapshot.get("stale_reason"),
+            "commit": snapshot.get("commit"),
+            "current_commit": snapshot.get("current_commit"),
+            "selected": [],
+            "excluded": [],
+        }
+    selected, excluded = select_repository_facts(snapshot, query, limit=limit)
+
+    def project(fact: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "key": fact.get("key"),
+            "value": fact.get("value"),
+            "source": fact.get("source"),
+            "commit": fact.get("commit"),
+            "authority": "derived_repository",
+        }
+
+    return {
+        "authority": "derived_repository",
+        "binding_state": "current",
+        "repository_id": snapshot.get("repository_id"),
+        "commit": snapshot.get("commit"),
+        "current_commit": snapshot.get("current_commit"),
+        "selected": [project(fact) for fact in selected],
+        "excluded": [project(fact) for fact in excluded],
+    }
