@@ -41,8 +41,9 @@ Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
 Current package/source version is `0.30.0`. From the exact source checkout,
-install with `<venv-python> -m pip install -e .`. For live publication availability,
-consult GitHub Releases. If/when a `v0.30.0` tagged release appears in GitHub Releases, use its archive route from the release notes. The historical `v0.27.0` release-install
+install with `<venv-python> -m pip install -e .`. The latest published GitHub
+release is `v0.30.0`; its pinned source archive is
+`https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The historical `v0.27.0` release-install
 archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
 ```text
@@ -115,7 +116,7 @@ retrieval subject, and caller-declared client or session labels cannot create
 additional votes. Feedback remains shadow-only: it does not mutate memories,
 indexes, recall results, or ranking behavior.
 
-For explicit episode evidence in the local `0.27.4` source, use
+For explicit episode evidence in the current `0.30.0` source, use
 `begin_run(...)` to obtain server-minted run/work-item handles, then use
 `record_run_event(...)`, `get_run(...)`, and `complete_run(...)`. These calls
 create durable run, event, and outcome authority. Schema v12 retains

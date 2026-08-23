@@ -12,6 +12,8 @@
 
 Current source version: `0.30.0`
 
+Latest published release: `v0.30.0`
+
 > AMB complements `AGENTS.md`, `CLAUDE.md`, and client-native preference memory; it does not replace them. It is not a hosted agent runtime, scheduler, queue, or general-purpose memory platform.
 
 ## Why AMB
@@ -28,7 +30,7 @@ AMB keeps those concerns separate. It stores inspectable engineering memory, app
 | Lifecycle-aware retrieval | Eligibility, revision, supersession, validity, relation, and governance boundaries are applied before guidance is used. |
 | Dynamic State authority | An internal exact-key release-state lane with version and database-epoch preconditions; it is not semantic memory. |
 | Governed task-memory assembly | Task-time selection is derived from the existing governed memory path rather than a second retrieval system. |
-| Transient Context Compiler | A bounded, deterministic derived view over governed task memory, Dynamic State snapshots, and explicit session-local items. |
+| Transient Context Compiler | A bounded, deterministic derived view over repository-derived WHAT, governed task memory, Dynamic State snapshots, and explicit session-local items. |
 | Episode and verification evidence | Explicit runs, artifacts, outcomes, and receipts support reviewable evidence without asserting causality or automatic learning. |
 | Cross-client MCP access | A stable local stdio interface for supported and documented MCP clients. |
 | Repository Knowledge / WHAT | Derived, bounded, rebuildable, namespace-bound repository facts. They are commit-bound only when a clean worktree is proven; stale or unavailable states fail closed, and normal MCP recall exposes only bounded selected WHAT. |
@@ -42,7 +44,6 @@ AMB does **not** automatically write lessons back to memory, change ranking from
 flowchart LR
     A[Durable Memory / WHY] --> C[Lifecycle-aware Recall]
     B[Repository Knowledge / WHAT] --> D[Context Compiler]
-    A --> D
     S[Dynamic State Authority] --> D
     C --> E[Governed Task Memory]
     E --> D
@@ -76,7 +77,7 @@ Then use the rendered client configuration, reload the client, and run:
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.30.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. For live publication availability, consult [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). If/when a `v0.30.0` tagged release appears there, use its archive route from the release notes. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
+`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.30.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. The latest published GitHub release is [`v0.30.0`](https://github.com/zzhang82/Agent-Memory-Bridge/releases/tag/v0.30.0); its pinned source archive is `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
 
 ## Inspect a recall decision
 

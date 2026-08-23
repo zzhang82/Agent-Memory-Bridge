@@ -9,6 +9,7 @@ Agent Memory Bridge (AMB) is a **local-first, governed engineering-memory bridge
 ```mermaid
 flowchart TD
     A[Durable engineering memory<br/>records, revisions, lifecycle history] --> C[Lifecycle-aware recall]
+    R[Repository Knowledge / WHAT<br/>derived, bounded, rebuildable] --> F
     B[Dynamic State authority<br/>exact-key mutable release state] --> D
     C --> E[Governed task-memory assembly]
     E --> F[Context Compiler]
@@ -32,7 +33,7 @@ The diagram shows an authority chain, not an automatic-learning loop. A selected
 | Kind | What it contains | Authority and retention boundary |
 |---|---|---|
 | **Durable authority** | Engineering-memory records and their revision/lifecycle history; exact-key Dynamic State mutations and state-head authority; run, work-item, event, artifact, outcome, and verification-receipt authority. | Stored through the existing SQLite/WAL authority boundaries. These records determine what can be recovered, evaluated, or corrected later. |
-| **Derived / rebuildable views** | FTS5 and optional embedding indexes, lifecycle-aware recall results, governed task-memory assembly, projections, reports, and read-only evaluation linkage. | Rebuildable from durable authority and code. They assist inspection or selection but do not own memory, mutable state, or outcome authority. |
+| **Derived / rebuildable views** | Repository knowledge snapshots, FTS5 and optional embedding indexes, lifecycle-aware recall results, governed task-memory assembly, projections, reports, and read-only evaluation linkage. | Rebuildable from repository source or durable authority and code. They assist inspection or selection but do not own memory, mutable state, or outcome authority. |
 | **Transient data** | Rendered compiled context, prompt-facing context bodies, and explicit in-process session-local material used for one compilation. | The Context Compiler does not persist rendered context or introduce a prompt archive. A manifest serializes selection metadata, not context bodies. |
 | **Historical evidence** | Release announcements, benchmark snapshots, proof artifacts, and prior acceptance evidence. | Useful for provenance and review, but not current runtime authority or a substitute for the current product documentation. |
 
@@ -66,10 +67,11 @@ Task-memory assembly is therefore a derived view: it can be rendered, inspected,
 
 ### Context Compiler is a transient derived-view layer
 
-The Context Compiler consumes three explicit inputs:
+The Context Compiler accepts four explicit inputs:
 
 | Input | What the compiler uses | What the compiler does not do |
 |---|---|---|
+| Repository Knowledge / WHAT | Explicit bounded repository facts supplied with `authority=derived_repository`, source provenance, and deterministic fingerprints. | It does not query repository storage, rank repository records, turn repository facts into durable memory, or claim commit authority when eligibility fails closed. |
 | Governed task-memory report | Already relation-aware, lifecycle-filtered procedures, concepts, beliefs, support, corrective items, and suppression facts. | It does not query storage, re-run recall, rank records, or bypass governed eligibility. |
 | Dynamic State read snapshots | Exact state identity, version, value hash, database epoch, and sanitized authoritative value when present. | It does not mutate, infer, or duplicate Dynamic State authority. |
 | Session-local items | Explicit in-process material supplied for this compilation. | It does not turn session content into durable memory or archive it. |

@@ -40,7 +40,7 @@ Dynamic State is separate from semantic memory, retrieval, ranking, embeddings, 
 
 ### Context and episode evidence
 
-The Context Compiler is a transient derived-view layer. It consumes relation-aware governed task memory, exact Dynamic State read snapshots, and explicit session-local items. It does not query storage, rerun recall, rank records, persist a manifest, or add an MCP tool. Rendered context remains in process; manifest serialization retains metadata and digests rather than prompt-facing bodies.
+The Context Compiler is a transient derived-view layer. It accepts explicit bounded Repository Knowledge / WHAT with `derived_repository` authority, relation-aware governed task memory, exact Dynamic State read snapshots, and explicit session-local items. It does not query storage, rerun recall, rank records, persist a manifest, or add an MCP tool. Repository WHAT remains separate from durable WHY, and rendered context remains in process; manifest serialization retains metadata and digests rather than prompt-facing bodies.
 
 A bounded context attestation can be recorded through the existing episode artifact path. It stores metadata and digests, not raw task text, rendered context, memory bodies, or session bodies. Read-only evaluation linkage can report whether valid context-attestation evidence is bound to the current strong verified outcome. It does not claim that selected context caused an outcome.
 
@@ -51,7 +51,7 @@ Run, event, outcome, artifact, and link rows are **durable episode authority**; 
 | Boundary | Current behavior |
 |---|---|
 | Durable authority | SQLite/WAL holds memory, state, run, work-item, event, artifact, outcome, and receipt authority under their existing contracts. |
-| Derived views | FTS5, optional embedding sidecars, task-memory assembly, projections, reports, and evaluation linkage are rebuildable and non-authoritative. |
+| Derived views | Repository knowledge snapshots, FTS5, optional embedding sidecars, task-memory assembly, projections, reports, and evaluation linkage are rebuildable and non-authoritative. |
 | Context persistence | Compiled and rendered context bodies are transient. An attestation is metadata-only and is not a prompt archive. |
 | Artifact privacy | Episode artifact metadata rejects inline body fields including `body`, `file_body`, and `fileBody`; receipt-shaped values are rejected before durable persistence. |
 | Memory improvement | Feedback, utility, consolidation, and candidate evidence do not automatically change ranking, policy, prompts, durable memory, or procedures. |

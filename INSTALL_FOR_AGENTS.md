@@ -24,7 +24,7 @@ Current package/source version is `0.30.0`. The current source/package line expo
 
 The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. Its historical archive URL was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
-The current source/package line is `0.30.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. For live publication availability, consult GitHub Releases. When using the `v0.29.0` tagged release, use the pinned archive route documented in the release notes.
+The current source/package line is `0.30.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. The latest published GitHub release is `v0.30.0` (see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)), with the pinned source archive `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
@@ -122,8 +122,8 @@ when their runtime prerequisites are available.
 
 3. Derive the venv interpreter as described in `llms-install.md`, then from
    the exact source checkout install with `<venv-python> -m pip install -e .`.
-   For a tagged-release install, first consult GitHub Releases; when using the
-   `v0.29.0` tagged release, use its pinned archive route from the release notes.
+   For the latest published release, use the pinned `v0.30.0` source archive:
+   `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:

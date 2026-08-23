@@ -13,6 +13,8 @@ def test_current_package_and_source_docs_use_v030_identity() -> None:
     assert package_version == CURRENT
     assert "Current source version: `0.30.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
     assert "当前源码版本：`0.30.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    assert "Latest published release: `v0.30.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "最新发布版本：`v0.30.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
     assert "| Package/source version | `0.30.0` |" in (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
 
 
@@ -26,6 +28,7 @@ def test_historical_v0274_evidence_remains_historical() -> None:
     assert "v0.27.3–v0.27.4" in changelog
     assert "v0.28.0 source/release line" in changelog
     assert "v0.29.0 source/release line" in changelog
+    assert "v0.30.0 source/release line" in changelog
     assert "v0.28.0 candidate" not in changelog
 
 
@@ -43,13 +46,11 @@ def test_install_guides_use_publication_invariant_routes() -> None:
         text = (ROOT / name).read_text(encoding="utf-8")
         assert "0.30.0" in text
         assert "GitHub Releases" in text
-        assert (
-            "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip" in text or "v0.30.0" in text
-        )
+        assert "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip" in text
     assert "v0.27.0" in (ROOT / "INSTALL_FOR_AGENTS.md").read_text(encoding="utf-8")
 
 
-def test_current_docs_do_not_claim_live_publication() -> None:
+def test_current_docs_record_published_v030_without_hypothetical_wording() -> None:
     docs = (
         "README.md",
         "README.zh-CN.md",
@@ -58,23 +59,24 @@ def test_current_docs_do_not_claim_live_publication() -> None:
         "llms.txt",
         "docs/INTEGRATIONS.md",
     )
-    files = (*docs, "src/agent_mem_bridge/first_run.py")
-    transient_phrases = (
+    hypothetical_phrases = (
+        "if/when",
+        "如果/当",
         "no release tag yet",
         "not yet tagged",
         "not yet tagged or published",
+        "not yet released",
         "尚未创建标签",
         "candidate has no release tag",
         "After v0.30.0 is published",
     )
-    for name in files:
-        text = (ROOT / name).read_text(encoding="utf-8")
-        assert not re.search(r"latest (?:published )?GitHub Release is v0\.30\.0", text, re.IGNORECASE)
-        assert not re.search(r"published(?: pinned)? [`']?v0\.30\.0", text, re.IGNORECASE)
-        assert not re.search(r"published v0\.30\.0 archive", text, re.IGNORECASE)
-        assert not any(phrase in text for phrase in transient_phrases)
     for name in docs:
-        assert "GitHub Releases" in (ROOT / name).read_text(encoding="utf-8")
+        text = (ROOT / name).read_text(encoding="utf-8")
+        assert "GitHub Releases" in text
+        assert "v0.30.0" in text
+        assert not any(phrase.casefold() in text.casefold() for phrase in hypothetical_phrases)
+    assert "Latest published release: `v0.30.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "最新发布版本：`v0.30.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
     assert "Current package/source version is `0.30.0`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
         encoding="utf-8"
     )
@@ -101,11 +103,30 @@ def test_changelog_durable_references_exist() -> None:
 
 def test_public_surface_and_schema_facts_remain_stable() -> None:
     text = (ROOT / "README.md").read_text(encoding="utf-8")
+    text_zh = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    architecture = (ROOT / "docs/ARCHITECTURE.md").read_text(encoding="utf-8")
     status = (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
+    boundary = (ROOT / "src/agent_mem_bridge/mcp_boundary.py").read_text(encoding="utf-8")
+    compiler = (ROOT / "src/agent_mem_bridge/context_manifest.py").read_text(encoding="utf-8")
+    digest = "24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8"
     assert "17 public MCP tools" in text
     assert "schema v12" in text
     assert "Exactly 17 public MCP tools" in status
     assert "v12" in status
+    assert digest in status
+    assert f'PUBLIC_TOOL_SCHEMA_SHA256 = "{digest}"' in boundary
+    assert "The Context Compiler accepts four explicit inputs:" in architecture
+    assert "Repository Knowledge / WHAT" in architecture
+    assert "bounded repository facts supplied as a distinct derived" in compiler
+    for readme in (text, text_zh):
+        diagram = re.search(r"```mermaid\n(?P<body>.*?)\n```", readme, re.DOTALL)
+        assert diagram is not None
+        body = diagram.group("body")
+        assert "A --> D" not in body
+        assert "A[" in body and "--> C[" in body
+        assert "C --> E[" in body
+        assert "E --> D" in body
+        assert "B[" in body and "--> D[Context Compiler]" in body
 
 
 def test_v0274_compatible_schema12_database_remains_readable(tmp_path: Path, monkeypatch) -> None:
