@@ -91,6 +91,48 @@ def test_remote_identity_redacts_credentials_from_persisted_snapshot(tmp_path: P
     assert "example.com/org/repo" in identity["identity_basis"]
 
 
+def test_multiple_clones_have_distinct_local_source_ids(tmp_path: Path) -> None:
+    origin = _make_repo(tmp_path)
+    bare = tmp_path / "origin.git"
+    subprocess.run(["git", "clone", "--bare", str(origin), str(bare)], check=True, capture_output=True)
+    clone_a = tmp_path / "clone-a"
+    clone_b = tmp_path / "clone-b"
+    subprocess.run(["git", "clone", "-q", str(bare), str(clone_a)], check=True)
+    subprocess.run(["git", "clone", "-q", str(bare), str(clone_b)], check=True)
+    for clone, marker in ((clone_a, "A"), (clone_b, "B")):
+        (clone / "README.md").write_text(f"Clone {marker}.", encoding="utf-8")
+        subprocess.run(["git", "-C", str(clone), "add", "README.md"], check=True)
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(clone),
+                "-c",
+                "user.email=test@example.com",
+                "-c",
+                "user.name=Test",
+                "commit",
+                "-qm",
+                f"clone {marker}",
+            ],
+            check=True,
+        )
+    store = RepositorySnapshotStore(tmp_path / "repository")
+    saved_a = store.save_snapshot(compile_repository_snapshot(clone_a))
+    saved_b = store.save_snapshot(compile_repository_snapshot(clone_b))
+    assert saved_a["repository_id"] != saved_b["repository_id"]
+    assert saved_a["logical_repository_identity"] == saved_b["logical_repository_identity"]
+    store.bind_namespace("project:a", saved_a["repository_id"])
+    store.bind_namespace("project:b", saved_b["repository_id"])
+    loaded_a = store.load_bound_snapshot("project:a")
+    loaded_b = store.load_bound_snapshot("project:b")
+    assert loaded_a["root"] == str(clone_a.resolve())
+    assert loaded_b["root"] == str(clone_b.resolve())
+    assert loaded_a["commit"] != loaded_b["commit"]
+    assert loaded_a["current_commit"] == loaded_a["commit"]
+    assert loaded_b["current_commit"] == loaded_b["commit"]
+
+
 def test_selection_ignores_incidental_absolute_path_metadata() -> None:
     snapshot = {
         "facts": [
@@ -246,6 +288,11 @@ def test_mcp_recall_exposes_repository_sidecar_without_durable_contamination(
             "value": ">=3.11",
         }
     ]
+    serialized = json.dumps(first, sort_keys=True)
+    assert "excluded" not in first["repository_knowledge"]
+    assert first["repository_knowledge"]["excluded_count"] >= 1
+    assert str(repo) not in serialized
+    assert "source_digest" not in serialized
     durable = durable_store.store(
         namespace="project:p5-proof",
         title="No Redis",

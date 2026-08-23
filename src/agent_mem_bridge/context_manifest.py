@@ -218,14 +218,14 @@ def compile_context(
         raise ValueError("budget_tokens cannot fit required Dynamic State context")
 
     candidates: list[ContextItemRef] = []
-    for position, raw_item in enumerate(repository_items):
-        repository_item, omission = _repository_candidate(raw_item, position)
+    for position, repository_raw_item in enumerate(repository_items):
+        repository_item, omission = _repository_candidate(repository_raw_item, position)
         if repository_item is not None:
             candidates.append(repository_item)
         elif omission is not None:
             omissions.append(omission)
-    for position, raw_item in enumerate(session_items):
-        session_item, omission = _session_candidate(raw_item, position)
+    for position, session_raw_item in enumerate(session_items):
+        session_item, omission = _session_candidate(session_raw_item, position)
         if session_item is not None:
             candidates.append(session_item)
         elif omission is not None:

@@ -60,10 +60,15 @@ def _safe_remote_identity(remote: str) -> str | None:
     if "://" in value:
         parsed = urlsplit(value)
         host = parsed.hostname
-        path = parsed.path.strip("/")
+        path = parsed.path
+        if parsed.scheme == "file" and path:
+            return f"file/{path.rstrip('/').removesuffix('.git')}"
+        path = path.strip("/")
         if host and path:
             return f"{host.casefold()}/{path.removesuffix('.git')}"
         return None
+    if value.startswith(("/", "./", "../")):
+        return f"file/{Path(value).expanduser().resolve().as_posix().rstrip('/').removesuffix('.git')}"
     if "@" in value and ":" in value:
         user_host, path = value.split(":", 1)
         host = user_host.rsplit("@", 1)[-1].strip()
@@ -78,13 +83,17 @@ def repository_identity(root: Path) -> dict[str, str]:
     git_root = _git(resolved, "rev-parse", "--show-toplevel")
     canonical_root = str(Path(git_root).resolve()) if git_root else str(resolved)
     raw_remote = _git(resolved, "config", "--get", "remote.origin.url") or ""
-    remote = _safe_remote_identity(raw_remote)
-    identity_basis = f"remote:{remote}" if remote else f"root:{canonical_root}"
+    logical_repository = _safe_remote_identity(raw_remote)
+    logical_basis = logical_repository or f"root:{canonical_root}"
+    source_basis = f"{logical_basis}|root:{canonical_root}"
+    source_id = _sha256(source_basis)[:32]
     return {
-        "repository_id": _sha256(identity_basis)[:32],
-        "identity_basis": identity_basis,
+        "repository_id": source_id,
+        "local_repository_source_id": source_id,
+        "logical_repository_identity": logical_repository or canonical_root,
+        "identity_basis": source_basis,
         "git_root": canonical_root,
-        "remote_origin": remote or "",
+        "remote_origin": logical_repository or "",
     }
 
 
@@ -133,6 +142,8 @@ class RepositorySnapshotStore:
         stored = {
             "store_schema": SNAPSHOT_STORE_SCHEMA,
             "repository_id": identity["repository_id"],
+            "local_repository_source_id": identity["local_repository_source_id"],
+            "logical_repository_identity": identity["logical_repository_identity"],
             "identity_basis": identity["identity_basis"],
             "git_root": identity["git_root"],
             "remote_origin": identity["remote_origin"],
@@ -142,6 +153,8 @@ class RepositorySnapshotStore:
         return {
             **snapshot,
             "repository_id": identity["repository_id"],
+            "local_repository_source_id": identity["local_repository_source_id"],
+            "logical_repository_identity": identity["logical_repository_identity"],
             "snapshot_path": str(self.snapshot_path(identity["repository_id"])),
         }
 
@@ -178,7 +191,7 @@ class RepositorySnapshotStore:
             if os.name == "nt":
                 import msvcrt
 
-                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)  # type: ignore[attr-defined]
             else:
                 import fcntl
 
@@ -187,7 +200,7 @@ class RepositorySnapshotStore:
                 yield
             finally:
                 if os.name == "nt":
-                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
                 else:
                     fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
@@ -282,7 +295,8 @@ def _query_tokens(query: str) -> set[str]:
 def select_repository_facts(
     snapshot: dict[str, Any], query: str, *, limit: int = 8
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    facts = snapshot.get("facts") if isinstance(snapshot.get("facts"), list) else []
+    raw_facts = snapshot.get("facts")
+    facts: list[Any] = raw_facts if isinstance(raw_facts, list) else []
     query_terms = _query_tokens(query)
     explicit_technical = bool(query_terms & {"root", "path", "commit", "sha", "digest", "source"})
     scored: list[tuple[int, int, dict[str, Any]]] = []
@@ -298,9 +312,9 @@ def select_repository_facts(
         if score:
             scored.append((score, -index, fact))
     scored.sort(reverse=True, key=lambda item: (item[0], item[1]))
-    selected = [fact for _, _, fact in scored[: max(0, limit)]]
+    selected: list[dict[str, Any]] = [fact for _, _, fact in scored[: max(0, limit)]]
     selected_ids = {id(fact) for fact in selected}
-    excluded = [fact for fact in facts if isinstance(fact, dict) and id(fact) not in selected_ids]
+    excluded: list[dict[str, Any]] = [fact for fact in facts if isinstance(fact, dict) and id(fact) not in selected_ids]
     return selected, excluded
 
 
@@ -314,7 +328,7 @@ def load_repository_knowledge(*, namespace: str, query: str, limit: int = 8) -> 
             "authority": "derived_repository",
             "binding_state": "unbound",
             "selected": [],
-            "excluded": [],
+            "excluded_count": 0,
         }
     if snapshot.get("binding_state") != "current":
         return {
@@ -324,7 +338,7 @@ def load_repository_knowledge(*, namespace: str, query: str, limit: int = 8) -> 
             "commit": snapshot.get("commit"),
             "current_commit": snapshot.get("current_commit"),
             "selected": [],
-            "excluded": [],
+            "excluded_count": 0,
         }
     selected, excluded = select_repository_facts(snapshot, query, limit=limit)
 
@@ -341,8 +355,10 @@ def load_repository_knowledge(*, namespace: str, query: str, limit: int = 8) -> 
         "authority": "derived_repository",
         "binding_state": "current",
         "repository_id": snapshot.get("repository_id"),
+        "local_repository_source_id": snapshot.get("local_repository_source_id", snapshot.get("repository_id")),
+        "logical_repository_identity": snapshot.get("logical_repository_identity"),
         "commit": snapshot.get("commit"),
         "current_commit": snapshot.get("current_commit"),
         "selected": [project(fact) for fact in selected],
-        "excluded": [project(fact) for fact in excluded],
+        "excluded_count": len(excluded),
     }
