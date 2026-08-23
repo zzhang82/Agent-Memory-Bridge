@@ -36,7 +36,7 @@ The pinned `v0.27.0` release-install route exposes these public MCP tools:
 - extend_signal_lease
 - ack_signal
 
-The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.30.0`; for live release availability, consult GitHub Releases.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.31.0`; for live release availability, consult GitHub Releases.
 
 Important boundaries:
 
@@ -59,10 +59,11 @@ Important boundaries:
   or session labels cannot create additional votes.
 - `receipt_hash` is the hash of the actual token;
   `feedback_identity_digest` is a separate canonical subject identity.
+- Knowledge Explorer is a local, read-only, bounded, deterministic, namespace-bound, rebuildable, provenance-bearing CLI projection over existing repository WHAT and governed decision/constraint WHY; it is not MCP tool #18 or a new authority.
 - Feedback remains shadow evidence. It does not mutate memory, indexes, recall
   results, or ranking behavior.
 - Run events and outcomes use explicit server-minted handles and are durable
-  authority. The current 0.30.0 source/package line uses schema v12 with retained governed-v2
+  authority. The current 0.31.0 source/package line uses schema v12 with retained governed-v2
   evidence, CAS, operator receipts, watcher continuity, and authority closure.
   Its internal Dynamic State lane uses exact-key typed commands, version/database-
   epoch guards, lifecycle idempotency, immutable history, and rebuildable heads;
@@ -82,9 +83,9 @@ python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scr
 Treat the printed path as `<venv-python>`. Shell-quote it on POSIX when needed;
 in Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
 
-Current package/source version is `0.30.0`. From the exact source checkout,
-install with `<venv-python> -m pip install -e .`. The latest published GitHub
-release is `v0.30.0`; its pinned source archive is
+Current package/source version is `0.31.0`. From the exact source checkout,
+install with `<venv-python> -m pip install -e .` to evaluate this exact source checkout. Published release availability is listed in GitHub Releases; the published
+v0.30.0 source archive is
 `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The historical `v0.27.0` release-install
 archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 

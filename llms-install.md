@@ -40,9 +40,9 @@ path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
-Current package/source version is `0.30.0`. From the exact source checkout,
-install with `<venv-python> -m pip install -e .`. The latest published GitHub
-release is `v0.30.0`; its pinned source archive is
+Current package/source version is `0.31.0`. From the exact source checkout,
+install with `<venv-python> -m pip install -e .` to evaluate this exact source checkout. Published release availability is listed in GitHub Releases; the published
+v0.30.0 source archive is
 `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The historical `v0.27.0` release-install
 archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
@@ -82,7 +82,7 @@ to confirm the server connects and exposes the documented 17-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
 
-The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.30.0`; for live release availability, consult GitHub Releases.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.31.0`; for live release availability, consult GitHub Releases.
 
 ## Optional `uvx` Shortcut
 
@@ -116,7 +116,7 @@ retrieval subject, and caller-declared client or session labels cannot create
 additional votes. Feedback remains shadow-only: it does not mutate memories,
 indexes, recall results, or ranking behavior.
 
-For explicit episode evidence in the current `0.30.0` source, use
+For explicit episode evidence in the current `0.31.0` source, use
 `begin_run(...)` to obtain server-minted run/work-item handles, then use
 `record_run_event(...)`, `get_run(...)`, and `complete_run(...)`. These calls
 create durable run, event, and outcome authority. Schema v12 retains
