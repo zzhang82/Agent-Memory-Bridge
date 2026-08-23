@@ -23,6 +23,7 @@ from .database_maintenance import (
 from .evidence_inspect import build_memory_inspect_report, render_memory_inspect_markdown
 from .first_run import build_first_run_report, render_first_run_markdown
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
+from .knowledge_explorer import build_explorer_projection, render_explorer_markdown
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
 from .paths import (
     resolve_bridge_db_path,
@@ -87,6 +88,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_unbind_repo(namespace)
     if namespace.command == "inspect":
         return _run_inspect(namespace)
+    if namespace.command == "explore":
+        return _run_explore(namespace)
     if namespace.command == "doctor":
         return _run_doctor(namespace)
     if namespace.command == "verify":
@@ -277,6 +280,13 @@ def _build_parser() -> argparse.ArgumentParser:
     inspect_parser.add_argument(
         "--technical", action="store_true", help="Include bounded ids, reason codes, and existing selection metadata."
     )
+    explore_parser = subparsers.add_parser(
+        "explore",
+        help="Explore a bounded read-only projection of known project relationships.",
+    )
+    explore_parser.add_argument("--namespace", required=True, help="Project namespace to explore.")
+    explore_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
+    explore_parser.add_argument("--limit", type=int, default=100, help="Maximum source records to project (1..500).")
 
     # Retained parser compatibility only. P2C does not inspect or render these
     # values, so they must not appear as meaningful first-run controls.
@@ -761,6 +771,23 @@ def _run_unbind_repo(namespace: argparse.Namespace) -> int:
         print(json.dumps(result, sort_keys=True))
     else:
         print(f"Namespace: {result['namespace']}\nUnbound: {str(removed).lower()}\nMemory unchanged: true")
+    return 0
+
+
+def _run_explore(namespace: argparse.Namespace) -> int:
+    try:
+        projection = build_explorer_projection(
+            namespace=namespace.namespace,
+            snapshot_root=resolve_repository_snapshot_root(),
+            limit=namespace.limit,
+        )
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        print(f"agent-memory-bridge: explore failed: {exc}", file=sys.stderr)
+        return 1
+    if namespace.format == "json":
+        print(json.dumps(projection, indent=2, sort_keys=True))
+    else:
+        print(render_explorer_markdown(projection), end="")
     return 0
 
 
