@@ -73,7 +73,8 @@ def test_current_docs_record_v031_source_without_hypothetical_wording() -> None:
     for name in docs:
         text = (ROOT / name).read_text(encoding="utf-8")
         assert "GitHub Releases" in text
-        assert "GitHub Releases" in text
+        assert "current unreleased source" not in text.casefold()
+        assert "当前尚未发布的源码" not in text
         assert not any(phrase.casefold() in text.casefold() for phrase in hypothetical_phrases)
     assert "Published releases: see [GitHub Releases]" in (ROOT / "README.md").read_text(encoding="utf-8")
     assert "已发布版本：请见 [GitHub Releases]" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")

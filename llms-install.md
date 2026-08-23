@@ -41,8 +41,7 @@ Install and run these commands with that interpreter in place of
 `<venv-python>`:
 
 Current package/source version is `0.31.0`. From the exact source checkout,
-install with `<venv-python> -m pip install -e .` to evaluate the current unreleased
-source. Published release availability is listed in GitHub Releases; the published
+install with `<venv-python> -m pip install -e .` to evaluate this exact source checkout. Published release availability is listed in GitHub Releases; the published
 v0.30.0 source archive is
 `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The historical `v0.27.0` release-install
 archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.

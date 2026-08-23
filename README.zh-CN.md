@@ -77,27 +77,27 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.31.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。已发布版本和固定归档请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)；上面的源码检出路径用于评估当前尚未发布的源码。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
+`setup` 负责连接/配置规划与安全应用；`doctor`/`verify` 检查运行时健康；`first-run` 引导第一次有用的记忆循环；`inspect` 提供日常解释视图。当前源码/包版本为 `0.31.0`；使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。已发布版本和固定归档请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)；使用上面的源码检出路径评估此源码。详细流程请使用[面向智能体的安装指南](INSTALL_FOR_AGENTS.md)、[安装说明](llms-install.md)、[集成](docs/INTEGRATIONS.md)和[配置](docs/CONFIGURATION.md)。
 
 ## 检查一次召回决策
-
 当 AMB 已给出任务记忆时，可以用只读命令检查日常证据：
-
 ```bash
 agent-memory-bridge inspect \\
   --namespace project:my-app \\
   --query "What should I check before submitting changes?"
 ```
 
+报告会展示已出现的内容、基于现有证据的原因、相关的治理排除项以及需要人工复核的项目。它不会列出数据库中的全部记录，不会改变持久记忆、状态或配置，也不会证明某条出现的记忆被实际应用或导致某个结果。
 
-在本地探索有界的项目投影：
+## 探索项目知识
+
+Explore 是基于现有项目知识的本地、只读、有界派生投影。它仅提供 CLI，不是 MCP 工具 #18，也不是新的权威：
 
 ```bash
 agent-memory-bridge explore \\
   --namespace project:my-app
 ```
 
-报告会展示已出现的内容、基于现有证据的原因、相关的治理排除项以及需要人工复核的项目。它不会列出数据库中的全部记录，不会改变持久记忆、状态或配置，也不会证明某条出现的记忆被实际应用或导致某个结果。
 
 ## 集成
 

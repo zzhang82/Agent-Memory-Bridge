@@ -78,27 +78,28 @@ Then use the rendered client configuration, reload the client, and run:
 <venv-python> -m agent_mem_bridge verify
 ```
 
-`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.31.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); the source-checkout route above evaluates the current unreleased source. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
+`setup` owns connection/configuration planning and safe apply; `doctor`/`verify` checks runtime health; `first-run` guides the first useful memory loop; and `inspect` is the daily explanation surface. The current source/package version is `0.31.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); use the exact source checkout above to evaluate this source. For the detailed workflow, use [Install for Agents](INSTALL_FOR_AGENTS.md), [Installation Notes](llms-install.md), [Integrations](docs/INTEGRATIONS.md), and [Configuration](docs/CONFIGURATION.md).
 
 ## Inspect a recall decision
 
 After AMB surfaces task memory, inspect the governed result for a daily, read-only explanation:
-
 ```bash
 agent-memory-bridge inspect \\
   --namespace project:my-app \\
   --query "What should I check before submitting changes?"
 ```
 
+The report shows what surfaced, evidence-backed reasons, relevant governed exclusions, and review-required items. It does not list every database record, change durable memory/state/configuration, or prove a surfaced memory was applied or caused an outcome.
 
-Explore the bounded project projection locally:
+## Explore project knowledge
+
+Explore is a local, read-only, bounded, derived projection over existing project knowledge. It is CLI-only, not MCP tool #18, and is not a new authority:
 
 ```bash
 agent-memory-bridge explore \\
   --namespace project:my-app
 ```
 
-The report shows what surfaced, evidence-backed reasons, relevant governed exclusions, and review-required items. It does not list every database record, change durable memory/state/configuration, or prove a surfaced memory was applied or caused an outcome.
 
 ## Integrations
 
