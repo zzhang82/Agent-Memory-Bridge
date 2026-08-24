@@ -12,7 +12,7 @@ from .relation_metadata import parse_content_fields, parse_relation_metadata
 from .repository_snapshot_store import RepositorySnapshotStore
 
 RELATION_EDGE_NAMES = frozenset({"supports", "contradicts", "supersedes", "depends_on"})
-HUMAN_RELATION_EDGE_NAMES = ("supersedes", "depends_on", "contradicts")
+HUMAN_RELATION_EDGE_NAMES = ("supersedes",)
 GOVERNED_MEMORY_KINDS = frozenset({"memory"})
 INELIGIBLE_VALIDITY = frozenset({"expired", "future", "invalid"})
 PRIMARY_SCAN_CEILING = 500
@@ -27,10 +27,13 @@ HUMAN_SECTION_RULE = "───────────────────�
 EMPTY_WHY_GUIDANCE = (
     "No project decisions or constraints have been explicitly stored yet.\n"
     "\n"
-    "Teach one naturally:\n"
+    "Tell your connected coding agent:\n"
     "\n"
     '"Remember that we decided X because Y."'
 )
+HUMAN_SUPERSEDES_DECISION = "Replaces an earlier decision."
+HUMAN_SUPERSEDES_CONSTRAINT = "Replaces an earlier constraint."
+HUMAN_SUPERSEDES_RECORD = "Replaces an earlier project record."
 REASON_NOT_RECORDED = "Reason not explicitly recorded."
 
 
@@ -64,6 +67,7 @@ class _RelationDisplay:
     relation: str
     source_label: str
     target_label: str
+    phrase: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -397,8 +401,10 @@ def render_explorer_human_markdown(build: _ExplorerBuild) -> str:
             lines.extend([f"+{presentation.constraint_overflow} more", ""])
     if presentation.relationships:
         lines.extend(["Relationships", HUMAN_SECTION_RULE, ""])
-        for relation in presentation.relationships:
-            lines.append(f"{relation.source_label} {relation.relation} {relation.target_label}")
+        for index, relation in enumerate(presentation.relationships):
+            lines.extend([relation.source_label, relation.phrase])
+            if index != len(presentation.relationships) - 1:
+                lines.append("")
         if presentation.relationship_overflow:
             lines.append(f"+{presentation.relationship_overflow} more")
         lines.append("")
@@ -495,18 +501,30 @@ def _human_relationships(build: _ExplorerBuild) -> tuple[_RelationDisplay, ...]:
                     continue
                 seen.add(key)
                 target_item = build.eligible_by_id.get(target)
+                if target_item is None:
+                    continue
+                target_fields = parse_content_fields(str(target_item.get("content") or ""))
+                target_record_type = str(target_item.get("record_type") or target_fields.get("record_type") or "")
                 relations.append(
                     _RelationDisplay(
                         source_id=source_id,
                         target_id=target,
                         relation=relation_name,
                         source_label=labels.get(source_id) or _why_label(item),
-                        target_label=labels.get(target)
-                        or (_why_label(target_item) if target_item is not None else "Untitled decision"),
+                        target_label=labels.get(target) or _why_label(target_item),
+                        phrase=_human_supersession_phrase(target_record_type),
                     )
                 )
     relations.sort(key=lambda item: (HUMAN_RELATION_EDGE_NAMES.index(item.relation), item.source_id, item.target_id))
     return tuple(relations)
+
+
+def _human_supersession_phrase(record_type: str) -> str:
+    if record_type == "constraint":
+        return HUMAN_SUPERSEDES_CONSTRAINT
+    if record_type == "decision":
+        return HUMAN_SUPERSEDES_DECISION
+    return HUMAN_SUPERSEDES_RECORD
 
 
 def _why_label(item: dict[str, Any]) -> str:
@@ -642,14 +660,22 @@ def _human_status_lines(
         status = "Repository snapshot is stale."
     else:
         status = "Repository WHAT is not currently available."
-    counts = f"Decisions: {decision_count}. Constraints: {constraint_count}."
+    parts: list[str] = []
     if binding_state == "current":
-        counts = f"Repository facts: {fact_count}. {counts}"
+        parts.append(_count_phrase(fact_count, "code fact", "code facts"))
+    parts.append(_count_phrase(decision_count, "active decision", "active decisions"))
+    parts.append(_count_phrase(constraint_count, "active constraint", "active constraints"))
+    counts = " · ".join(parts)
     excluded = int(repository_view.get("excluded_count") or 0)
     extra: list[str] = []
     if excluded:
         extra.append(f"+{excluded} more repository facts beyond the current view.")
     return (status, counts, *extra)
+
+
+def _count_phrase(count: int, singular: str, plural: str) -> str:
+    noun = singular if count == 1 else plural
+    return f"{count} {noun}"
 
 
 def _visible_fact_count(repository_view: dict[str, Any]) -> int:
