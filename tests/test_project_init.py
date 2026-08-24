@@ -14,7 +14,12 @@ from agent_mem_bridge.knowledge_explorer import (
     render_explorer_human_markdown,
     render_explorer_technical_markdown,
 )
-from agent_mem_bridge.project_init import apply_project_init, plan_project_init, propose_project_namespace
+from agent_mem_bridge.project_init import (
+    apply_project_init,
+    plan_project_init,
+    propose_project_namespace,
+    render_project_init_success,
+)
 from agent_mem_bridge.repository_snapshot_store import RepositorySnapshotStore
 from agent_mem_bridge.storage import MemoryStore
 
@@ -97,6 +102,10 @@ def test_confirmation_no_writes_nothing(tmp_path: Path, monkeypatch, capsys) -> 
     output = capsys.readouterr().out
     assert "Use this namespace?" not in output
     assert "No changes were made." in output
+    assert "Initialized project:" not in output
+    assert "Refreshed project:" not in output
+    assert "Repository WHAT initialized." not in output
+    assert "Repository WHAT refreshed" not in output
     assert snapshot_bytes(home) == before
 
 
@@ -106,7 +115,10 @@ def test_confirmation_eof_writes_nothing(tmp_path: Path, monkeypatch, capsys) ->
     monkeypatch.setattr("builtins.input", lambda prompt: (_ for _ in ()).throw(EOFError()))
     before = snapshot_bytes(home)
     assert main(["project", "init", str(repo)]) == 0
-    assert "No changes were made." in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "No changes were made." in output
+    assert "Initialized project:" not in output
+    assert "Refreshed project:" not in output
     assert snapshot_bytes(home) == before
 
 
@@ -117,6 +129,9 @@ def test_yes_bootstraps_and_renders_human_explore(tmp_path: Path, monkeypatch, c
     output = capsys.readouterr().out
     assert "Initialized project: Agent-Memory-Bridge" in output
     assert "Namespace: project:agent-memory-bridge" in output
+    assert "Repository WHAT initialized." in output
+    assert "Refreshed project:" not in output
+    assert "Repository WHAT refreshed" not in output
     assert "CODE / WHAT" in output
     assert "CONVERSATION / WHY" in output
     assert "Tell your connected coding agent:" in output
@@ -178,7 +193,17 @@ def test_existing_why_remains_and_is_not_rewritten(tmp_path: Path, monkeypatch, 
         kind="memory",
     )
     assert main(["project", "init", str(repo), "--yes"]) == 0
+    first = capsys.readouterr().out
+    assert "Initialized project: Agent-Memory-Bridge" in first
+    assert "Do not introduce Redis" in first
+    assert "Tell your connected coding agent:" not in first
+    after_first = durable.browse("project:agent-memory-bridge", limit=5)
+    first_content = after_first["items"][0]["content"]
+    assert main(["project", "init", str(repo), "--yes"]) == 0
     output = capsys.readouterr().out
+    assert "Refreshed project: Agent-Memory-Bridge" in output
+    assert "Repository WHAT refreshed; existing project WHY is unchanged." in output
+    assert "Initialized project:" not in output
     assert "Do not introduce Redis" in output
     assert "Tell your connected coding agent:" not in output
     after = durable.stats("project:agent-memory-bridge")
@@ -186,20 +211,28 @@ def test_existing_why_remains_and_is_not_rewritten(tmp_path: Path, monkeypatch, 
     recalled = durable.browse("project:agent-memory-bridge", limit=5)
     assert recalled["items"][0]["id"] == stored["id"]
     assert recalled["items"][0]["kind"] == "memory"
+    assert recalled["items"][0]["content"] == first_content
 
 
 def test_repeat_init_is_idempotent(tmp_path: Path, monkeypatch, capsys) -> None:
     repo = make_repo(tmp_path)
     home = isolate_home(tmp_path, monkeypatch)
     assert main(["project", "init", str(repo), "--yes"]) == 0
-    capsys.readouterr()
+    first_output = capsys.readouterr().out
+    assert "Initialized project: Agent-Memory-Bridge" in first_output
+    assert "Repository WHAT initialized." in first_output
     store = RepositorySnapshotStore(home / "repository")
     first_bindings = json.dumps(store.bindings(), sort_keys=True)
     first_snapshots = sorted(path.relative_to(home).as_posix() for path in (home / "repository").rglob("current.json"))
     durable = MemoryStore(home / "bridge.db", log_dir=home / "logs")
     first_count = durable.stats("project:agent-memory-bridge")["total_count"]
     assert main(["project", "init", str(repo), "--yes"]) == 0
-    capsys.readouterr()
+    output = capsys.readouterr().out
+    assert "Refreshed project: Agent-Memory-Bridge" in output
+    assert "Namespace: project:agent-memory-bridge" in output
+    assert "Repository WHAT refreshed; existing project WHY is unchanged." in output
+    assert "Initialized project:" not in output
+    assert "Repository WHAT initialized." not in output
     assert json.dumps(store.bindings(), sort_keys=True) == first_bindings
     second_snapshots = sorted(path.relative_to(home).as_posix() for path in (home / "repository").rglob("current.json"))
     assert second_snapshots == first_snapshots
@@ -215,8 +248,14 @@ def test_namespace_collision_does_not_rebind(tmp_path: Path, monkeypatch, capsys
     store = RepositorySnapshotStore(home / "repository")
     before = json.dumps(store.bindings(), sort_keys=True)
     assert main(["project", "init", str(second), "--namespace", "project:shared", "--yes"]) == 1
-    output = capsys.readouterr().out
+    captured = capsys.readouterr()
+    output = captured.out
+    err = captured.err
     assert "already bound to a different repository" in output
+    assert "Initialized project:" not in output
+    assert "Refreshed project:" not in output
+    assert "Initialized project:" not in err
+    assert "Refreshed project:" not in err
     assert json.dumps(store.bindings(), sort_keys=True) == before
 
 
@@ -228,8 +267,12 @@ def test_existing_repo_binding_blocks_second_namespace(tmp_path: Path, monkeypat
     store = RepositorySnapshotStore(home / "repository")
     before = json.dumps(store.bindings(), sort_keys=True)
     assert main(["project", "init", str(repo), "--namespace", "project:two", "--yes"]) == 1
-    output = capsys.readouterr().out
-    assert "already bound as `project:one`" in output
+    captured = capsys.readouterr()
+    assert "already bound as `project:one`" in captured.out
+    assert "Initialized project:" not in captured.out
+    assert "Refreshed project:" not in captured.out
+    assert "Initialized project:" not in captured.err
+    assert "Refreshed project:" not in captured.err
     assert json.dumps(store.bindings(), sort_keys=True) == before
 
 
@@ -243,11 +286,15 @@ def test_confirmed_stale_refresh(tmp_path: Path, monkeypatch, capsys) -> None:
     git(repo, "commit", "-qm", "changed")
     assert main(["project", "init", str(repo), "--yes"]) == 0
     output = capsys.readouterr().out
+    assert "Refreshed project: Agent-Memory-Bridge" in output
+    assert "Repository WHAT refreshed; existing project WHY is unchanged." in output
+    assert "Initialized project:" not in output
     assert "CODE / WHAT" in output
     store = RepositorySnapshotStore(home / "repository")
     bound = store.load_bound_snapshot("project:agent-memory-bridge")
     assert bound is not None
     assert bound.get("binding_state") == "current"
+    assert bound.get("commit") == git_sha(repo)
 
 
 def test_no_durable_memory_or_learning_candidates(tmp_path: Path, monkeypatch) -> None:
@@ -333,6 +380,7 @@ def test_apply_saves_fresh_head_after_clean_commit(tmp_path: Path, monkeypatch) 
     head_b = git_sha(repo)
     assert head_b != head_a
     result = apply_project_init(plan, snapshot_root=snapshot_root)
+    assert result["action"] == "bootstrap"
     assert result["snapshot"]["commit"] == head_b
     store = RepositorySnapshotStore(snapshot_root)
     bound = store.load_bound_snapshot("project:agent-memory-bridge")
@@ -386,12 +434,19 @@ def test_existing_bindings_without_lock_stay_unmutated(tmp_path: Path, monkeypat
     store_root = home / "repository"
     before = snapshot_bytes(home)
     assert main(["project", "init", str(repo), "--dry-run"]) == 0
-    capsys.readouterr()
+    dry_run = capsys.readouterr().out
+    assert "Initialized project:" not in dry_run
+    assert "Refreshed project:" not in dry_run
+    assert "Repository WHAT initialized." not in dry_run
+    assert "Repository WHAT refreshed" not in dry_run
     assert snapshot_bytes(home) == before
     assert not (store_root / "bindings.lock").exists()
     monkeypatch.setattr("agent_mem_bridge.cli._confirm_setup_mutation", lambda prompt: False)
     assert main(["project", "init", str(repo)]) == 0
-    assert "No changes were made." in capsys.readouterr().out
+    declined = capsys.readouterr().out
+    assert "No changes were made." in declined
+    assert "Initialized project:" not in declined
+    assert "Refreshed project:" not in declined
     assert snapshot_bytes(home) == before
     assert bindings_path.read_bytes() == before[str(bindings_path.relative_to(home))]
     assert not (store_root / "bindings.lock").exists()
@@ -417,3 +472,42 @@ def test_existing_lock_is_not_rewritten_during_planning(tmp_path: Path, monkeypa
     assert lock_path.read_bytes() == b"keep-me"
     assert lock_path.stat().st_mtime_ns == lock_stat.st_mtime_ns
     assert bindings_path.read_bytes() == bindings_bytes
+
+
+def test_success_copy_uses_applied_refresh_not_stale_bootstrap_plan(tmp_path: Path, monkeypatch) -> None:
+    repo = make_repo(tmp_path)
+    home = isolate_home(tmp_path, monkeypatch)
+    snapshot_root = home / "repository"
+    plan = plan_project_init(repo, namespace=None, snapshot_root=snapshot_root)
+    assert plan.action == "bootstrap"
+    assert main(["project", "init", str(repo), "--yes"]) == 0
+    result = apply_project_init(plan, snapshot_root=snapshot_root)
+    assert result["action"] == "refresh"
+    success = render_project_init_success(plan, snapshot_root=snapshot_root, action=result["action"])
+    assert "Refreshed project: Agent-Memory-Bridge" in success
+    assert "Repository WHAT refreshed; existing project WHY is unchanged." in success
+    assert "Initialized project:" not in success
+    assert "Repository WHAT initialized." not in success
+
+
+def test_apply_repeat_after_clean_head_change_is_refresh(tmp_path: Path, monkeypatch) -> None:
+    repo = make_repo(tmp_path)
+    home = isolate_home(tmp_path, monkeypatch)
+    snapshot_root = home / "repository"
+    first_plan = plan_project_init(repo, namespace=None, snapshot_root=snapshot_root)
+    first = apply_project_init(first_plan, snapshot_root=snapshot_root)
+    assert first["action"] == "bootstrap"
+    head_a = str(first["snapshot"]["commit"])
+    (repo / "README.md").write_text("later HEAD\n", encoding="utf-8")
+    git(repo, "add", "README.md")
+    git(repo, "commit", "-qm", "later")
+    head_b = git_sha(repo)
+    assert head_b != head_a
+    second_plan = plan_project_init(repo, namespace=None, snapshot_root=snapshot_root)
+    second = apply_project_init(second_plan, snapshot_root=snapshot_root)
+    assert second["action"] == "refresh"
+    assert second["snapshot"]["commit"] == head_b
+    store = RepositorySnapshotStore(snapshot_root)
+    bound = store.load_bound_snapshot("project:agent-memory-bridge")
+    assert bound is not None
+    assert bound.get("commit") == head_b
