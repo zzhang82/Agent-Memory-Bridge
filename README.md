@@ -63,7 +63,7 @@ Read the complete authority and data-flow story in [Architecture](docs/ARCHITECT
 
 AMB runs locally with **Python 3.11+**, SQLite with FTS5, and an MCP-compatible client that can launch a local stdio server.
 
-The current source/package version is `0.31.1`. Use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). This source is not a published GitHub Release yet, and there is no `pip install agent-memory-bridge==0.31.1` route.
+The current source/package version is `0.31.1`. Use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). GitHub Release publication status is determined by that live Releases page; there is no `pip install agent-memory-bridge==0.31.1` route.
 
 ### 1. Connect AMB to your coding client
 

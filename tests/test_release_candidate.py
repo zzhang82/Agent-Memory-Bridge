@@ -122,6 +122,8 @@ def test_current_docs_record_v031_source_without_hypothetical_wording() -> None:
         "尚未创建标签",
         "candidate has no release tag",
         "After v0.30.0 is published",
+        "This source is not a published GitHub Release yet",
+        "此源码尚未作为 GitHub Release 发布",
     )
     for name in docs:
         text = (ROOT / name).read_text(encoding="utf-8")
@@ -129,8 +131,16 @@ def test_current_docs_record_v031_source_without_hypothetical_wording() -> None:
         assert "current unreleased source" not in text.casefold()
         assert "当前尚未发布的源码" not in text
         assert not any(phrase.casefold() in text.casefold() for phrase in hypothetical_phrases)
-    assert "Published releases: see [GitHub Releases]" in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "已发布版本：请见 [GitHub Releases]" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    english_readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    chinese_readme = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    english_quick = english_readme.split("## Quick Start", 1)[1].split("## Integrations", 1)[0]
+    chinese_quick = chinese_readme.split("## 快速开始", 1)[1].split("## 集成", 1)[0]
+    assert "Published releases: see [GitHub Releases]" in english_readme
+    assert "已发布版本：请见 [GitHub Releases]" in chinese_readme
+    assert "live Releases page" in english_quick
+    assert "实时状态" in chinese_quick
+    assert "This source is not a published GitHub Release yet" not in english_readme
+    assert "此源码尚未作为 GitHub Release 发布" not in chinese_readme
     assert "Current package/source version is `0.31.1`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
         encoding="utf-8"
     )

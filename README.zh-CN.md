@@ -62,7 +62,7 @@ flowchart LR
 
 AMB 在本地运行，需要 **Python 3.11+**、支持 FTS5 的 SQLite，以及能启动本地 stdio 服务的 MCP 客户端。
 
-当前源码/包版本为 `0.31.1`。使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。已发布版本和固定归档请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。此源码尚未作为 GitHub Release 发布，也不存在 `pip install agent-memory-bridge==0.31.1` 安装路径。
+当前源码/包版本为 `0.31.1`。使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。已发布版本和固定归档请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。GitHub Release 是否已发布，以该 Releases 页面的实时状态为准；不存在 `pip install agent-memory-bridge==0.31.1` 安装路径。
 
 ### 1. 把 AMB 连接到编码客户端
 
