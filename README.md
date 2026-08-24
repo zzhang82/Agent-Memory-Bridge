@@ -119,7 +119,7 @@ Inspect explains the governed result for that question. It does not list every d
   --namespace project:my-app
 ```
 
-Explore is a local, read-only, derived projection over existing project knowledge. It is CLI-only, not MCP tool #18, and it does not rank context for the model.
+Explore is a local, read-only, derived projection over existing project knowledge. Default Markdown is a human-readable project one-pager. Use `--format markdown --technical` for the detailed graph/audit view. JSON is unchanged. Explore is CLI-only, not MCP tool #18, and it does not rank context for the model.
 
 ### Project knowledge mental model
 
