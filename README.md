@@ -10,7 +10,7 @@
 
 **Agent Memory Bridge (AMB)** is a local-first shared project memory layer for AI coding agents. Code tells AMB what the project is; conversations teach AMB why it is that way. Repository-derived **WHAT** and governed durable project **WHY** remain distinct and are available across tools and sessions through a small local MCP surface.
 
-Current source version: `0.31.0`
+Current source version: `0.31.1`
 
 Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
@@ -63,7 +63,7 @@ Read the complete authority and data-flow story in [Architecture](docs/ARCHITECT
 
 AMB runs locally with **Python 3.11+**, SQLite with FTS5, and an MCP-compatible client that can launch a local stdio server.
 
-The current source/package version is `0.31.0`. Use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). This source is not a published `v0.31.1`, and there is no `pip install agent-memory-bridge==0.31.1` route.
+The current source/package version is `0.31.1`. Use a source checkout with `<venv-python> -m pip install -e .` to evaluate this exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). This source is not a published GitHub Release yet, and there is no `pip install agent-memory-bridge==0.31.1` route.
 
 ### 1. Connect AMB to your coding client
 
@@ -246,7 +246,7 @@ The public surface is intentionally small. Context assembly, review reports, and
 
 ## Current Maturity
 
-The current source is `0.31.0`, uses schema v12, and retains the frozen 17-tool MCP surface. Knowledge Explorer is implemented as a CLI-only read-only derived projection over existing project knowledge. Checked-in source facts, validation evidence, and non-claims are maintained in [Production Status](docs/PRODUCTION-STATUS.md). For live CI, use [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) or the CI badge above; for published versions, use [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) or the release badge above.
+The current source is `0.31.1`, uses schema v12, and retains the frozen 17-tool MCP surface. Knowledge Explorer is implemented as a CLI-only read-only derived projection over existing project knowledge. Explicit project decisions and constraints now use the same governed task-memory path that Inspect and the Context Compiler consume. Checked-in source facts, validation evidence, and non-claims are maintained in [Production Status](docs/PRODUCTION-STATUS.md). For live CI, use [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) or the CI badge above; for published versions, use [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) or the release badge above.
 
 ## Roadmap
 

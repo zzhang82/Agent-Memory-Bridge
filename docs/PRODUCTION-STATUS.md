@@ -6,7 +6,7 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.31.0` |
+| Package/source version | `0.31.1` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
@@ -27,6 +27,10 @@ The `v0.28.0` tag identifies the historical release merge snapshot `c6e3568a5985
 ### Project Knowledge Activation
 
 V0.30 adds a persistent, bounded, rebuildable derived repository snapshot. Explicit namespace binding and canonical local Git roots isolate independent clones and worktrees; a clean HEAD is required for commit-bound eligibility, while dirty, stale, moved, or unavailable sources fail closed. The existing MCP `recall` response keeps selected repository WHAT in `repository_knowledge` and governed durable WHY in normal `items`; repository facts are never promoted into durable memory.
+
+### Project WHY Alignment
+
+V0.31.1 makes explicit project decisions and constraints first-class governed task-memory lanes. The same active WHY that recall can see now reaches Task Memory, Inspect, the Context Compiler, and Knowledge Explorer. Revision, supersession, validity, lineage, and structured-metadata governance remain in force. Project Learning onboarding is connect, bootstrap repository WHAT, teach one WHY, then Inspect and Explore in a fresh session. This is not automatic learning and does not add an MCP tool.
 
 ### Knowledge Explorer
 

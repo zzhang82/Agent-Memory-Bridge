@@ -376,16 +376,19 @@ def _artifact_stage(
         import json
         import pathlib
         import agent_mem_bridge
+        from agent_mem_bridge.schema import CURRENT_SCHEMA_VERSION
 
         print(json.dumps({
             "version": importlib.metadata.version("agent-memory-bridge"),
             "origin": str(pathlib.Path(agent_mem_bridge.__file__).resolve()),
+            "schema": CURRENT_SCHEMA_VERSION,
         }))
         """
     )
     payload = _run_json([str(python), "-c", code], cwd=root, env=env, label="installed package origin check")
     origin = Path(str(payload.get("origin") or "")).resolve()
     _require(payload.get("version") == expected_version, "installed package version did not match --expected-version")
+    _require(payload.get("schema") == 12, "installed package schema was not v12")
     _require(
         origin.is_relative_to(python.parent.parent.resolve()), "runtime module did not come from the isolated venv"
     )
@@ -395,6 +398,7 @@ def _artifact_stage(
     return {
         "artifact": artifact_kind,
         "version": expected_version,
+        "schema": 12,
         "module_from_isolated_environment": True,
         "module_from_checkout_src": False,
         "console_entrypoint_verified": True,
@@ -483,6 +487,7 @@ def _recall_stage(
     _require(decision is not None, "fresh-process recall did not return the durable decision")
     repository = payload.get("repository_knowledge")
     _require(isinstance(repository, dict), "fresh-process recall did not return repository knowledge")
+    assert isinstance(repository, dict)
     _require(repository.get("authority") == "derived_repository", "repository authority was not derived_repository")
     _require(repository.get("binding_state") == "current", "repository binding was not current")
     fact = _matching_fact(repository.get("selected"))
@@ -642,13 +647,118 @@ def _relation_stage(
     )
 
 
-def _inspect_stage(console: Path, root: Path, env: dict[str, str]) -> dict[str, Any]:
-    payload = _run_json(
+def _inspect_report(console: Path, root: Path, env: dict[str, str]) -> dict[str, Any]:
+    return _run_json(
         [str(console), "inspect", "--namespace", NAMESPACE, "--query", QUERY, "--format", "json", "--technical"],
         cwd=root,
         env=env,
         label="inspect provenance",
     )
+
+
+def _governed_context_path(
+    python: Path,
+    console: Path,
+    root: Path,
+    env: dict[str, str],
+    *,
+    active_id: str,
+    inactive_ids: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    recall = _mcp_call(
+        python,
+        cwd=root,
+        env=env,
+        action="recall",
+        arguments={"namespace": NAMESPACE, "query": QUERY, "kind": "memory", "limit": 10},
+    )
+    recall_ids = {
+        str(item.get("id")) for item in ((recall.get("payload") or {}).get("items") or []) if isinstance(item, dict)
+    }
+    _require(active_id in recall_ids, "fresh-process recall did not return the active decision")
+    _require(
+        all(memory_id not in recall_ids for memory_id in inactive_ids),
+        "fresh-process recall kept an inactive predecessor",
+    )
+
+    inspect_payload = _inspect_report(console, root, env)
+    selected = {
+        str(item.get("memory_id")): item for item in inspect_payload.get("selected") or [] if isinstance(item, dict)
+    }
+    _require(active_id in selected, "inspect did not select the active decision")
+    _require(
+        (selected[active_id].get("technical") or {}).get("section") == "decision_hits",
+        "inspect did not select the decision through task memory",
+    )
+    _require(
+        all(memory_id not in selected for memory_id in inactive_ids), "inspect kept an inactive predecessor selected"
+    )
+    repository = inspect_payload.get("repository_knowledge") or {}
+    snapshot = repository.get("snapshot") or {}
+    _require(snapshot.get("authority") == "derived_repository", "inspect repository authority mismatch")
+
+    db_path = env["AGENT_MEMORY_BRIDGE_DB_PATH"]
+    log_dir = env["AGENT_MEMORY_BRIDGE_LOG_DIR"]
+    code = textwrap.dedent(
+        f"""
+        import json
+        from pathlib import Path
+        from agent_mem_bridge.context_manifest import compile_context, render_context
+        from agent_mem_bridge.schema import CURRENT_SCHEMA_VERSION, schema_version
+        from agent_mem_bridge.storage import MemoryStore
+        from agent_mem_bridge.task_memory import assemble_task_memory
+
+        store = MemoryStore(Path({db_path!r}), log_dir=Path({log_dir!r}))
+        with store._connect() as conn:
+            current_schema = schema_version(conn)
+        report = assemble_task_memory(store, query={QUERY!r}, project_namespace={NAMESPACE!r})
+        manifest = compile_context(task_memory=report, budget_tokens=2048)
+        rendered = render_context(manifest)
+        print(json.dumps({{
+            "schema": current_schema,
+            "expected_schema": CURRENT_SCHEMA_VERSION,
+            "decision_ids": [item.get("id") for item in report.get("decision_hits") or []],
+            "item_ids": [item.item_id for item in manifest.items],
+            "rendered": rendered,
+        }}))
+        """
+    )
+    compiled = _run_json([str(python), "-c", code], cwd=root, env=env, label="task memory and context compiler")
+    _require(compiled.get("schema") == 12, "installed database schema was not v12")
+    _require(compiled.get("expected_schema") == 12, "installed package schema constant was not v12")
+    decision_ids = [str(item) for item in compiled.get("decision_ids") or []]
+    _require(active_id in decision_ids, "task memory decision_hits did not contain the active decision")
+    _require(
+        all(memory_id not in decision_ids for memory_id in inactive_ids), "task memory kept an inactive predecessor"
+    )
+    rendered = str(compiled.get("rendered") or "")
+    _require("[Project Decision]" in rendered, "context compiler did not render [Project Decision]")
+    item_ids = {str(item) for item in compiled.get("item_ids") or []}
+    _require(active_id in item_ids, "context compiler did not include the active decision")
+    _require(
+        all(memory_id not in item_ids for memory_id in inactive_ids), "context compiler kept an inactive predecessor"
+    )
+
+    projection = _explore(console, root, env)
+    node_ids = {str(node.get("id")) for node in projection.get("nodes") or [] if isinstance(node, dict)}
+    _require(f"memory:{active_id}" in node_ids, "Explorer did not project the active decision")
+    _require(
+        all(f"memory:{memory_id}" not in node_ids for memory_id in inactive_ids),
+        "Explorer kept an inactive predecessor",
+    )
+    return {
+        "recall_active": True,
+        "task_memory_decision_hits": True,
+        "inspect_selected": True,
+        "context_compiler_project_decision": True,
+        "explore_governed_durable_memory": True,
+        "inactive_predecessor_withheld": True,
+        "schema": 12,
+    }
+
+
+def _inspect_stage(python: Path, console: Path, root: Path, env: dict[str, str], stored_id: str) -> dict[str, Any]:
+    payload = _inspect_report(console, root, env)
     _require(
         payload.get("mutation_boundary") == "read_only_with_respect_to_user_memory_state_and_configuration",
         "inspect did not report its read-only boundary",
@@ -659,12 +769,15 @@ def _inspect_stage(console: Path, root: Path, env: dict[str, str]) -> dict[str, 
     _require(snapshot.get("authority") == "derived_repository", "inspect repository authority mismatch")
     _require(snapshot.get("binding_state") == "current", "inspect repository binding was not current")
     _require(fact is not None, "inspect did not expose repository WHAT provenance")
+    governed = _governed_context_path(python, console, root, env, active_id=stored_id)
     return {
         "repository_authority": "derived_repository",
         "binding_state": "current",
         "fact_source": EXPECTED_WHAT["source"],
         "mutation_boundary": payload["mutation_boundary"],
         "arbitrary_decision_selection_claimed": False,
+        "selected_decision": stored_id,
+        "governed_context_path": governed,
     }
 
 
@@ -736,9 +849,20 @@ def run_proof(*, expected_version: str, artifact_kind: str) -> dict[str, Any]:
         _require(before_explorer_db == after_explorer_db, "Explorer mutated the durable database")
         _require(before_explorer_snapshots == after_explorer_snapshots, "Explorer mutated repository snapshots")
         _require(before_explorer_bindings == after_explorer_bindings, "Explorer mutated repository bindings")
+        initial_governed = _governed_context_path(python, console, root, env, active_id=stored_id)
+        _require(initial_governed["task_memory_decision_hits"], "initial project WHY did not reach task memory")
         relation_evidence, intended_ids = _relation_stage(python, console, root, env, stored_id)
+        successor_id = intended_ids[-1]
+        relation_evidence["governed_context_path"] = _governed_context_path(
+            python,
+            console,
+            root,
+            env,
+            active_id=successor_id,
+            inactive_ids=(stored_id,),
+        )
         stage(STAGES[5], lambda: relation_evidence)
-        stage(STAGES[6], lambda: _inspect_stage(console, root, env))
+        stage(STAGES[6], lambda: _inspect_stage(python, console, root, env, successor_id))
         stage(STAGES[7], lambda: _surface_stage(surface))
         state = _db_state(db_path)
         _require(set(state["memory_ids"]) == set(intended_ids), "unexpected durable memory rows were created")
