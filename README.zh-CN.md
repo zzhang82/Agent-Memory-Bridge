@@ -10,7 +10,7 @@
 
 **Agent Memory Bridge（AMB）**是面向 AI 编码智能体的本地优先共享项目记忆层。代码告诉 AMB 项目是什么；对话教会 AMB 项目为什么如此。派生的仓库 **WHAT** 与受治理的持久项目 **WHY** 保持分离，并通过精简的本地 MCP 接口跨工具、跨会话提供。
 
-当前源码版本：`0.31.0`
+当前源码版本：`0.31.1`
 
 已发布版本：请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
@@ -62,7 +62,7 @@ flowchart LR
 
 AMB 在本地运行，需要 **Python 3.11+**、支持 FTS5 的 SQLite，以及能启动本地 stdio 服务的 MCP 客户端。
 
-当前源码/包版本为 `0.31.0`。使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。已发布版本和固定归档请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。此源码不是已发布的 `v0.31.1`，也不存在 `pip install agent-memory-bridge==0.31.1` 安装路径。
+当前源码/包版本为 `0.31.1`。使用源码检出时可运行 `<venv-python> -m pip install -e .` 评估精确检出。已发布版本和固定归档请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。此源码尚未作为 GitHub Release 发布，也不存在 `pip install agent-memory-bridge==0.31.1` 安装路径。
 
 ### 1. 把 AMB 连接到编码客户端
 
@@ -245,7 +245,7 @@ AMB 提供 **17 个公共 MCP 工具**：
 
 ## 当前成熟度
 
-当前源码版本为 `0.31.0`，使用 schema v12 和冻结的 17 工具 MCP 接口。Knowledge Explorer 已实现为仅 CLI 的只读派生投影，建立在现有项目知识之上。已检入的源码事实、验证证据和非声明由[生产状态](docs/PRODUCTION-STATUS.md)维护。实时 CI 请查看 [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) 或上方 CI badge；已发布版本请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) 或上方 release badge。
+当前源码版本为 `0.31.1`，使用 schema v12 和冻结的 17 工具 MCP 接口。Knowledge Explorer 已实现为仅 CLI 的只读派生投影，建立在现有项目知识之上。显式项目决策与约束现在走 Inspect 与 Context Compiler 共用的受治理 task-memory 路径。已检入的源码事实、验证证据和非声明由[生产状态](docs/PRODUCTION-STATUS.md)维护。实时 CI 请查看 [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) 或上方 CI badge；已发布版本请查看 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) 或上方 release badge。
 
 ## 路线图
 

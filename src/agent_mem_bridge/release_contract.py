@@ -183,7 +183,7 @@ V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V026_PATCH_PATTERN,
 )
 V027_EPISODE_RELEASE = "0.27.4"
-CURRENT_SOURCE_RELEASE = "0.31.0"
+CURRENT_SOURCE_RELEASE = "0.31.1"
 V027_EPISODE_FOUNDATION_PATTERNS = (V027_PATCH_PATTERN,)
 V027_SCHEMA_VERSION = 12
 V027_PUBLIC_TOOL_ORDER = (
@@ -255,6 +255,7 @@ def run_release_contract_check(
     )
     if enforce_current_source_identity:
         checks.append(build_current_source_release_identity_check(pyproject_version))
+        checks.append(build_current_source_release_notes_check(project_root, pyproject_version))
     checks.append(
         build_fact_check(
             fact_paths=[current_status_path],
@@ -303,6 +304,47 @@ def build_current_source_release_identity_check(pyproject_version: str) -> dict[
         "ok": pyproject_version == CURRENT_SOURCE_RELEASE,
         "expected_version": CURRENT_SOURCE_RELEASE,
         "actual_version": pyproject_version,
+    }
+
+
+def build_current_source_release_notes_check(project_root: Path, pyproject_version: str) -> dict[str, Any]:
+    path = project_root / "docs" / "v0.31.1-announcement.md"
+    required_markers = (
+        "Project WHY Alignment",
+        "decision_hits",
+        "constraint_hits",
+        "[Project Decision]",
+        "[Project Constraint]",
+        "connect → bootstrap WHAT → teach WHY → fresh session → Inspect + Explore",
+        "no MCP tool #18",
+        "no `pip install agent-memory-bridge==0.31.1` route",
+    )
+    mismatches: list[dict[str, Any]] = []
+    if pyproject_version != CURRENT_SOURCE_RELEASE:
+        mismatches.append(
+            {
+                "field": "package_version",
+                "expected": CURRENT_SOURCE_RELEASE,
+                "actual": pyproject_version,
+            }
+        )
+    if not path.exists():
+        mismatches.append({"field": str(path), "expected": "present", "actual": "missing"})
+        return {
+            "name": "current_source_release_notes_match_v0311",
+            "ok": False,
+            "path": str(path),
+            "mismatches": mismatches,
+        }
+    text = path.read_text(encoding="utf-8")
+    missing = [marker for marker in required_markers if marker not in text]
+    if missing:
+        mismatches.append({"field": str(path), "expected_markers": missing, "actual": "missing"})
+    return {
+        "name": "current_source_release_notes_match_v0311",
+        "ok": not mismatches,
+        "path": str(path),
+        "mismatches": mismatches,
     }
 
 

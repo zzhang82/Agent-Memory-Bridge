@@ -5,17 +5,17 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT = "0.31.0"
+CURRENT = "0.31.1"
 
 
 def test_current_package_and_source_docs_use_v031_identity() -> None:
     package_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     assert package_version == CURRENT
-    assert "Current source version: `0.31.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "当前源码版本：`0.31.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    assert "Current source version: `0.31.1`" in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "当前源码版本：`0.31.1`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
     assert "Published releases: see [GitHub Releases]" in (ROOT / "README.md").read_text(encoding="utf-8")
     assert "已发布版本：请见 [GitHub Releases]" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert "| Package/source version | `0.31.0` |" in (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
+    assert "| Package/source version | `0.31.1` |" in (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
 
 
 def test_historical_v0274_evidence_remains_historical() -> None:
@@ -29,6 +29,9 @@ def test_historical_v0274_evidence_remains_historical() -> None:
     assert "v0.28.0 source/release line" in changelog
     assert "v0.29.0 source/release line" in changelog
     assert "v0.30.0 source/release line" in changelog
+    assert "v0.31.0 source/release line" in changelog
+    assert "v0.31.1 source/release line" in changelog
+    assert "[v0.31.1 announcement](docs/v0.31.1-announcement.md)" in changelog
     assert "v0.28.0 candidate" not in changelog
 
 
@@ -128,7 +131,7 @@ def test_current_docs_record_v031_source_without_hypothetical_wording() -> None:
         assert not any(phrase.casefold() in text.casefold() for phrase in hypothetical_phrases)
     assert "Published releases: see [GitHub Releases]" in (ROOT / "README.md").read_text(encoding="utf-8")
     assert "已发布版本：请见 [GitHub Releases]" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert "Current package/source version is `0.31.0`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
+    assert "Current package/source version is `0.31.1`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
         encoding="utf-8"
     )
     assert "archive/refs/tags/v0.28.0.zip" in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
