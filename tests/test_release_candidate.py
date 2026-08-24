@@ -66,7 +66,8 @@ def test_project_learning_promotion_docs_stay_human_and_truthful() -> None:
     assert "Refresh is not automatic." in english_quick
     assert "刷新不是自动发生的" in chinese_quick
     assert "bootstrap-repo . \\\n  --namespace project:<name>" in english_quick
-    assert "does not interactively suggest a namespace" in english_quick
+    assert "agent_mem_bridge project init" in english_quick
+    assert "does not automatically learn decisions" in english_quick
     assert "CLI-only, not MCP tool #18" in english_quick
     assert "不是 MCP 工具 #18" in chinese_quick
     assert "schema v12" in readme
@@ -89,7 +90,9 @@ def test_project_learning_promotion_docs_stay_human_and_truthful() -> None:
         step1 = quick_start.split("### 1.", 1)[1].split("### 2.", 1)[0]
         assert "doctor" not in step1
         assert "verify" not in step1
+        assert "agent_mem_bridge project init" in quick_start.split("### 2.", 1)[1]
         assert "agent_mem_bridge bootstrap-repo" in quick_start.split("### 2.", 1)[1]
+        assert quick_start.index("agent_mem_bridge project init") < quick_start.index("agent_mem_bridge bootstrap-repo")
         assert quick_start.index("agent_mem_bridge bootstrap-repo") < quick_start.index("agent_mem_bridge doctor")
         assert "agent_mem_bridge verify" in quick_start.split("### 2.", 1)[1]
 

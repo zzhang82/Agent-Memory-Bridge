@@ -211,10 +211,11 @@ active project WHY surfaced for the question. `explore` shows what AMB currently
 knows about the project and how eligible WHAT and WHY are connected. Inspect
 does not list every durable record. Explore does not rank context for the model.
 
-If repository WHAT is unavailable, recover with an explicit
+If repository WHAT is unavailable, recover with `project init .` or an explicit
 `bootstrap-repo . --namespace project:<name>` after the worktree is clean. Dirty
-worktrees, changed HEAD, and missing bindings do not auto-refresh, and the
-current v0.31.x runtime does not interactively suggest a namespace.
+worktrees, changed HEAD, and missing bindings do not auto-refresh. Project Init
+may suggest a namespace, but it still requires explicit confirmation before
+binding.
 
 ## Optional First Run Guide
 

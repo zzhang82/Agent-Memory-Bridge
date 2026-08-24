@@ -222,6 +222,11 @@ class RepositorySnapshotStore:
         with self._bindings_lock():
             return self._read_bindings_unlocked()
 
+    def peek_bindings(self) -> dict[str, Any]:
+        if not self.bindings_path.exists() and not (self.root / "bindings.lock").exists():
+            return {"store_schema": BINDING_STORE_SCHEMA, "bindings": {}}
+        return self.bindings()
+
     def bind_namespace(self, namespace: str, repository_id: str, *, allow_rebind: bool = False) -> dict[str, Any]:
         cleaned = namespace.strip()
         if not cleaned:
