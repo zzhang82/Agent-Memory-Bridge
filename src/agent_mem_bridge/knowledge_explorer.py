@@ -33,6 +33,7 @@ EMPTY_WHY_GUIDANCE = (
 )
 HUMAN_SUPERSEDES_DECISION = "Replaces an earlier decision."
 HUMAN_SUPERSEDES_CONSTRAINT = "Replaces an earlier constraint."
+HUMAN_SUPERSEDES_RECORD = "Replaces an earlier project record."
 REASON_NOT_RECORDED = "Reason not explicitly recorded."
 
 
@@ -500,17 +501,18 @@ def _human_relationships(build: _ExplorerBuild) -> tuple[_RelationDisplay, ...]:
                     continue
                 seen.add(key)
                 target_item = build.eligible_by_id.get(target)
-                fields = parse_content_fields(str(item.get("content") or ""))
-                record_type = str(item.get("record_type") or fields.get("record_type") or "")
+                if target_item is None:
+                    continue
+                target_fields = parse_content_fields(str(target_item.get("content") or ""))
+                target_record_type = str(target_item.get("record_type") or target_fields.get("record_type") or "")
                 relations.append(
                     _RelationDisplay(
                         source_id=source_id,
                         target_id=target,
                         relation=relation_name,
                         source_label=labels.get(source_id) or _why_label(item),
-                        target_label=labels.get(target)
-                        or (_why_label(target_item) if target_item is not None else "Untitled decision"),
-                        phrase=_human_supersession_phrase(record_type),
+                        target_label=labels.get(target) or _why_label(target_item),
+                        phrase=_human_supersession_phrase(target_record_type),
                     )
                 )
     relations.sort(key=lambda item: (HUMAN_RELATION_EDGE_NAMES.index(item.relation), item.source_id, item.target_id))
@@ -520,7 +522,9 @@ def _human_relationships(build: _ExplorerBuild) -> tuple[_RelationDisplay, ...]:
 def _human_supersession_phrase(record_type: str) -> str:
     if record_type == "constraint":
         return HUMAN_SUPERSEDES_CONSTRAINT
-    return HUMAN_SUPERSEDES_DECISION
+    if record_type == "decision":
+        return HUMAN_SUPERSEDES_DECISION
+    return HUMAN_SUPERSEDES_RECORD
 
 
 def _why_label(item: dict[str, Any]) -> str:

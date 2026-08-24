@@ -7,7 +7,12 @@ from typing import Any
 
 from agent_mem_bridge.knowledge_explorer import (
     HUMAN_DISPLAY_LIMIT,
+    HUMAN_SUPERSEDES_CONSTRAINT,
+    HUMAN_SUPERSEDES_DECISION,
+    HUMAN_SUPERSEDES_RECORD,
     _build_explorer,
+    _ExplorerBuild,
+    _human_relationships,
     _presentation_from_build,
     _primary_why_ids,
     build_explorer_projection,
@@ -766,6 +771,75 @@ def test_human_markdown_constraint_supersedes_phrase(tmp_path: Path) -> None:
     assert "Replaces an earlier constraint." in rendered
     assert "Replaces an earlier decision." not in rendered
     assert "supersedes" not in rendered
+
+
+def _supersedes_pair(source_type: str, target_type: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "source-a",
+            "kind": "memory",
+            "title": "Source",
+            "content": (f"record_type: {source_type}\nclaim: Current {source_type}\nreason: now\nsupersedes: target-b"),
+        },
+        {
+            "id": "target-b",
+            "kind": "memory",
+            "title": "Target",
+            "content": f"record_type: {target_type}\nclaim: Earlier {target_type}\nreason: then",
+        },
+    ]
+
+
+def test_human_supersession_phrase_follows_target_record_type(tmp_path: Path) -> None:
+    cases = (
+        ("decision", "decision", HUMAN_SUPERSEDES_DECISION),
+        ("constraint", "constraint", HUMAN_SUPERSEDES_CONSTRAINT),
+        ("decision", "constraint", HUMAN_SUPERSEDES_CONSTRAINT),
+        ("constraint", "decision", HUMAN_SUPERSEDES_DECISION),
+    )
+    for source_type, target_type, expected in cases:
+        rendered = render_explorer_human_markdown(
+            _human_build(
+                tmp_path, _supersedes_pair(source_type, target_type), bind=False, name=f"{source_type}-{target_type}"
+            )
+        )
+        assert expected in rendered
+        unexpected = HUMAN_SUPERSEDES_CONSTRAINT if expected == HUMAN_SUPERSEDES_DECISION else HUMAN_SUPERSEDES_DECISION
+        assert unexpected not in rendered
+        assert HUMAN_SUPERSEDES_RECORD not in rendered
+        assert "supersedes" not in rendered
+
+
+def test_human_supersession_unknown_target_type_is_neutral() -> None:
+    source = {
+        "id": "source-a",
+        "kind": "memory",
+        "title": "Source",
+        "content": "record_type: decision\nclaim: Current decision\nreason: now\nsupersedes: target-b",
+    }
+    target = {
+        "id": "target-b",
+        "kind": "memory",
+        "title": "Target",
+        "content": "record_type: learn\nclaim: Earlier note",
+    }
+    build = _ExplorerBuild(
+        projection={
+            "schema": "knowledge-explorer-v1",
+            "namespace": "project:fixture",
+            "nodes": [],
+            "edges": [],
+            "diagnostics": [],
+            "repository": {"binding_state": "unbound"},
+        },
+        repository_view={"binding_state": "unbound", "selected": []},
+        primary_items=(source,),
+        eligible_by_id={"source-a": source, "target-b": target},
+    )
+    relations = _human_relationships(build)
+    assert len(relations) == 1
+    assert relations[0].phrase == HUMAN_SUPERSEDES_RECORD
+    assert relations[0].phrase not in {HUMAN_SUPERSEDES_DECISION, HUMAN_SUPERSEDES_CONSTRAINT}
 
 
 def test_human_status_pluralizes_counts(tmp_path: Path) -> None:
