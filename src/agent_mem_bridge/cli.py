@@ -23,7 +23,11 @@ from .database_maintenance import (
 from .evidence_inspect import build_memory_inspect_report, render_memory_inspect_markdown
 from .first_run import build_first_run_report, render_first_run_markdown
 from .index_health import inspect_indexes, rebuild_embedding_index, rebuild_fts_index
-from .knowledge_explorer import build_explorer_projection, render_explorer_markdown
+from .knowledge_explorer import (
+    _build_explorer,
+    render_explorer_human_markdown,
+    render_explorer_technical_markdown,
+)
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
 from .paths import (
     resolve_bridge_db_path,
@@ -287,6 +291,11 @@ def _build_parser() -> argparse.ArgumentParser:
     explore_parser.add_argument("--namespace", required=True, help="Project namespace to explore.")
     explore_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
     explore_parser.add_argument("--limit", type=int, default=100, help="Maximum source records to project (1..500).")
+    explore_parser.add_argument(
+        "--technical",
+        action="store_true",
+        help="Render the detailed graph/audit Markdown. Valid only with --format markdown.",
+    )
 
     # Retained parser compatibility only. P2C does not inspect or render these
     # values, so they must not appear as meaningful first-run controls.
@@ -775,8 +784,11 @@ def _run_unbind_repo(namespace: argparse.Namespace) -> int:
 
 
 def _run_explore(namespace: argparse.Namespace) -> int:
+    if getattr(namespace, "technical", False) and namespace.format == "json":
+        print("--technical is only valid with --format markdown", file=sys.stderr)
+        return 2
     try:
-        projection = build_explorer_projection(
+        build = _build_explorer(
             namespace=namespace.namespace,
             snapshot_root=resolve_repository_snapshot_root(),
             limit=namespace.limit,
@@ -785,9 +797,11 @@ def _run_explore(namespace: argparse.Namespace) -> int:
         print(f"agent-memory-bridge: explore failed: {exc}", file=sys.stderr)
         return 1
     if namespace.format == "json":
-        print(json.dumps(projection, indent=2, sort_keys=True))
+        print(json.dumps(build.projection, indent=2, sort_keys=True))
+    elif getattr(namespace, "technical", False):
+        print(render_explorer_technical_markdown(build.projection), end="")
     else:
-        print(render_explorer_markdown(projection), end="")
+        print(render_explorer_human_markdown(build), end="")
     return 0
 
 

@@ -1,0 +1,83 @@
+{
+  "diagnostics": [],
+  "edges": [
+    {
+      "evidence": {
+        "authority": "governed_durable_memory",
+        "eligibility": "existing_governance",
+        "memory_id": "memory-constraint-1",
+        "target_memory_id": "memory-decision-1"
+      },
+      "relation": "supports",
+      "source": "memory:memory-constraint-1",
+      "target": "memory:memory-decision-1"
+    },
+    {
+      "evidence": {
+        "authority": "governed_durable_memory",
+        "eligibility": "existing_governance",
+        "memory_id": "memory-constraint-1"
+      },
+      "relation": "has_constraint",
+      "source": "project:project:fixture",
+      "target": "memory:memory-constraint-1"
+    },
+    {
+      "evidence": {
+        "authority": "governed_durable_memory",
+        "eligibility": "existing_governance",
+        "memory_id": "memory-decision-1"
+      },
+      "relation": "has_decision",
+      "source": "project:project:fixture",
+      "target": "memory:memory-decision-1"
+    }
+  ],
+  "namespace": "project:fixture",
+  "nodes": [
+    {
+      "authority": "governed_durable_memory",
+      "id": "memory:memory-constraint-1",
+      "label": "Python support",
+      "source_ref": {
+        "kind": "memory",
+        "memory_id": "memory-constraint-1",
+        "namespace": "project:fixture",
+        "record_type": "constraint"
+      },
+      "type": "durable_memory"
+    },
+    {
+      "authority": "governed_durable_memory",
+      "id": "memory:memory-decision-1",
+      "label": "Local first",
+      "source_ref": {
+        "kind": "memory",
+        "memory_id": "memory-decision-1",
+        "namespace": "project:fixture",
+        "record_type": "decision"
+      },
+      "type": "durable_memory"
+    },
+    {
+      "authority": "derived_projection",
+      "id": "project:project:fixture",
+      "label": "project:fixture",
+      "source_ref": {
+        "kind": "namespace_binding",
+        "namespace": "project:fixture"
+      },
+      "type": "project"
+    }
+  ],
+  "read_only": true,
+  "rebuildable": true,
+  "repository": {
+    "authority": "derived_repository",
+    "binding_state": "unbound",
+    "commit": null,
+    "current_commit": null,
+    "excluded_count": 0
+  },
+  "schema": "knowledge-explorer-v1"
+}

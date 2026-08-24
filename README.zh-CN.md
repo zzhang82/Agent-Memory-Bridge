@@ -118,7 +118,7 @@ Inspect 解释该问题对应的受治理结果。它不会列出全部持久记
   --namespace project:my-app
 ```
 
-Explore 是基于现有项目知识的本地、只读派生投影。它仅提供 CLI，不是 MCP 工具 #18，也不会为模型排序上下文。
+Explore 是基于现有项目知识的本地、只读派生投影。默认 Markdown 是人类可读的项目一页视图。详细图/审计视图使用 `--format markdown --technical`。JSON 保持不变。Explore 仅提供 CLI，不是 MCP 工具 #18，也不会为模型排序上下文。
 
 ### 项目知识心智模型
 

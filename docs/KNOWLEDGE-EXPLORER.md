@@ -10,10 +10,12 @@ From a source checkout with an existing namespace binding, run:
 
 ```bash
 agent-memory-bridge explore --namespace project:amb
+agent-memory-bridge explore --namespace project:amb --format markdown
+agent-memory-bridge explore --namespace project:amb --format markdown --technical
 agent-memory-bridge explore --namespace project:amb --format json
 ```
 
-The default Markdown output shows bounded relationships, the authority of each target, and supporting source references. JSON output is deterministic and suitable for future visualization clients. The command is local and read-only; it does not add an MCP tool.
+Default Markdown is a human-readable project knowledge one-pager over the same already-governed Explorer selection. `--format markdown --technical` keeps the detailed graph/audit Markdown. JSON remains the unchanged `knowledge-explorer-v1` projection. `--technical` is valid only with Markdown. The command is local and read-only; it does not add an MCP tool.
 
 ## Projection sources
 
