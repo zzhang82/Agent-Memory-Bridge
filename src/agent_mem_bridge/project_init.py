@@ -167,12 +167,26 @@ def render_project_init_preview(plan: ProjectInitPlan) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _same_repository_identity(left: dict[str, str], right: dict[str, str]) -> bool:
+    return (left.get("repository_id") or "", left.get("git_root") or "") == (
+        right.get("repository_id") or "",
+        right.get("git_root") or "",
+    )
+
+
 def apply_project_init(plan: ProjectInitPlan, *, snapshot_root: Path) -> dict[str, Any]:
     if plan.blocking_error:
         raise ValueError(plan.blocking_error)
+    # Confirmation covers repository identity + namespace, not a specific commit.
+    # Recompile after confirm and persist that snapshot; never persist plan.snapshot.
+    current = plan_project_init(plan.path, namespace=plan.chosen_namespace, snapshot_root=snapshot_root)
+    if not _same_repository_identity(plan.identity, current.identity):
+        raise ValueError("Repository identity changed after confirmation. Rerun Project Init.")
+    if current.blocking_error:
+        raise ValueError(current.blocking_error)
     store = RepositorySnapshotStore(snapshot_root)
-    stored = store.save_snapshot(plan.snapshot)
-    binding = store.bind_namespace(plan.chosen_namespace, str(stored["repository_id"]))
+    stored = store.save_snapshot(current.snapshot)
+    binding = store.bind_namespace(current.chosen_namespace, str(stored["repository_id"]))
     return {"snapshot": stored, "binding": binding}
 
 

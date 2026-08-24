@@ -5,6 +5,8 @@ import sqlite3
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from agent_mem_bridge.cli import _build_parser, main
 from agent_mem_bridge.knowledge_explorer import (
     EMPTY_WHY_GUIDANCE,
@@ -12,7 +14,7 @@ from agent_mem_bridge.knowledge_explorer import (
     render_explorer_human_markdown,
     render_explorer_technical_markdown,
 )
-from agent_mem_bridge.project_init import propose_project_namespace
+from agent_mem_bridge.project_init import apply_project_init, plan_project_init, propose_project_namespace
 from agent_mem_bridge.repository_snapshot_store import RepositorySnapshotStore
 from agent_mem_bridge.storage import MemoryStore
 
@@ -51,6 +53,19 @@ def snapshot_bytes(home: Path) -> dict[str, bytes]:
         if path.is_file():
             payload[str(path.relative_to(home))] = path.read_bytes()
     return payload
+
+
+def git_sha(repo: Path) -> str:
+    return subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+
+
+def write_bindings_json(home: Path, bindings: dict[str, object] | None = None) -> Path:
+    store_root = home / "repository"
+    store_root.mkdir(parents=True, exist_ok=True)
+    path = store_root / "bindings.json"
+    payload = {"store_schema": "repository.binding.v1", "bindings": bindings or {}}
+    path.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+    return path
 
 
 def test_cli_nested_project_init_parses() -> None:
@@ -287,3 +302,118 @@ def test_explorer_json_contract_unchanged_after_init(tmp_path: Path, monkeypatch
         )
     )
     assert "CODE / WHAT" in human
+
+
+def test_apply_aborts_when_worktree_becomes_dirty_after_plan(tmp_path: Path, monkeypatch) -> None:
+    repo = make_repo(tmp_path)
+    home = isolate_home(tmp_path, monkeypatch)
+    snapshot_root = home / "repository"
+    plan = plan_project_init(repo, namespace=None, snapshot_root=snapshot_root)
+    assert plan.blocking_error is None
+    (repo / "README.md").write_text("dirty after plan\n", encoding="utf-8")
+    before = snapshot_bytes(home)
+    with pytest.raises(ValueError, match="worktree is dirty"):
+        apply_project_init(plan, snapshot_root=snapshot_root)
+    assert snapshot_bytes(home) == before
+    assert not (snapshot_root / "bindings.json").exists()
+    assert not (snapshot_root / "bindings.lock").exists()
+    assert not list(snapshot_root.rglob("current.json"))
+
+
+def test_apply_saves_fresh_head_after_clean_commit(tmp_path: Path, monkeypatch) -> None:
+    repo = make_repo(tmp_path)
+    home = isolate_home(tmp_path, monkeypatch)
+    snapshot_root = home / "repository"
+    plan = plan_project_init(repo, namespace=None, snapshot_root=snapshot_root)
+    head_a = str(plan.snapshot.get("commit") or "")
+    assert head_a == git_sha(repo)
+    (repo / "README.md").write_text("later HEAD\n", encoding="utf-8")
+    git(repo, "add", "README.md")
+    git(repo, "commit", "-qm", "later")
+    head_b = git_sha(repo)
+    assert head_b != head_a
+    result = apply_project_init(plan, snapshot_root=snapshot_root)
+    assert result["snapshot"]["commit"] == head_b
+    store = RepositorySnapshotStore(snapshot_root)
+    bound = store.load_bound_snapshot("project:agent-memory-bridge")
+    assert bound is not None
+    assert bound.get("commit") == head_b
+    persisted = json.loads(Path(str(bound["snapshot_path"])).read_text(encoding="utf-8"))
+    assert persisted["snapshot"]["commit"] == head_b
+    assert persisted["snapshot"]["commit"] != head_a
+
+
+def test_apply_aborts_when_repository_identity_changes(tmp_path: Path, monkeypatch) -> None:
+    repo = make_repo(tmp_path)
+    home = isolate_home(tmp_path, monkeypatch)
+    snapshot_root = home / "repository"
+    plan = plan_project_init(repo, namespace=None, snapshot_root=snapshot_root)
+    git(repo, "remote", "add", "origin", "https://example.com/other/repo.git")
+    before = snapshot_bytes(home)
+    with pytest.raises(ValueError, match="identity changed after confirmation"):
+        apply_project_init(plan, snapshot_root=snapshot_root)
+    assert snapshot_bytes(home) == before
+    assert not (snapshot_root / "bindings.json").exists()
+    assert not list(snapshot_root.rglob("current.json"))
+
+
+def test_apply_aborts_when_binding_conflict_appears_after_plan(tmp_path: Path, monkeypatch) -> None:
+    first = make_repo(tmp_path, "first-app")
+    second = make_repo(tmp_path, "second-app")
+    home = isolate_home(tmp_path, monkeypatch)
+    snapshot_root = home / "repository"
+    plan = plan_project_init(second, namespace="project:shared", snapshot_root=snapshot_root)
+    assert plan.blocking_error is None
+    assert main(["project", "init", str(first), "--namespace", "project:shared", "--yes"]) == 0
+    store = RepositorySnapshotStore(snapshot_root)
+    before_bindings = json.dumps(store.peek_bindings(), sort_keys=True)
+    before_snapshots = {
+        path.as_posix(): path.read_bytes() for path in sorted(snapshot_root.rglob("current.json")) if path.is_file()
+    }
+    with pytest.raises(ValueError, match="already bound to a different repository"):
+        apply_project_init(plan, snapshot_root=snapshot_root)
+    assert json.dumps(store.peek_bindings(), sort_keys=True) == before_bindings
+    after_snapshots = {
+        path.as_posix(): path.read_bytes() for path in sorted(snapshot_root.rglob("current.json")) if path.is_file()
+    }
+    assert after_snapshots == before_snapshots
+
+
+def test_existing_bindings_without_lock_stay_unmutated(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    home = isolate_home(tmp_path, monkeypatch)
+    bindings_path = write_bindings_json(home, {"project:other": {"repository_id": "fixture-id"}})
+    store_root = home / "repository"
+    before = snapshot_bytes(home)
+    assert main(["project", "init", str(repo), "--dry-run"]) == 0
+    capsys.readouterr()
+    assert snapshot_bytes(home) == before
+    assert not (store_root / "bindings.lock").exists()
+    monkeypatch.setattr("agent_mem_bridge.cli._confirm_setup_mutation", lambda prompt: False)
+    assert main(["project", "init", str(repo)]) == 0
+    assert "No changes were made." in capsys.readouterr().out
+    assert snapshot_bytes(home) == before
+    assert bindings_path.read_bytes() == before[str(bindings_path.relative_to(home))]
+    assert not (store_root / "bindings.lock").exists()
+    assert list(store_root.rglob("*.tmp")) == []
+
+
+def test_existing_lock_is_not_rewritten_during_planning(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    home = isolate_home(tmp_path, monkeypatch)
+    bindings_path = write_bindings_json(home)
+    lock_path = home / "repository" / "bindings.lock"
+    lock_path.write_bytes(b"keep-me")
+    lock_stat = lock_path.stat()
+    bindings_bytes = bindings_path.read_bytes()
+    assert main(["project", "init", str(repo), "--dry-run"]) == 0
+    capsys.readouterr()
+    assert lock_path.read_bytes() == b"keep-me"
+    assert lock_path.stat().st_size == lock_stat.st_size
+    assert lock_path.stat().st_mtime_ns == lock_stat.st_mtime_ns
+    assert bindings_path.read_bytes() == bindings_bytes
+    monkeypatch.setattr("agent_mem_bridge.cli._confirm_setup_mutation", lambda prompt: False)
+    assert main(["project", "init", str(repo)]) == 0
+    assert lock_path.read_bytes() == b"keep-me"
+    assert lock_path.stat().st_mtime_ns == lock_stat.st_mtime_ns
+    assert bindings_path.read_bytes() == bindings_bytes
