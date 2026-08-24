@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_mem_bridge.knowledge_explorer import (
+    HUMAN_DISPLAY_LIMIT,
     _build_explorer,
     _presentation_from_build,
     _primary_why_ids,
@@ -723,12 +724,85 @@ def test_explore_modes_do_not_write(tmp_path: Path, monkeypatch) -> None:
         kind="memory",
     )
     monkeypatch.setattr("agent_mem_bridge.knowledge_explorer.resolve_bridge_db_path", lambda: db_path)
-    before = db_path.read_bytes()
-    build = _build_explorer(namespace="project:fixture", snapshot_root=tmp_path / "snapshots", memory_store=None)
+    repo = fixture_repo(tmp_path)
+    snapshot_root = bind_fixture(repo, tmp_path)
+    snapshot_store = RepositorySnapshotStore(snapshot_root)
+
+    def durable_bytes() -> dict[str, bytes]:
+        payload = {"sqlite": db_path.read_bytes()}
+        if snapshot_store.bindings_path.exists():
+            payload["bindings"] = snapshot_store.bindings_path.read_bytes()
+        for path in sorted(snapshot_store.snapshots_root.rglob("current.json")):
+            payload[str(path.relative_to(snapshot_root))] = path.read_bytes()
+        return payload
+
+    before = durable_bytes()
+    build = _build_explorer(namespace="project:fixture", snapshot_root=snapshot_root, memory_store=None)
     render_explorer_human_markdown(build)
     render_explorer_technical_markdown(build.projection)
     json.dumps(build.projection, sort_keys=True)
-    assert db_path.read_bytes() == before
+    assert durable_bytes() == before
+
+
+def test_human_what_values_are_character_bounded(tmp_path: Path) -> None:
+    repo = tmp_path / "fixture"
+    repo.mkdir()
+    oversized = ">=3.11," + ("x" * 400)
+    (repo / "README.md").write_text("Fixture project\n", encoding="utf-8")
+    (repo / "pyproject.toml").write_text(
+        f'[project]\nname="fixture"\nrequires-python="{oversized}"\n',
+        encoding="utf-8",
+    )
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "fixture@example.invalid")
+    git(repo, "config", "user.name", "Fixture")
+    git(repo, "remote", "add", "origin", f"https://example.invalid/{'n' * 400}.git")
+    git(repo, "add", ".")
+    git(repo, "commit", "-qm", "initial")
+    snapshot_root = bind_fixture(repo, tmp_path)
+    build = _build_explorer(
+        namespace="project:fixture",
+        snapshot_root=snapshot_root,
+        memory_store=FakeMemoryStore([]),
+    )
+    rendered = render_explorer_human_markdown(build)
+    presentation = _presentation_from_build(build)
+    projection_text = json.dumps(build.projection, sort_keys=True)
+    assert oversized in projection_text
+    assert "n" * 400 in projection_text
+    assert oversized not in rendered
+    assert "n" * 400 not in rendered
+    assert "…" in rendered
+    assert len(presentation.project_name) <= HUMAN_DISPLAY_LIMIT
+    assert all(len(value) <= HUMAN_DISPLAY_LIMIT for row in presentation.what_rows for value in row.values)
+    assert all(len(line) <= HUMAN_DISPLAY_LIMIT + 40 for line in rendered.splitlines())
+
+
+def test_human_relationships_do_not_leak_memory_ids(tmp_path: Path) -> None:
+    target_id = "target-decision-id-should-not-leak"
+    source_id = "source-decision-id-should-not-leak"
+    items = [
+        {
+            "id": source_id,
+            "kind": "memory",
+            "title": "Keep SQLite",
+            "content": f"record_type: decision\nclaim: Keep SQLite\nreason: local first\nsupersedes: {target_id}",
+        },
+        {
+            "id": target_id,
+            "kind": "memory",
+            "title": "",
+            "content": "record_type: decision\n",
+        },
+    ]
+    build = _human_build(tmp_path, items, bind=False)
+    rendered = render_explorer_human_markdown(build)
+    technical = render_explorer_technical_markdown(build.projection)
+    assert "Untitled decision" in rendered
+    assert "supersedes" in rendered
+    assert target_id not in rendered
+    assert source_id not in rendered
+    assert target_id in technical
 
 
 def test_human_markdown_is_namespace_isolated(tmp_path: Path, monkeypatch) -> None:

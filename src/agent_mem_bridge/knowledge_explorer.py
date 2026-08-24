@@ -448,8 +448,10 @@ def _primary_why_displays(primary_items: tuple[dict[str, Any], ...]) -> tuple[_W
         record_type = str(item.get("record_type") or fields.get("record_type") or "")
         if str(item.get("kind") or "") not in GOVERNED_MEMORY_KINDS or record_type not in {"decision", "constraint"}:
             continue
-        claim = _bounded_display_text(
-            fields.get("claim") or str(item.get("title") or "").strip() or f"Untitled {record_type}"
+        claim = (
+            _bounded_display_text(fields.get("claim"))
+            or _bounded_display_text(str(item.get("title") or ""))
+            or f"Untitled {record_type}"
         )
         reason_field = fields.get("reason")
         reason = _bounded_display_text(reason_field) if reason_field else REASON_NOT_RECORDED
@@ -492,13 +494,15 @@ def _human_relationships(build: _ExplorerBuild) -> tuple[_RelationDisplay, ...]:
                 if key in seen:
                     continue
                 seen.add(key)
+                target_item = build.eligible_by_id.get(target)
                 relations.append(
                     _RelationDisplay(
                         source_id=source_id,
                         target_id=target,
                         relation=relation_name,
-                        source_label=labels.get(source_id) or source_id,
-                        target_label=labels.get(target) or target,
+                        source_label=labels.get(source_id) or _why_label(item),
+                        target_label=labels.get(target)
+                        or (_why_label(target_item) if target_item is not None else "Untitled decision"),
                     )
                 )
     relations.sort(key=lambda item: (HUMAN_RELATION_EDGE_NAMES.index(item.relation), item.source_id, item.target_id))
@@ -507,7 +511,9 @@ def _human_relationships(build: _ExplorerBuild) -> tuple[_RelationDisplay, ...]:
 
 def _why_label(item: dict[str, Any]) -> str:
     fields = parse_content_fields(str(item.get("content") or ""))
-    return _bounded_display_text(fields.get("claim") or str(item.get("title") or item.get("id") or ""))
+    record_type = str(item.get("record_type") or fields.get("record_type") or "")
+    fallback = f"Untitled {record_type}" if record_type in {"decision", "constraint"} else "Untitled decision"
+    return _bounded_display_text(fields.get("claim")) or _bounded_display_text(str(item.get("title") or "")) or fallback
 
 
 def _human_what_rows(repository_view: dict[str, Any]) -> tuple[tuple[_WhatRow, ...], str | None]:
@@ -538,10 +544,11 @@ def _human_what_rows(repository_view: dict[str, Any]) -> tuple[tuple[_WhatRow, .
         unique: list[str] = []
         seen: set[str] = set()
         for _casefold, raw, _source, _commit in sorted(values):
-            if raw.casefold() in seen:
+            bounded = _bounded_display_text(raw)
+            if not bounded or bounded.casefold() in seen:
                 continue
-            seen.add(raw.casefold())
-            unique.append(raw)
+            seen.add(bounded.casefold())
+            unique.append(bounded)
         rows.append(
             _WhatRow(
                 label=label,
@@ -560,29 +567,29 @@ _WHAT_LABEL_ORDER = ("Runtime", "Package", "Package manager", "CI", "Build / con
 def _human_what_values(key: str, value: Any, facts: list[dict[str, Any]]) -> list[tuple[str, str]]:
     has_repository_name = any(str(fact.get("key") or "") == "repository_name" for fact in facts)
     if key == "python_requires":
-        return [("Runtime", f"Python {value}")]
+        return [("Runtime", _bounded_display_text(f"Python {value}"))]
     if key == "repository_name":
-        return [("Package", str(value))]
+        return [("Package", _bounded_display_text(value))]
     if key == "python_package":
         if has_repository_name:
             return []
-        return [("Package", "Python package")]
+        return [("Package", _bounded_display_text("Python package"))]
     if key == "node_package":
         if has_repository_name:
             return []
-        return [("Package", "Node package")]
+        return [("Package", _bounded_display_text("Node package"))]
     if key == "package_manager":
-        return [("Package manager", str(value))]
+        return [("Package manager", _bounded_display_text(value))]
     if key == "github_actions_workflows":
         names = value if isinstance(value, list) else [value]
         unique = sorted({str(name) for name in names if str(name)}, key=str.casefold)
-        return [("CI", name) for name in unique]
+        return [("CI", _bounded_display_text(name)) for name in unique]
     if key == "container_config":
-        return [("Build / container", str(value))]
+        return [("Build / container", _bounded_display_text(value))]
     if key == "project_document":
         names = value if isinstance(value, list) else [value]
         unique = sorted({str(name) for name in names if str(name)}, key=str.casefold)
-        return [("Project guidance", name) for name in unique]
+        return [("Project guidance", _bounded_display_text(name)) for name in unique]
     return []
 
 
@@ -657,11 +664,13 @@ def _human_project_name(namespace: str, repository_view: dict[str, Any]) -> str:
     facts = [fact for fact in raw_selected if isinstance(fact, dict)] if isinstance(raw_selected, list) else []
     for fact in facts:
         if str(fact.get("key") or "") == "repository_name" and fact.get("value"):
-            return str(fact.get("value"))
+            named = _bounded_display_text(fact.get("value"))
+            if named:
+                return named
     cleaned = namespace.strip()
     if cleaned.startswith("project:"):
         cleaned = cleaned.split(":", 1)[1]
-    return cleaned or namespace
+    return _bounded_display_text(cleaned or namespace) or "project"
 
 
 def _bounded_display_text(value: Any) -> str:
