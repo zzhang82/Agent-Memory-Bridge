@@ -222,6 +222,10 @@ class RepositorySnapshotStore:
         with self._bindings_lock():
             return self._read_bindings_unlocked()
 
+    def peek_bindings(self) -> dict[str, Any]:
+        """Read bindings.json without creating files, directories, or the write lock."""
+        return self._read_bindings_unlocked()
+
     def bind_namespace(self, namespace: str, repository_id: str, *, allow_rebind: bool = False) -> dict[str, Any]:
         cleaned = namespace.strip()
         if not cleaned:

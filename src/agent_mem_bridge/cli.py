@@ -36,6 +36,13 @@ from .paths import (
     resolve_config_path,
     resolve_repository_snapshot_root,
 )
+from .project_init import (
+    apply_project_init,
+    plan_project_init,
+    render_project_init_detection,
+    render_project_init_preview,
+    render_project_init_success,
+)
 from .repository_bootstrap import compile_repository_snapshot, render_snapshot_markdown
 from .repository_snapshot_store import RepositorySnapshotStore
 from .review_queue import build_review_queue_report, render_review_queue_markdown
@@ -88,6 +95,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_first_run(namespace)
     if namespace.command == "bootstrap-repo":
         return _run_bootstrap_repo(namespace)
+    if namespace.command == "project":
+        return _run_project(namespace)
     if namespace.command == "unbind-repo":
         return _run_unbind_repo(namespace)
     if namespace.command == "inspect":
@@ -236,6 +245,37 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=resolve_config_path(),
         help="AMB config path shown in the proposed fragment; it is not read or created by setup.",
+    )
+
+    project_parser = subparsers.add_parser(
+        "project",
+        help="Orchestrate project learning over existing bootstrap and Explore commands.",
+    )
+    project_subparsers = project_parser.add_subparsers(dest="project_command")
+    project_init_parser = project_subparsers.add_parser(
+        "init",
+        help="Detect a repository, confirm a namespace, bootstrap WHAT, and show Human-first Explore.",
+    )
+    project_init_parser.add_argument(
+        "path",
+        type=Path,
+        nargs="?",
+        default=Path("."),
+        help="Repository directory. Defaults to the current directory.",
+    )
+    project_init_parser.add_argument(
+        "--namespace",
+        help="Explicit project namespace. Shown before mutation and never silently rewritten.",
+    )
+    project_init_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Confirm the shown namespace non-interactively. Does not create WHY.",
+    )
+    project_init_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show the detected repository and namespace without writing.",
     )
 
     bootstrap_parser = subparsers.add_parser(
@@ -746,6 +786,45 @@ def _run_index_rebuild(namespace: argparse.Namespace) -> int:
     if rebuild_embeddings:
         healthy = healthy and bool(report["embeddings"]["healthy"])
     return 0 if healthy else 1
+
+
+def _run_project(namespace: argparse.Namespace) -> int:
+    if getattr(namespace, "project_command", None) != "init":
+        print("usage: agent-memory-bridge project init [path] [--namespace NAME] [--yes] [--dry-run]", file=sys.stderr)
+        return 2
+    return _run_project_init(namespace)
+
+
+def _run_project_init(namespace: argparse.Namespace) -> int:
+    snapshot_root = resolve_repository_snapshot_root()
+    try:
+        plan = plan_project_init(namespace.path, namespace=namespace.namespace, snapshot_root=snapshot_root)
+    except ValueError as exc:
+        print(f"agent-memory-bridge: project init failed: {exc}", file=sys.stderr)
+        return 2
+    if plan.blocking_error:
+        print(render_project_init_preview(plan) if namespace.dry_run else render_project_init_detection(plan), end="")
+        return 1
+    if namespace.dry_run:
+        print(render_project_init_preview(plan), end="")
+        return 0
+    print(render_project_init_detection(plan), end="")
+    if not namespace.yes:
+        if not _confirm_setup_mutation("Use this namespace? [y/N] "):
+            print("No changes were made.")
+            return 0
+    try:
+        apply_project_init(plan, snapshot_root=snapshot_root)
+    except ValueError as exc:
+        print(f"agent-memory-bridge: project init failed: {exc}", file=sys.stderr)
+        return 1
+    try:
+        print(render_project_init_success(plan, snapshot_root=snapshot_root), end="")
+    except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
+        print("Repository WHAT initialized.")
+        print(f"Human-first Explore could not be rendered: {exc}", file=sys.stderr)
+        return 0
+    return 0
 
 
 def _run_bootstrap_repo(namespace: argparse.Namespace) -> int:

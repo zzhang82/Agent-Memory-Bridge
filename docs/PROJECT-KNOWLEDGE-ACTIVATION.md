@@ -2,7 +2,7 @@
 
 Project Knowledge Activation is an internal v0.30 product-phase capability. It makes the existing repository bootstrap view reusable for local project context while keeping repository-derived facts separate from governed durable memory.
 
-The human-facing Project Learning journey lives in the [README Quick Start](../README.md#quick-start): connect AMB, bootstrap repository WHAT, teach one explicit WHY in natural language, then prove it in a fresh session with Inspect and Explore. `first-run` is optional secondary guided memory help, not that entrypoint.
+The human-facing Project Learning journey lives in the [README Quick Start](../README.md#quick-start): connect AMB, run Project Init to confirm a namespace and bootstrap repository WHAT, teach one explicit WHY in natural language, then prove it in a fresh session with Inspect and Explore. `bootstrap-repo` remains the explicit primitive. `first-run` is optional secondary guided memory help, not that entrypoint.
 
 ## Authority Model
 
@@ -30,7 +30,7 @@ User-facing recovery copy:
 
 - Dirty worktree: repository WHAT is temporarily unavailable because the checkout has uncommitted changes. AMB will not attribute those changes to the current Git commit. Commit, stash, or restore, then explicitly rerun `bootstrap-repo`.
 - Changed clean HEAD: repository WHAT is temporarily stale. AMB will not present the previous snapshot as current repository truth. Explicitly rerun `bootstrap-repo . --namespace project:<name>`. Repository WHAT refreshes; durable project WHY is unchanged. Refresh is not automatic.
-- Missing binding: no current repository binding was found for this project namespace. The current v0.31.x runtime does not interactively suggest a namespace. Choose the namespace, then run `bootstrap-repo . --namespace project:<name>`.
+- Missing binding: no current repository binding was found for this project namespace. Run `project init .` to detect the checkout and confirm a suggested namespace, or choose the namespace and run `bootstrap-repo . --namespace project:<name>`.
 
 ## Context and Inspect
 

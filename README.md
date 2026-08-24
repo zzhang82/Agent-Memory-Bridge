@@ -75,7 +75,15 @@ python -m venv .amb-venv
 
 Use the rendered client configuration and reload the client. `setup` owns connection and configuration planning.
 
-### 2. Bootstrap repository WHAT
+### 2. Initialize repository WHAT
+
+```bash
+<venv-python> -m agent_mem_bridge project init .
+```
+
+Project Init detects the local Git repository, proposes a namespace such as `project:my-app`, and waits for explicit confirmation before writing. After confirmation it reuses existing `bootstrap-repo` to bind derived repository WHAT, then shows Human-first Explore. It does not automatically learn decisions.
+
+The explicit primitive remains available:
 
 ```bash
 <venv-python> -m agent_mem_bridge bootstrap-repo . \
@@ -164,7 +172,7 @@ AMB will not present the previous snapshot as current repository truth. Explicit
 
 Then repository WHAT is refreshed and durable project WHY is unchanged. Refresh is not automatic.
 
-**Missing binding.** No current repository binding was found for this project namespace. The current v0.31.x runtime does not interactively suggest a namespace. Choose the project namespace you want to bind to this checkout, then run:
+**Missing binding.** No current repository binding was found for this project namespace. Run `project init .` to detect the checkout and confirm a suggested namespace, or choose the namespace yourself and run:
 
 ```bash
 <venv-python> -m agent_mem_bridge bootstrap-repo . \
@@ -176,7 +184,7 @@ Then repository WHAT is refreshed and durable project WHY is unchanged. Refresh 
 After connecting AMB to a client that shares the same AMB home:
 
 ```bash
-<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:amb
+<venv-python> -m agent_mem_bridge project init . --namespace project:amb --yes
 ```
 
 Teach naturally:

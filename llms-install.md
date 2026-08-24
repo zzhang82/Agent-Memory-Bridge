@@ -97,10 +97,11 @@ requirement.
 
 ## First Useful Check
 
-The human-facing first-value path is connect, bootstrap repository WHAT, teach
-one explicit WHY in natural language, then prove it in a fresh session. `first-run`
-is optional secondary guided memory help, not the modern Project Learning
-entrypoint.
+The human-facing first-value path is connect, run `project init` to confirm a
+namespace and bootstrap repository WHAT, teach one explicit WHY in natural
+language, then prove it in a fresh session. `bootstrap-repo` remains the explicit
+primitive. `first-run` is optional secondary guided memory help, not the modern
+Project Learning entrypoint. It is not the modern Project Learning.
 
 When the human explicitly says something equivalent to "Remember that we decided
 X because Y," call the public MCP `store(...)` tool with `kind="memory"` and

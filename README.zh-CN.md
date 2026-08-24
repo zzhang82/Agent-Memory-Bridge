@@ -74,7 +74,15 @@ python -m venv .amb-venv
 
 使用生成的客户端配置并重新加载客户端。`setup` 负责连接与配置规划。
 
-### 2. 引导仓库 WHAT
+### 2. 初始化仓库 WHAT
+
+```bash
+<venv-python> -m agent_mem_bridge project init .
+```
+
+Project Init 会检测本地 Git 仓库、提出类似 `project:my-app` 的命名空间，并在写入前要求明确确认。确认后它复用现有的 `bootstrap-repo` 绑定派生的仓库 WHAT，然后显示 Human-first Explore。它不会自动学习决策。
+
+底层原语仍然可用：
 
 ```bash
 <venv-python> -m agent_mem_bridge bootstrap-repo . \
@@ -163,7 +171,7 @@ AMB 不会把旧快照当作当前仓库真相。请显式重新运行：
 
 随后仓库 WHAT 会刷新，持久项目 WHY 保持不变。刷新不是自动发生的。
 
-**缺少绑定。** 当前没有找到该项目命名空间的仓库绑定。当前 v0.31.x 运行时不会交互式建议命名空间。请选择要绑定到此检出的项目命名空间，然后运行：
+**缺少绑定。** 当前没有找到该项目命名空间的仓库绑定。可运行 `project init .` 检测检出并确认建议的命名空间，或自行选择命名空间后运行：
 
 ```bash
 <venv-python> -m agent_mem_bridge bootstrap-repo . \
@@ -175,7 +183,7 @@ AMB 不会把旧快照当作当前仓库真相。请显式重新运行：
 把 AMB 连接到共享同一 AMB 主目录的客户端后：
 
 ```bash
-<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:amb
+<venv-python> -m agent_mem_bridge project init . --namespace project:amb --yes
 ```
 
 用自然语言教会：
