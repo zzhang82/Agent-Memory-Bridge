@@ -39,6 +39,7 @@ from .paths import (
 from .project_init import (
     apply_project_init,
     plan_project_init,
+    project_init_success_what_line,
     render_project_init_detection,
     render_project_init_preview,
     render_project_init_success,
@@ -814,14 +815,18 @@ def _run_project_init(namespace: argparse.Namespace) -> int:
             print("No changes were made.")
             return 0
     try:
-        apply_project_init(plan, snapshot_root=snapshot_root)
+        result = apply_project_init(plan, snapshot_root=snapshot_root)
     except ValueError as exc:
         print(f"agent-memory-bridge: project init failed: {exc}", file=sys.stderr)
         return 1
+    applied_action = str(result.get("action") or "bootstrap")
     try:
-        print(render_project_init_success(plan, snapshot_root=snapshot_root), end="")
+        print(
+            render_project_init_success(plan, snapshot_root=snapshot_root, action=applied_action),
+            end="",
+        )
     except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
-        print("Repository WHAT initialized.")
+        print(project_init_success_what_line(applied_action))
         print(f"Human-first Explore could not be rendered: {exc}", file=sys.stderr)
         return 0
     return 0

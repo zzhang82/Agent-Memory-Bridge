@@ -187,7 +187,13 @@ def apply_project_init(plan: ProjectInitPlan, *, snapshot_root: Path) -> dict[st
     store = RepositorySnapshotStore(snapshot_root)
     stored = store.save_snapshot(current.snapshot)
     binding = store.bind_namespace(current.chosen_namespace, str(stored["repository_id"]))
-    return {"snapshot": stored, "binding": binding}
+    return {"snapshot": stored, "binding": binding, "action": current.action}
+
+
+def project_init_success_what_line(action: str) -> str:
+    if action == "refresh":
+        return "Repository WHAT refreshed; existing project WHY is unchanged."
+    return "Repository WHAT initialized."
 
 
 def render_project_init_success(
@@ -195,7 +201,14 @@ def render_project_init_success(
     *,
     snapshot_root: Path,
     memory_store: Any | None = None,
+    action: str | None = None,
 ) -> str:
+    applied = action or plan.action
+    heading = (
+        f"Refreshed project: {plan.repository_name}"
+        if applied == "refresh"
+        else f"Initialized project: {plan.repository_name}"
+    )
     build = _build_explorer(
         namespace=plan.chosen_namespace,
         snapshot_root=snapshot_root,
@@ -204,10 +217,10 @@ def render_project_init_success(
     explore = render_explorer_human_markdown(build)
     presentation = _presentation_from_build(build)
     lines = [
-        f"Initialized project: {plan.repository_name}",
+        heading,
         f"Namespace: {plan.chosen_namespace}",
         "",
-        "Repository WHAT initialized.",
+        project_init_success_what_line(applied),
         "",
         explore.rstrip(),
     ]
