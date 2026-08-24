@@ -118,7 +118,7 @@ Inspect 解释该问题对应的受治理结果。它不会列出全部持久记
   --namespace project:my-app
 ```
 
-Explore 是基于现有项目知识的本地、只读派生投影。默认 Markdown 是人类可读的项目一页视图。详细图/审计视图使用 `--format markdown --technical`。JSON 保持不变。Explore 仅提供 CLI，不是 MCP 工具 #18，也不会为模型排序上下文。
+Explore 是基于现有项目知识的本地、只读派生投影。默认 Markdown 是人类可读的项目一页视图。若还没有项目决策或约束，它会提示你告诉已连接的编码智能体：记住我们决定了 X，因为 Y。默认视图不会显示 `depends_on`、`supports`、`contradicts` 这类图动词；这些仍留在 `--format markdown --technical` 和 JSON 中。JSON 保持不变。Explore 仅提供 CLI，不是 MCP 工具 #18，也不会为模型排序上下文。
 
 ### 项目知识心智模型
 

@@ -15,7 +15,7 @@ agent-memory-bridge explore --namespace project:amb --format markdown --technica
 agent-memory-bridge explore --namespace project:amb --format json
 ```
 
-Default Markdown is a human-readable project knowledge one-pager over the same already-governed Explorer selection. `--format markdown --technical` keeps the detailed graph/audit Markdown. JSON remains the unchanged `knowledge-explorer-v1` projection. `--technical` is valid only with Markdown. The command is local and read-only; it does not add an MCP tool.
+Default Markdown is a human-readable project knowledge one-pager over the same already-governed Explorer selection. Empty WHY tells a connected coding agent to remember one decision in natural language; it does not expose MCP store schema. Default Markdown shows only a humanized supersession phrase when a meaningful `supersedes` relation exists; raw `depends_on`, `supports`, and `contradicts` verbs stay in `--format markdown --technical` and JSON. JSON remains the unchanged `knowledge-explorer-v1` projection. `--technical` is valid only with Markdown. The command is local and read-only; it does not add an MCP tool.
 
 ## Projection sources
 

@@ -536,7 +536,13 @@ def test_human_markdown_typescript_repo(tmp_path: Path) -> None:
 def test_human_markdown_empty_why(tmp_path: Path) -> None:
     rendered = render_explorer_human_markdown(_human_build(tmp_path, []))
     assert "No project decisions or constraints have been explicitly stored yet." in rendered
+    assert "Tell your connected coding agent:" in rendered
     assert "Remember that we decided X because Y." in rendered
+    assert "Teach one naturally" not in rendered
+    assert "record_type" not in rendered
+    assert "MCP" not in rendered
+    assert "payload" not in rendered.casefold()
+    assert "schema" not in rendered.casefold()
     assert "automatic learning" not in rendered.casefold()
 
 
@@ -667,9 +673,160 @@ def test_human_markdown_shows_supersedes_not_supports(tmp_path: Path) -> None:
             "content": "record_type: decision\nclaim: Avoid Redis\nreason: complexity\nsupports: decision-a",
         },
     ]
-    rendered = render_explorer_human_markdown(_human_build(tmp_path, items, bind=False))
-    assert "supersedes" in rendered
+    build = _human_build(tmp_path, items, bind=False)
+    rendered = render_explorer_human_markdown(build)
+    technical = render_explorer_technical_markdown(build.projection)
+    assert "Relationships" in rendered
+    assert "Replaces an earlier decision." in rendered
+    assert "supersedes" not in rendered
     assert "supports" not in rendered
+    assert "`supersedes`" in technical
+    assert "`supports`" in technical
+
+
+def test_human_markdown_hides_depends_on_supports_and_contradicts(tmp_path: Path) -> None:
+    items = [
+        {
+            "id": "decision-a",
+            "kind": "memory",
+            "title": "A",
+            "content": (
+                "record_type: decision\nclaim: Keep SQLite\nreason: local first\n"
+                "depends_on: decision-b\nsupports: decision-c\ncontradicts: decision-d"
+            ),
+        },
+        {
+            "id": "decision-b",
+            "kind": "memory",
+            "title": "B",
+            "content": "record_type: decision\nclaim: Keep WAL\nreason: durability",
+        },
+        {
+            "id": "decision-c",
+            "kind": "memory",
+            "title": "C",
+            "content": "record_type: decision\nclaim: Keep local-first\nreason: ops",
+        },
+        {
+            "id": "decision-d",
+            "kind": "memory",
+            "title": "D",
+            "content": "record_type: decision\nclaim: Avoid hosted cache\nreason: complexity",
+        },
+    ]
+    build = _human_build(tmp_path, items, bind=False)
+    rendered = render_explorer_human_markdown(build)
+    technical = render_explorer_technical_markdown(build.projection)
+    projection = json.dumps(build.projection, sort_keys=True)
+    assert "Relationships" not in rendered
+    assert "depends_on" not in rendered
+    assert "supports" not in rendered
+    assert "contradicts" not in rendered
+    assert "depends on" not in rendered.casefold()
+    assert "Replaces an earlier" not in rendered
+    assert "`depends_on`" in technical
+    assert "`supports`" in technical
+    assert "`contradicts`" in technical
+    assert '"depends_on"' in projection
+    assert '"supports"' in projection
+    assert '"contradicts"' in projection
+    assert json.dumps(build.projection, sort_keys=True) == projection
+
+
+def test_human_markdown_omits_empty_relationships_section(tmp_path: Path) -> None:
+    items = [
+        {
+            "id": "decision-a",
+            "kind": "memory",
+            "title": "A",
+            "content": "record_type: decision\nclaim: Keep SQLite\nreason: local first",
+        }
+    ]
+    rendered = render_explorer_human_markdown(_human_build(tmp_path, items, bind=False))
+    assert "Relationships" not in rendered
+    assert "Replaces an earlier" not in rendered
+
+
+def test_human_markdown_constraint_supersedes_phrase(tmp_path: Path) -> None:
+    items = [
+        {
+            "id": "constraint-a",
+            "kind": "memory",
+            "title": "A",
+            "content": ("record_type: constraint\nclaim: Keep Python 3.11+\nreason: tooling\nsupersedes: constraint-b"),
+        },
+        {
+            "id": "constraint-b",
+            "kind": "memory",
+            "title": "B",
+            "content": "record_type: constraint\nclaim: Keep Python 3.10\nreason: older",
+        },
+    ]
+    rendered = render_explorer_human_markdown(_human_build(tmp_path, items, bind=False))
+    assert "Replaces an earlier constraint." in rendered
+    assert "Replaces an earlier decision." not in rendered
+    assert "supersedes" not in rendered
+
+
+def test_human_status_pluralizes_counts(tmp_path: Path) -> None:
+    empty = render_explorer_human_markdown(_human_build(tmp_path, []))
+    assert "0 active decisions" in empty
+    assert "0 active constraints" in empty
+    assert "code facts" in empty or "code fact" in empty
+    assert "Repository facts:" not in empty
+    assert "Decisions:" not in empty
+
+    one = render_explorer_human_markdown(
+        _human_build(
+            tmp_path,
+            [
+                {
+                    "id": "decision-1",
+                    "kind": "memory",
+                    "title": "One",
+                    "content": "record_type: decision\nclaim: Keep SQLite\nreason: local first",
+                },
+                {
+                    "id": "constraint-1",
+                    "kind": "memory",
+                    "title": "One constraint",
+                    "content": "record_type: constraint\nclaim: Keep Python 3.11+\nreason: tooling",
+                },
+            ],
+            name="one-count",
+        )
+    )
+    assert "1 active decision" in one
+    assert "1 active constraint" in one
+    assert "1 active decisions" not in one
+    assert "1 active constraints" not in one
+
+    many = render_explorer_human_markdown(
+        _human_build(
+            tmp_path,
+            [
+                {
+                    "id": f"decision-{index}",
+                    "kind": "memory",
+                    "title": f"D{index}",
+                    "content": f"record_type: decision\nclaim: Decision {index}\nreason: because {index}",
+                }
+                for index in range(2)
+            ]
+            + [
+                {
+                    "id": f"constraint-{index}",
+                    "kind": "memory",
+                    "title": f"C{index}",
+                    "content": f"record_type: constraint\nclaim: Constraint {index}\nreason: because {index}",
+                }
+                for index in range(2)
+            ],
+            name="many-count",
+        )
+    )
+    assert "2 active decisions" in many
+    assert "2 active constraints" in many
 
 
 def test_human_markdown_does_not_promote_relation_target_into_primary_why() -> None:
@@ -798,11 +955,13 @@ def test_human_relationships_do_not_leak_memory_ids(tmp_path: Path) -> None:
     build = _human_build(tmp_path, items, bind=False)
     rendered = render_explorer_human_markdown(build)
     technical = render_explorer_technical_markdown(build.projection)
-    assert "Untitled decision" in rendered
-    assert "supersedes" in rendered
+    assert "Keep SQLite" in rendered
+    assert "Replaces an earlier decision." in rendered
+    assert "supersedes" not in rendered
     assert target_id not in rendered
     assert source_id not in rendered
     assert target_id in technical
+    assert "`supersedes`" in technical
 
 
 def test_human_markdown_is_namespace_isolated(tmp_path: Path, monkeypatch) -> None:
