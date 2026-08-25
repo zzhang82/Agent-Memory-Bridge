@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/amb-hero.png" alt="Agent Memory Bridge — 面向编码智能体的本地项目记忆" width="100%" />
+</p>
+
 # Agent Memory Bridge
 
 [English](README.md)

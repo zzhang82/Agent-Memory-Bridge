@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/amb-hero.png" alt="Agent Memory Bridge — local project memory for coding agents" width="100%" />
+</p>
+
 # Agent Memory Bridge
 
 [简体中文](README.zh-CN.md)
