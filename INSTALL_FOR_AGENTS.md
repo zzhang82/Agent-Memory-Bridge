@@ -15,7 +15,7 @@ For the shortest GitHub-source procedure, start with
 Agent Memory Bridge is a local-first stdio MCP server for reusable engineering
 memory and lightweight coordination.
 
-Current package/source version is `0.31.1`. The current source/package line exposes 17 public MCP tools and includes the read-only Knowledge Explorer CLI. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
+Current package/source version is `0.32.0`. The current source/package line exposes 17 public MCP tools and includes the read-only Knowledge Explorer CLI. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
 
 - `store`, `recall`, `browse`, `stats`, `export`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`
@@ -24,7 +24,7 @@ Current package/source version is `0.31.1`. The current source/package line expo
 
 The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. Its historical archive URL was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
-The current source/package line is `0.31.1`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); the published v0.30.0 source archive remains `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
+The current source/package line is `0.32.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); the published v0.30.0 source archive remains `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
@@ -35,7 +35,7 @@ current effective vote per receipt-bound subject. It remains shadow-only and
 does not change memory records, recall results, or ranking behavior.
 
 Run tools create explicit server-minted handles and append bounded episode
-evidence. The current 0.31.1 source/package line uses schema v12 with the implemented Knowledge Explorer over existing governed-v2
+evidence. The current 0.32.0 source/package line uses schema v12 with the implemented Knowledge Explorer over existing governed-v2
 episode authority plus an internal exact-key Dynamic State lane. Dynamic State
 uses typed status/owner/restore commands, version/database-epoch guards,
 lifecycle idempotency, immutable mutation/request-outcome history, and a

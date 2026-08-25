@@ -6,13 +6,13 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.31.1` |
+| Package/source version | `0.32.0` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
 | Runtime model | Local stdio MCP over SQLite/WAL; FTS5 and optional local embeddings are derived indexes |
 
-Current source test collection: `1050 tests`
+Current source test collection: `1051 tests`
 
 > A tag is not a GitHub Release, and live CI state is not host certification, a distribution claim, or a productivity result. Installation guidance retains its own pinned-release and source-checkout gates.
 
@@ -28,9 +28,13 @@ The `v0.28.0` tag identifies the historical release merge snapshot `c6e3568a5985
 
 V0.30 adds a persistent, bounded, rebuildable derived repository snapshot. Explicit namespace binding and canonical local Git roots isolate independent clones and worktrees; a clean HEAD is required for commit-bound eligibility, while dirty, stale, moved, or unavailable sources fail closed. The existing MCP `recall` response keeps selected repository WHAT in `repository_knowledge` and governed durable WHY in normal `items`; repository facts are never promoted into durable memory.
 
+### Project Learning UX
+
+V0.32.0 makes Project Learning the current human-facing product line. Default Explore presents repository CODE / WHAT separately from governed CONVERSATION / WHY. `project init` is the preferred first-project path: it detects a local Git checkout, proposes a namespace, requires explicit confirmation, revalidates after confirmation, bootstraps derived repository WHAT, and shows Human-first Explore. Repeat init refreshes repository WHAT and leaves existing project WHY unchanged. This is not automatic learning and does not add an MCP tool.
+
 ### Project WHY Alignment
 
-V0.31.1 makes explicit project decisions and constraints first-class governed task-memory lanes. The same active WHY that recall can see now reaches Task Memory, Inspect, the Context Compiler, and Knowledge Explorer. Revision, supersession, validity, lineage, and structured-metadata governance remain in force. Project Learning onboarding is connect, bootstrap repository WHAT, teach one WHY, then Inspect and Explore in a fresh session. This is not automatic learning and does not add an MCP tool.
+V0.31.1 made explicit project decisions and constraints first-class governed task-memory lanes. The same active WHY that recall can see reaches Task Memory, Inspect, the Context Compiler, and Knowledge Explorer. Revision, supersession, validity, lineage, and structured-metadata governance remain in force.
 
 ### Knowledge Explorer
 

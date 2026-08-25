@@ -5,17 +5,17 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CURRENT = "0.31.1"
+CURRENT = "0.32.0"
 
 
-def test_current_package_and_source_docs_use_v031_identity() -> None:
+def test_current_package_and_source_docs_use_v032_identity() -> None:
     package_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     assert package_version == CURRENT
-    assert "Current source version: `0.31.1`" in (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "当前源码版本：`0.31.1`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    assert "Current source version: `0.32.0`" in (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "当前源码版本：`0.32.0`" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
     assert "Published releases: see [GitHub Releases]" in (ROOT / "README.md").read_text(encoding="utf-8")
     assert "已发布版本：请见 [GitHub Releases]" in (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert "| Package/source version | `0.31.1` |" in (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
+    assert "| Package/source version | `0.32.0` |" in (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
 
 
 def test_historical_v0274_evidence_remains_historical() -> None:
@@ -32,6 +32,8 @@ def test_historical_v0274_evidence_remains_historical() -> None:
     assert "v0.31.0 source/release line" in changelog
     assert "v0.31.1 source/release line" in changelog
     assert "[v0.31.1 announcement](docs/v0.31.1-announcement.md)" in changelog
+    assert "v0.32.0 source/release line" in changelog
+    assert "[v0.32.0 announcement](docs/v0.32.0-announcement.md)" in changelog
     assert "v0.28.0 candidate" not in changelog
 
 
@@ -73,8 +75,8 @@ def test_project_learning_promotion_docs_stay_human_and_truthful() -> None:
     assert "schema v12" in readme
     assert "17 public MCP tools" in readme
     assert "Exactly 17 public MCP tools" in status
-    assert "pip install agent-memory-bridge==0.31.1" in english_quick
-    assert "there is no `pip install agent-memory-bridge==0.31.1` route" in english_quick
+    assert "pip install agent-memory-bridge==0.32.0" in english_quick
+    assert "there is no `pip install agent-memory-bridge==0.32.0` route" in english_quick
     assert "automatically remembers repository decisions" not in readme.casefold()
     assert "automatic learning" not in english_quick.casefold()
     assert "record_type: decision" in agents
@@ -106,7 +108,7 @@ def test_install_guides_use_publication_invariant_routes() -> None:
     assert "v0.27.0" in (ROOT / "INSTALL_FOR_AGENTS.md").read_text(encoding="utf-8")
 
 
-def test_current_docs_record_v031_source_without_hypothetical_wording() -> None:
+def test_current_docs_record_v032_source_without_hypothetical_wording() -> None:
     docs = (
         "README.md",
         "README.zh-CN.md",
@@ -144,10 +146,28 @@ def test_current_docs_record_v031_source_without_hypothetical_wording() -> None:
     assert "实时状态" in chinese_quick
     assert "This source is not a published GitHub Release yet" not in english_readme
     assert "此源码尚未作为 GitHub Release 发布" not in chinese_readme
-    assert "Current package/source version is `0.31.1`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
+    assert "Current package/source version is `0.32.0`." in (ROOT / "src/agent_mem_bridge/first_run.py").read_text(
         encoding="utf-8"
     )
     assert "archive/refs/tags/v0.28.0.zip" in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+
+
+def test_v032_announcement_is_publication_invariant_and_bounded() -> None:
+    announcement = (ROOT / "docs/v0.32.0-announcement.md").read_text(encoding="utf-8")
+    assert "Agent Memory Bridge v0.32.0 — Project Learning UX" in announcement
+    assert "Code tells AMB what the project is." in announcement
+    assert "Conversations teach AMB why it is that way." in announcement
+    assert "Repository WHAT refreshed; existing project WHY is unchanged." in announcement
+    assert "knowledge-explorer-v1" in announcement
+    assert "no MCP tool #18" in announcement
+    assert "no `pip install agent-memory-bridge==0.32.0` route" in announcement
+    forbidden = (
+        "not yet released",
+        "release is pending",
+        "github release is pending",
+        "currently unreleased",
+    )
+    assert not any(phrase in announcement.casefold() for phrase in forbidden)
 
 
 def test_project_knowledge_identity_documentation_matches_clone_isolation() -> None:
