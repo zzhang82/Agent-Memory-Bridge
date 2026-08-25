@@ -183,7 +183,7 @@ V021_GOVERNED_CHANGE_FOUNDATION_PATTERNS = (
     V026_PATCH_PATTERN,
 )
 V027_EPISODE_RELEASE = "0.27.4"
-CURRENT_SOURCE_RELEASE = "0.31.1"
+CURRENT_SOURCE_RELEASE = "0.32.0"
 V027_EPISODE_FOUNDATION_PATTERNS = (V027_PATCH_PATTERN,)
 V027_SCHEMA_VERSION = 12
 V027_PUBLIC_TOOL_ORDER = (
@@ -300,7 +300,7 @@ def run_release_contract_check(
 
 def build_current_source_release_identity_check(pyproject_version: str) -> dict[str, Any]:
     return {
-        "name": "current_source_release_is_0_30_0",
+        "name": "current_source_release_matches_contract",
         "ok": pyproject_version == CURRENT_SOURCE_RELEASE,
         "expected_version": CURRENT_SOURCE_RELEASE,
         "actual_version": pyproject_version,
@@ -308,16 +308,16 @@ def build_current_source_release_identity_check(pyproject_version: str) -> dict[
 
 
 def build_current_source_release_notes_check(project_root: Path, pyproject_version: str) -> dict[str, Any]:
-    path = project_root / "docs" / "v0.31.1-announcement.md"
+    path = project_root / "docs" / "v0.32.0-announcement.md"
     required_markers = (
-        "Project WHY Alignment",
-        "decision_hits",
-        "constraint_hits",
-        "[Project Decision]",
-        "[Project Constraint]",
-        "connect → bootstrap WHAT → teach WHY → fresh session → Inspect + Explore",
+        "Project Learning UX",
+        "Human-first Project Knowledge",
+        "CODE / WHAT",
+        "CONVERSATION / WHY",
+        "project init",
+        "Repository WHAT refreshed; existing project WHY is unchanged",
         "no MCP tool #18",
-        "no `pip install agent-memory-bridge==0.31.1` route",
+        "no `pip install agent-memory-bridge==0.32.0` route",
     )
     mismatches: list[dict[str, Any]] = []
     if pyproject_version != CURRENT_SOURCE_RELEASE:
@@ -331,7 +331,7 @@ def build_current_source_release_notes_check(project_root: Path, pyproject_versi
     if not path.exists():
         mismatches.append({"field": str(path), "expected": "present", "actual": "missing"})
         return {
-            "name": "current_source_release_notes_match_v0311",
+            "name": "current_source_release_notes_match_v0320",
             "ok": False,
             "path": str(path),
             "mismatches": mismatches,
@@ -341,7 +341,7 @@ def build_current_source_release_notes_check(project_root: Path, pyproject_versi
     if missing:
         mismatches.append({"field": str(path), "expected_markers": missing, "actual": "missing"})
     return {
-        "name": "current_source_release_notes_match_v0311",
+        "name": "current_source_release_notes_match_v0320",
         "ok": not mismatches,
         "path": str(path),
         "mismatches": mismatches,

@@ -8,6 +8,40 @@ The v0.28.0 tagged archive route, when using that tag, is:
 
 This document records the durable capability milestones in Agent Memory Bridge (AMB). It is **not** a release-by-release ledger, a current-status page, or a substitute for detailed proof artifacts. Current implementation facts belong in [Production Status](docs/PRODUCTION-STATUS.md); future work belongs in the [Roadmap](docs/ROADMAP.md); detailed development chronology remains in Git history and published GitHub Releases where available.
 
+## v0.32.0 — Project Learning UX
+
+### Human-first Project Knowledge
+
+- Default Explore presents repository **CODE / WHAT** separately from governed
+  **CONVERSATION / WHY**.
+- Explicit decisions and constraints include their recorded reasons.
+- Default output uses progressive disclosure instead of authority and graph jargon;
+  the detailed audit graph remains available through technical mode.
+- `knowledge-explorer-v1` JSON remains deterministic and compatible.
+
+### Project Init
+
+- Adds nested `project init [path]` with deterministic local repository detection,
+  namespace suggestion, explicit confirmation, optional namespace override,
+  `--yes`, and zero-write `--dry-run`.
+- Revalidates repository identity, checkout eligibility, and bindings after
+  confirmation; dirty and conflicting states fail closed.
+- Reuses the existing derived repository WHAT bootstrap and immediately renders
+  Human-first Explore.
+- Repeat init refreshes repository WHAT without modifying existing project WHY.
+
+### Authority / Safety
+
+- Repository WHAT remains derived and rebuildable; project WHY remains governed
+  durable memory.
+- Project Init writes no WHY, performs no automatic learning, and never silently
+  rebinds a namespace or creates a new authority lane.
+
+### Compatibility
+
+- Durable schema remains v12 and the public MCP surface remains 17 tools.
+- Explorer remains CLI-only; the public tool-schema digest is unchanged.
+
 | Historical period | Capability milestone | Material change and trust boundary | Durable references |
 |---|---|---|---|
 | v0.5–v0.6 | **Persistent Memory, Signals, and Measurable Retrieval** | AMB established local durable engineering memory alongside a distinct signal lifecycle, then added benchmark and calibration discipline. Classifier assistance remained controlled rather than becoming automatic authority. | [Benchmark and proof overview](benchmark/README.md), [Authority Contract](docs/AUTHORITY-CONTRACT.md) |
@@ -24,6 +58,7 @@ This document records the durable capability milestones in Agent Memory Bridge (
 | v0.30.0 source/release line | **Project Knowledge Activation** | Persistent derived repository snapshots, explicit namespace binding, clone/worktree-isolated local source identity, clean-HEAD eligibility and stale fail-closed semantics, bounded repository WHAT in existing MCP recall, structural separation from governed durable WHY, inspect provenance, and real DSH/OpenCode session-level evidence. | [Project Knowledge Activation](docs/PROJECT-KNOWLEDGE-ACTIVATION.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.31.0 source/release line | **Knowledge Explorer / Derived Project Graph** | A local read-only project projection with explicit authority labels, namespace-to-repository binding, eligible durable decision/constraint projection, and bounded direct relation-target resolution. It creates no new durable authority. | [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.31.1 source/release line | **Project WHY Alignment** | Explicit `record_type: decision` and `record_type: constraint` records are first-class governed task-memory lanes consumed by Inspect and the Context Compiler. Project Learning onboarding is connect → bootstrap WHAT → teach WHY → fresh session → Inspect + Explore. No automatic learning, no new MCP tools, and no schema migration. | [v0.31.1 announcement](docs/v0.31.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) |
+| v0.32.0 source/release line | **Project Learning UX** | Human-first Explore separates CODE / WHAT from CONVERSATION / WHY, while `project init` provides explicit, fail-closed onboarding and refreshes derived WHAT without modifying governed WHY. | [v0.32.0 announcement](docs/v0.32.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) |
 
 ## Historical Evidence Retained in the Repository
 
@@ -36,5 +71,6 @@ The following versioned documents remain because they are a detailed reproducibi
 | [v0.27.3 announcement](docs/v0.27.3-announcement.md) | Carries release-contract-validated historical evidence for authority closure, current heads, opposition, and verified independence. |
 | [v0.27.4 announcement](docs/v0.27.4-announcement.md) | Carries release-contract-validated historical evidence for the Dynamic State authority MVP. |
 | [v0.31.1 announcement](docs/v0.31.1-announcement.md) | Canonical release-notes artifact for Project WHY Alignment and Project Learning onboarding polish. |
+| [v0.32.0 announcement](docs/v0.32.0-announcement.md) | Canonical release-notes artifact for Project Learning UX, Human-first Explore, and Project Init. |
 
 The retained historical documents describe their own snapshots. They do not establish current version, CI, release, or product-status facts.
