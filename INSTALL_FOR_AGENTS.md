@@ -15,7 +15,7 @@ For the shortest procedure, start with [`llms-install.md`](llms-install.md).
 Agent Memory Bridge is a local-first stdio MCP server for reusable engineering
 memory and lightweight coordination.
 
-Current package/source version is `0.32.1`. The current source/package line exposes 17 public MCP tools and includes the read-only Knowledge Explorer CLI. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
+Current package/source version is `0.32.2`. The current source/package line exposes 17 public MCP tools and includes the read-only Knowledge Explorer CLI. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
 
 - `store`, `recall`, `browse`, `stats`, `export`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`
@@ -24,8 +24,8 @@ Current package/source version is `0.32.1`. The current source/package line expo
 
 The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. Its historical archive URL was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
-The current source/package line is `0.32.1`. Install the release package with
-`<venv-python> -m pip install agent-memory-bridge==0.32.1`. Use a source checkout
+The current source/package line is `0.32.2`. Install the release package with
+`<venv-python> -m pip install agent-memory-bridge==0.32.2`. Use a source checkout
 with `<venv-python> -m pip install -e .` when evaluating an exact checkout.
 Published source releases and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); the published v0.30.0 source archive remains `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
 
@@ -38,7 +38,7 @@ current effective vote per receipt-bound subject. It remains shadow-only and
 does not change memory records, recall results, or ranking behavior.
 
 Run tools create explicit server-minted handles and append bounded episode
-evidence. The current 0.32.1 source/package line uses schema v12 with the implemented Knowledge Explorer over existing governed-v2
+evidence. The current 0.32.2 source/package line uses schema v12 with the implemented Knowledge Explorer over existing governed-v2
 episode authority plus an internal exact-key Dynamic State lane. Dynamic State
 uses typed status/owner/restore commands, version/database-epoch guards,
 lifecycle idempotency, immutable mutation/request-outcome history, and a
@@ -124,7 +124,7 @@ when their runtime prerequisites are available.
    ```
 
 3. Derive the venv interpreter as described in `llms-install.md`, then install
-   the current release with `<venv-python> -m pip install agent-memory-bridge==0.32.1`.
+   the current release with `<venv-python> -m pip install agent-memory-bridge==0.32.2`.
    For an exact source checkout, use `<venv-python> -m pip install -e .`.
    The published v0.30.0 source archive remains
    `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
