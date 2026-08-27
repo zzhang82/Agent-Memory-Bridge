@@ -72,16 +72,16 @@ AMB 需要 **Python 3.11+**、Git，以及能够启动本地 stdio server 的 MC
 
 ### 1. 安装 AMB
 
-普通安装：
-
-```bash
-pip install agent-memory-bridge
-```
-
-如果需要固定、可复现的 `0.32.1` 环境，请根据操作系统，用 `.amb-venv` 中的 Python 可执行文件代替 `<venv-python>`：
+快速开始建议使用虚拟环境，让所有编码客户端都能指向一个稳定的 Python launcher。请根据操作系统，用 `.amb-venv` 中的 Python 可执行文件代替 `<venv-python>`。
 
 ```bash
 python -m venv .amb-venv
+<venv-python> -m pip install agent-memory-bridge
+```
+
+如果需要固定、可复现的 `0.32.1` 环境，请改用下面这一条安装命令：
+
+```bash
 <venv-python> -m pip install agent-memory-bridge==0.32.1
 ```
 
