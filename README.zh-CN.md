@@ -93,7 +93,7 @@ Tests: pytest                   single-node project
 
 **代码告诉 AMB 项目“是什么”（WHAT）。**
 
-**你告诉 AMB 项目“为什么这样”（WHY）。**
+**对话告诉 AMB 项目“为什么这样”（WHY）。**
 
 <details>
 <summary>刷新与故障排查边界</summary>
