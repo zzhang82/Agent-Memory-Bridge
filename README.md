@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/amb-mark.png" alt="Two knowledge lanes converging through the Agent Memory Bridge" width="320" />
+  <img src="assets/amb-hero.png" alt="Agent Memory Bridge — local project memory for coding agents" width="100%" />
 </p>
 
 <h1 align="center">Agent Memory Bridge</h1>
@@ -8,7 +8,7 @@
 
 <p align="center">
   Code tells AMB what the project is.<br />
-  Conversations teach AMB why it is that way.
+  You tell AMB why it is that way.
 </p>
 
 <p align="center"><a href="README.zh-CN.md">简体中文</a></p>
@@ -21,20 +21,14 @@
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-3776AB.svg" alt="Python 3.11+" /></a>
 </p>
 
-<p align="center">
-  <img src="assets/amb-redis-demo.gif" alt="A 40-second demo: initialize a project, remember why Redis was rejected, then recover that decision in a new session with Explore and Inspect" width="960" />
-</p>
-
-<p align="center"><sub>One decision, one new session, one inspectable reason. This is an abbreviated visual story; the linked <a href="examples/demo/v030-project-knowledge/README.md">reproducible project-knowledge demo</a> proves the same WHAT/WHY boundary through bootstrap, store, fresh recall, and Inspect.</sub></p>
-
 ## When a new session lacks project context
 
-| Without AMB | With AMB |
+| Common project-memory problem | With AMB |
 |---|---|
-| Reads the code again | Knows repository **WHAT** after Project Init |
-| Loses old decisions | Recalls explicitly stored **WHY** |
-| Repeats old debates | Surfaces prior reasons |
-| Context stays trapped in one tool | Shares local project context through MCP clients using the same configured AMB home |
+| Project context must be reconstructed | Repository **WHAT** is derived and inspectable after Project Init |
+| Decisions live in old chats or tool-specific memory | Explicit project **WHY** stays with the project |
+| Prior reasoning is hard to audit | Inspect explains why relevant context surfaced |
+| Knowledge is tied to one client | Supported MCP clients can use the same configured local AMB home |
 
 AMB keeps useful project context outside the chat so a new session, another agent, or another MCP-compatible tool using the same configured AMB home can pick it up. It stays local and inspectable; it does not silently learn from every conversation.
 
@@ -99,7 +93,7 @@ Tests: pytest                   single-node project
 
 **Code tells AMB WHAT the project is.**
 
-**Conversations teach AMB WHY it is that way.**
+**You tell AMB WHY it is that way.**
 
 <details>
 <summary>Refresh and troubleshooting boundaries</summary>
