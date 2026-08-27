@@ -72,16 +72,16 @@ For the `0.32.1` release line, the normal install route is PyPI. GitHub Releases
 
 ### 1. Install AMB
 
-For a normal install:
-
-```bash
-pip install agent-memory-bridge
-```
-
-For a pinned, reproducible `0.32.1` environment, replace `<venv-python>` with the Python executable inside `.amb-venv` for your operating system:
+For the Quick Start, use a virtual environment so every coding client can point at one stable Python launcher. Replace `<venv-python>` with the Python executable inside `.amb-venv` for your operating system.
 
 ```bash
 python -m venv .amb-venv
+<venv-python> -m pip install agent-memory-bridge
+```
+
+For an exact, reproducible `0.32.1` environment, use this install line instead:
+
+```bash
 <venv-python> -m pip install agent-memory-bridge==0.32.1
 ```
 
