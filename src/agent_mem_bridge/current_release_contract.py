@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from . import release_contract
+from agent_mem_bridge import release_contract
 
 
 _CURRENT_RELEASE_MARKERS = (
