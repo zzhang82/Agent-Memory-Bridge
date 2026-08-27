@@ -1,13 +1,13 @@
-# Install Agent Memory Bridge From GitHub
+# Install Agent Memory Bridge
 
 Use this file when an agent is installing Agent Memory Bridge for a human from
-the public GitHub repository. The project itself is installed from GitHub, not
-from a claimed PyPI or client-marketplace listing.
+the public project. The normal release install path is PyPI; an exact source
+checkout remains the development and audit path.
 
 ## Requirements
 
 - Python 3.11 or newer
-- network access to GitHub and to the Python package index configured for `pip`
+- network access to PyPI and GitHub
 - an MCP client that can launch a local stdio process
 - `uv` is optional; the baseline path uses Python and `pip`
 
@@ -19,9 +19,9 @@ enable automatic tool approval without the human's approval.
 
 ## Python-Only Install
 
-Create an isolated environment and install the exact source checkout. Use the
-available Python 3.11+ launcher: examples use `python`; on many Linux systems
-use `python3`; on Windows `py -3` may be appropriate.
+Create an isolated environment. Use the available Python 3.11+ launcher:
+examples use `python`; on many Linux systems use `python3`; on Windows `py -3`
+may be appropriate.
 
 ```bash
 python -m venv .amb-venv
@@ -37,20 +37,20 @@ Treat the printed value as local configuration data. Do not commit it to this
 repository or include it in an issue report. In a POSIX shell, shell-quote the
 path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 
-Install and run these commands with that interpreter in place of
-`<venv-python>`:
-
-Current package/source version is `0.32.0`. From the exact source checkout,
-install with `<venv-python> -m pip install -e .` to evaluate this exact source checkout. Published release availability is listed in GitHub Releases; the published
-v0.30.0 source archive is
-`https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The historical `v0.27.0` release-install
-archive was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
+Current package/source version is `0.32.1`. Install the release package with:
 
 ```text
-<venv-python> -m pip install -e .
+<venv-python> -m pip install agent-memory-bridge==0.32.1
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
+
+For development or audit work against an exact checkout, use
+`<venv-python> -m pip install -e .` instead. Published source releases remain
+listed in GitHub Releases; the published v0.30.0 source archive is
+`https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
+The historical `v0.27.0` release-install archive was
+`https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
 `doctor` checks local prerequisites and resolved paths. `verify` launches an
 isolated AMB stdio runtime; neither command proves that an MCP client loaded
@@ -82,18 +82,12 @@ to confirm the server connects and exposes the documented 17-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
 
-The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.32.0`; for live release availability, consult GitHub Releases.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.32.1`; for live release availability, consult GitHub Releases.
 
 ## Optional `uvx` Shortcut
 
-If `uvx` is already installed, it can run the GitHub source directly:
-
-```bash
-uvx --from git+https://github.com/zzhang82/Agent-Memory-Bridge@v0.30.0 agent-memory-bridge verify
-```
-
-Do not make this the only install instruction. `uv` is not a project baseline
-requirement.
+If `uvx` is already installed, it can run a GitHub source tag directly. This is
+an optional source route, not the baseline install path.
 
 ## First Useful Check
 
@@ -137,7 +131,7 @@ retrieval subject, and caller-declared client or session labels cannot create
 additional votes. Feedback remains shadow-only: it does not mutate memories,
 indexes, recall results, or ranking behavior.
 
-For explicit episode evidence in the current `0.32.0` source, use
+For explicit episode evidence in the current `0.32.1` source, use
 `begin_run(...)` to obtain server-minted run/work-item handles, then use
 `record_run_event(...)`, `get_run(...)`, and `complete_run(...)`. These calls
 create durable run, event, and outcome authority. Schema v12 retains
