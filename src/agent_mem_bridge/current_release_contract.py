@@ -3,12 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from .release_contract import (
-    V027_EPISODE_RELEASE,
-    build_v027_episode_release_check,
-    load_pyproject_version,
-    run_release_contract_check,
-)
+from . import release_contract
 
 
 _CURRENT_RELEASE_MARKERS = (
@@ -36,8 +31,8 @@ def run_current_source_release_contract_check(
     """
 
     project_root = root.resolve()
-    version = load_pyproject_version(project_root / "pyproject.toml")
-    report = run_release_contract_check(
+    version = release_contract.load_pyproject_version(project_root / "pyproject.toml")
+    report = release_contract.run_release_contract_check(
         project_root,
         test_count_provider=test_count_provider,
         enforce_current_source_identity=False,
@@ -55,7 +50,10 @@ def run_current_source_release_contract_check(
         }
     ]
 
-    proof = build_v027_episode_release_check(project_root, V027_EPISODE_RELEASE)
+    proof = release_contract.build_v027_episode_release_check(
+        project_root,
+        release_contract.V027_EPISODE_RELEASE,
+    )
     proof["name"] = "historical_v027_episode_contract_retained_for_current_source"
     proof["current_source_version"] = version
     checks.append(proof)
