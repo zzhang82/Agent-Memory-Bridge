@@ -36,11 +36,11 @@ AMB keeps useful project context outside the chat so a new session, another agen
 
 AMB requires **Python 3.11+**, Git, and an MCP-compatible coding client that can launch a local stdio server.
 
-Current source version: `0.32.0`
+Current source version: `0.32.1`
 
 Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
-The live Releases page is the publication authority. To evaluate this exact checkout, install from source; there is no `pip install agent-memory-bridge==0.32.0` route.
+For the `0.32.1` release line, the normal install route is PyPI. GitHub Releases remains the publication authority for source tags and release notes; an exact source checkout can still be installed with `pip install -e .` for development or audit work.
 
 ### 1. Install and connect AMB
 
@@ -48,7 +48,7 @@ Replace `<venv-python>` with the Python executable inside `.amb-venv` for your o
 
 ```bash
 python -m venv .amb-venv
-<venv-python> -m pip install -e .
+<venv-python> -m pip install agent-memory-bridge==0.32.1
 <venv-python> -m agent_mem_bridge setup --client generic
 ```
 
@@ -195,7 +195,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-The current source is `0.32.0`, uses schema v12, and retains the frozen 17-tool MCP surface. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing WHAT and WHY. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+The current source is `0.32.1`, uses schema v12, and retains the frozen 17-tool MCP surface. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing WHAT and WHY. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 
