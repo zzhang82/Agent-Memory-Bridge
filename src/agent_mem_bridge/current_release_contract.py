@@ -4,7 +4,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-
 _CURRENT_RELEASE_MARKERS = (
     "PyPI Distribution",
     "pip install agent-memory-bridge==",
