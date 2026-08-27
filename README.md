@@ -93,7 +93,7 @@ Tests: pytest                   single-node project
 
 **Code tells AMB WHAT the project is.**
 
-**You tell AMB WHY it is that way.**
+**Conversations teach AMB WHY it is that way.**
 
 <details>
 <summary>Refresh and troubleshooting boundaries</summary>
