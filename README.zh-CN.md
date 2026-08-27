@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/amb-mark.png" alt="两条知识通道汇入 Agent Memory Bridge" width="320" />
+  <img src="assets/amb-hero.png" alt="Agent Memory Bridge — 面向编码智能体的本地项目记忆" width="100%" />
 </p>
 
 <h1 align="center">Agent Memory Bridge</h1>
@@ -8,7 +8,7 @@
 
 <p align="center">
   代码告诉 AMB 项目是什么。<br />
-  对话教会 AMB 项目为什么如此。
+  你告诉 AMB 为什么这样设计。
 </p>
 
 <p align="center"><a href="README.md">English</a></p>
@@ -21,20 +21,14 @@
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-3776AB.svg" alt="Python 3.11+" /></a>
 </p>
 
-<p align="center">
-  <img src="assets/amb-redis-demo.gif" alt="40 秒演示：初始化项目，记住拒绝 Redis 的原因，再在新会话中通过 Explore 和 Inspect 找回这项决策" width="960" />
-</p>
-
-<p align="center"><sub>一项决策、一个新会话、一个可检查的理由。这是一段经过精简的视觉叙事；链接的<a href="examples/demo/v030-project-knowledge/README.md">可复现项目知识 Demo</a>通过 bootstrap、store、全新 recall 和 Inspect 验证同一条 WHAT/WHY 边界。</sub></p>
-
 ## 当新会话缺少项目上下文时
 
-| 没有 AMB | 使用 AMB |
+| 常见项目记忆问题 | 使用 AMB |
 |---|---|
-| 重新阅读代码 | 在 Project Init 后知道仓库 **WHAT** |
-| 丢失旧决策 | 找回明确存储的 **WHY** |
-| 重复过去的争论 | 呈现之前的理由 |
-| 上下文困在单一工具里 | 使用同一 AMB home 配置的 MCP 客户端可共享本地项目上下文 |
+| 每次都要重新拼回项目上下文 | Project Init 后，仓库 **WHAT** 可派生、可检查 |
+| 决策散落在旧聊天或工具自己的记忆里 | 明确记录的项目 **WHY** 跟着项目走 |
+| 很难追溯以前为什么这样做 | Inspect 解释相关上下文为什么会出现 |
+| 知识被绑在单一客户端 | 支持的 MCP 客户端可使用同一个本地 AMB home |
 
 AMB 把有用的项目上下文放在聊天之外，让使用同一 AMB home 配置的新会话、另一个智能体或另一个 MCP 兼容工具能够继续使用。它在本地运行、可以检查，也不会默默从每段对话里学习。
 
@@ -99,7 +93,7 @@ Tests: pytest                   single-node project
 
 **代码告诉 AMB 项目“是什么”（WHAT）。**
 
-**对话告诉 AMB 项目“为什么这样”（WHY）。**
+**你告诉 AMB 项目“为什么这样”（WHY）。**
 
 <details>
 <summary>刷新与故障排查边界</summary>
