@@ -25,6 +25,8 @@
 pip install agent-memory-bridge
 ```
 
+**Install once; connect each coding client separately.** Installing the package does not register AMB with every coding agent. Each client you want to use must be configured to launch AMB as an MCP stdio server. Clients that should share memory need to use the same configured local AMB home.
+
 ## Your project should not start over with every session
 
 A project is more than its current files. Over time, useful context gets scattered across repositories, chats, coding agents, reviews, fixes, and one-off decisions. A new session can see the code but still miss the reasons, constraints, corrections, and history that make the project make sense.
@@ -68,7 +70,7 @@ Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memo
 
 For the `0.32.1` release line, the normal install route is PyPI. GitHub Releases remains the publication authority for source tags and release notes; an exact source checkout can still be installed with `pip install -e .` for development or audit work.
 
-### 1. Install and connect AMB
+### 1. Install AMB
 
 For a normal install:
 
@@ -81,12 +83,27 @@ For a pinned, reproducible `0.32.1` environment, replace `<venv-python>` with th
 ```bash
 python -m venv .amb-venv
 <venv-python> -m pip install agent-memory-bridge==0.32.1
-<venv-python> -m agent_mem_bridge setup --client generic
 ```
 
-Use the rendered client configuration, then reload the client.
+### 2. Connect the coding client(s) you actually use
 
-### 2. Initialize the project
+Installation and client registration are separate. Preview the setup for one client first:
+
+```bash
+<venv-python> -m agent_mem_bridge setup --client <client>
+```
+
+`setup` is read-only by default: it detects or inspects only bounded client configuration locations and shows the exact AMB fragment or action it recommends. Use a supported client name such as `codex`, `claude-code`, `vscode`, `cursor`, `cline`, `opencode`, or another client listed in [Integrations](docs/INTEGRATIONS.md).
+
+If the preview marks that client as eligible for safe automatic configuration, you can explicitly apply it after review:
+
+```bash
+<venv-python> -m agent_mem_bridge setup --client <client> --apply
+```
+
+Some clients remain preview/manual because AMB will not guess or rewrite an unsafe configuration format or path. In that case, copy the rendered fragment or follow the client-specific [Integration guide](docs/INTEGRATIONS.md). Repeat this step for every coding client you want to connect. To share the same project memory across clients, keep them pointed at the same configured `AGENT_MEMORY_BRIDGE_HOME`, then reload each client after registration.
+
+### 3. Initialize the project
 
 ```bash
 <venv-python> -m agent_mem_bridge project init .
@@ -94,7 +111,7 @@ Use the rendered client configuration, then reload the client.
 
 Project Init detects the local Git repository, proposes a namespace such as `project:my-app`, and waits for confirmation. It then derives a current repository baseline and opens the Human-first Explore view. It does not automatically learn decisions.
 
-### 3. Teach the project one decision that matters
+### 4. Teach the project one decision that matters
 
 For example, tell the connected coding agent:
 
@@ -102,7 +119,7 @@ For example, tell the connected coding agent:
 
 The connected agent uses AMB's existing public memory tools to store the explicit decision and reason. AMB does not infer a durable decision from the code or archive the whole conversation.
 
-### 4. Open a fresh session and reuse the memory
+### 5. Open a fresh session and reuse the memory
 
 ```bash
 <venv-python> -m agent_mem_bridge explore \
