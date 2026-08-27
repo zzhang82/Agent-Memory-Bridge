@@ -1,21 +1,21 @@
 # Install Agent Memory Bridge For Agents
 
 This guide is written for coding agents that are helping a human install Agent
-Memory Bridge into an MCP-compatible client. The exact source checkout is the
-publication-independent evaluation path.
+Memory Bridge into an MCP-compatible client. The normal release install path is
+PyPI; an exact source checkout remains the publication-independent evaluation
+and development path.
 
 Use it as an agent-readable setup protocol. Do not treat it as a runtime,
 watcher, scheduler, or hosted service.
 
-For the shortest GitHub-source procedure, start with
-[`llms-install.md`](llms-install.md).
+For the shortest procedure, start with [`llms-install.md`](llms-install.md).
 
 ## What You Are Installing
 
 Agent Memory Bridge is a local-first stdio MCP server for reusable engineering
 memory and lightweight coordination.
 
-Current package/source version is `0.32.0`. The current source/package line exposes 17 public MCP tools and includes the read-only Knowledge Explorer CLI. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
+Current package/source version is `0.32.1`. The current source/package line exposes 17 public MCP tools and includes the read-only Knowledge Explorer CLI. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
 
 - `store`, `recall`, `browse`, `stats`, `export`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`
@@ -24,7 +24,10 @@ Current package/source version is `0.32.0`. The current source/package line expo
 
 The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. Its historical archive URL was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
 
-The current source/package line is `0.32.0`; use a source checkout with `<venv-python> -m pip install -e .` to evaluate an exact checkout. Published release availability and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); the published v0.30.0 source archive remains `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
+The current source/package line is `0.32.1`. Install the release package with
+`<venv-python> -m pip install agent-memory-bridge==0.32.1`. Use a source checkout
+with `<venv-python> -m pip install -e .` when evaluating an exact checkout.
+Published source releases and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); the published v0.30.0 source archive remains `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
@@ -35,7 +38,7 @@ current effective vote per receipt-bound subject. It remains shadow-only and
 does not change memory records, recall results, or ranking behavior.
 
 Run tools create explicit server-minted handles and append bounded episode
-evidence. The current 0.32.0 source/package line uses schema v12 with the implemented Knowledge Explorer over existing governed-v2
+evidence. The current 0.32.1 source/package line uses schema v12 with the implemented Knowledge Explorer over existing governed-v2
 episode authority plus an internal exact-key Dynamic State lane. Dynamic State
 uses typed status/owner/restore commands, version/database-epoch guards,
 lifecycle idempotency, immutable mutation/request-outcome history, and a
@@ -51,10 +54,10 @@ Ask the human these questions before writing config:
 2. Where should the local bridge home live?
 3. What source client label should be written into provenance metadata?
 
-Unless the human asks for an alternative, use the pinned isolated Python venv
-baseline below. Local editable checkout, optional `uvx`, and Docker remain
-optional routes. For the Phase 1 pilot, all clients must share the same
-user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`.
+Unless the human asks for an alternative, use the isolated Python venv baseline
+below. Local editable checkout, optional `uvx`, and Docker remain optional
+routes. For the Phase 1 pilot, all clients must share the same user-chosen
+persistent `AGENT_MEMORY_BRIDGE_HOME`.
 
 ## Safe Setup Preview and Apply
 
@@ -120,9 +123,10 @@ when their runtime prerequisites are available.
    python -m venv .amb-venv
    ```
 
-3. Derive the venv interpreter as described in `llms-install.md`, then from
-   the exact source checkout install with `<venv-python> -m pip install -e .`.
-   For the latest published release, use the pinned `v0.30.0` source archive:
+3. Derive the venv interpreter as described in `llms-install.md`, then install
+   the current release with `<venv-python> -m pip install agent-memory-bridge==0.32.1`.
+   For an exact source checkout, use `<venv-python> -m pip install -e .`.
+   The published v0.30.0 source archive remains
    `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
@@ -144,15 +148,14 @@ when their runtime prerequisites are available.
    AMB stdio runtime. Neither proves the client loaded its config.
 8. If the client already has a running MCP server process, ask the human to
    restart that client, then use its MCP status/tool view to confirm the server
-   registration and its 17-tool public surface. This is the client registration
-   gate for the selected `v0.30.0` source route.
+   registration and its 17-tool public surface.
 
 The custom `config.toml` path emitted by the renderer is optional for this
 baseline. If its default path has no file, `doctor` may warn and the baseline
 server can still run.
 
-`uvx` remains the fastest optional GitHub shortcut when `uv` is already
-installed. It is not a prerequisite for the baseline path.
+`uvx` remains an optional GitHub shortcut when `uv` is already installed. It is
+not a prerequisite for the baseline path.
 
 ## Recommended Generic Stdio Shape
 

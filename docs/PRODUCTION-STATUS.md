@@ -1,12 +1,12 @@
 # Production Status
 
-This page is the canonical reference for **checked-in current-source facts**: implementation version, public surface, capability boundaries, and validated source evidence. It deliberately does not snapshot the moving `main` commit, latest live CI result, or latest published GitHub Release. Consult [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions) and [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) for those live repository states. Historical release announcements and proof artifacts remain evidence, but they are not the current-source status record.
+This page is the canonical reference for **checked-in current-source facts**: implementation version, public surface, capability boundaries, and validated source evidence. It deliberately does not snapshot the moving `main` commit, latest live CI result, latest published GitHub Release, or live PyPI availability. Consult [GitHub Actions](https://github.com/zzhang82/Agent-Memory-Bridge/actions), [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases), and PyPI for those live repository and distribution states. Historical release announcements and proof artifacts remain evidence, but they are not the current-source status record.
 
 ## Current Source Status
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.32.0` |
+| Package/source version | `0.32.1` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
@@ -14,7 +14,13 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 Current source test collection: `1051 tests`
 
-> A tag is not a GitHub Release, and live CI state is not host certification, a distribution claim, or a productivity result. Installation guidance retains its own pinned-release and source-checkout gates.
+> A tag is not a GitHub Release, and live CI or package-index state is not host certification, a distribution guarantee, or a productivity result. Installation guidance retains explicit publication and source-checkout gates.
+
+## Distribution Status
+
+The `0.32.1` source line adds the release-side contract for PyPI distribution. A published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. Live PyPI package availability is external state and is not asserted by this checked-in document.
+
+This distribution change does not alter runtime behavior, durable schema, MCP tools, repository-WHAT authority, governed project-WHY authority, retrieval semantics, or automatic-learning boundaries.
 
 ## Historical Tag Reference
 
@@ -30,7 +36,7 @@ V0.30 adds a persistent, bounded, rebuildable derived repository snapshot. Expli
 
 ### Project Learning UX
 
-V0.32.0 makes Project Learning the current human-facing product line. Default Explore presents repository CODE / WHAT separately from governed CONVERSATION / WHY. `project init` is the preferred first-project path: it detects a local Git checkout, proposes a namespace, requires explicit confirmation, revalidates after confirmation, bootstraps derived repository WHAT, and shows Human-first Explore. Repeat init refreshes repository WHAT and leaves existing project WHY unchanged. This is not automatic learning and does not add an MCP tool.
+V0.32.0 introduced the current Project Learning UX. Default Explore presents repository CODE / WHAT separately from governed CONVERSATION / WHY. `project init` is the preferred first-project path: it detects a local Git checkout, proposes a namespace, requires explicit confirmation, revalidates after confirmation, bootstraps derived repository WHAT, and shows Human-first Explore. Repeat init refreshes repository WHAT and leaves existing project WHY unchanged. This is not automatic learning and does not add an MCP tool.
 
 ### Project WHY Alignment
 

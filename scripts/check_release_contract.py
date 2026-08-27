@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+from agent_mem_bridge.current_release_contract import run_current_source_release_contract_check  # noqa: E402
 from agent_mem_bridge.release_contract import run_release_contract_check  # noqa: E402
 
 
@@ -25,8 +26,10 @@ def main() -> int:
     args = parser.parse_args()
 
     canonical_root = Path(__file__).resolve().parents[1]
-    enforce_current_identity = args.root.resolve() == canonical_root
-    report = run_release_contract_check(args.root, enforce_current_source_identity=enforce_current_identity)
+    if args.root.resolve() == canonical_root:
+        report = run_current_source_release_contract_check(args.root)
+    else:
+        report = run_release_contract_check(args.root)
     print(json.dumps(report, indent=2))
     return 0 if report["ok"] else 1
 

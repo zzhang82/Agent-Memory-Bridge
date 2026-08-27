@@ -23,7 +23,7 @@ RELEASE_VERSION = package_version()
 # default first-run rendering because `setup` owns connection/configuration.
 PINNED_INSTALL_VERSION = "0.27.0"
 GITHUB_ARCHIVE_URL = f"https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip"
-RELEASE_INSTALL_GATE_NOTE = "Current package/source version is `0.32.0`."
+RELEASE_INSTALL_GATE_NOTE = f"Current package/source version is `{RELEASE_VERSION}`."
 
 _DEFAULT_MEMORY_PROMPTS = (
     "Before opening a PR, run <your project's test command>.",

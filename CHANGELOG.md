@@ -8,6 +8,16 @@ The v0.28.0 tagged archive route, when using that tag, is:
 
 This document records the durable capability milestones in Agent Memory Bridge (AMB). It is **not** a release-by-release ledger, a current-status page, or a substitute for detailed proof artifacts. Current implementation facts belong in [Production Status](docs/PRODUCTION-STATUS.md); future work belongs in the [Roadmap](docs/ROADMAP.md); detailed development chronology remains in Git history and published GitHub Releases where available.
 
+## v0.32.1 — PyPI Distribution
+
+- Makes `pip install agent-memory-bridge==0.32.1` the normal release install route.
+- Adds release-triggered, tokenless PyPI publication through GitHub OIDC and PyPI Trusted Publishing.
+- Keeps exact source checkout installation available for development and audit work.
+- Preserves schema v12, the 17-tool public MCP surface, the frozen public tool-schema digest, Project Learning behavior, and existing authority boundaries.
+- Retains v0.32.0 release notes as historical evidence, including its then-correct statement that no PyPI route existed.
+
+See [v0.32.1 announcement](docs/v0.32.1-announcement.md) for the distribution contract and [Production Status](docs/PRODUCTION-STATUS.md) for current-source facts.
+
 ## v0.32.0 — Project Learning UX
 
 ### Human-first Project Knowledge
@@ -59,6 +69,7 @@ This document records the durable capability milestones in Agent Memory Bridge (
 | v0.31.0 source/release line | **Knowledge Explorer / Derived Project Graph** | A local read-only project projection with explicit authority labels, namespace-to-repository binding, eligible durable decision/constraint projection, and bounded direct relation-target resolution. It creates no new durable authority. | [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.31.1 source/release line | **Project WHY Alignment** | Explicit `record_type: decision` and `record_type: constraint` records are first-class governed task-memory lanes consumed by Inspect and the Context Compiler. Project Learning onboarding is connect → bootstrap WHAT → teach WHY → fresh session → Inspect + Explore. No automatic learning, no new MCP tools, and no schema migration. | [v0.31.1 announcement](docs/v0.31.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) |
 | v0.32.0 source/release line | **Project Learning UX** | Human-first Explore separates CODE / WHAT from CONVERSATION / WHY, while `project init` provides explicit, fail-closed onboarding and refreshes derived WHAT without modifying governed WHY. | [v0.32.0 announcement](docs/v0.32.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) |
+| v0.32.1 source/release line | **PyPI Distribution** | The release line adds a PyPI install path and release-triggered Trusted Publishing without changing runtime behavior, schema, public MCP surface, or authority boundaries. | [v0.32.1 announcement](docs/v0.32.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 
 ## Historical Evidence Retained in the Repository
 
@@ -72,5 +83,6 @@ The following versioned documents remain because they are a detailed reproducibi
 | [v0.27.4 announcement](docs/v0.27.4-announcement.md) | Carries release-contract-validated historical evidence for the Dynamic State authority MVP. |
 | [v0.31.1 announcement](docs/v0.31.1-announcement.md) | Canonical release-notes artifact for Project WHY Alignment and Project Learning onboarding polish. |
 | [v0.32.0 announcement](docs/v0.32.0-announcement.md) | Canonical release-notes artifact for Project Learning UX, Human-first Explore, and Project Init. |
+| [v0.32.1 announcement](docs/v0.32.1-announcement.md) | Canonical release-notes artifact for the PyPI distribution path and Trusted Publishing boundary. |
 
 The retained historical documents describe their own snapshots. They do not establish current version, CI, release, or product-status facts.
