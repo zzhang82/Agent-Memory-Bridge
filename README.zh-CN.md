@@ -25,6 +25,8 @@
 pip install agent-memory-bridge
 ```
 
+**AMB 只需要安装一次，但每个编码客户端都要分别连接。** 安装 Python 包不会自动把 AMB 注册到所有编码智能体里。你想使用的每个客户端都需要配置为通过 MCP stdio 启动 AMB；如果多个客户端要共享同一份记忆，它们需要指向同一个已配置的本地 AMB home。
+
 ## 你的项目不该在每个新会话里重新开始
 
 一个项目远不只是当前那一份文件。随着时间推移，真正有用的上下文会散落在仓库、聊天、编码智能体、review、修复记录和一次次临时决策里。新会话也许能看到代码，却仍然不知道那些让项目成立的理由、约束、修正和历史。
@@ -68,7 +70,7 @@ AMB 需要 **Python 3.11+**、Git，以及能够启动本地 stdio server 的 MC
 
 从 `0.32.1` 发布线开始，正常安装路径为 PyPI。GitHub Releases 仍是源码 tag 与 release notes 的发布权威；开发或审计时仍可对精确 source checkout 使用 `pip install -e .`。
 
-### 1. 安装并连接 AMB
+### 1. 安装 AMB
 
 普通安装：
 
@@ -81,12 +83,27 @@ pip install agent-memory-bridge
 ```bash
 python -m venv .amb-venv
 <venv-python> -m pip install agent-memory-bridge==0.32.1
-<venv-python> -m agent_mem_bridge setup --client generic
 ```
 
-使用命令生成的客户端配置，然后重载客户端。
+### 2. 连接你实际使用的编码客户端
 
-### 2. 初始化项目
+安装 AMB 和把客户端注册到 AMB 是两件事。先只预览一个客户端的设置方案：
+
+```bash
+<venv-python> -m agent_mem_bridge setup --client <client>
+```
+
+`setup` 默认只读：它只会在有边界的客户端配置位置做检测或检查，并展示建议的 AMB 配置片段或下一步动作，不会直接写配置。`<client>` 可以使用 `codex`、`claude-code`、`vscode`、`cursor`、`cline`、`opencode`，或[集成文档](docs/INTEGRATIONS.md)中列出的其他支持客户端。
+
+如果预览结果明确标记该客户端可以进行安全自动配置，可以在检查后显式执行：
+
+```bash
+<venv-python> -m agent_mem_bridge setup --client <client> --apply
+```
+
+有些客户端仍然只支持 preview/manual，因为 AMB 不会猜测不安全的配置路径，也不会冒险重写不适合自动修改的格式。这时请复制生成的配置片段，或按对应的[集成指南](docs/INTEGRATIONS.md)完成设置。你要使用几个编码客户端，就分别重复这一步几次；如果它们要共享同一份项目记忆，请让它们都指向同一个 `AGENT_MEMORY_BRIDGE_HOME`，完成注册后再重载对应客户端。
+
+### 3. 初始化项目
 
 ```bash
 <venv-python> -m agent_mem_bridge project init .
@@ -94,7 +111,7 @@ python -m venv .amb-venv
 
 Project Init 会检测本地 Git 仓库，建议一个类似 `project:my-app` 的 namespace，并等待你确认。随后它会派生当前仓库 baseline，并打开 Human-first Explore 视图。它不会自动学习项目决策。
 
-### 3. 教给项目一个值得保留的决策
+### 4. 教给项目一个值得保留的决策
 
 例如，直接告诉已连接的编码智能体：
 
@@ -102,7 +119,7 @@ Project Init 会检测本地 Git 仓库，建议一个类似 `project:my-app` �
 
 已连接的智能体会使用 AMB 现有的公开记忆工具，保存这项明确决策及其理由。AMB 不会从代码中推断出持久决策，也不会归档整段对话。
 
-### 4. 打开一个新会话，继续使用这份记忆
+### 5. 打开一个新会话，继续使用这份记忆
 
 ```bash
 <venv-python> -m agent_mem_bridge explore \
