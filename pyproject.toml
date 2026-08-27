@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-bridge"
-version = "0.32.1"
-description = "Local-first shared project memory for AI coding agents over MCP"
+version = "0.32.2"
+description = "Governed project memory for AI coding agents across sessions and tools"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
-keywords = ["mcp", "memory", "agents", "sqlite", "fts", "local-first", "stdio"]
+keywords = ["mcp", "memory", "agents", "project-memory", "governance", "sqlite", "fts", "local-first", "stdio"]
 classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
