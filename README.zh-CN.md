@@ -64,11 +64,11 @@ repo / project baseline
 
 AMB 需要 **Python 3.11+**、Git，以及能够启动本地 stdio server 的 MCP 兼容编码客户端。
 
-当前源码版本：`0.32.1`
+当前源码版本：`0.32.2`
 
 已发布版本：请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
-从 `0.32.1` 发布线开始，正常安装路径为 PyPI。GitHub Releases 仍是源码 tag 与 release notes 的发布权威；开发或审计时仍可对精确 source checkout 使用 `pip install -e .`。
+从 `0.32.2` 发布线开始，正常安装路径为 PyPI。GitHub Releases 仍是源码 tag 与 release notes 的发布权威；开发或审计时仍可对精确 source checkout 使用 `pip install -e .`。
 
 ### 1. 安装 AMB
 
@@ -79,10 +79,10 @@ python -m venv .amb-venv
 <venv-python> -m pip install agent-memory-bridge
 ```
 
-如果需要固定、可复现的 `0.32.1` 环境，请改用下面这一条安装命令：
+如果需要固定、可复现的 `0.32.2` 环境，请改用下面这一条安装命令：
 
 ```bash
-<venv-python> -m pip install agent-memory-bridge==0.32.1
+<venv-python> -m pip install agent-memory-bridge==0.32.2
 ```
 
 ### 2. 连接你实际使用的编码客户端
@@ -260,7 +260,7 @@ AMB 暴露 **17 个公开 MCP 工具**：
 
 ## 当前成熟度
 
-当前源码版本为 `0.32.1`，使用 schema v12，并保持冻结的 17 工具 MCP 接口。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
+当前源码版本为 `0.32.2`，使用 schema v12，并保持冻结的 17 工具 MCP 接口。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
 
 ## 参与贡献
 

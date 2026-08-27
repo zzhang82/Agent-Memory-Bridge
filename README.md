@@ -64,11 +64,11 @@ The repository is the common starting point for software projects, but the memor
 
 AMB requires **Python 3.11+**, Git, and an MCP-compatible coding client that can launch a local stdio server.
 
-Current source version: `0.32.1`
+Current source version: `0.32.2`
 
 Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
-For the `0.32.1` release line, the normal install route is PyPI. GitHub Releases remains the publication authority for source tags and release notes; an exact source checkout can still be installed with `pip install -e .` for development or audit work.
+For the `0.32.2` release line, the normal install route is PyPI. GitHub Releases remains the publication authority for source tags and release notes; an exact source checkout can still be installed with `pip install -e .` for development or audit work.
 
 ### 1. Install AMB
 
@@ -79,10 +79,10 @@ python -m venv .amb-venv
 <venv-python> -m pip install agent-memory-bridge
 ```
 
-For an exact, reproducible `0.32.1` environment, use this install line instead:
+For an exact, reproducible `0.32.2` environment, use this install line instead:
 
 ```bash
-<venv-python> -m pip install agent-memory-bridge==0.32.1
+<venv-python> -m pip install agent-memory-bridge==0.32.2
 ```
 
 ### 2. Connect the coding client(s) you actually use
@@ -260,7 +260,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-The current source is `0.32.1`, uses schema v12, and retains the frozen 17-tool MCP surface. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+The current source is `0.32.2`, uses schema v12, and retains the frozen 17-tool MCP surface. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 
