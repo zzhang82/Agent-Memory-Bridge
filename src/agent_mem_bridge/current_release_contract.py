@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .release_contract import (
+    V027_EPISODE_RELEASE,
     build_v027_episode_release_check,
     load_pyproject_version,
     run_release_contract_check,
-    V027_EPISODE_RELEASE,
 )
 
 
