@@ -37,10 +37,10 @@ Treat the printed value as local configuration data. Do not commit it to this
 repository or include it in an issue report. In a POSIX shell, shell-quote the
 path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 
-Current package/source version is `0.32.1`. Install the release package with:
+Current package/source version is `0.32.2`. Install the release package with:
 
 ```text
-<venv-python> -m pip install agent-memory-bridge==0.32.1
+<venv-python> -m pip install agent-memory-bridge==0.32.2
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -58,7 +58,23 @@ the config.
 
 ## Connect One Client
 
-Use [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for the current config shape.
+Installing AMB and registering it with a coding client are separate steps.
+Preview the target client's setup first:
+
+```text
+<venv-python> -m agent_mem_bridge setup --client <client>
+```
+
+`setup` is read-only by default. If the preview explicitly classifies the target
+as safe for automatic configuration, the human can approve:
+
+```text
+<venv-python> -m agent_mem_bridge setup --client <client> --apply
+```
+
+Some clients remain preview/manual by design. In that case use
+[docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for the current config shape and
+render the exact fragment instead of guessing a config path or serializer.
 Set the stdio command to the derived venv interpreter and the arguments to:
 
 ```json
@@ -67,9 +83,9 @@ Set the stdio command to the derived venv interpreter and the arguments to:
 
 Supported renderer names are `generic`, `codex`, `claude-desktop`,
 `claude-code`, `vscode`, `cursor`, `cline`, `antigravity`, `opencode`, and
-`hermes`. For the Phase 1 pilot, every client must use the same user-chosen
-persistent `AGENT_MEMORY_BRIDGE_HOME`. Render one real fragment for the target
-client before editing its config:
+`hermes`. Every client that should share project memory must use the same
+user-chosen persistent `AGENT_MEMORY_BRIDGE_HOME`. Render one real fragment for
+the target client when manual configuration is required:
 
 ```text
 <venv-python> -m agent_mem_bridge config --client <client> --python "<venv-python>" --cwd "<absolute-path-to-your-project>" --bridge-home "<absolute-path-to-one-persistent-bridge-home>"
@@ -82,7 +98,7 @@ to confirm the server connects and exposes the documented 17-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
 
-The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.32.1`; for live release availability, consult GitHub Releases.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.32.2`; for live release availability, consult GitHub Releases.
 
 ## Optional `uvx` Shortcut
 
@@ -131,7 +147,7 @@ retrieval subject, and caller-declared client or session labels cannot create
 additional votes. Feedback remains shadow-only: it does not mutate memories,
 indexes, recall results, or ranking behavior.
 
-For explicit episode evidence in the current `0.32.1` source, use
+For explicit episode evidence in the current `0.32.2` source, use
 `begin_run(...)` to obtain server-minted run/work-item handles, then use
 `record_run_event(...)`, `get_run(...)`, and `complete_run(...)`. These calls
 create durable run, event, and outcome authority. Schema v12 retains
