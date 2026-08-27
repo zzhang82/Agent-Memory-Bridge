@@ -6,7 +6,7 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.32.1` |
+| Package/source version | `0.32.2` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
@@ -18,9 +18,9 @@ Current source test collection: `1051 tests`
 
 ## Distribution Status
 
-The `0.32.1` source line adds the release-side contract for PyPI distribution. A published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. Live PyPI package availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.32.2` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. Live PyPI package availability is external state and is not asserted by this checked-in document.
 
-This distribution change does not alter runtime behavior, durable schema, MCP tools, repository-WHAT authority, governed project-WHY authority, retrieval semantics, or automatic-learning boundaries.
+The `0.32.2` release changes product positioning, README/hero presentation, package metadata, and onboarding documentation. It does not alter runtime behavior, durable schema, MCP tools, repository-derived authority, governed durable project-memory authority, retrieval semantics, or automatic-learning boundaries.
 
 ## Historical Tag Reference
 
@@ -29,6 +29,10 @@ The `v0.27.4` tag identifies the historical source snapshot `e8210cb204e501650a5
 The `v0.28.0` tag identifies the historical release merge snapshot `c6e3568a59852c5b589d6aba00b89ab580c228e6`. This is a stable historical release fact, not a claim about the current source head or current publication state.
 
 ## Implemented Capability Summary
+
+### Governed Project Memory positioning and onboarding
+
+V0.32.2 makes the existing product boundary easier to understand without changing runtime authority. Public positioning now describes AMB as governed project memory that carries useful context across sessions, tools, and time. The README and hero show fragmented project context converging into governed memory and being reused by future coding-agent sessions. Installation is explicitly separate from MCP client registration: each client must be connected, safe setup remains preview-first, and clients that should share memory must use the same persistent `AGENT_MEMORY_BRIDGE_HOME`.
 
 ### Project Knowledge Activation
 
