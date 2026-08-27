@@ -69,6 +69,8 @@ memory.
 
 ## Generic Stdio First
 
+Installing AMB and registering it with a coding client are separate steps. `pip install agent-memory-bridge` installs the server on the machine; each client that should use AMB must still register it as an MCP stdio server. Clients that should share one project memory should point to the same persistent `AGENT_MEMORY_BRIDGE_HOME`.
+
 If your client can launch a local subprocess and speak stdio MCP, start here:
 
 ```json
