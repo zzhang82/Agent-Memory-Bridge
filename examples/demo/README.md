@@ -16,6 +16,11 @@ There is also a lightweight before/after story source for the "viral moment":
 without Agent Memory Bridge, the user has to re-teach a repo gotcha; with Agent
 Memory Bridge, the next session recalls the gotcha before touching code.
 
+For a current first-win without recording a new cast, run normal `project init`
+in a disposable demo repository, then explicitly store one demo decision after
+review. Default `project init` writes no WHY. Open a fresh session and ask about
+that same decision and reason.
+
 The checked-in demo is meant to show both coordination state and a later
 "the agent remembered something useful" retrieval moment, while still matching
 the current benchmark snapshot.

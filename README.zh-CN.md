@@ -2,12 +2,23 @@
   <img src="assets/amb-hero.png" alt="Agent Memory Bridge — 跨会话与工具的受治理项目记忆" width="100%" />
 </p>
 
-<h1 align="center">Agent Memory Bridge</h1>
+<p align="center">
+  <img src="assets/amb-mark.svg" alt="AMB" width="88" height="88" />
+</p>
+
+<h1 align="center">Agent Memory Bridge (AMB)</h1>
+
+<p align="center"><strong>by zzhang82</strong> · PyPI <code>agent-memory-bridge</code></p>
+
+<p align="center">
+  你的编码智能体总是忘掉项目<em>为什么</em>是现在这样。<br />
+  AMB 是它们可以共享的本地项目记忆——决策和理由，而不是聊天记录。
+</p>
 
 <p align="center"><strong>把散落的项目上下文变成受治理的记忆。</strong></p>
 
 <p align="center">
-  AMB 帮助编码智能体把真正重要的知识延续下去——跨会话、跨工具，也跨时间。
+  补充 <code>AGENTS.md</code> / <code>CLAUDE.md</code>。不会抓取你的 transcript。
 </p>
 
 <p align="center"><a href="README.md">English</a></p>
@@ -22,7 +33,7 @@
 </p>
 
 ```bash
-pip install agent-memory-bridge
+pip install agent-memory-bridge==0.32.2
 ```
 
 **AMB 只需要安装一次，但每个编码客户端都要分别连接。** 安装 Python 包不会自动把 AMB 注册到所有编码智能体里。你想使用的每个客户端都需要配置为通过 MCP stdio 启动 AMB；如果多个客户端要共享同一份记忆，它们需要指向同一个已配置的本地 AMB home。
@@ -70,6 +81,8 @@ AMB 需要 **Python 3.11+**、Git，以及能够启动本地 stdio server 的 MC
 
 从 `0.32.2` 发布线开始，正常安装路径为 PyPI。GitHub Releases 仍是源码 tag 与 release notes 的发布权威；开发或审计时仍可对精确 source checkout 使用 `pip install -e .`。
 
+黄金路径先只走 **一个客户端：Claude Code**。其他客户端见[集成](#集成)和[集成文档](docs/INTEGRATIONS.md)。
+
 ### 1. 安装 AMB
 
 快速开始建议使用虚拟环境，让所有编码客户端都能指向一个稳定的 Python launcher。请根据操作系统，用 `.amb-venv` 中的 Python 可执行文件代替 `<venv-python>`。
@@ -85,23 +98,23 @@ python -m venv .amb-venv
 <venv-python> -m pip install agent-memory-bridge==0.32.2
 ```
 
-### 2. 连接你实际使用的编码客户端
+### 2. 连接 Claude Code
 
-安装 AMB 和把客户端注册到 AMB 是两件事。先只预览一个客户端的设置方案：
-
-```bash
-<venv-python> -m agent_mem_bridge setup --client <client>
-```
-
-`setup` 默认只读：它只会在有边界的客户端配置位置做检测或检查，并展示建议的 AMB 配置片段或下一步动作，不会直接写配置。`<client>` 可以使用 `codex`、`claude-code`、`vscode`、`cursor`、`cline`、`opencode`，或[集成文档](docs/INTEGRATIONS.md)中列出的其他支持客户端。
-
-如果预览结果明确标记该客户端可以进行安全自动配置，可以在检查后显式执行：
+安装 AMB 和把客户端注册到 AMB 是两件事。先预览 Claude Code 的设置方案：
 
 ```bash
-<venv-python> -m agent_mem_bridge setup --client <client> --apply
+<venv-python> -m agent_mem_bridge setup --client claude-code
 ```
 
-有些客户端仍然只支持 preview/manual，因为 AMB 不会猜测不安全的配置路径，也不会冒险重写不适合自动修改的格式。这时请复制生成的配置片段，或按对应的[集成指南](docs/INTEGRATIONS.md)完成设置。你要使用几个编码客户端，就分别重复这一步几次；如果它们要共享同一份项目记忆，请让它们都指向同一个 `AGENT_MEMORY_BRIDGE_HOME`，完成注册后再重载对应客户端。
+`setup` 默认只读。如果预览结果明确标记 Claude Code 可以进行安全自动配置，可以在检查后显式执行：
+
+```bash
+<venv-python> -m agent_mem_bridge setup --client claude-code --apply
+```
+
+注册后请重载 Claude Code。`doctor` 会检查本地前置条件和路径；`verify` 会探测一个隔离的 AMB stdio runtime。两者都不能证明 Claude Code 已经真正加载配置，最后请以 Claude Code 自己的 MCP status/tool 视图为准。
+
+如果之后要让多个客户端共享同一份项目记忆，请让它们都指向同一个已配置的 `AGENT_MEMORY_BRIDGE_HOME`。通用预览仍是 `setup --client <client>`；只有该客户端被标记为安全时才使用 `setup --client <client> --apply`。
 
 ### 3. 初始化项目
 
@@ -111,15 +124,25 @@ python -m venv .amb-venv
 
 Project Init 会检测本地 Git 仓库，建议一个类似 `project:my-app` 的 namespace，并等待你确认。随后它会派生当前仓库 baseline，并打开 Human-first Explore 视图。它不会自动学习项目决策。
 
+如果 Explore 是空的，这是预期行为。Init 会打印一段 review-first 的句子供你粘贴给智能体；默认 init 不会写入项目 WHY。
+
+Repository WHAT 与 commit 绑定。如果 worktree 不干净，Project Init 会 fail closed，而不会把未提交内容归因到 HEAD；请先 commit、stash 或 restore，再重新运行。
+
 ### 4. 教给项目一个值得保留的决策
 
-例如，直接告诉已连接的编码智能体：
+把这句话粘贴给已连接的编码智能体：
 
-> 记住：我们决定不添加 Redis，因为这个项目刻意保持本地优先、单节点运行。
+> 问我一个这个项目里重要的决策以及它存在的原因。等我确认措辞后，再把它作为这个项目的一条 decision 存进 AMB。
 
-已连接的智能体会使用 AMB 现有的公开记忆工具，保存这项明确决策及其理由。AMB 不会从代码中推断出持久决策，也不会归档整段对话。
+请回答一个**你项目里真实存在的决策**。只有在你确认措辞后，已连接的智能体才使用 AMB 现有的公开记忆工具保存它。AMB 不会从代码中推断持久决策，也不会归档整段对话。
 
 ### 5. 打开一个新会话，继续使用这份记忆
+
+在**新**会话里，针对刚才保存的决策问同一个智能体：
+
+> 关于 <topic>，我们之前做了什么决定，为什么？
+
+它应当同时回答决策**和**理由。然后：
 
 ```bash
 <venv-python> -m agent_mem_bridge explore \
@@ -127,7 +150,7 @@ Project Init 会检测本地 Git 仓库，建议一个类似 `project:my-app` �
 
 <venv-python> -m agent_mem_bridge inspect \
   --namespace project:my-app \
-  --query "Should we add Redis?"
+  --query "关于 <topic>，我们之前做了什么决定，为什么？"
 ```
 
 Explore 回答“AMB 目前知道这个项目的什么信息？”Inspect 回答“为什么这条信息会针对这个问题出现？”两者都只在本地读取，不会修改记忆。
@@ -137,9 +160,9 @@ Explore 回答“AMB 目前知道这个项目的什么信息？”Inspect 回答
 ```text
 CODE / WHAT                     CONVERSATION / WHY
 ────────────────────            ──────────────────────────
-Runtime: Python >=3.11          Decision: Do not add Redis
-Package: my-app                 Reason: local-first,
-Tests: pytest                   single-node project
+Runtime: Python >=3.11          Decision: <你的决策>
+Package: my-app                 Reason: <你的理由>
+Tests: pytest
 ```
 
 在底层，AMB 会把从仓库派生的事实和人明确教给它的项目知识分开：
@@ -151,7 +174,7 @@ Tests: pytest                   single-node project
 这个区分是一条**信任边界**，而不是整个产品故事：派生事实可以从当前代码重新构建，而持久项目知识则保持显式、可审阅、可治理。
 
 <details>
-<summary>刷新与故障排查边界</summary>
+<summary>刷新、更多客户端与故障排查</summary>
 
 仓库 WHAT 来自干净的 Git commit。如果 HEAD 发生变化或 worktree 不干净，AMB 不会把旧 snapshot 当作当前事实。刷新不是自动发生的。请重新运行显式底层命令：
 
@@ -181,7 +204,7 @@ Tests: pytest                   single-node project
 
 AMB 通过本地 stdio MCP 工作。它支持通用 MCP 客户端；Codex 是参考工作流；Claude Code、Claude Desktop、Cursor 和 Cline 已有文档；Antigravity、OpenCode 和 Hermes 则有本地实测配置路径。
 
-这些集成标签有意保持窄口径，不代表客户端认证。当前设置方式和边界请见[集成文档](docs/INTEGRATIONS.md)。
+对其余客户端重复 `setup --client <client>`（符合条件时再加 `--apply`）。这些集成标签有意保持窄口径，不代表客户端认证。当前设置方式和边界请见[集成文档](docs/INTEGRATIONS.md)。
 
 ## 为什么这份记忆能保持可信
 
@@ -206,6 +229,8 @@ AMB 是面向编码智能体的、受治理的本地项目记忆层。它让有�
 
 它不是聊天记录归档器，不承诺智能体会记住所有事情，也不会默默把每一段对话都转换成持久事实。
 
+一份约 20 行的对照表（内置 markdown 文件 vs transcript/向量记忆 vs AMB）见[比较](docs/COMPARISON.md)。
+
 ## 想了解细节？
 
 | 文档 | 用途 |
@@ -213,10 +238,12 @@ AMB 是面向编码智能体的、受治理的本地项目记忆层。它让有�
 | [架构](docs/ARCHITECTURE.md) | 系统形态与数据流 |
 | [权威模型](docs/AUTHORITY-CONTRACT.md) | 持久权威、派生视图、修正与审计规则 |
 | [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) | 面向人的只读项目视图 |
+| [比较](docs/COMPARISON.md) | 内置 md 文件 vs transcript 记忆 vs AMB |
 | [生产状态](docs/PRODUCTION-STATUS.md) | 当前实现事实、证据与已知边界 |
 | [集成](docs/INTEGRATIONS.md) | 针对不同客户端的本地 MCP 设置 |
 | [智能体安装指南](INSTALL_FOR_AGENTS.md) | 从安装到首次成功的完整流程 |
 | [配置](docs/CONFIGURATION.md) | 完整配置参考 |
+| [Showcase](SHOWCASE.md) | 具名 namespace 与引用 |
 | [示例](examples/README.md) | 脱敏 Demo 与工件 |
 
 ## 技术模型
