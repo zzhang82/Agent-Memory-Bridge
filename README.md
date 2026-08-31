@@ -2,12 +2,23 @@
   <img src="assets/amb-hero.png" alt="Agent Memory Bridge — governed project memory across sessions and tools" width="100%" />
 </p>
 
-<h1 align="center">Agent Memory Bridge</h1>
+<p align="center">
+  <img src="assets/amb-mark.svg" alt="AMB" width="88" height="88" />
+</p>
+
+<h1 align="center">Agent Memory Bridge (AMB)</h1>
+
+<p align="center"><strong>by zzhang82</strong> · PyPI <code>agent-memory-bridge</code></p>
+
+<p align="center">
+  Your coding agents keep forgetting <em>why</em> the project is this way.<br />
+  AMB is local project memory they can share — decisions and reasons, not chat logs.
+</p>
 
 <p align="center"><strong>Turn scattered project context into governed memory.</strong></p>
 
 <p align="center">
-  AMB helps coding agents carry forward the knowledge that matters — across sessions, tools, and time.
+  Complements <code>AGENTS.md</code> / <code>CLAUDE.md</code>. Does not scrape your transcripts.
 </p>
 
 <p align="center"><a href="README.zh-CN.md">简体中文</a></p>
@@ -22,7 +33,7 @@
 </p>
 
 ```bash
-pip install agent-memory-bridge
+pip install agent-memory-bridge==0.32.2
 ```
 
 **Install once; connect each coding client separately.** Installing the package does not register AMB with every coding agent. Each client you want to use must be configured to launch AMB as an MCP stdio server. Clients that should share memory need to use the same configured local AMB home.
@@ -70,6 +81,8 @@ Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memo
 
 For the `0.32.2` release line, the normal install route is PyPI. GitHub Releases remains the publication authority for source tags and release notes; an exact source checkout can still be installed with `pip install -e .` for development or audit work.
 
+Golden path is **one client first: Claude Code**. Other clients are documented under [More clients](#more-clients) and [Integrations](docs/INTEGRATIONS.md).
+
 ### 1. Install AMB
 
 For the Quick Start, use a virtual environment so every coding client can point at one stable Python launcher. Replace `<venv-python>` with the Python executable inside `.amb-venv` for your operating system.
@@ -85,23 +98,23 @@ For an exact, reproducible `0.32.2` environment, use this install line instead:
 <venv-python> -m pip install agent-memory-bridge==0.32.2
 ```
 
-### 2. Connect the coding client(s) you actually use
+### 2. Connect Claude Code
 
-Installation and client registration are separate. Preview the setup for one client first:
-
-```bash
-<venv-python> -m agent_mem_bridge setup --client <client>
-```
-
-`setup` is read-only by default: it detects or inspects only bounded client configuration locations and shows the exact AMB fragment or action it recommends. Use a supported client name such as `codex`, `claude-code`, `vscode`, `cursor`, `cline`, `opencode`, or another client listed in [Integrations](docs/INTEGRATIONS.md).
-
-If the preview marks that client as eligible for safe automatic configuration, you can explicitly apply it after review:
+Installation and client registration are separate. Preview the setup for Claude Code first:
 
 ```bash
-<venv-python> -m agent_mem_bridge setup --client <client> --apply
+<venv-python> -m agent_mem_bridge setup --client claude-code
 ```
 
-Some clients remain preview/manual because AMB will not guess or rewrite an unsafe configuration format or path. In that case, copy the rendered fragment or follow the client-specific [Integration guide](docs/INTEGRATIONS.md). Repeat this step for every coding client you want to connect. To share the same project memory across clients, keep them pointed at the same configured `AGENT_MEMORY_BRIDGE_HOME`, then reload each client after registration.
+`setup` is read-only by default. If the preview marks Claude Code as eligible for safe automatic configuration, apply it after review:
+
+```bash
+<venv-python> -m agent_mem_bridge setup --client claude-code --apply
+```
+
+Reload Claude Code after registration. `doctor` checks local prerequisites and paths; `verify` probes an isolated AMB stdio runtime. Neither command proves that Claude Code has loaded the config, so use Claude Code's own MCP status/tool view for that final check.
+
+To share the same project memory across clients later, keep them pointed at the same configured `AGENT_MEMORY_BRIDGE_HOME`. The generic preview remains `setup --client <client>`; apply with `setup --client <client> --apply` only when that client is marked safe.
 
 ### 3. Initialize the project
 
@@ -111,15 +124,25 @@ Some clients remain preview/manual because AMB will not guess or rewrite an unsa
 
 Project Init detects the local Git repository, proposes a namespace such as `project:my-app`, and waits for confirmation. It then derives a current repository baseline and opens the Human-first Explore view. It does not automatically learn decisions.
 
+If Explore is empty, that is expected. Init prints a review-first sentence you can paste into the agent; default init writes no project WHY.
+
+Repository WHAT is commit-bound. If the worktree is dirty, Project Init fails closed rather than attributing uncommitted content to HEAD; commit, stash, or restore the worktree, then rerun it.
+
 ### 4. Teach the project one decision that matters
 
-For example, tell the connected coding agent:
+Paste this into the connected coding agent:
 
-> Remember that we decided not to add Redis because this project is intentionally local-first and single-node.
+> Ask me for one important project decision and why it exists. After I confirm the wording, store it in AMB as a decision for this project.
 
-The connected agent uses AMB's existing public memory tools to store the explicit decision and reason. AMB does not infer a durable decision from the code or archive the whole conversation.
+Answer with a **real decision from your project**. The connected agent uses AMB's existing public memory tools only after you confirm the wording. AMB does not infer a durable decision from the code or archive the whole conversation.
 
 ### 5. Open a fresh session and reuse the memory
+
+Ask the same agent in a **new** session about the decision you just stored:
+
+> What did we decide about <topic>, and why?
+
+It should answer with the decision **and** the reason. Then:
 
 ```bash
 <venv-python> -m agent_mem_bridge explore \
@@ -127,7 +150,7 @@ The connected agent uses AMB's existing public memory tools to store the explici
 
 <venv-python> -m agent_mem_bridge inspect \
   --namespace project:my-app \
-  --query "Should we add Redis?"
+  --query "What did we decide about <topic>, and why?"
 ```
 
 Explore answers “What does AMB currently know about this project?” Inspect answers “Why did this information surface for this question?” Both are local and read-only.
@@ -137,9 +160,9 @@ This is a conceptual view, not verbatim CLI output:
 ```text
 CODE / WHAT                     CONVERSATION / WHY
 ────────────────────            ──────────────────────────
-Runtime: Python >=3.11          Decision: Do not add Redis
-Package: my-app                 Reason: local-first,
-Tests: pytest                   single-node project
+Runtime: Python >=3.11          Decision: <your decision>
+Package: my-app                 Reason: <your reason>
+Tests: pytest
 ```
 
 Under the hood, AMB keeps repository-derived facts separate from explicitly taught project knowledge:
@@ -151,7 +174,7 @@ Under the hood, AMB keeps repository-derived facts separate from explicitly taug
 That distinction is a trust boundary, not the whole product story: derived facts can be rebuilt from current code, while durable project knowledge remains explicit, reviewable, and governed.
 
 <details>
-<summary>Refresh and troubleshooting boundaries</summary>
+<summary>Refresh, more clients, and troubleshooting</summary>
 
 Repository WHAT comes from a clean Git commit. If HEAD changes or the worktree is dirty, AMB will not present an old snapshot as current truth. Refresh is not automatic. Rerun the explicit primitive:
 
@@ -177,11 +200,13 @@ Use health checks only when setup is uncertain:
 
 </details>
 
+<a id="more-clients"></a>
+
 ## Integrations
 
 AMB works through local stdio MCP. Generic MCP clients are supported; Codex is the reference workflow; Claude Code, Claude Desktop, Cursor, and Cline are documented; and Antigravity, OpenCode, and Hermes have locally tested configuration paths.
 
-Integration labels are deliberately narrow and do not imply client certification. See [Integrations](docs/INTEGRATIONS.md) for current setup instructions and boundaries.
+Repeat `setup --client <client>` (and `--apply` when eligible) for every extra client. Integration labels are deliberately narrow and do not imply client certification. See [Integrations](docs/INTEGRATIONS.md) for current setup instructions and boundaries.
 
 ## Why the memory stays trustworthy
 
@@ -206,6 +231,8 @@ AMB is a governed local project-memory layer for coding agents. It is designed t
 
 It is not a transcript archive, a promise that an agent will remember everything, or a system that silently converts every conversation into durable truth.
 
+A 20-line comparison against built-in markdown files and transcript/vector memory lives in [Comparison](docs/COMPARISON.md).
+
 ## Want the details?
 
 | Read | For |
@@ -213,10 +240,12 @@ It is not a transcript archive, a promise that an agent will remember everything
 | [Architecture](docs/ARCHITECTURE.md) | System shape and data flow |
 | [Authority model](docs/AUTHORITY-CONTRACT.md) | Durable authority, derived views, correction, and audit rules |
 | [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) | Human-first read-only project view |
+| [Comparison](docs/COMPARISON.md) | Built-in md files vs transcript memory vs AMB |
 | [Production Status](docs/PRODUCTION-STATUS.md) | Current implementation facts, evidence, and known limits |
 | [Integrations](docs/INTEGRATIONS.md) | Client-specific local MCP setup |
 | [Install for Agents](INSTALL_FOR_AGENTS.md) | Full install-to-first-success workflow |
 | [Configuration](docs/CONFIGURATION.md) | Complete configuration reference |
+| [Showcase](SHOWCASE.md) | Named namespaces and quotes |
 | [Examples](examples/README.md) | Sanitized demos and artifacts |
 
 ## Technical model
