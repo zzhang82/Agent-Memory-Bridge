@@ -4,10 +4,10 @@
 
 <h1 align="center">Agent Memory Bridge</h1>
 
-<p align="center"><strong>Your agent stops forgetting why you skipped Redis.</strong></p>
+<p align="center"><strong>Project decisions that outlive the chat.</strong></p>
 
 <p align="center">
-  Teach one project decision once. Open a fresh Cursor session and get the reason back — without reconstructing it from old chats.
+  Teach one explicit decision or constraint once. With AMB connected in Cursor, open a fresh session and get it back — without reconstructing it from old chats.
 </p>
 
 <p align="center"><a href="README.zh-CN.md">简体中文</a></p>
@@ -21,23 +21,25 @@
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-3776AB.svg" alt="Python 3.11+" /></a>
 </p>
 
-## Cursor happy path (5 minutes)
+## Cursor happy path
 
-Requires **Python 3.11+**, Git, and Cursor. Current source version: `0.32.2`.
+Requires **Python 3.11+**, Git, and Cursor. Use the same `python` for install and every `python -m agent_mem_bridge …` command below. Current source version: `0.32.2`.
 
 ### 1. Install
 
 ```bash
-pip install agent-memory-bridge
+python -m pip install agent-memory-bridge
 ```
 
-### 2. Connect Cursor
+### 2. Connect Cursor (manual MCP config)
+
+Cursor autoconfig is not day-one yet (`setup --client cursor` may report `unsupported_autoconfig`). Render the MCP fragment and paste it into Cursor’s MCP settings:
 
 ```bash
-python -m agent_mem_bridge setup --client cursor --apply
+python -m agent_mem_bridge config --client cursor
 ```
 
-Reload Cursor after apply so it launches AMB as a local MCP stdio server.
+Paste the printed fragment into Cursor MCP config, save, and reload Cursor so AMB launches as a local MCP stdio server. Confirm AMB tools are available before teaching a decision.
 
 ### 3. Initialize this project
 
@@ -49,19 +51,17 @@ Confirm the proposed namespace (for example `project:my-app`). Init derives a re
 
 ### 4. Teach one decision that matters
 
-In Cursor, tell the connected agent:
+With AMB MCP connected in Cursor, tell the agent something like (example only):
 
 > Remember that we decided not to add Redis because this project is intentionally local-first and single-node.
 
-The agent stores that explicit decision and reason through AMB. AMB does not infer durable decisions from code or archive the whole chat.
+When the agent uses AMB’s store tools, that explicit decision and reason are saved. AMB does not infer durable decisions from code or archive the whole chat. If MCP is not connected, nothing is stored.
 
 ### 5. Prove it in a fresh Cursor session
 
-Close the chat (or start a new Cursor session on the same project), then ask:
+Close the chat (or start a new Cursor session on the same project), then ask about that decision — for the Redis example: “Why did we skip Redis?”
 
-> Why did we skip Redis?
-
-**Done when Cursor answers from memory** — local-first / single-node — without you re-explaining it. That agent recall is the proof. CLI `explore` / `inspect` are optional later for humans; they are not the day-one success check.
+**Done when** Cursor answers from AMB memory (for the example: local-first / single-node) without you re-explaining it — and only if step 2 connected MCP and step 4 actually stored the decision. CLI `explore` / `inspect` are optional later for humans; they are not the day-one success check.
 
 ---
 
@@ -77,7 +77,7 @@ python -m agent_mem_bridge inspect --namespace project:my-app --query "Should we
 ```
 
 <details>
-<summary>Virtualenv install, preview-only setup, and troubleshooting</summary>
+<summary>Virtualenv install, setup preview, and troubleshooting</summary>
 
 For a stable launcher shared across clients:
 
@@ -88,13 +88,13 @@ python -m venv .amb-venv
 # or pin: <venv-python> -m pip install agent-memory-bridge==0.32.2
 ```
 
-Preview setup without writing config:
+Preview setup without writing config (may be `unsupported_autoconfig` for Cursor today):
 
 ```bash
 python -m agent_mem_bridge setup --client cursor
 ```
 
-`setup` is read-only by default. Use `--apply` only after you review the preview. Some clients stay preview/manual when AMB will not guess an unsafe config path — see [Integrations](docs/INTEGRATIONS.md).
+`setup` is read-only by default. `--apply` only helps when the preview marks the client eligible; Cursor is often not. Prefer `config --client cursor` for day-one. See [Integrations](docs/INTEGRATIONS.md).
 
 Repository WHAT comes from a clean Git commit. If HEAD changes or the worktree is dirty, AMB will not present an old snapshot as current truth. Refresh is explicit:
 
