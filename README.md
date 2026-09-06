@@ -4,10 +4,10 @@
 
 <h1 align="center">Agent Memory Bridge</h1>
 
-<p align="center"><strong>Turn scattered project context into governed memory.</strong></p>
+<p align="center"><strong>Your agent stops forgetting why you skipped Redis.</strong></p>
 
 <p align="center">
-  AMB helps coding agents carry forward the knowledge that matters — across sessions, tools, and time.
+  Teach one project decision once. Open a fresh Cursor session and get the reason back — without reconstructing it from old chats.
 </p>
 
 <p align="center"><a href="README.zh-CN.md">简体中文</a></p>
@@ -21,11 +21,99 @@
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-3776AB.svg" alt="Python 3.11+" /></a>
 </p>
 
+## Cursor happy path (5 minutes)
+
+Requires **Python 3.11+**, Git, and Cursor. Current source version: `0.32.2`.
+
+### 1. Install
+
 ```bash
 pip install agent-memory-bridge
 ```
 
-**Install once; connect each coding client separately.** Installing the package does not register AMB with every coding agent. Each client you want to use must be configured to launch AMB as an MCP stdio server. Clients that should share memory need to use the same configured local AMB home.
+### 2. Connect Cursor
+
+```bash
+python -m agent_mem_bridge setup --client cursor --apply
+```
+
+Reload Cursor after apply so it launches AMB as a local MCP stdio server.
+
+### 3. Initialize this project
+
+```bash
+python -m agent_mem_bridge project init .
+```
+
+Confirm the proposed namespace (for example `project:my-app`). Init derives a repository baseline; it does not invent decisions.
+
+### 4. Teach one decision that matters
+
+In Cursor, tell the connected agent:
+
+> Remember that we decided not to add Redis because this project is intentionally local-first and single-node.
+
+The agent stores that explicit decision and reason through AMB. AMB does not infer durable decisions from code or archive the whole chat.
+
+### 5. Prove it in a fresh Cursor session
+
+Close the chat (or start a new Cursor session on the same project), then ask:
+
+> Why did we skip Redis?
+
+**Done when Cursor answers from memory** — local-first / single-node — without you re-explaining it. That agent recall is the proof. CLI `explore` / `inspect` are optional later for humans; they are not the day-one success check.
+
+---
+
+## After first success
+
+Install once; connect each coding client separately if you need more than Cursor. Clients that should share memory must use the same configured local AMB home. See [Integrations](docs/INTEGRATIONS.md).
+
+Optional local review after the Cursor loop lands:
+
+```bash
+python -m agent_mem_bridge explore --namespace project:my-app
+python -m agent_mem_bridge inspect --namespace project:my-app --query "Should we add Redis?"
+```
+
+<details>
+<summary>Virtualenv install, preview-only setup, and troubleshooting</summary>
+
+For a stable launcher shared across clients:
+
+```bash
+python -m venv .amb-venv
+# Replace <venv-python> with the venv's Python for your OS
+<venv-python> -m pip install agent-memory-bridge
+# or pin: <venv-python> -m pip install agent-memory-bridge==0.32.2
+```
+
+Preview setup without writing config:
+
+```bash
+python -m agent_mem_bridge setup --client cursor
+```
+
+`setup` is read-only by default. Use `--apply` only after you review the preview. Some clients stay preview/manual when AMB will not guess an unsafe config path — see [Integrations](docs/INTEGRATIONS.md).
+
+Repository WHAT comes from a clean Git commit. If HEAD changes or the worktree is dirty, AMB will not present an old snapshot as current truth. Refresh is explicit:
+
+```bash
+python -m agent_mem_bridge bootstrap-repo . --namespace project:<name>
+```
+
+Refreshing repository WHAT leaves durable project WHY unchanged.
+
+```bash
+python -m agent_mem_bridge doctor
+python -m agent_mem_bridge verify
+```
+
+`first-run` remains optional guided help; it is not the modern Project Learning entrypoint.
+
+Published releases: [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases). An exact source checkout can still be installed with `pip install -e .` for development or audit work.
+
+</details>
 
 ## Your project should not start over with every session
 
@@ -60,88 +148,6 @@ future sessions · coding agents · tools
 
 The repository is the common starting point for software projects, but the memory model is about the **project**, not just the codebase: the durable knowledge surrounding the work can outlive any one chat, agent, or tool.
 
-## Quick Start
-
-AMB requires **Python 3.11+**, Git, and an MCP-compatible coding client that can launch a local stdio server.
-
-Current source version: `0.32.2`
-
-Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
-
-For the `0.32.2` release line, the normal install route is PyPI. GitHub Releases remains the publication authority for source tags and release notes; an exact source checkout can still be installed with `pip install -e .` for development or audit work.
-
-### 1. Install AMB
-
-For the Quick Start, use a virtual environment so every coding client can point at one stable Python launcher. Replace `<venv-python>` with the Python executable inside `.amb-venv` for your operating system.
-
-```bash
-python -m venv .amb-venv
-<venv-python> -m pip install agent-memory-bridge
-```
-
-For an exact, reproducible `0.32.2` environment, use this install line instead:
-
-```bash
-<venv-python> -m pip install agent-memory-bridge==0.32.2
-```
-
-### 2. Connect the coding client(s) you actually use
-
-Installation and client registration are separate. Preview the setup for one client first:
-
-```bash
-<venv-python> -m agent_mem_bridge setup --client <client>
-```
-
-`setup` is read-only by default: it detects or inspects only bounded client configuration locations and shows the exact AMB fragment or action it recommends. Use a supported client name such as `codex`, `claude-code`, `vscode`, `cursor`, `cline`, `opencode`, or another client listed in [Integrations](docs/INTEGRATIONS.md).
-
-If the preview marks that client as eligible for safe automatic configuration, you can explicitly apply it after review:
-
-```bash
-<venv-python> -m agent_mem_bridge setup --client <client> --apply
-```
-
-Some clients remain preview/manual because AMB will not guess or rewrite an unsafe configuration format or path. In that case, copy the rendered fragment or follow the client-specific [Integration guide](docs/INTEGRATIONS.md). Repeat this step for every coding client you want to connect. To share the same project memory across clients, keep them pointed at the same configured `AGENT_MEMORY_BRIDGE_HOME`, then reload each client after registration.
-
-### 3. Initialize the project
-
-```bash
-<venv-python> -m agent_mem_bridge project init .
-```
-
-Project Init detects the local Git repository, proposes a namespace such as `project:my-app`, and waits for confirmation. It then derives a current repository baseline and opens the Human-first Explore view. It does not automatically learn decisions.
-
-### 4. Teach the project one decision that matters
-
-For example, tell the connected coding agent:
-
-> Remember that we decided not to add Redis because this project is intentionally local-first and single-node.
-
-The connected agent uses AMB's existing public memory tools to store the explicit decision and reason. AMB does not infer a durable decision from the code or archive the whole conversation.
-
-### 5. Open a fresh session and reuse the memory
-
-```bash
-<venv-python> -m agent_mem_bridge explore \
-  --namespace project:my-app
-
-<venv-python> -m agent_mem_bridge inspect \
-  --namespace project:my-app \
-  --query "Should we add Redis?"
-```
-
-Explore answers “What does AMB currently know about this project?” Inspect answers “Why did this information surface for this question?” Both are local and read-only.
-
-This is a conceptual view, not verbatim CLI output:
-
-```text
-CODE / WHAT                     CONVERSATION / WHY
-────────────────────            ──────────────────────────
-Runtime: Python >=3.11          Decision: Do not add Redis
-Package: my-app                 Reason: local-first,
-Tests: pytest                   single-node project
-```
-
 Under the hood, AMB keeps repository-derived facts separate from explicitly taught project knowledge:
 
 **Code tells AMB WHAT the project is.**
@@ -149,33 +155,6 @@ Under the hood, AMB keeps repository-derived facts separate from explicitly taug
 **Conversations teach AMB WHY it is that way.**
 
 That distinction is a trust boundary, not the whole product story: derived facts can be rebuilt from current code, while durable project knowledge remains explicit, reviewable, and governed.
-
-<details>
-<summary>Refresh and troubleshooting boundaries</summary>
-
-Repository WHAT comes from a clean Git commit. If HEAD changes or the worktree is dirty, AMB will not present an old snapshot as current truth. Refresh is not automatic. Rerun the explicit primitive:
-
-```bash
-<venv-python> -m agent_mem_bridge bootstrap-repo . \
-  --namespace project:<name>
-```
-
-Refreshing repository WHAT leaves durable project WHY unchanged. Explore is CLI-only, not MCP tool #18, and it does not rank context for the model.
-
-`first-run` remains optional guided help; it is not the modern Project Learning entrypoint:
-
-```bash
-<venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I remember?"
-```
-
-Use health checks only when setup is uncertain:
-
-```bash
-<venv-python> -m agent_mem_bridge doctor
-<venv-python> -m agent_mem_bridge verify
-```
-
-</details>
 
 ## Integrations
 
