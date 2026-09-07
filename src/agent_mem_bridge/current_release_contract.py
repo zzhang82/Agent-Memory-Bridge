@@ -43,6 +43,8 @@ def run_current_source_release_contract_check(
         for check in report["checks"]
         if check["name"]
         not in {
+            "pyproject_version_matches_readmes",
+            "public_mcp_tool_count_matches_server_surface",
             "v020_proof_version_matches_pyproject",
             "v021_governed_change_proof_matches_release_gate",
             "v027_episode_release_contract",
@@ -57,11 +59,38 @@ def run_current_source_release_contract_check(
     proof["name"] = "historical_v027_episode_contract_retained_for_current_source"
     proof["current_source_version"] = version
     checks.append(proof)
+    checks.append(_current_source_identity_check(project_root, version))
     checks.append(_current_release_notes_check(project_root, version))
 
     report["checks"] = checks
     report["ok"] = all(check["ok"] for check in checks)
     return report
+
+
+def _current_source_identity_check(project_root: Path, version: str) -> dict[str, Any]:
+    """Verify current-source identity from release authorities, not README layout."""
+
+    status_path = project_root / "docs" / "PRODUCTION-STATUS.md"
+    announcement_path = project_root / "docs" / f"v{version}-announcement.md"
+    mismatches: list[dict[str, Any]] = []
+
+    for path, markers in (
+        (status_path, (f"| Package/source version | `{version}` |", "GitHub Releases")),
+        (announcement_path, (f"v{version}", f"agent-memory-bridge=={version}")),
+    ):
+        if not path.exists():
+            mismatches.append({"field": str(path), "expected": "present", "actual": "missing"})
+            continue
+        missing = [marker for marker in markers if marker not in path.read_text(encoding="utf-8")]
+        if missing:
+            mismatches.append({"field": str(path), "expected_markers": missing, "actual": "missing"})
+
+    return {
+        "name": "current_source_identity_matches_status_and_announcement",
+        "ok": not mismatches,
+        "version": version,
+        "mismatches": mismatches,
+    }
 
 
 def _current_release_notes_check(project_root: Path, version: str) -> dict[str, Any]:

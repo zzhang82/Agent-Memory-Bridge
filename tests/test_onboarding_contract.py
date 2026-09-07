@@ -11,6 +11,7 @@ from agent_mem_bridge.first_run import (
     RELEASE_INSTALL_GATE_NOTE,
     RELEASE_VERSION,
 )
+from agent_mem_bridge.onboarding import render_report, render_verify_success_message
 from agent_mem_bridge.onboarding_contract import release_install_tool_count, run_onboarding_contract_check
 
 
@@ -62,6 +63,28 @@ def test_release_install_tool_count_tracks_the_release_cut() -> None:
     assert release_install_tool_count("0.26.1") == 13
     assert release_install_tool_count("0.27.0") == 17
     assert release_install_tool_count("0.27.1") == 17
+
+
+def test_doctor_and_verify_do_not_claim_external_client_configuration_loaded() -> None:
+    doctor_output = render_report(
+        {
+            "ok": True,
+            "checks": [
+                {
+                    "name": "mcp_modern_stdio",
+                    "status": "pass",
+                    "detail": "Modern server/discover probe passed.",
+                }
+            ],
+        }
+    )
+    verify_output = render_verify_success_message({"ok": True})
+
+    for output in (doctor_output, verify_output):
+        lowered = output.casefold()
+        assert "external client" not in lowered
+        assert "loaded mcp config" not in lowered
+        assert "client configuration loaded" not in lowered
 
 
 def test_onboarding_contract_requires_source_checkout_wording_for_version_mismatch(tmp_path: Path) -> None:
