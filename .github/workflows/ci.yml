@@ -264,3 +264,15 @@ jobs:
           python
           "$GITHUB_WORKSPACE"
           "$RUNNER_TEMP/amb-typescript-compat"
+
+  CI-success:
+    name: CI success
+    if: always()
+    needs: [test, quality, legacy-sdk-compat, modern-protocol-compat, typescript-sdk-compat]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all critical jobs to succeed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: >
+          python -c "import json, os, sys; results = json.loads(os.environ['RESULTS']); print(results); sys.exit(0 if all(result == 'success' for result in results) else 1)"
