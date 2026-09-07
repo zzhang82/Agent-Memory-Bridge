@@ -55,14 +55,15 @@ The compatibility baseline inherited from AMB 0.25.2 is:
 ### Python SDK Dependency Policy
 
 AMB supports the MCP Python SDK range `mcp>=2.0.0,<3`. The tested floor is
-`mcp==2.0.0`; the latest supported 2.x release is resolved in CI and was
-`mcp==2.1.1` when this policy was last validated (2026-09-07). This bounded
-range is intentional: AMB uses the SDK's public stdio server/client APIs and
-does not rely on an internal SDK implementation detail. Expected public-tool
-`ValueError` failures are remapped to the SDK `ToolError` type so 2.1.x still
-returns the original validation text instead of a generic unexpected-tool
-error. A major SDK release requires a separate compatibility review before
-the `<3` bound changes.
+`mcp==2.0.0`. CI resolves the latest supported 2.x release. Local proofs on
+2026-09-07 covered `mcp==2.1.1` and later `mcp==2.2.0` for focused stdio,
+first-win, and bounded reliability. This bounded range is intentional: AMB
+uses the SDK's public stdio server/client APIs and does not rely on an
+internal SDK implementation detail. Expected public-tool `ValueError`
+failures are remapped to the SDK `ToolError` type so 2.1.x still returns the
+original validation text instead of a generic unexpected-tool error. A major
+SDK release requires a separate compatibility review before the `<3` bound
+changes.
 
 The MCP Python SDK documents Python 3.10+ support and version 2 as its current
 stable release line. AMB's own Python floor remains 3.11. The separate Python

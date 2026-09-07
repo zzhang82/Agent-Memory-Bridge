@@ -20,6 +20,19 @@ This document records the durable capability milestones in Agent Memory Bridge (
 
 See [v0.32.2 announcement](docs/v0.32.2-announcement.md) for the release contract and [Production Status](docs/PRODUCTION-STATUS.md) for current-source facts.
 
+## v0.33.0 source candidate — Operationalization (unreleased)
+
+This is an unreleased source candidate. Package/source identity remains `0.32.2` until an explicit release cut.
+
+- Decouples core release CI from README presentation copy so tagline and heading changes do not fail the OS/Python test matrix.
+- Adds an automated first-win proof: store a project decision over stdio process A, terminate A, recall it from a fresh stdio process B against the same isolated home.
+- Rewrites onboarding so the first win is a fresh coding-agent session recall, not CLI Explore/Inspect.
+- Replaces the exact `mcp==2.0.0` pin with evidence-backed `mcp>=2.0.0,<3`, with floor/latest 2.x CI.
+- Records the multi-machine authority topology: one canonical SQLite/WAL host plus a remote adapter; network-shared WAL is rejected; PostgreSQL is deferred.
+- Keeps schema v12, exactly 17 public MCP tools, and no automatic learning.
+
+See [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md), and [cross-machine authority ADR](docs/adr/0001-cross-machine-authority.md). External coding-client first-win remains separately observed.
+
 ## v0.32.1 — PyPI Distribution
 
 - Makes `pip install agent-memory-bridge==0.32.1` the normal release install route.

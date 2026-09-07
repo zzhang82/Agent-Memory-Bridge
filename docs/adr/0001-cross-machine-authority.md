@@ -1,8 +1,8 @@
 # ADR-0001: Cross-Machine Authority Topology
 
-**Status:** Proposed  
-**Date:** 2026-09-07  
-**Cycle:** v0.33 operationalization  
+**Status:** Proposed
+**Date:** 2026-09-07
+**Cycle:** v0.33 operationalization
 **Baseline:** v0.32.2, schema v12, SHA `28401bd3b18444df3a04269dc029d2051faaf39c`
 
 ## Context
