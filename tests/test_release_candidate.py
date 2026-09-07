@@ -99,6 +99,19 @@ def test_current_source_contract_rejects_automatic_learning_claim_drift(tmp_path
     )
 
 
+def test_readme_distinguishes_unreleased_v033_candidate_from_package_identity() -> None:
+    english = (ROOT / "README.md").read_text(encoding="utf-8")
+    chinese = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
+    assert "Current source version: `0.32.2`" not in english
+    assert "当前源码版本：`0.32.2`" not in chinese
+    assert "v0.33 operationalization candidate" in english
+    assert "v0.33 运营化候选" in chinese
+    assert "Package identity remains `0.32.2`" in english
+    assert "包身份仍是 `0.32.2`" in chinese
+    assert "<venv-python> -m pip install -e ." in english
+    assert "<venv-python> -m pip install -e ." in chinese
+
+
 def test_current_package_and_source_docs_use_published_identity() -> None:
     package_version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     status = (ROOT / "docs" / "PRODUCTION-STATUS.md").read_text(encoding="utf-8")

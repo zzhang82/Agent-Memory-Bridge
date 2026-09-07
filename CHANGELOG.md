@@ -27,6 +27,7 @@ This is an unreleased source candidate. Package/source identity remains `0.32.2`
 - Decouples core release CI from README presentation copy so tagline and heading changes do not fail the OS/Python test matrix.
 - Adds an automated first-win proof: store a project decision over stdio process A, terminate A, recall it from a fresh stdio process B against the same isolated home.
 - Rewrites onboarding so the first win is a fresh coding-agent session recall, not CLI Explore/Inspect.
+- README Quick Start names this checkout as the unreleased v0.33 candidate and installs from source; published package identity remains `0.32.2`.
 - Replaces the exact `mcp==2.0.0` pin with evidence-backed `mcp>=2.0.0,<3`. Floor and latest 2.x jobs feed the stable `CI success` aggregate gate.
 - Records the multi-machine authority topology: one canonical SQLite/WAL host plus a remote adapter; network-shared WAL is rejected; PostgreSQL is deferred.
 - Keeps schema v12, exactly 17 public MCP tools, and no automatic learning.

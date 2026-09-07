@@ -7,12 +7,13 @@ This page is the canonical reference for **checked-in current-source facts**: im
 | Field | Current fact |
 |---|---|
 | Package/source version | `0.32.2` |
+| Public candidate | Unreleased v0.33 operationalization; package identity remains `0.32.2` until an explicit release cut |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
 | Runtime model | Local stdio MCP over SQLite/WAL; FTS5 and optional local embeddings are derived indexes |
 
-Current source test collection: `1056 tests`
+Current source test collection: `1057 tests`
 
 > A tag is not a GitHub Release, and live CI or package-index state is not host certification, a distribution guarantee, or a productivity result. Installation guidance retains explicit publication and source-checkout gates.
 

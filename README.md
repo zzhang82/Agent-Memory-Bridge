@@ -46,11 +46,11 @@ AMB is local-first and inspectable. It does not silently archive every conversat
 
 AMB requires **Python 3.11+**, Git, and an MCP-compatible coding client that can launch a local stdio server.
 
-Current source version: `0.32.2`
+This checkout is the unreleased **v0.33 operationalization candidate**. Package identity remains `0.32.2` until an explicit release cut.
 
-Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
+Published `0.32.2` releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
-For the `0.32.2` release line, the normal install route is PyPI. GitHub Releases remains the publication authority for source tags and release notes; an exact source checkout can still be installed with `pip install -e .` for development or audit work.
+To evaluate this candidate, install from the checkout. Do not treat `pip install agent-memory-bridge==0.32.2` as this source. GitHub Releases remains the publication authority for tags and release notes.
 
 The first win happens inside the coding agent, in a fresh session. CLI Explore/Inspect and `doctor`/`verify` are later checks, not that win.
 
@@ -60,10 +60,10 @@ For the Quick Start, use a virtual environment so every coding client can point 
 
 ```bash
 python -m venv .amb-venv
-<venv-python> -m pip install agent-memory-bridge
+<venv-python> -m pip install -e .
 ```
 
-For an exact, reproducible `0.32.2` environment, use this install line instead:
+That installs this candidate. The last published package remains:
 
 ```bash
 <venv-python> -m pip install agent-memory-bridge==0.32.2
@@ -260,7 +260,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-The current source is `0.32.2`, uses schema v12, and retains the frozen 17-tool MCP surface. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+This checkout is the unreleased v0.33 operationalization candidate. Package identity remains `0.32.2` until an explicit release cut. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 

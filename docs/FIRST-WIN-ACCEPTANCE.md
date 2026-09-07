@@ -57,17 +57,15 @@ Do not reuse an unrelated operating-system venv.
 
 ### 2. Install AMB
 
-Installing the package does not register AMB with Codex.
+Installing the package does not register AMB with Codex. This packet
+evaluates the unreleased v0.33 candidate from the current checkout:
 
 ```bash
-<venv-python> -m pip install agent-memory-bridge
+<venv-python> -m pip install -e .
 ```
 
-Pinned release line:
-
-```bash
-<venv-python> -m pip install agent-memory-bridge==0.32.2
-```
+The last published package remains `agent-memory-bridge==0.32.2`. Do not
+treat that PyPI pin as this source.
 
 ### 3. Render / preview client config
 
