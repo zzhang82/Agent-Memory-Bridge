@@ -265,10 +265,22 @@ jobs:
           "$GITHUB_WORKSPACE"
           "$RUNNER_TEMP/amb-typescript-compat"
 
+  python-mcp-compat:
+    name: MCP Python SDK compatibility
+    uses: ./.github/workflows/mcp-compat.yml
+
   CI-success:
     name: CI success
     if: always()
-    needs: [test, quality, legacy-sdk-compat, modern-protocol-compat, typescript-sdk-compat]
+    needs:
+      [
+        test,
+        quality,
+        legacy-sdk-compat,
+        modern-protocol-compat,
+        typescript-sdk-compat,
+        python-mcp-compat,
+      ]
     runs-on: ubuntu-latest
     steps:
       - name: Require all critical jobs to succeed

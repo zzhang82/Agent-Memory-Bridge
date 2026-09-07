@@ -101,7 +101,7 @@ multi-writer requirement.
 |---|---|
 | Canonical host unreachable | Remote shim returns a transport error. No silent local fallback write. No local cache becomes accidental authority. |
 | Canonical AMB process crash | Service lock is released; restart recovers. Remote shims fail until the host is back. |
-| Network partition mid-request | Request times out. Existing idempotency keys make retry safe. Partial writes do not reach SQLite. |
+| Network partition mid-request | Request times out. Partial writes do not reach SQLite. Retry of identical `store` content is duplicate-safe via exact content hash. Run/event/outcome retries are safe only when the caller reuses the existing SHA-256 idempotency-key digest. Ordinary `store` has no request-id idempotency. |
 | Canonical disk failure | Use the existing SQLite backup/restore path. Restore rotates the database epoch and invalidates outstanding receipts and CAS tokens. |
 
 ### Offline behavior
@@ -126,9 +126,17 @@ would still fail or queue until the authority host is reachable.
 
 ### Replay and idempotency
 
-AMB already stores SHA-256 idempotency-key digests on run, event, outcome,
-and several mutation paths. The adapter must pass those keys through
-unmodified so a retried timed-out request cannot create a second write.
+Ordinary `store` retries of the same content are duplicate-safe because
+durable memory identity is the exact content hash in a namespace. That is
+not request-id idempotency: a lost response followed by a retry of
+identical content returns the existing record instead of inserting a
+second one, but a different payload is a new write.
+
+Run, event, and outcome paths already store SHA-256 idempotency-key
+digests. The adapter must pass those keys through unmodified so a retried
+timed-out request cannot create a second write on those paths. A future
+adapter may add request identity for `store` if ambiguous non-identical
+retries become a product requirement.
 
 ### Latency
 
