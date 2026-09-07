@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import os
+import subprocess
 import sys
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -28,6 +30,14 @@ def test_first_win_recalls_decision_from_fresh_stdio_process(tmp_path: Path) -> 
 
 def test_first_win_does_not_leak_across_home_or_namespace(tmp_path: Path) -> None:
     asyncio.run(_exercise_negative_controls(tmp_path))
+
+
+def test_first_win_process_liveness_check_is_non_destructive() -> None:
+    assert _process_exists(os.getpid()) is True
+    assert _process_exists(0) is False
+    completed = subprocess.Popen([sys.executable, "-c", "pass"])
+    completed.wait(timeout=10)
+    _assert_process_dead(completed.pid)
 
 
 async def _exercise_first_win(tmp_path: Path) -> None:
@@ -179,12 +189,31 @@ def _read_pid(path: Path) -> int:
     return pid
 
 
-def _assert_process_dead(pid: int) -> None:
+def _process_exists(pid: int) -> bool:
+    """Non-destructive liveness check. Never sends a fatal signal."""
+
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        SYNCHRONIZE = 0x00100000
+        handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        return False
     try:
         os.kill(pid, 0)
-    except OSError:
-        return
-    raise AssertionError(f"stdio process {pid} was still running")
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _assert_process_dead(pid: int) -> None:
+    if _process_exists(pid):
+        raise AssertionError(f"stdio process {pid} was still running")
 
 
 def _payload(response: Any) -> dict[str, Any]:

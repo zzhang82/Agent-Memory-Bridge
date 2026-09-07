@@ -9,6 +9,7 @@ import sys
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from mcp.client import Client
@@ -418,6 +419,32 @@ def test_run_tools_expose_one_stateless_closed_loop(tmp_path: Path) -> None:
             assert final.structured_content["outcome"]["outcome_id"] == completed.structured_content["outcome_id"]
 
     asyncio.run(exercise())
+
+
+def test_public_validation_errors_become_tool_errors_without_leaking_internal_paths() -> None:
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    from agent_mem_bridge.server import _public_validation_message, _surface_validation_error
+
+    assert _public_validation_message(ValueError("kind must be one of: memory, signal")) == (
+        "kind must be one of: memory, signal"
+    )
+    assert _public_validation_message(ValueError("/home/secret/bridge.db is locked")) is None
+    assert _public_validation_message(ValueError("C:\\Users\\secret\\bridge.db is locked")) is None
+    assert _public_validation_message(ValueError("broken\nTraceback (most recent call last)")) is None
+
+    @_surface_validation_error
+    def public_validation() -> dict[str, Any]:
+        raise ValueError("namespace must not be empty")
+
+    @_surface_validation_error
+    def internal_failure() -> dict[str, Any]:
+        raise ValueError("/tmp/amb/bridge.db: unexpected sqlite page")
+
+    with pytest.raises(ToolError, match="namespace must not be empty"):
+        public_validation()
+    with pytest.raises(RuntimeError, match="internal tool failure"):
+        internal_failure()
 
 
 def test_server_factory_rejects_ambiguous_dependency_injection(tmp_path: Path) -> None:

@@ -101,7 +101,7 @@ multi-writer requirement.
 |---|---|
 | Canonical host unreachable | Remote shim returns a transport error. No silent local fallback write. No local cache becomes accidental authority. |
 | Canonical AMB process crash | Service lock is released; restart recovers. Remote shims fail until the host is back. |
-| Network partition mid-request | Request times out. Partial writes do not reach SQLite. Retry of identical `store` content is duplicate-safe via exact content hash. Run/event/outcome retries are safe only when the caller reuses the existing SHA-256 idempotency-key digest. Ordinary `store` has no request-id idempotency. |
+| Network partition mid-request | Request times out. SQLite transaction atomicity is not client certainty: if COMMIT succeeded and the response was lost, the write is durable but the client cannot tell. Uncommitted work does not reach SQLite. Retry of identical `store` content is duplicate-safe via exact content hash. Run/event/outcome retries are safe only when the caller reuses the existing SHA-256 idempotency-key digest. Ordinary `store` has no request-id idempotency. |
 | Canonical disk failure | Use the existing SQLite backup/restore path. Restore rotates the database epoch and invalidates outstanding receipts and CAS tokens. |
 
 ### Offline behavior
