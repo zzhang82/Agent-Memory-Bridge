@@ -4,10 +4,12 @@ import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from functools import wraps
 from typing import Annotated, Any, Literal, cast
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import Tool as MCPTool
 from pydantic import Field
 
@@ -1301,6 +1303,19 @@ _PUBLIC_TOOL_HANDLERS = (
 )
 
 
+def _surface_validation_error(handler: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
+    """Expose expected public-tool validation failures consistently across MCP 2.x."""
+
+    @wraps(handler)
+    def wrapped(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        try:
+            return handler(*args, **kwargs)
+        except ValueError as exc:
+            raise ToolError(str(exc)) from exc
+
+    return wrapped
+
+
 def create_mcp_server(
     *,
     store: MemoryStore | None = None,
@@ -1327,7 +1342,7 @@ def create_mcp_server(
         middleware=[ProtocolObservabilityMiddleware()],
     )
     for handler in _PUBLIC_TOOL_HANDLERS:
-        server.tool(structured_output=True)(handler)
+        server.tool(structured_output=True)(_surface_validation_error(handler))
     return server
 
 

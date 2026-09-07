@@ -14,6 +14,7 @@ from mcp.client import Client
 from mcp.client.stdio import stdio_client
 from mcp.server import MCPServer
 from mcp.types import Implementation
+from packaging.version import Version
 
 from agent_mem_bridge.mcp_boundary import (
     DISCOVER_CACHE_HINT,
@@ -90,7 +91,8 @@ async def _exercise_stdio_era(
 def test_mcp_2_dual_era_surface_preserves_schema_and_durable_data(
     tmp_path: Path,
 ) -> None:
-    assert importlib.metadata.version("mcp") == "2.0.0"
+    installed_mcp = Version(importlib.metadata.version("mcp"))
+    assert Version("2.0.0") <= installed_mcp < Version("3")
 
     bridge_home = tmp_path / "dual-era-home"
     db_path = bridge_home / "bridge.db"
