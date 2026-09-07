@@ -4,10 +4,10 @@
 
 <h1 align="center">Agent Memory Bridge</h1>
 
-<p align="center"><strong>Turn scattered project context into governed memory.</strong></p>
+<p align="center"><strong>Carry project decisions into the next coding session.</strong></p>
 
 <p align="center">
-  AMB helps coding agents carry forward the knowledge that matters — across sessions, tools, and time.
+  AMB helps coding agents remember the decisions that matter — across sessions, tools, and time.
 </p>
 
 <p align="center"><a href="README.zh-CN.md">简体中文</a></p>
@@ -29,9 +29,9 @@ pip install agent-memory-bridge
 
 ## Your project should not start over with every session
 
-A project is more than its current files. Over time, useful context gets scattered across repositories, chats, coding agents, reviews, fixes, and one-off decisions. A new session can see the code but still miss the reasons, constraints, corrections, and history that make the project make sense.
+A project is more than its current files. Over time, useful context gets scattered across repositories, chats, coding agents, reviews, fixes, and one-off decisions. A new session can see the code but still miss the reasons that make the project make sense.
 
-AMB gives that project context a durable place to accumulate without turning memory into an unreviewable transcript dump.
+AMB gives those decisions a durable place to live. The first win is simple: teach one real decision, close the session, open a fresh coding-agent session, and hear the same decision come back from AMB.
 
 | Without shared project memory | With AMB |
 |---|---|
@@ -42,24 +42,6 @@ AMB gives that project context a durable place to accumulate without turning mem
 
 AMB is local-first and inspectable. It does not silently archive every conversation or treat every remembered statement as equal authority.
 
-## One project, memory that grows with it
-
-AMB starts small: derive a reviewable baseline from the repository, then add the decisions, constraints, corrections, and context that are worth carrying forward.
-
-```text
-repo / project baseline
-        +
-explicit decisions and constraints
-        +
-revisions, corrections, provenance
-        ↓
-   governed project memory
-        ↓
-future sessions · coding agents · tools
-```
-
-The repository is the common starting point for software projects, but the memory model is about the **project**, not just the codebase: the durable knowledge surrounding the work can outlive any one chat, agent, or tool.
-
 ## Quick Start
 
 AMB requires **Python 3.11+**, Git, and an MCP-compatible coding client that can launch a local stdio server.
@@ -69,6 +51,8 @@ Current source version: `0.32.2`
 Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
 For the `0.32.2` release line, the normal install route is PyPI. GitHub Releases remains the publication authority for source tags and release notes; an exact source checkout can still be installed with `pip install -e .` for development or audit work.
+
+The first win happens inside the coding agent, in a fresh session. CLI Explore/Inspect and `doctor`/`verify` are later checks, not that win.
 
 ### 1. Install AMB
 
@@ -85,7 +69,7 @@ For an exact, reproducible `0.32.2` environment, use this install line instead:
 <venv-python> -m pip install agent-memory-bridge==0.32.2
 ```
 
-### 2. Connect the coding client(s) you actually use
+### 2. Connect the coding client you actually use
 
 Installation and client registration are separate. Preview the setup for one client first:
 
@@ -93,7 +77,7 @@ Installation and client registration are separate. Preview the setup for one cli
 <venv-python> -m agent_mem_bridge setup --client <client>
 ```
 
-`setup` is read-only by default: it detects or inspects only bounded client configuration locations and shows the exact AMB fragment or action it recommends. Use a supported client name such as `codex`, `claude-code`, `vscode`, `cursor`, `cline`, `opencode`, or another client listed in [Integrations](docs/INTEGRATIONS.md).
+`setup` is read-only by default: it detects or inspects only bounded client configuration locations and shows the exact AMB fragment or action it recommends. Use a supported client name such as `codex`, `claude-code`, `vscode`, `cursor`, `cline`, `opencode`, or another client listed in [Integrations](docs/INTEGRATIONS.md). Codex is the reference workflow.
 
 If the preview marks that client as eligible for safe automatic configuration, you can explicitly apply it after review:
 
@@ -103,23 +87,44 @@ If the preview marks that client as eligible for safe automatic configuration, y
 
 Some clients remain preview/manual because AMB will not guess or rewrite an unsafe configuration format or path. In that case, copy the rendered fragment or follow the client-specific [Integration guide](docs/INTEGRATIONS.md). Repeat this step for every coding client you want to connect. To share the same project memory across clients, keep them pointed at the same configured `AGENT_MEMORY_BRIDGE_HOME`, then reload each client after registration.
 
+Connection is proven when the coding client itself lists AMB tools such as `store` and `recall`. `doctor` and `verify` do not prove that an external client loaded MCP config.
+
 ### 3. Initialize the project
 
 ```bash
 <venv-python> -m agent_mem_bridge project init .
 ```
 
-Project Init detects the local Git repository, proposes a namespace such as `project:my-app`, and waits for confirmation. It then derives a current repository baseline and opens the Human-first Explore view. It does not automatically learn decisions.
+Project Init detects the local Git repository, proposes a namespace such as `project:my-app`, and waits for confirmation. It then derives a current repository baseline. It does not automatically learn decisions.
 
-### 4. Teach the project one decision that matters
+### 4. Teach one real project decision
 
-For example, tell the connected coding agent:
+In the connected coding agent, teach a decision you actually made. For example:
 
-> Remember that we decided not to add Redis because this project is intentionally local-first and single-node.
+> Remember that we merge pull requests only after CI is green on the target branch, because broken main blocked two releases this month.
 
-The connected agent uses AMB's existing public memory tools to store the explicit decision and reason. AMB does not infer a durable decision from the code or archive the whole conversation.
+The connected agent uses AMB's public `store` tool to persist the explicit decision and reason. AMB does not infer a durable decision from the code or archive the whole conversation.
 
-### 5. Open a fresh session and reuse the memory
+Another valid example is a stack choice, such as staying local-first instead of adding Redis. The win is the decision plus reason, not any one technology.
+
+### 5. Close the session, then ask again in a fresh one
+
+End the first agent session completely. Open a new session against the same project, same client registration, and same AMB home. Ask a generic question:
+
+> What is required before we merge a pull request?
+
+The first win is when the new session answers with the stored decision and reason because AMB recalled it. Seeing the same fact in CLI Explore or Inspect is useful review, not the success check.
+
+Exact Codex observation steps live in [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md).
+
+## After the first win
+
+Once one decision survives a fresh session, you can inspect what AMB knows, keep repository facts current, and use the governance model below.
+
+<details>
+<summary>Optional review, refresh, and troubleshooting</summary>
+
+Human-first Explore answers “What does AMB currently know about this project?” Inspect answers “Why did this information surface for this question?” Both are local and read-only.
 
 ```bash
 <venv-python> -m agent_mem_bridge explore \
@@ -127,31 +132,25 @@ The connected agent uses AMB's existing public memory tools to store the explici
 
 <venv-python> -m agent_mem_bridge inspect \
   --namespace project:my-app \
-  --query "Should we add Redis?"
+  --query "What is required before we merge a pull request?"
 ```
-
-Explore answers “What does AMB currently know about this project?” Inspect answers “Why did this information surface for this question?” Both are local and read-only.
 
 This is a conceptual view, not verbatim CLI output:
 
 ```text
 CODE / WHAT                     CONVERSATION / WHY
 ────────────────────            ──────────────────────────
-Runtime: Python >=3.11          Decision: Do not add Redis
-Package: my-app                 Reason: local-first,
-Tests: pytest                   single-node project
+Runtime: Python >=3.11          Decision: Merge only after
+Package: my-app                 CI is green
+Tests: pytest                   Reason: broken main blocked
+                                two releases
 ```
-
-Under the hood, AMB keeps repository-derived facts separate from explicitly taught project knowledge:
 
 **Code tells AMB WHAT the project is.**
 
 **Conversations teach AMB WHY it is that way.**
 
-That distinction is a trust boundary, not the whole product story: derived facts can be rebuilt from current code, while durable project knowledge remains explicit, reviewable, and governed.
-
-<details>
-<summary>Refresh and troubleshooting boundaries</summary>
+That distinction is a trust boundary: derived facts can be rebuilt from current code, while durable project knowledge remains explicit, reviewable, and governed.
 
 Repository WHAT comes from a clean Git commit. If HEAD changes or the worktree is dirty, AMB will not present an old snapshot as current truth. Refresh is not automatic. Rerun the explicit primitive:
 
@@ -162,13 +161,13 @@ Repository WHAT comes from a clean Git commit. If HEAD changes or the worktree i
 
 Refreshing repository WHAT leaves durable project WHY unchanged. Explore is CLI-only, not MCP tool #18, and it does not rank context for the model.
 
-`first-run` remains optional guided help; it is not the modern Project Learning entrypoint:
+`first-run` remains optional guided help; it is not the first-win path:
 
 ```bash
 <venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I remember?"
 ```
 
-Use health checks only when setup is uncertain:
+Use health checks only when setup is uncertain. They do not prove that a coding client loaded MCP config:
 
 ```bash
 <venv-python> -m agent_mem_bridge doctor
@@ -204,12 +203,13 @@ This is where the earlier **WHAT / WHY** model belongs: it explains one of the m
 
 AMB is a governed local project-memory layer for coding agents. It is designed to preserve useful context across sessions and tools while keeping durable knowledge, derived repository facts, provenance, and corrections distinguishable.
 
-It is not a transcript archive, a promise that an agent will remember everything, or a system that silently converts every conversation into durable truth.
+It is not a transcript archive, a promise that an agent will remember everything, or a system that silently converts every conversation into durable truth. There is no automatic learning.
 
 ## Want the details?
 
 | Read | For |
 |---|---|
+| [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md) | Exact Codex first-win observation packet |
 | [Architecture](docs/ARCHITECTURE.md) | System shape and data flow |
 | [Authority model](docs/AUTHORITY-CONTRACT.md) | Durable authority, derived views, correction, and audit rules |
 | [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) | Human-first read-only project view |
@@ -260,7 +260,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-The current source is `0.32.2`, uses schema v12, and retains the frozen 17-tool MCP surface. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+The current source is `0.32.2`, uses schema v12, and retains the frozen 17-tool MCP surface. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 

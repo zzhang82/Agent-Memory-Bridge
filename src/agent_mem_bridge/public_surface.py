@@ -35,6 +35,7 @@ PUBLIC_DOC_PATHS = (
     Path("docs/CONTEXT-ASSEMBLY.md"),
     Path("docs/HARNESS-DESIGN.md"),
     Path("docs/INTEGRATIONS.md"),
+    Path("docs/FIRST-WIN-ACCEPTANCE.md"),
     Path("docs/MEMORY-TAXONOMY.md"),
     Path("docs/PROMOTION-RULES.md"),
     Path("docs/RELEASE-COMMUNICATIONS.md"),
