@@ -63,7 +63,7 @@ def test_current_source_contract_rejects_version_identity_drift(tmp_path: Path, 
         lambda *_args, **_kwargs: {"name": "historical", "ok": True},
     )
     status = root / "docs" / "PRODUCTION-STATUS.md"
-    status.write_text(status.read_text(encoding="utf-8").replace(f"`{CURRENT}`", "`0.32.3`", 1), encoding="utf-8")
+    status.write_text(status.read_text(encoding="utf-8").replace(f"`{CURRENT}`", "`0.33.1`", 1), encoding="utf-8")
 
     report = run_current_source_release_contract_check(root)
 
@@ -99,15 +99,16 @@ def test_current_source_contract_rejects_automatic_learning_claim_drift(tmp_path
     )
 
 
-def test_readme_distinguishes_unreleased_v033_candidate_from_package_identity() -> None:
+def test_readmes_use_v033_release_identity() -> None:
     english = (ROOT / "README.md").read_text(encoding="utf-8")
     chinese = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert "Current source version: `0.32.2`" not in english
-    assert "当前源码版本：`0.32.2`" not in chinese
-    assert "v0.33 operationalization candidate" in english
-    assert "v0.33 运营化候选" in chinese
-    assert "Package identity remains `0.32.2`" in english
-    assert "包身份仍是 `0.32.2`" in chinese
+    assert CURRENT == "0.33.0"
+    assert "Current package/source version: `0.33.0`." in english
+    assert "当前包/源码版本：`0.33.0`。" in chinese
+    assert "agent-memory-bridge==0.33.0" in english
+    assert "agent-memory-bridge==0.33.0" in chinese
+    assert "unreleased v0.33" not in english.casefold()
+    assert "尚未发布的 **v0.33" not in chinese
     assert "<venv-python> -m pip install -e ." in english
     assert "<venv-python> -m pip install -e ." in chinese
 
@@ -127,7 +128,7 @@ def test_current_package_and_source_docs_use_published_identity() -> None:
 
 
 def test_historical_v0274_evidence_remains_historical() -> None:
-    status = (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
+    status = (ROOT / "docs" / "PRODUCTION-STATUS.md").read_text(encoding="utf-8")
     announcement = (ROOT / "docs/v0.27.4-announcement.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "The `v0.27.4` tag identifies the historical source snapshot" in status
@@ -146,6 +147,8 @@ def test_historical_v0274_evidence_remains_historical() -> None:
     assert "[v0.32.1 announcement](docs/v0.32.1-announcement.md)" in changelog
     assert "v0.32.2 source/release line" in changelog
     assert "[v0.32.2 announcement](docs/v0.32.2-announcement.md)" in changelog
+    assert "v0.33.0 source/release line" in changelog
+    assert "[v0.33.0 announcement](docs/v0.33.0-announcement.md)" in changelog
     assert "v0.28.0 candidate" not in changelog
 
 
@@ -258,10 +261,10 @@ def test_changelog_durable_references_exist() -> None:
 
 
 def test_public_surface_and_schema_facts_remain_stable() -> None:
-    status = (ROOT / "docs/PRODUCTION-STATUS.md").read_text(encoding="utf-8")
-    architecture = (ROOT / "docs/ARCHITECTURE.md").read_text(encoding="utf-8")
-    boundary = (ROOT / "src/agent_mem_bridge/mcp_boundary.py").read_text(encoding="utf-8")
-    compiler = (ROOT / "src/agent_mem_bridge/context_manifest.py").read_text(encoding="utf-8")
+    status = (ROOT / "docs" / "PRODUCTION-STATUS.md").read_text(encoding="utf-8")
+    architecture = (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    boundary = (ROOT / "src" / "agent_mem_bridge" / "mcp_boundary.py").read_text(encoding="utf-8")
+    compiler = (ROOT / "src" / "agent_mem_bridge" / "context_manifest.py").read_text(encoding="utf-8")
     assert CURRENT_SCHEMA_VERSION == 12
     assert len(PUBLIC_TOOL_ORDER) == 17
     assert PUBLIC_TOOL_SCHEMA_SHA256 == PUBLIC_TOOL_DIGEST
