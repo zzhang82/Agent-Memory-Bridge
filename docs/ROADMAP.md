@@ -6,6 +6,7 @@ This page describes **future direction**, not a release ledger. Current implemen
 
 | Capability area | Intended direction | Boundary that remains in force |
 |---|---|---|
+| Semantic memory invocation | **Implemented in v0.33.1:** keep one canonical semantic policy portable through thin Codex, OpenCode, and generic host renderers, with observable invocation evidence and frozen cross-host evaluation. | The policy is an instruction/export layer, not a router, classifier, hosted runtime, automatic writeback path, or new durable authority. |
 | Repository and documentation stabilization | Make current product truth easy to find, reduce duplication, preserve historical evidence, and keep public claims tied to source facts. | Documentation must not replace implementation or relax public, release, or onboarding contracts. |
 | Adoption and installation simplification | Reduce the path from discovery to a verified local MCP registration while retaining client-specific reference material. | Setup remains local and explicit; configuration and durable writes remain user-controlled. |
 | Controlled Context Compiler activation | Consider clearly scoped, user-approved operational activation of the existing derived-view capability after its use boundary is designed and reviewed. | The compiler remains transient, consumes governed task memory and Dynamic State snapshots, and does not become a second retrieval/ranking system. |

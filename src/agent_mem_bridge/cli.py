@@ -53,6 +53,7 @@ from .run_consolidation import (
     render_run_consolidation_markdown,
     stage_run_consolidation_report,
 )
+from .semantic_policy import render_policy, supported_policy_hosts
 from .service_lock import ServiceFileLock, ServiceLockConflict
 from .setup_apply import (
     apply_setup_plan,
@@ -90,6 +91,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_service(namespace)
     if namespace.command == "config":
         return _run_config(namespace)
+    if namespace.command == "memory-policy":
+        return _run_memory_policy(namespace)
     if namespace.command == "setup":
         return _run_setup(namespace)
     if namespace.command == "first-run":
@@ -194,6 +197,29 @@ def _build_parser() -> argparse.ArgumentParser:
         "--example",
         action="store_true",
         help="Render placeholder-safe example output instead of local runtime paths.",
+    )
+
+    policy_parser = subparsers.add_parser(
+        "memory-policy",
+        help="Render the canonical semantic memory-use policy for manual host integration.",
+    )
+    policy_parser.add_argument(
+        "--host",
+        choices=supported_policy_hosts(),
+        default="generic",
+        help="Host placement adapter. Defaults to the generic manual-placement renderer.",
+    )
+    policy_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
+    policy_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional output path. Existing files are never overwritten.",
     )
 
     setup_parser = subparsers.add_parser(
@@ -613,6 +639,22 @@ def _run_config(namespace: argparse.Namespace) -> int:
     if namespace.output is not None:
         output_path: Path = namespace.output
         if output_path.exists() and not namespace.force:
+            print(f"Refusing to overwrite existing file: {output_path}", file=sys.stderr)
+            return 3
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(rendered.content + "\n", encoding="utf-8")
+        print(str(output_path))
+        return 0
+
+    print(rendered.content)
+    return 0
+
+
+def _run_memory_policy(namespace: argparse.Namespace) -> int:
+    rendered = render_policy(namespace.host, format=namespace.format)
+    if namespace.output is not None:
+        output_path: Path = namespace.output
+        if output_path.exists():
             print(f"Refusing to overwrite existing file: {output_path}", file=sys.stderr)
             return 3
         output_path.parent.mkdir(parents=True, exist_ok=True)

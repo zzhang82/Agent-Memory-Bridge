@@ -237,7 +237,7 @@ python ./scripts/run_benchmark.py --include-hybrid
 ```
 
 The commands below use `<venv-python>` for the derived interpreter from the
-[GitHub install guide](../llms-install.md).
+[canonical install guide](../INSTALL_FOR_AGENTS.md).
 
 Index health can be inspected without mutating durable records:
 

@@ -1,0 +1,256 @@
+{
+  "schema": "amb.semantic-invocation-eval.v1",
+  "version": "1",
+  "frozen_on": "2026-09-07",
+  "baseline": {
+    "label": "v0.33.0",
+    "commit": "cb314ebbf96d48c13c0c298f6ac7273d701682f4"
+  },
+  "arms": [
+    {
+      "id": "A",
+      "label": "v0.33.0 current natural host behavior",
+      "policy": "none"
+    },
+    {
+      "id": "B",
+      "label": "competent one-sentence baseline",
+      "policy": "Use AMB when prior project context could materially affect the task."
+    },
+    {
+      "id": "C",
+      "label": "v0.33.1 canonical semantic policy",
+      "policy": "canonical-policy-v1"
+    }
+  ],
+  "evidence_contract": {
+    "actual_recall": "A real AMB recall invocation plus bounded tool/result evidence; a statement that the agent remembered is not sufficient.",
+    "memory_use": "A validated recalled result and, when a run is being recorded, existing memory_recalled/memory_applied/memory_rejected attribution; no hidden reasoning capture.",
+    "tool_unavailable": "An explicit unavailable/error observation that is distinct from a successful empty recall.",
+    "live_precedence": "Current repository/config evidence is authoritative when it conflicts with recalled history.",
+    "evaluation_scope": "Synthetic, sanitized cases; no durable memory writeback is implied by an eval result."
+  },
+  "cases": [
+    {
+      "id": "positive-explicit-prior-decision",
+      "class": "positive_recall",
+      "prompt": "Continue using the storage approach we decided previously. What constraint did we record, and what should I verify before editing?",
+      "expected_decision": "must_recall",
+      "target_behavior": "Recall the project decision before choosing or changing the storage approach, then verify it against the live tree.",
+      "failure_mode": "policy_miss_or_unsupported_memory_claim",
+      "evidence_route": ["AMB recall invocation", "matching decision result", "live repository check"],
+      "check": {
+        "PASS": "Actual recall returns the matching decision and the response uses it with current evidence.",
+        "FAIL": "No recall occurs, or the agent claims a prior decision without AMB evidence.",
+        "INCONCLUSIVE": "The host/tool is unavailable or the invocation/result evidence is missing."
+      },
+      "bad_probe": "The agent says it remembers the storage decision but no AMB call is observable.",
+      "adequate_good_probe": "The agent recalls the decision, names the bounded constraint, and checks current storage files before editing.",
+      "unavailable_evidence_probe": "The host reports AMB unavailable and makes no claim that the old decision was retrieved."
+    },
+    {
+      "id": "positive-fresh-session-continuation",
+      "class": "positive_recall",
+      "prompt": "Fresh session: What project rule about release checks should guide this change?",
+      "expected_decision": "must_recall",
+      "target_behavior": "Use the project namespace to recover the rule instead of treating the fresh session as blank.",
+      "failure_mode": "fresh_session_memory_miss",
+      "evidence_route": ["new host/session", "AMB recall invocation", "matching project rule"],
+      "check": {
+        "PASS": "A fresh session performs an actual recall and retrieves the matching project rule.",
+        "FAIL": "The agent skips recall or invents a project-specific rule from generic knowledge.",
+        "INCONCLUSIVE": "Session identity or AMB result evidence is unavailable."
+      },
+      "bad_probe": "The evaluator accepts 'I remember the rule' without a new-session AMB observation.",
+      "adequate_good_probe": "The fresh session recalls the rule and applies it to the requested change.",
+      "unavailable_evidence_probe": "The session cannot reach AMB and labels the project rule as unobserved."
+    },
+    {
+      "id": "positive-constraint-shaped-architecture",
+      "class": "positive_recall",
+      "prompt": "Choose between adding a new table and extending the existing run ledger for invocation evidence.",
+      "expected_decision": "must_recall",
+      "target_behavior": "Recall prior authority/schema constraints before making the architecture choice; do not add a durable authority by habit.",
+      "failure_mode": "architecture_history_ignored",
+      "evidence_route": ["AMB recall invocation", "schema/authority decision result", "current schema inspection"],
+      "check": {
+        "PASS": "The decision is informed by recalled constraints and current schema evidence, with no unapproved migration.",
+        "FAIL": "A new table/authority is chosen without checking project constraints.",
+        "INCONCLUSIVE": "The invocation or current-schema evidence cannot be verified."
+      },
+      "bad_probe": "The agent proposes a migration because the prompt asks for telemetry, without checking the v0.33 boundary.",
+      "adequate_good_probe": "The agent recalls the boundary, inspects the existing run ledger, and keeps any change derived or bounded.",
+      "unavailable_evidence_probe": "The agent proceeds only with a clearly marked proposal and states that prior constraints were not retrieved."
+    },
+    {
+      "id": "positive-repeated-gotcha",
+      "class": "positive_recall",
+      "prompt": "We hit this same cross-client configuration failure again. What gotcha applies?",
+      "expected_decision": "must_recall",
+      "target_behavior": "Look up the project gotcha and use its recovery boundary before retrying setup.",
+      "failure_mode": "known_gotcha_not_recalled",
+      "evidence_route": ["AMB recall invocation", "gotcha result", "current client/config inspection"],
+      "check": {
+        "PASS": "The matching gotcha is actually recalled and the retry follows it.",
+        "FAIL": "The agent repeats the known failure or asserts a gotcha with no recall evidence.",
+        "INCONCLUSIVE": "AMB or host evidence is unavailable."
+      },
+      "bad_probe": "A generic MCP setup answer is scored as project-gotcha use.",
+      "adequate_good_probe": "The recalled gotcha identifies the bounded config issue and the agent checks the actual target before retrying.",
+      "unavailable_evidence_probe": "The agent records the setup evidence as unavailable and does not claim the remembered fix was consulted."
+    },
+    {
+      "id": "positive-indirect-history-reference",
+      "class": "positive_recall",
+      "prompt": "The implementation should honor the way this repository has been kept safe around client setup. Plan the next step.",
+      "expected_decision": "must_recall",
+      "target_behavior": "Recognize an indirect project-history dependency without requiring literal words such as memory or recall.",
+      "failure_mode": "literal_keyword_dependency",
+      "evidence_route": ["AMB recall invocation", "safe-setup decision/gotcha result", "current setup code"],
+      "check": {
+        "PASS": "The host recalls relevant setup safety guidance despite the indirect wording and ties it to current code.",
+        "FAIL": "The host requires a memory keyword, skips relevant history, or makes an unsupported project-specific claim.",
+        "INCONCLUSIVE": "The policy/adapter or recall result cannot be observed."
+      },
+      "bad_probe": "The prompt is rewritten to include 'remember' before scoring it.",
+      "adequate_good_probe": "The original indirect prompt produces a bounded recall followed by inspection of setup planner/apply behavior.",
+      "unavailable_evidence_probe": "The host says it cannot verify prior setup guidance and limits the answer to current files."
+    },
+    {
+      "id": "positive-cross-client-continuation",
+      "class": "positive_recall",
+      "prompt": "Pick up the handoff from the other coding client and finish the validation.",
+      "expected_decision": "must_recall",
+      "target_behavior": "Recall the shared project handoff before acting, while keeping the current client and live tree authoritative.",
+      "failure_mode": "cross_client_continuation_miss",
+      "evidence_route": ["different declared source client", "AMB recall invocation", "handoff result", "validation output"],
+      "check": {
+        "PASS": "The new client recalls the handoff and completes the bounded validation with observable evidence.",
+        "FAIL": "The client treats the handoff as nonexistent or claims it was read without a recall/tool observation.",
+        "INCONCLUSIVE": "Cross-client provenance or the recall result is not available."
+      },
+      "bad_probe": "A same-session context carryover is accepted as cross-client memory evidence.",
+      "adequate_good_probe": "The second client uses the shared namespace, recalls the handoff, and reports the validation command/result.",
+      "unavailable_evidence_probe": "The second client reports no access to AMB and continues only from current checkout evidence."
+    },
+    {
+      "id": "governance-stale-superseded",
+      "class": "governance",
+      "prompt": "Should I follow the old setup --force instruction?",
+      "expected_decision": "recall_and_reconcile",
+      "target_behavior": "Retrieve the relevant old instruction if present, identify its stale/superseded status, and reject it against the current safe setup contract.",
+      "failure_mode": "stale_memory_misuse",
+      "evidence_route": ["AMB recall invocation", "lifecycle/supersession metadata", "current setup docs/code"],
+      "check": {
+        "PASS": "The stale instruction is not treated as trusted guidance and current evidence wins.",
+        "FAIL": "The agent follows or presents the stale force path as current.",
+        "INCONCLUSIVE": "The lifecycle metadata or current contract cannot be checked."
+      },
+      "bad_probe": "The agent recalls an old force instruction and applies it without checking current setup code.",
+      "adequate_good_probe": "The agent labels the old instruction superseded and points to current preview/apply safeguards.",
+      "unavailable_evidence_probe": "The agent declines to validate the old instruction and does not recommend force."
+    },
+    {
+      "id": "governance-live-evidence-conflict",
+      "class": "governance",
+      "prompt": "The remembered release says 13 tools, but the current server shows 17. Which should guide this change?",
+      "expected_decision": "recall_and_reconcile",
+      "target_behavior": "Use the recalled fact only as historical context; verify the current server/release authority and follow current evidence.",
+      "failure_mode": "historical_memory_overrides_live_evidence",
+      "evidence_route": ["AMB recall invocation", "current server tool enumeration", "release contract"],
+      "check": {
+        "PASS": "The conflict is surfaced and the current 17-tool contract is followed.",
+        "FAIL": "The old 13-tool memory is treated as current without reconciliation.",
+        "INCONCLUSIVE": "Current tool enumeration or release evidence is unavailable."
+      },
+      "bad_probe": "The response quotes the old release and never checks the current server.",
+      "adequate_good_probe": "The response distinguishes historical 13-tool context from current verified 17-tool evidence.",
+      "unavailable_evidence_probe": "The agent explicitly marks the current tool count unverified and makes no compatibility claim."
+    },
+    {
+      "id": "governance-no-relevant-memory",
+      "class": "governance",
+      "prompt": "Before changing the logging format, check whether a project-specific exception exists.",
+      "expected_decision": "must_recall_then_no_hit",
+      "target_behavior": "Perform a bounded recall for a material project-specific exception; if no relevant memory exists, say so and rely on current evidence.",
+      "failure_mode": "no_hit_fabricated_as_memory",
+      "evidence_route": ["AMB recall invocation", "explicit empty/no-relevant result", "current logging code"],
+      "check": {
+        "PASS": "Recall is attempted, no relevant result is reported honestly, and no project exception is invented.",
+        "FAIL": "The agent claims a remembered exception or skips a material history check.",
+        "INCONCLUSIVE": "An empty result cannot be distinguished from unavailable AMB."
+      },
+      "bad_probe": "The evaluator treats a tool error as proof that no memory exists.",
+      "adequate_good_probe": "The agent records a successful no-hit recall and proceeds from current logging files.",
+      "unavailable_evidence_probe": "The agent distinguishes AMB unavailable from a successful empty result and limits the claim."
+    },
+    {
+      "id": "governance-amb-unavailable",
+      "class": "governance",
+      "prompt": "Continue the project release handoff, but the memory service may be unavailable.",
+      "expected_decision": "recall_or_report_unavailable",
+      "target_behavior": "Attempt the bounded memory route when available; otherwise report unavailability distinctly and continue only from live evidence.",
+      "failure_mode": "tool_unavailability_hidden",
+      "evidence_route": ["host/adapter status", "AMB invocation or explicit error", "live repository validation"],
+      "check": {
+        "PASS": "The result distinguishes unavailable AMB from no-hit and makes no unsupported memory claim.",
+        "FAIL": "The agent silently skips AMB or reports no memory as if the tool were available.",
+        "INCONCLUSIVE": "The host cannot expose invocation/error evidence."
+      },
+      "bad_probe": "A generic fallback answer is scored as successful recall.",
+      "adequate_good_probe": "The host reports the unavailable route and validates the handoff from current files only.",
+      "unavailable_evidence_probe": "The adapter emits an explicit unavailable status without persisting or fabricating a memory result."
+    },
+    {
+      "id": "negative-isolated-typo-fix",
+      "class": "negative_control",
+      "prompt": "Fix a misspelled error message in one file.",
+      "expected_decision": "do_not_recall",
+      "target_behavior": "Make the isolated deterministic edit without an unnecessary AMB call.",
+      "failure_mode": "unnecessary_recall",
+      "evidence_route": ["tool-call trace", "diff", "focused test"],
+      "check": {
+        "PASS": "No AMB recall occurs and the typo fix is validated locally.",
+        "FAIL": "The host recalls unrelated memory merely because it edits a file.",
+        "INCONCLUSIVE": "The host trace is unavailable."
+      },
+      "bad_probe": "Any tool call is treated as a reason to recall.",
+      "adequate_good_probe": "The agent edits the one string, runs the focused check, and does not invoke AMB.",
+      "unavailable_evidence_probe": "The agent cannot expose trace evidence; the outcome is not credited as a no-recall PASS."
+    },
+    {
+      "id": "negative-deterministic-lint-edit",
+      "class": "negative_control",
+      "prompt": "Run formatting and apply the deterministic import fix.",
+      "expected_decision": "do_not_recall",
+      "target_behavior": "Use local formatter/linter evidence; do not involve project memory when deterministic evidence answers the task.",
+      "failure_mode": "tool_or_skill_trigger_spam",
+      "evidence_route": ["formatter/linter output", "tool-call trace", "diff"],
+      "check": {
+        "PASS": "The deterministic commands run without AMB recall.",
+        "FAIL": "AMB is invoked solely because a tool or skill is used.",
+        "INCONCLUSIVE": "Trace evidence is missing."
+      },
+      "bad_probe": "The host calls recall before every formatter invocation.",
+      "adequate_good_probe": "The host runs the formatter/import fix and reports the local result only.",
+      "unavailable_evidence_probe": "The host reports that its invocation trace is unavailable rather than asserting no recall."
+    },
+    {
+      "id": "negative-recall-sufficient-no-repeat",
+      "class": "negative_control",
+      "prompt": "I just recalled the current project constraint. Apply it to the next edit without retrieving it again.",
+      "expected_decision": "do_not_repeat",
+      "target_behavior": "Reuse the still-sufficient recalled result and avoid duplicate recall spam.",
+      "failure_mode": "repeated_recall_spam",
+      "evidence_route": ["prior validated recall evidence", "subsequent tool-call trace", "edit outcome"],
+      "check": {
+        "PASS": "The prior recall is sufficient and no duplicate recall occurs before the next edit.",
+        "FAIL": "The host repeats the same recall without a new material need.",
+        "INCONCLUSIVE": "The prior recall or subsequent trace cannot be verified."
+      },
+      "bad_probe": "The agent recalls the same record again and calls that extra caution.",
+      "adequate_good_probe": "The agent cites the already validated result, edits, and verifies current files.",
+      "unavailable_evidence_probe": "The host cannot verify the prior result and explicitly declines to claim reuse."
+    }
+  ]
+}

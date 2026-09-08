@@ -46,7 +46,7 @@ AMB is local-first and inspectable. It does not silently archive every conversat
 
 AMB requires **Python 3.11+**, Git, and an MCP-compatible coding client that can launch a local stdio server.
 
-Current package/source version: `0.33.0`.
+Current package/source version: `0.33.1`.
 
 Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
@@ -58,7 +58,7 @@ For the Quick Start, use a virtual environment so every coding client can point 
 
 ```bash
 python -m venv .amb-venv
-<venv-python> -m pip install agent-memory-bridge==0.33.0
+<venv-python> -m pip install agent-memory-bridge==0.33.1
 ```
 
 For development or audit work against an exact source checkout, use:
@@ -214,6 +214,7 @@ It is not a transcript archive, a promise that an agent will remember everything
 | [Production Status](docs/PRODUCTION-STATUS.md) | Current implementation facts, evidence, and known limits |
 | [Integrations](docs/INTEGRATIONS.md) | Client-specific local MCP setup |
 | [Install for Agents](INSTALL_FOR_AGENTS.md) | Full install-to-first-success workflow |
+| [Canonical memory-use policy](docs/SEMANTIC-MEMORY-POLICY.md) | When a host should consult project memory |
 | [Configuration](docs/CONFIGURATION.md) | Complete configuration reference |
 | [Examples](examples/README.md) | Sanitized demos and artifacts |
 
@@ -258,7 +259,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-Current package/source version is `0.33.0`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+Current package/source version is `0.33.1`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 

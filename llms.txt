@@ -1,107 +1,21 @@
 # Agent Memory Bridge
 
-Agent Memory Bridge is a local-first stdio MCP server for governed project
-memory that helps coding agents carry useful context across sessions and tools.
+Local-first stdio MCP server for governed project memory.
 
-Primary docs:
+Map:
 
-- README.md - product overview, Project Learning Quick Start, public MCP tools
-- INSTALL_FOR_AGENTS.md - agent-readable install protocol
-- llms-install.md - concise install path for coding agents
-- docs/INTEGRATIONS.md - client configuration examples
-- docs/CONFIGURATION.md - runtime, retrieval, receipt, and classifier configuration
-- docs/AUTHORITY-CONTRACT.md - source-of-truth and compiled-view rules
-- docs/CONTEXT-ASSEMBLY.md - startup/task context assembly model
-- docs/HARNESS-DESIGN.md - boundary between AMB Core and future harness tools
-- benchmark/README.md - benchmark and proof snapshots
-- SECURITY.md - local-first security model and reporting
+- `README.md` / `README.zh-CN.md` — product story and shortest first win
+- `INSTALL_FOR_AGENTS.md` — canonical install and first-use procedure
+- `llms-install.md` — compatibility pointer to the canonical guide
+- `docs/INTEGRATIONS.md` — client-specific MCP registration
+- `docs/SEMANTIC-MEMORY-POLICY.md` — when a host should consult project memory
+- `docs/CONTEXT-ASSEMBLY.md` — what context is assembled after recall
+- `docs/PRODUCTION-STATUS.md` — current checked-in product facts
+- `docs/AUTHORITY-CONTRACT.md` — durable versus derived authority
+- `SECURITY.md` — local-first security and trust boundary
+- `CHANGELOG.md` and GitHub Releases — historical release narrative
 
-The pinned `v0.27.0` release-install route exposes these public MCP tools:
-
-- store
-- recall
-- feedback
-- browse
-- stats
-- forget
-- promote
-- annotate
-- revise
-- export
-- begin_run
-- record_run_event
-- get_run
-- complete_run
-- claim_signal
-- extend_signal_lease
-- ack_signal
-
-The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.33.0`; for live release availability, consult GitHub Releases.
-
-Important boundaries:
-
-- Installing the package does not automatically register AMB with every coding client. Each client must connect AMB as an MCP stdio server; clients sharing memory must use the same persistent `AGENT_MEMORY_BRIDGE_HOME`.
-- No separate startup_packet, task_packet, or Task Brief MCP tools.
-- No watcher, scheduler, autonomous runner, hosted backend, or graph database in
-  AMB Core.
-- Retrieval capabilities are `lexical`, `hashed_lexical`, and explicitly
-  declared `semantic`. Semantic capability is configuration-declared, not
-  runtime-verified; do not claim ANN, graph retrieval, ACLs, authentication,
-  active reranking, or automatic policy.
-- Recall receipts are 15-minute HMAC tokens. They are tamper-evident, not
-  encrypted, and should be treated as sensitive metadata. Receipt-bearing
-  recall signs a complete exposure set with exact content versions from the
-  same SQLite snapshot as the returned rows and database epoch.
-- Recall can optionally include bounded SHA-256 digests for caller-declared
-  `model`, `harness`, and `chat_template` labels; raw values are not signed.
-- Provenance is declared by callers or launch defaults, not authenticated.
-- Feedback supports append-only votes, corrections, and retractions with one
-  current effective vote per receipt-bound subject. Caller-declared client
-  or session labels cannot create additional votes.
-- `receipt_hash` is the hash of the actual token;
-  `feedback_identity_digest` is a separate canonical subject identity.
-- Knowledge Explorer is a local, read-only, bounded, deterministic, namespace-bound, rebuildable, provenance-bearing CLI projection over existing repository WHAT and governed decision/constraint WHY; it is not MCP tool #18 or a new authority.
-- Feedback remains shadow evidence. It does not mutate memory, indexes, recall
-  results, or ranking behavior.
-- Run events and outcomes use explicit server-minted handles and are durable
-  authority. The current 0.33.0 source/package line uses schema v12 with retained governed-v2
-  evidence, CAS, operator receipts, watcher continuity, and authority closure.
-  Its internal Dynamic State lane uses exact-key typed commands, version/database-
-  epoch guards, lifecycle idempotency, immutable history, and rebuildable heads;
-  it adds no MCP tool and does not alter memory recall, ranking, policy, prompts,
-  or ordinary memory. Downstream utility and consolidation remain shadow-only.
-- Startup and task-time packets are compiled views over existing records.
-- Optional helper commands can render Task Brief reports around the bridge;
-  Task Brief is a derived CLI/report view, not part of the core MCP surface.
-
-Useful commands:
-
-```bash
-python -m venv .amb-venv
-python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())"
-```
-
-Treat the printed path as `<venv-python>`. Shell-quote it on POSIX when needed;
-in Windows PowerShell, invoke it as `& "<venv-python>"`. Then run:
-
-Current package/source version is `0.33.0`. Install the release package with
-`<venv-python> -m pip install agent-memory-bridge==0.33.0`. For an exact source
-checkout, use `<venv-python> -m pip install -e .`. Published source releases and
-pinned archives remain listed in GitHub Releases; the published v0.30.0 source
-archive is `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
-The historical `v0.27.0` release-install archive was
-`https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
-
-```text
-<venv-python> -m pip install agent-memory-bridge==0.33.0
-<venv-python> -m agent_mem_bridge doctor
-<venv-python> -m agent_mem_bridge verify
-```
-
-Use that same interpreter for `setup`, `project init`, `bootstrap-repo`, optional
-`first-run`, or `config`. See `llms-install.md` for the real client-config,
-Project Learning store contract, and registration steps. `first-run` is
-secondary guided memory help, not the modern Project Learning entrypoint.
-
-`uvx` is an optional shortcut, not a baseline requirement. See
-`llms-install.md` before writing client config.
+The public MCP surface is exactly 17 tools, durable schema is v12, and there is
+no MCP tool #18 or automatic learning. Installing the package and registering a
+client are separate operations; clients sharing a project must use the same
+persistent `AGENT_MEMORY_BRIDGE_HOME`.

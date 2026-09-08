@@ -63,7 +63,7 @@ def test_current_source_contract_rejects_version_identity_drift(tmp_path: Path, 
         lambda *_args, **_kwargs: {"name": "historical", "ok": True},
     )
     status = root / "docs" / "PRODUCTION-STATUS.md"
-    status.write_text(status.read_text(encoding="utf-8").replace(f"`{CURRENT}`", "`0.33.1`", 1), encoding="utf-8")
+    status.write_text(status.read_text(encoding="utf-8").replace(f"`{CURRENT}`", "`0.33.2`", 1), encoding="utf-8")
 
     report = run_current_source_release_contract_check(root)
 
@@ -102,11 +102,11 @@ def test_current_source_contract_rejects_automatic_learning_claim_drift(tmp_path
 def test_readmes_use_v033_release_identity() -> None:
     english = (ROOT / "README.md").read_text(encoding="utf-8")
     chinese = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert CURRENT == "0.33.0"
-    assert "Current package/source version: `0.33.0`." in english
-    assert "当前包/源码版本：`0.33.0`。" in chinese
-    assert "agent-memory-bridge==0.33.0" in english
-    assert "agent-memory-bridge==0.33.0" in chinese
+    assert CURRENT == "0.33.1"
+    assert "Current package/source version: `0.33.1`." in english
+    assert "当前包/源码版本：`0.33.1`。" in chinese
+    assert "agent-memory-bridge==0.33.1" in english
+    assert "agent-memory-bridge==0.33.1" in chinese
     assert "unreleased v0.33" not in english.casefold()
     assert "尚未发布的 **v0.33" not in chinese
     assert "<venv-python> -m pip install -e ." in english
@@ -149,24 +149,26 @@ def test_historical_v0274_evidence_remains_historical() -> None:
     assert "[v0.32.2 announcement](docs/v0.32.2-announcement.md)" in changelog
     assert "v0.33.0 source/release line" in changelog
     assert "[v0.33.0 announcement](docs/v0.33.0-announcement.md)" in changelog
+    assert "v0.33.1 source/release line" in changelog
+    assert "[v0.33.1 announcement](docs/v0.33.1-announcement.md)" in changelog
     assert "v0.28.0 candidate" not in changelog
 
 
 def test_install_guides_use_publication_invariant_routes() -> None:
-    for name in ("INSTALL_FOR_AGENTS.md", "llms-install.md", "llms.txt", "docs/INTEGRATIONS.md"):
+    for name in ("INSTALL_FOR_AGENTS.md", "docs/INTEGRATIONS.md"):
         text = (ROOT / name).read_text(encoding="utf-8")
-        assert "0.30.0" in text
         assert "GitHub Releases" in text
-        assert "https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip" in text
         assert CURRENT in text
-    assert "v0.27.0" in (ROOT / "INSTALL_FOR_AGENTS.md").read_text(encoding="utf-8")
+    for name in ("llms-install.md", "llms.txt"):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        assert "INSTALL_FOR_AGENTS.md" in text
+        assert "pip install" not in text
+        assert "archive/refs/tags" not in text
 
 
 def test_current_docs_record_published_source_without_hypothetical_wording() -> None:
     docs = (
         "INSTALL_FOR_AGENTS.md",
-        "llms-install.md",
-        "llms.txt",
         "docs/INTEGRATIONS.md",
         "docs/PRODUCTION-STATUS.md",
     )
