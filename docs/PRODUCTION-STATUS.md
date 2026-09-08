@@ -6,8 +6,7 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.32.2` |
-| Public candidate | Unreleased v0.33 operationalization; package identity remains `0.32.2` until an explicit release cut |
+| Package/source version | `0.33.0` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
@@ -19,9 +18,9 @@ Current source test collection: `1059 tests`
 
 ## Distribution Status
 
-The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.32.2` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. Live PyPI package availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.33.0` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. Live PyPI package availability is external state and is not asserted by this checked-in document.
 
-The `0.32.2` release changes product positioning, README/hero presentation, package metadata, and onboarding documentation. It does not alter runtime behavior, durable schema, MCP tools, repository-derived authority, governed durable project-memory authority, retrieval semantics, or automatic-learning boundaries.
+The `0.33.0` release operationalizes the existing product boundary: fresh-session first-win evidence, MCP 2.x floor/latest compatibility gates, cross-platform process-liveness validation, clearer public error semantics, and a documented single-authority multi-machine topology. It keeps durable schema v12, exactly 17 public MCP tools, and the no-automatic-learning boundary.
 
 ## Historical Tag Reference
 
@@ -30,6 +29,10 @@ The `v0.27.4` tag identifies the historical source snapshot `e8210cb204e501650a5
 The `v0.28.0` tag identifies the historical release merge snapshot `c6e3568a59852c5b589d6aba00b89ab580c228e6`. This is a stable historical release fact, not a claim about the current source head or current publication state.
 
 ## Implemented Capability Summary
+
+### v0.33 operationalization
+
+V0.33 makes the existing AMB product easier to validate and operate without expanding its durable authority. The primary first-win proof is now a decision stored through one stdio process and recalled from a fresh stdio process against the same isolated home. The Python MCP SDK policy is `mcp>=2.0.0,<3`; floor and latest supported 2.x compatibility jobs feed the stable `CI success` aggregate gate. Windows process-liveness checks use `OpenProcess(SYNCHRONIZE)` plus `WaitForSingleObject(handle, 0)` rather than treating an open handle as liveness. Expected public validation failures remain model-correctable while unexpected internal `ValueError`s are kept off the public `ToolError` path. Multi-machine guidance keeps one canonical SQLite/WAL host and reaches it through an adapter rather than a network-shared WAL database; committed-but-unacknowledged writes are explicitly possible when a response is lost after commit.
 
 ### Governed Project Memory positioning and onboarding
 
@@ -167,7 +170,6 @@ v019_first_run_adoption_pass_rate = 1.0
 v019_public_mcp_tool_count = 10
 v019_public_mcp_surface_change = false
 v019_client_config_write_count = 0
-v019_durable_writeback_count = 0
 v019_amh_required = false
 v019_native_memory_comparison_required = true
 
