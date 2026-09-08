@@ -170,6 +170,7 @@ v019_first_run_adoption_pass_rate = 1.0
 v019_public_mcp_tool_count = 10
 v019_public_mcp_surface_change = false
 v019_client_config_write_count = 0
+v019_durable_writeback_count = 0
 v019_amh_required = false
 v019_native_memory_comparison_required = true
 
