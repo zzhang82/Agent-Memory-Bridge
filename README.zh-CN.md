@@ -46,11 +46,9 @@ AMB 本地优先，而且可检查。它不会默默归档每一段对话，也�
 
 AMB 需要 **Python 3.11+**、Git，以及能够启动本地 stdio server 的 MCP 兼容编码客户端。
 
-当前检出是尚未发布的 **v0.33 运营化候选**。在明确做 release cut 之前，包身份仍是 `0.32.2`。
+当前包/源码版本：`0.33.0`。
 
-已发布的 `0.32.2`：请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
-
-评估本候选时，请从当前检出安装。不要把 `pip install agent-memory-bridge==0.32.2` 当成这份源码。GitHub Releases 仍是 tag 与 release notes 的发布权威。
+已发布版本请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
 
 第一次成功发生在编码智能体里，而且必须是一个全新会话。CLI Explore/Inspect 以及 `doctor`/`verify` 是后续检查，不是这次成功本身。
 
@@ -60,13 +58,13 @@ AMB 需要 **Python 3.11+**、Git，以及能够启动本地 stdio server 的 MC
 
 ```bash
 python -m venv .amb-venv
-<venv-python> -m pip install -e .
+<venv-python> -m pip install agent-memory-bridge==0.33.0
 ```
 
-这会安装本候选。最近一次已发布的包仍是：
+如果是在开发或审计一个精确源码检出，请使用：
 
 ```bash
-<venv-python> -m pip install agent-memory-bridge==0.32.2
+<venv-python> -m pip install -e .
 ```
 
 ### 2. 连接你实际使用的编码客户端
@@ -259,7 +257,7 @@ AMB 暴露 **17 个公开 MCP 工具**：
 
 ## 当前成熟度
 
-当前检出是尚未发布的 v0.33 运营化候选。在明确做 release cut 之前，包身份仍是 `0.32.2`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
+当前包/源码版本是 `0.33.0`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
 
 ## 参与贡献
 
