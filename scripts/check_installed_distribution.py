@@ -136,7 +136,9 @@ def main() -> int:
         text=True,
     )
     actual = completed.stdout.strip()
-    assert actual == args.expected_version, f"installed version mismatch: expected {args.expected_version}, got {actual}"
+    assert actual == args.expected_version, (
+        f"installed version mismatch: expected {args.expected_version}, got {actual}"
+    )
 
     _exercise(args.server_python)
     print(f"installed distribution stdio acceptance: PASS ({actual})")
