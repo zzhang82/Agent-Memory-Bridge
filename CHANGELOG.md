@@ -8,6 +8,20 @@ The v0.28.0 tagged archive route, when using that tag, is:
 
 This document records the durable capability milestones in Agent Memory Bridge (AMB). It is **not** a release-by-release ledger, a current-status page, or a substitute for detailed proof artifacts. Current implementation facts belong in [Production Status](docs/PRODUCTION-STATUS.md); future work belongs in the [Roadmap](docs/ROADMAP.md); detailed development chronology remains in Git history and published GitHub Releases where available.
 
+## v0.33.0 — Operationalization
+
+- Makes the fresh-session first win explicit: store one real project decision over stdio, close the first process/session, and recall the same decision and reason from a fresh one.
+- Makes Python MCP SDK compatibility policy `mcp>=2.0.0,<3`, with floor and latest-supported 2.x jobs feeding the stable `CI success` gate.
+- Adds bounded 20-writer/100-cycle MCP reliability proof to the compatibility lanes.
+- Preserves legacy Python MCP client and TypeScript MCP client interoperability checks.
+- Documents one canonical SQLite/WAL authority host plus a remote adapter; network-shared WAL remains rejected and PostgreSQL remains deferred.
+- Distinguishes committed-but-unacknowledged writes from SQLite transaction atomicity in the multi-machine failure model.
+- Narrows public validation error handling so unexpected internal `ValueError`s are not blindly exposed as model-correctable `ToolError` text.
+- Makes the Windows first-win liveness check non-destructive with `OpenProcess(SYNCHRONIZE)` plus `WaitForSingleObject(handle, 0)`; POSIX retains `os.kill(pid, 0)`.
+- Keeps durable schema v12, exactly 17 public MCP tools, the frozen public tool-schema digest, and no automatic learning.
+
+See [v0.33.0 announcement](docs/v0.33.0-announcement.md), [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md), and [cross-machine authority ADR](docs/adr/0001-cross-machine-authority.md).
+
 ## v0.32.2 — Governed Project Memory
 
 - Repositions the public product story around turning scattered project context into governed memory across sessions, tools, and time.
@@ -19,22 +33,6 @@ This document records the durable capability milestones in Agent Memory Bridge (
 - Keeps runtime behavior, schema v12, the frozen 17-tool MCP surface, public tool-schema digest, and existing authority boundaries unchanged.
 
 See [v0.32.2 announcement](docs/v0.32.2-announcement.md) for the release contract and [Production Status](docs/PRODUCTION-STATUS.md) for current-source facts.
-
-## v0.33.0 source candidate — Operationalization (unreleased)
-
-This is an unreleased source candidate. Package/source identity remains `0.32.2` until an explicit release cut.
-
-- Decouples core release CI from README presentation copy so tagline and heading changes do not fail the OS/Python test matrix.
-- Adds an automated first-win proof: store a project decision over stdio process A, terminate A, recall it from a fresh stdio process B against the same isolated home.
-- Rewrites onboarding so the first win is a fresh coding-agent session recall, not CLI Explore/Inspect.
-- README Quick Start names this checkout as the unreleased v0.33 candidate and installs from source; published package identity remains `0.32.2`.
-- Replaces the exact `mcp==2.0.0` pin with evidence-backed `mcp>=2.0.0,<3`. Floor and latest 2.x jobs feed the stable `CI success` aggregate gate.
-- Records the multi-machine authority topology: one canonical SQLite/WAL host plus a remote adapter; network-shared WAL is rejected; PostgreSQL is deferred.
-- Distinguishes current-source MCP 2.x policy from the historical 0.26.1 denominator, treats committed-but-unacked writes as possible, and keeps unexpected internal ValueErrors off the public ToolError path.
-- First-win Windows process liveness uses `OpenProcess` plus `WaitForSingleObject(0)`: an open handle is not proof the process is still running.
-- Keeps schema v12, exactly 17 public MCP tools, and no automatic learning.
-
-See [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md), and [cross-machine authority ADR](docs/adr/0001-cross-machine-authority.md). External coding-client first-win remains separately observed.
 
 ## v0.32.1 — PyPI Distribution
 
@@ -99,6 +97,7 @@ See [v0.32.1 announcement](docs/v0.32.1-announcement.md) for the distribution co
 | v0.32.0 source/release line | **Project Learning UX** | Human-first Explore separates CODE / WHAT from CONVERSATION / WHY, while `project init` provides explicit, fail-closed onboarding and refreshes derived WHAT without modifying governed WHY. | [v0.32.0 announcement](docs/v0.32.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) |
 | v0.32.1 source/release line | **PyPI Distribution** | The release line adds a PyPI install path and release-triggered Trusted Publishing without changing runtime behavior, schema, public MCP surface, or authority boundaries. | [v0.32.1 announcement](docs/v0.32.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.32.2 source/release line | **Governed Project Memory** | Repositions AMB around governed project memory, synchronizes the new hero and bilingual README story, and makes install-versus-client-registration boundaries explicit without changing runtime behavior or authority. | [v0.32.2 announcement](docs/v0.32.2-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
+| v0.33.0 source/release line | **Operationalization** | Fresh-session first-win evidence, MCP 2.x floor/latest gates, cross-platform liveness semantics, public/internal error separation, and single-authority multi-machine guidance strengthen release and operational confidence without expanding durable authority. | [v0.33.0 announcement](docs/v0.33.0-announcement.md), [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md) |
 
 ## Historical Evidence Retained in the Repository
 
@@ -113,5 +112,6 @@ The following versioned documents remain because they are a detailed reproducibi
 | [v0.32.0 announcement](docs/v0.32.0-announcement.md) | Canonical release-notes artifact for Project Learning UX, Human-first Explore, and Project Init. |
 | [v0.32.1 announcement](docs/v0.32.1-announcement.md) | Canonical release-notes artifact for the PyPI distribution path and Trusted Publishing boundary. |
 | [v0.32.2 announcement](docs/v0.32.2-announcement.md) | Canonical release-notes artifact for governed project-memory positioning and explicit client-registration onboarding. |
+| [v0.33.0 announcement](docs/v0.33.0-announcement.md) | Canonical release-notes artifact for v0.33 operationalization and release evidence. |
 
 The retained historical documents describe their own snapshots. They do not establish current version, CI, release, or product-status facts.

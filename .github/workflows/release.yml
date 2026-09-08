@@ -16,14 +16,14 @@ jobs:
 
     steps:
       - name: Check out release source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.release.tag_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Verify release tag matches package version
         shell: bash
@@ -50,6 +50,24 @@ jobs:
 
       - name: Verify distributions
         run: python -m twine check dist/*
+
+      - name: Verify installed wheel over stdio
+        run: |
+          python -m venv "$RUNNER_TEMP/amb-wheel-venv"
+          "$RUNNER_TEMP/amb-wheel-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/amb-wheel-venv/bin/python" -m pip install dist/*.whl
+          python scripts/check_installed_distribution.py \
+            --server-python "$RUNNER_TEMP/amb-wheel-venv/bin/python" \
+            --expected-version "${GITHUB_REF_NAME#v}"
+
+      - name: Verify installed sdist over stdio
+        run: |
+          python -m venv "$RUNNER_TEMP/amb-sdist-venv"
+          "$RUNNER_TEMP/amb-sdist-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/amb-sdist-venv/bin/python" -m pip install dist/*.tar.gz
+          python scripts/check_installed_distribution.py \
+            --server-python "$RUNNER_TEMP/amb-sdist-venv/bin/python" \
+            --expected-version "${GITHUB_REF_NAME#v}"
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-bridge"
-version = "0.32.2"
+version = "0.33.0"
 description = "Governed project memory for AI coding agents across sessions and tools"
 readme = "README.md"
 license = "MIT"

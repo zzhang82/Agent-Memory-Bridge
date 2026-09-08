@@ -37,10 +37,10 @@ Treat the printed value as local configuration data. Do not commit it to this
 repository or include it in an issue report. In a POSIX shell, shell-quote the
 path when needed. In Windows PowerShell, invoke it as `& "<venv-python>"`.
 
-Current package/source version is `0.32.2`. Install the release package with:
+Current package/source version is `0.33.0`. Install the release package with:
 
 ```text
-<venv-python> -m pip install agent-memory-bridge==0.32.2
+<venv-python> -m pip install agent-memory-bridge==0.33.0
 <venv-python> -m agent_mem_bridge doctor
 <venv-python> -m agent_mem_bridge verify
 ```
@@ -98,7 +98,7 @@ to confirm the server connects and exposes the documented 17-tool public
 surface. That client registration check is the gate that proves the config was
 loaded.
 
-The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.32.2`; for live release availability, consult GitHub Releases.
+The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. The current source/package line is `0.33.0`; for live release availability, consult GitHub Releases.
 
 ## Optional `uvx` Shortcut
 
@@ -147,7 +147,7 @@ retrieval subject, and caller-declared client or session labels cannot create
 additional votes. Feedback remains shadow-only: it does not mutate memories,
 indexes, recall results, or ranking behavior.
 
-For explicit episode evidence in the current `0.32.2` source, use
+For explicit episode evidence in the current `0.33.0` source, use
 `begin_run(...)` to obtain server-minted run/work-item handles, then use
 `record_run_event(...)`, `get_run(...)`, and `complete_run(...)`. These calls
 create durable run, event, and outcome authority. Schema v12 retains
