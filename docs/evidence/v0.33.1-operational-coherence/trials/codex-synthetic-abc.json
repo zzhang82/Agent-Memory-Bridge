@@ -1,0 +1,1066 @@
+{
+  "schema": "amb.semantic-memory-trials.v1",
+  "version": 1,
+  "host": "codex",
+  "runtime": "synthetic-codex",
+  "source_version": "0.33.1",
+  "policy": {
+    "version": "canonical-policy-v1",
+    "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+  },
+  "cases": [
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-explicit-prior-decision",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:positive-explicit-prior-decision"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-fresh-session-continuation",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:positive-fresh-session-continuation"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-constraint-shaped-architecture",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:positive-constraint-shaped-architecture"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-repeated-gotcha",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:positive-repeated-gotcha"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-indirect-history-reference",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:positive-indirect-history-reference"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-cross-client-continuation",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:positive-cross-client-continuation"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-stale-superseded",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:governance-stale-superseded"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-live-evidence-conflict",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:governance-live-evidence-conflict"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-no-relevant-memory",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:governance-no-relevant-memory"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-amb-unavailable",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "not_used",
+      "tool": "unavailable",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:governance-amb-unavailable"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "negative-isolated-typo-fix",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:negative-isolated-typo-fix"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "negative-deterministic-lint-edit",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:A:negative-deterministic-lint-edit"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "arm": "A",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_repeat",
+      "adapter": "not_used",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": true,
+      "evidence_refs": [
+        "synthetic:A:negative-recall-sufficient-no-repeat"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-explicit-prior-decision",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:positive-explicit-prior-decision"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-fresh-session-continuation",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:positive-fresh-session-continuation"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-constraint-shaped-architecture",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:positive-constraint-shaped-architecture"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-repeated-gotcha",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:positive-repeated-gotcha"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-indirect-history-reference",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:positive-indirect-history-reference"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-cross-client-continuation",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:positive-cross-client-continuation"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-stale-superseded",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:governance-stale-superseded"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-live-evidence-conflict",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:governance-live-evidence-conflict"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-no-relevant-memory",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "no_relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:governance-no-relevant-memory"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-amb-unavailable",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "recall_or_report_unavailable",
+      "adapter": "applied",
+      "tool": "unavailable",
+      "invocation": "unavailable",
+      "result": "not_applicable",
+      "current_evidence": "checked",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": "tool_unavailable",
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:governance-amb-unavailable"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "negative-isolated-typo-fix",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:negative-isolated-typo-fix"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "negative-deterministic-lint-edit",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:B:negative-deterministic-lint-edit"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "arm": "B",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": null,
+        "sha256": null
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_repeat",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": true,
+      "evidence_refs": [
+        "synthetic:B:negative-recall-sufficient-no-repeat"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-explicit-prior-decision",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:positive-explicit-prior-decision"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-fresh-session-continuation",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:positive-fresh-session-continuation"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-constraint-shaped-architecture",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:positive-constraint-shaped-architecture"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-repeated-gotcha",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:positive-repeated-gotcha"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-indirect-history-reference",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:positive-indirect-history-reference"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "positive-cross-client-continuation",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "applied",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:positive-cross-client-continuation"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-stale-superseded",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "recall_and_reconcile",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "stale_or_conflicting",
+      "current_evidence": "checked",
+      "memory_use": "rejected",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:governance-stale-superseded"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-live-evidence-conflict",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "recall_and_reconcile",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "stale_or_conflicting",
+      "current_evidence": "checked",
+      "memory_use": "rejected",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:governance-live-evidence-conflict"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-no-relevant-memory",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "must_recall_then_no_hit",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "recalled",
+      "result": "no_relevant_hit",
+      "current_evidence": "checked",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:governance-no-relevant-memory"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "governance-amb-unavailable",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "recall_or_report_unavailable",
+      "adapter": "applied",
+      "tool": "unavailable",
+      "invocation": "unavailable",
+      "result": "not_applicable",
+      "current_evidence": "checked",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 1,
+      "failure_class": "tool_unavailable",
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:governance-amb-unavailable"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "negative-isolated-typo-fix",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:negative-isolated-typo-fix"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "negative-deterministic-lint-edit",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_recall",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": null,
+      "evidence_refs": [
+        "synthetic:C:negative-deterministic-lint-edit"
+      ]
+    },
+    {
+      "schema": "amb.semantic-memory-invocation.v1",
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "arm": "C",
+      "host": "codex",
+      "runtime": "synthetic-codex",
+      "source_version": "0.33.1",
+      "policy": {
+        "version": "canonical-policy-v1",
+        "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+      },
+      "trace": "observed",
+      "policy_decision": "do_not_repeat",
+      "adapter": "applied",
+      "tool": "available",
+      "invocation": "not_recalled",
+      "result": "not_applicable",
+      "current_evidence": "not_needed",
+      "memory_use": "not_applicable",
+      "task_outcome": "pass",
+      "amb_calls": 0,
+      "failure_class": null,
+      "prior_recall_sufficient": true,
+      "evidence_refs": [
+        "synthetic:C:negative-recall-sufficient-no-repeat"
+      ]
+    }
+  ]
+}

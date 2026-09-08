@@ -15,7 +15,7 @@
     "script_referenced",
     "source_distribution_retained"
   ],
-  "module_count": 100,
+  "module_count": 103,
   "modules": [
     {
       "module": "__init__",
@@ -156,6 +156,10 @@
     {
       "module": "index_health",
       "primary_class": "runtime_required"
+    },
+    {
+      "module": "invocation_evidence",
+      "primary_class": "cli_runtime"
     },
     {
       "module": "learning_candidates",
@@ -318,6 +322,14 @@
       "primary_class": "runtime_required"
     },
     {
+      "module": "semantic_eval",
+      "primary_class": "cli_runtime"
+    },
+    {
+      "module": "semantic_policy",
+      "primary_class": "cli_runtime"
+    },
+    {
       "module": "server",
       "primary_class": "runtime_required"
     },
@@ -439,7 +451,7 @@
     "v021_governed_change_proof"
   ],
   "primary_class_counts": {
-    "cli_runtime": 7,
+    "cli_runtime": 10,
     "compatibility_required": 2,
     "development_only": 14,
     "historical_release_evidence": 6,

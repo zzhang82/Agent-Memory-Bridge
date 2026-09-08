@@ -24,6 +24,25 @@ the engine gets more expressive.
 - `python ./scripts/run_task_brief_benchmark.py`
 - `python ./scripts/run_v019_adoption_proof.py`
 - `python ./scripts/run_v020_clean_room_proof.py`
+- `python ./scripts/run_semantic_invocation_eval.py`
+
+## Semantic Invocation Evaluation
+
+The frozen v0.33.1 invocation evaluation is defined by
+`semantic-invocation-v1.json` and the hashed
+`semantic-invocation-rubric-v1.md`. Run it with:
+
+```bash
+python ./scripts/run_semantic_invocation_eval.py \\
+  --output docs/evidence/v0.33.1-operational-coherence/semantic-invocation-eval-report.json
+```
+
+The report is a sanitized evidence view. It records policy, adapter, tool,
+invocation, retrieval, current-evidence, and bounded memory-use states without
+capturing prompts, transcripts, recall tokens, memory bodies, or hidden
+reasoning. The default no-evidence run keeps every host trial
+`NOT RUN / UNOBSERVED`; it must not be read as a cross-host PASS or as proof
+that the policy outperforms the one-sentence baseline.
 
 ## Planning Manifests
 

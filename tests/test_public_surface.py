@@ -48,6 +48,7 @@ def test_public_surface_check_repository_passes() -> None:
         str(Path("examples/diagrams/amb-overview.svg")),
         str(Path("examples/diagrams/v0.22-shared-memory-hero.png")),
         str(Path("llms-install.md")),
+        str(Path("docs/SEMANTIC-MEMORY-POLICY.md")),
     }.issubset(set(report["checked_files"]))
 
 
@@ -64,6 +65,7 @@ def test_public_surface_keeps_only_retained_versioned_history() -> None:
         Path("docs/v0.31.1-announcement.md"),
         Path("docs/v0.32.0-announcement.md"),
         Path("docs/v0.32-release-proof.md"),
+        Path("docs/v0.33.1-announcement.md"),
     }
 
 

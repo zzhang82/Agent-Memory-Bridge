@@ -20,16 +20,32 @@ PUBLIC_ONBOARDING_FILES = (
     Path("config.example.toml"),
     Path("benchmark/README.md"),
     Path("docs/CONFIGURATION.md"),
-    Path("docs/HARNESS-DESIGN.md"),
     Path("docs/INTEGRATIONS.md"),
+    Path("docs/SEMANTIC-MEMORY-POLICY.md"),
     Path("examples/README.md"),
 )
 
 README_LINKS = ("docs/INTEGRATIONS.md",)
-VERSIONED_INSTALL_GUIDES = (
-    Path("INSTALL_FOR_AGENTS.md"),
-    Path("llms-install.md"),
-    Path("llms.txt"),
+VERSIONED_INSTALL_GUIDES = (Path("INSTALL_FOR_AGENTS.md"),)
+
+COMPACT_ONBOARDING_SURFACES = {
+    Path("llms-install.md"): (
+        "canonical agent-readable install and first-use guide",
+        "INSTALL_FOR_AGENTS.md",
+    ),
+    Path("llms.txt"): (
+        "Map:",
+        "INSTALL_FOR_AGENTS.md",
+        "docs/INTEGRATIONS.md",
+        "docs/SEMANTIC-MEMORY-POLICY.md",
+    ),
+}
+
+COMPACT_ONBOARDING_FORBIDDEN_MARKERS = (
+    "pip install",
+    "archive/refs/tags",
+    "agent-memory-bridge doctor",
+    "agent-memory-bridge verify",
 )
 
 BLOCKED_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
@@ -250,13 +266,15 @@ def _versioned_install_tool_surface_check(project_root: Path) -> dict[str, Any]:
             "skipped": "pyproject.toml is absent",
         }
 
-    release_install_tool_count_value = release_install_tool_count(PINNED_INSTALL_VERSION)
     package_version = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))["project"]["version"]
+    release_install_tool_count_value = release_install_tool_count(PINNED_INSTALL_VERSION)
     source_tool_count = release_install_tool_count(str(package_version))
     expected_markers = [
-        f"The historical `v{PINNED_INSTALL_VERSION}` release-install route exposed "
-        f"`{release_install_tool_count_value}` public MCP tools at client registration.",
         RELEASE_INSTALL_GATE_NOTE,
+        f"<venv-python> -m pip install agent-memory-bridge=={package_version}",
+        "<venv-python> -m pip install -e .",
+        "17 public MCP tools",
+        "schema v12",
     ]
 
     missing: list[dict[str, Any]] = []
@@ -269,6 +287,23 @@ def _versioned_install_tool_surface_check(project_root: Path) -> dict[str, Any]:
         missing_markers = [marker for marker in expected_markers if marker not in text]
         if missing_markers:
             missing.append({"path": str(relative_path), "markers": missing_markers})
+
+    for relative_path, required_markers in COMPACT_ONBOARDING_SURFACES.items():
+        path = project_root / relative_path
+        if not path.exists():
+            missing.append({"path": str(relative_path), "markers": list(required_markers)})
+            continue
+        text = path.read_text(encoding="utf-8")
+        missing_markers = [marker for marker in required_markers if marker not in text]
+        forbidden_markers = [marker for marker in COMPACT_ONBOARDING_FORBIDDEN_MARKERS if marker in text]
+        if missing_markers or forbidden_markers:
+            missing.append(
+                {
+                    "path": str(relative_path),
+                    "markers": missing_markers,
+                    "forbidden_markers": forbidden_markers,
+                }
+            )
 
     return {
         "name": "versioned_install_tool_surface_is_explicit",

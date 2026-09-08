@@ -6,21 +6,21 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.33.0` |
+| Package/source version | `0.33.1` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
 | Runtime model | Local stdio MCP over SQLite/WAL; FTS5 and optional local embeddings are derived indexes |
 
-Current source test collection: `1059 tests`
+Current source test collection: `1073 tests`
 
 > A tag is not a GitHub Release, and live CI or package-index state is not host certification, a distribution guarantee, or a productivity result. Installation guidance retains explicit publication and source-checkout gates.
 
 ## Distribution Status
 
-The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.33.0` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. Live PyPI package availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.33.1` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. Live PyPI package availability is external state and is not asserted by this checked-in document.
 
-The `0.33.0` release operationalizes the existing product boundary: fresh-session first-win evidence, MCP 2.x floor/latest compatibility gates, cross-platform process-liveness validation, clearer public error semantics, and a documented single-authority multi-machine topology. It keeps durable schema v12, exactly 17 public MCP tools, and the no-automatic-learning boundary.
+The `0.33.1` patch keeps the v0.33 operational line: one canonical semantic memory-use policy, thin Codex/OpenCode/generic host renderers, bounded invocation evaluation, and a smaller active documentation surface. It keeps durable schema v12, exactly 17 public MCP tools, and the no-automatic-learning boundary.
 
 ## Historical Tag Reference
 
@@ -29,6 +29,10 @@ The `v0.27.4` tag identifies the historical source snapshot `e8210cb204e501650a5
 The `v0.28.0` tag identifies the historical release merge snapshot `c6e3568a59852c5b589d6aba00b89ab580c228e6`. This is a stable historical release fact, not a claim about the current source head or current publication state.
 
 ## Implemented Capability Summary
+
+### v0.33.1 operational coherence
+
+V0.33.1 adds a portable semantic memory-use policy and thin host renderers without changing durable authority. The policy tells a host when prior project context can materially affect the next decision. Codex and OpenCode adapters place a reviewed instruction block; they do not become a host runtime, classifier, or automatic writeback path. Frozen evaluation distinguishes policy miss, host miss, retrieval miss, memory misuse, and tool unavailability. The checked-in sanitized report under `docs/evidence/v0.33.1-operational-coherence/` has zero observed host trials, so Codex and OpenCode remain `NOT RUN / UNOBSERVED` and no cross-host superiority claim is made.
 
 ### v0.33 operationalization
 

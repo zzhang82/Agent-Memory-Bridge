@@ -8,26 +8,25 @@ and development path.
 Use it as an agent-readable setup protocol. Do not treat it as a runtime,
 watcher, scheduler, or hosted service.
 
-For the shortest procedure, start with [`llms-install.md`](llms-install.md).
+This is the canonical detailed install and first-use procedure. The compact
+[`llms-install.md`](llms-install.md) file is a compatibility pointer and map.
 
 ## What You Are Installing
 
 Agent Memory Bridge is a local-first stdio MCP server for reusable engineering
 memory and lightweight coordination.
 
-Current package/source version is `0.33.0`. The current source/package line exposes 17 public MCP tools and includes the read-only Knowledge Explorer CLI. The pinned `v0.27.0` release is a historical published baseline with the same public surface:
+Current package/source version is `0.33.1`. The current source/package line exposes 17 public MCP tools and includes the read-only Knowledge Explorer CLI.
 
 - `store`, `recall`, `browse`, `stats`, `export`
 - `forget`, `feedback`, `promote`, `annotate`, `revise`
 - `begin_run`, `record_run_event`, `get_run`, `complete_run`
 - `claim_signal`, `extend_signal_lease`, `ack_signal`
 
-The historical `v0.27.0` release-install route exposed `17` public MCP tools at client registration. Its historical archive URL was `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.27.0.zip`.
-
-The current source/package line is `0.33.0`. Install the release package with
-`<venv-python> -m pip install agent-memory-bridge==0.33.0`. Use a source checkout
+The current source/package line is `0.33.1`. Install the release package with
+`<venv-python> -m pip install agent-memory-bridge==0.33.1`. Use a source checkout
 with `<venv-python> -m pip install -e .` when evaluating an exact checkout.
-Published source releases and pinned archives are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases); the published v0.30.0 source archive remains `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
+Published source releases and package availability are listed in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases) and PyPI.
 
 Startup and task-time context assembly are derived views over those records.
 There are no separate `startup_packet`, `task_packet`, or Task Brief MCP tools.
@@ -38,7 +37,7 @@ current effective vote per receipt-bound subject. It remains shadow-only and
 does not change memory records, recall results, or ranking behavior.
 
 Run tools create explicit server-minted handles and append bounded episode
-evidence. The current 0.33.0 source/package line uses schema v12 with the implemented Knowledge Explorer over existing governed-v2
+evidence. The current 0.33.1 source/package line uses schema v12 with the implemented Knowledge Explorer over existing governed-v2
 episode authority plus an internal exact-key Dynamic State lane. Dynamic State
 uses typed status/owner/restore commands, version/database-epoch guards,
 lifecycle idempotency, immutable mutation/request-outcome history, and a
@@ -113,8 +112,7 @@ when their runtime prerequisites are available.
 
 ## Safe Install Path
 
-1. Inspect `llms-install.md`, `docs/INTEGRATIONS.md`, and
-   `docs/CONFIGURATION.md`.
+1. Inspect `docs/INTEGRATIONS.md` and `docs/CONFIGURATION.md`.
 2. Use the available Python 3.11+ launcher. Examples use `python`; on many
    Linux systems use `python3`; on Windows `py -3` may be appropriate. Create
    an isolated environment:
@@ -123,11 +121,15 @@ when their runtime prerequisites are available.
    python -m venv .amb-venv
    ```
 
-3. Derive the venv interpreter as described in `llms-install.md`, then install
-   the current release with `<venv-python> -m pip install agent-memory-bridge==0.33.0`.
+3. Derive the venv interpreter without assuming a Windows or POSIX layout:
+
+   ```bash
+   python -c "import os; from pathlib import Path; print((Path('.amb-venv') / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')).absolute())"
+   ```
+
+   Treat the printed path as `<venv-python>`, then install
+   the current release with `<venv-python> -m pip install agent-memory-bridge==0.33.1`.
    For an exact source checkout, use `<venv-python> -m pip install -e .`.
-   The published v0.30.0 source archive remains
-   `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
 4. Choose one persistent bridge home directory owned by the human and use it in
    every pilot client config.
 5. Render a real config fragment for the approved client before writing it:

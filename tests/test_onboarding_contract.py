@@ -21,9 +21,6 @@ def test_onboarding_contract_repository_passes() -> None:
     assert report["ok"] is True, json.dumps(report, indent=2, ensure_ascii=False)
 
     package_version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
-    release_install_archive_ref = f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip"
-    source_archive_ref = f"archive/refs/tags/v{package_version}.zip"
-    release_install_tool_count_value = release_install_tool_count(PINNED_INSTALL_VERSION)
     is_version_mismatch = package_version != PINNED_INSTALL_VERSION
     guide_paths = (
         Path("INSTALL_FOR_AGENTS.md"),
@@ -39,22 +36,30 @@ def test_onboarding_contract_repository_passes() -> None:
         assert ".venv/bin/python" not in content, path
 
     assert package_version == RELEASE_VERSION
-    assert release_install_archive_ref in GITHUB_ARCHIVE_URL
+    assert f"archive/refs/tags/v{PINNED_INSTALL_VERSION}.zip" in GITHUB_ARCHIVE_URL
     if is_version_mismatch:
-        assert source_archive_ref not in GITHUB_ARCHIVE_URL
+        assert f"archive/refs/tags/v{package_version}.zip" not in GITHUB_ARCHIVE_URL
     else:
-        assert source_archive_ref in GITHUB_ARCHIVE_URL
-    for path in (Path("INSTALL_FOR_AGENTS.md"), Path("llms-install.md"), Path("llms.txt")):
-        content = " ".join(guides[path].split())
-        assert release_install_archive_ref in content, path
-        assert (
-            f"The historical `v{PINNED_INSTALL_VERSION}` release-install route exposed "
-            f"`{release_install_tool_count_value}` public MCP tools at client registration." in content
-        ), path
-        assert RELEASE_INSTALL_GATE_NOTE in content, path
-        assert "candidate" not in content.casefold(), path
-        assert "not yet tagged" not in content.casefold(), path
-        assert "not yet published" not in content.casefold(), path
+        assert f"archive/refs/tags/v{package_version}.zip" in GITHUB_ARCHIVE_URL
+    detailed = " ".join(guides[Path("INSTALL_FOR_AGENTS.md")].split())
+    assert RELEASE_INSTALL_GATE_NOTE in detailed
+    assert f"<venv-python> -m pip install agent-memory-bridge=={package_version}" in detailed
+    assert "<venv-python> -m pip install -e ." in detailed
+    assert "schema v12" in detailed
+    assert "17 public MCP tools" in detailed
+    assert "archive/refs/tags" not in detailed
+    assert "candidate" not in detailed.casefold()
+    assert "not yet tagged" not in detailed.casefold()
+    assert "not yet published" not in detailed.casefold()
+    pointer = guides[Path("llms-install.md")]
+    assert "canonical agent-readable install and first-use guide" in pointer
+    assert "INSTALL_FOR_AGENTS.md" in pointer
+    assert "pip install" not in pointer
+    navigation = guides[Path("llms.txt")]
+    assert "Map:" in navigation
+    assert "docs/SEMANTIC-MEMORY-POLICY.md" in navigation
+    assert "pip install" not in navigation
+    assert "archive/refs/tags" not in navigation
     assert "<venv-python> -m agent_mem_bridge doctor" in guides[Path("docs/INTEGRATIONS.md")]
     assert "<venv-python> -m agent_mem_bridge verify" in guides[Path("docs/INTEGRATIONS.md")]
 
@@ -89,13 +94,21 @@ def test_doctor_and_verify_do_not_claim_external_client_configuration_loaded() -
 
 def test_onboarding_contract_requires_source_checkout_wording_for_version_mismatch(tmp_path: Path) -> None:
     source_version = "0.29.0"
-    route_marker = (
-        f"The historical `v{PINNED_INSTALL_VERSION}` release-install route exposed "
-        "`17` public MCP tools at client registration."
-    )
     (tmp_path / "pyproject.toml").write_text(f'[project]\nversion = "{source_version}"\n', encoding="utf-8")
     for path in onboarding_contract.VERSIONED_INSTALL_GUIDES:
-        (tmp_path / path).write_text(f"{route_marker}\n{RELEASE_INSTALL_GATE_NOTE}\n", encoding="utf-8")
+        (tmp_path / path).write_text(
+            f"{RELEASE_INSTALL_GATE_NOTE}\n"
+            f"<venv-python> -m pip install agent-memory-bridge=={source_version}\n"
+            "<venv-python> -m pip install -e .\n"
+            "17 public MCP tools\nschema v12\n",
+            encoding="utf-8",
+        )
+    (tmp_path / "llms-install.md").write_text(
+        "canonical agent-readable install and first-use guide: INSTALL_FOR_AGENTS.md\n", encoding="utf-8"
+    )
+    (tmp_path / "llms.txt").write_text(
+        "Map: INSTALL_FOR_AGENTS.md docs/INTEGRATIONS.md docs/SEMANTIC-MEMORY-POLICY.md\n", encoding="utf-8"
+    )
 
     report = onboarding_contract._versioned_install_tool_surface_check(tmp_path)
 
@@ -119,8 +132,8 @@ def test_onboarding_contract_flags_leaked_local_paths(tmp_path: Path) -> None:
     )
     (tmp_path / "benchmark" / "README.md").write_text("python ./scripts/run_benchmark.py\n", encoding="utf-8")
     (tmp_path / "docs" / "CONFIGURATION.md").write_text("ok\n", encoding="utf-8")
-    (tmp_path / "docs" / "HARNESS-DESIGN.md").write_text("ok\n", encoding="utf-8")
     (tmp_path / "docs" / "INTEGRATIONS.md").write_text("ok\n", encoding="utf-8")
+    (tmp_path / "docs" / "SEMANTIC-MEMORY-POLICY.md").write_text("ok\n", encoding="utf-8")
     (tmp_path / "examples" / "README.md").write_text("ok\n", encoding="utf-8")
 
     report = run_onboarding_contract_check(tmp_path)
@@ -148,8 +161,8 @@ def test_onboarding_contract_flags_windows_style_relative_commands(tmp_path: Pat
     )
     (tmp_path / "benchmark" / "README.md").write_text("python ./scripts/run_benchmark.py\n", encoding="utf-8")
     (tmp_path / "docs" / "CONFIGURATION.md").write_text("ok\n", encoding="utf-8")
-    (tmp_path / "docs" / "HARNESS-DESIGN.md").write_text("ok\n", encoding="utf-8")
     (tmp_path / "docs" / "INTEGRATIONS.md").write_text("ok\n", encoding="utf-8")
+    (tmp_path / "docs" / "SEMANTIC-MEMORY-POLICY.md").write_text("ok\n", encoding="utf-8")
     (tmp_path / "examples" / "README.md").write_text("ok\n", encoding="utf-8")
 
     report = run_onboarding_contract_check(tmp_path)
@@ -178,8 +191,8 @@ def test_onboarding_contract_flags_codex_specific_docker_defaults(tmp_path: Path
     )
     (tmp_path / "benchmark" / "README.md").write_text("python ./scripts/run_benchmark.py\n", encoding="utf-8")
     (tmp_path / "docs" / "CONFIGURATION.md").write_text("ok\n", encoding="utf-8")
-    (tmp_path / "docs" / "HARNESS-DESIGN.md").write_text("ok\n", encoding="utf-8")
     (tmp_path / "docs" / "INTEGRATIONS.md").write_text("ok\n", encoding="utf-8")
+    (tmp_path / "docs" / "SEMANTIC-MEMORY-POLICY.md").write_text("ok\n", encoding="utf-8")
     (tmp_path / "examples" / "README.md").write_text("ok\n", encoding="utf-8")
 
     report = run_onboarding_contract_check(tmp_path)

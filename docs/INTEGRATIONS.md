@@ -9,7 +9,7 @@ Agent Memory Bridge is a local-first stdio MCP server. The stable contract is:
 
 That means the generic stdio shape matters more than any one IDE's UI.
 
-The current source/package line is `0.33.0` with exactly 17 public MCP tools. The normal install route is `pip install agent-memory-bridge`; GitHub Releases remains the publication authority for source tags and release notes. Knowledge Explorer is a CLI-only, read-only derived projection over existing project knowledge; use a source checkout to evaluate an exact checkout and consult GitHub Releases for live publication availability.
+The current source/package line is `0.33.1` with exactly 17 public MCP tools. The normal install route is `pip install agent-memory-bridge`; GitHub Releases remains the publication authority for source tags and release notes. Knowledge Explorer is a CLI-only, read-only derived projection over existing project knowledge; use a source checkout to evaluate an exact checkout and consult GitHub Releases for live publication availability.
 Its schema digest is
 `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8`.
 Schema v12 retains governed-v2 receipts, typed event/CAS rules, one-snapshot
@@ -18,10 +18,8 @@ Dynamic State release lane. Dynamic State uses typed commands, version/database-
 epoch guards, lifecycle idempotency, immutable history, and rebuildable heads;
 it adds no MCP tool and does not alter client integration behavior. Watcher
 continuity uses incremental cursors, explicit close, and explicit continuation.
-Utility and consolidation remain shadow-only. The pinned `v0.27.0` route is a
-historical published baseline. Published release availability is listed in
-GitHub Releases; the published v0.30.0 source archive is
-`https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`.
+Utility and consolidation remain shadow-only. Published release availability is
+listed in GitHub Releases and PyPI.
 
 ## Status Labels
 
@@ -109,7 +107,7 @@ After the client registration gate passes, use `store(...)` and `recall(...)` as
 MCP tool calls through that configured client, not as terminal subcommands.
 
 For a GitHub-source install that does not assume `uv`, follow
-[`llms-install.md`](../llms-install.md), derive the isolated venv interpreter,
+[`INSTALL_FOR_AGENTS.md`](../INSTALL_FOR_AGENTS.md), derive the isolated venv interpreter,
 and use that value as the stdio command. `uvx` is an optional shortcut only.
 
 ### Static-schema placeholders
@@ -123,6 +121,35 @@ to strip them before calling the tools.
 That compatibility does not merge the memory and signal lanes. Non-empty signal
 lifecycle values are not applied to `kind="memory"`; they remain valid only on
 `kind="signal"` paths, and lower-level store/repository behavior stays strict.
+
+### Semantic memory invocation policy
+
+MCP registration makes AMB available; it does not tell a host when project
+history matters. AMB v0.33.1 provides one canonical, host-neutral semantic
+policy for that decision. Render a reviewed block for the host you are using:
+
+```bash
+<venv-python> -m agent_mem_bridge memory-policy --host codex
+<venv-python> -m agent_mem_bridge memory-policy --host opencode
+<venv-python> -m agent_mem_bridge memory-policy --host generic
+```
+
+The Codex and OpenCode renderers differ only in placement metadata. Put the
+reviewed Markdown block in the project-root `AGENTS.md`; check Codex for a
+deliberate `AGENTS.override.md` and check OpenCode for an explicitly configured
+instruction file before placing it. Keep MCP registration in the host's native
+config. The command is manual/export-first, refuses to overwrite an existing
+output file, and cannot prove that a host loaded the block or chose to call
+`recall`.
+
+The policy recalls when an earlier project decision, constraint, failure,
+gotcha, handoff, or project-specific rationale could materially affect the
+next action. It permits a bounded recall for large choices or ambiguity, and
+avoids recall for trivial deterministic edits, tool/skill use by itself, or a
+sufficient recent result. A successful empty recall is different from an
+unavailable tool. Lifecycle, authority, relevance, and current repository
+evidence still govern whether recalled guidance is used. See the [canonical
+policy](SEMANTIC-MEMORY-POLICY.md) for the exact version and boundary.
 
 ### Two-Client Activation Receipt
 
@@ -288,6 +315,11 @@ AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT = "stdio"
 You can also manage Codex MCP servers from the `codex mcp` CLI, but the static
 TOML example above is the most direct bridge-side shape.
 
+For the semantic invocation block, render `memory-policy --host codex` and
+review it into the project instruction file. The renderer does not alter
+`config.toml`, and a loaded MCP server is not evidence that Codex made the
+correct recall decision.
+
 ## Claude Code
 
 Status: `Documented`
@@ -369,7 +401,7 @@ Status: `Documented`
 [Cline's MCP docs](https://docs.cline.bot/mcp/mcp-overview) use JSON
 `mcpServers` entries for local stdio servers and expose an MCP configuration UI
 and `cline mcp` wizard. An agent-led GitHub install should follow
-[`llms-install.md`](../llms-install.md), then add the derived interpreter and
+[`INSTALL_FOR_AGENTS.md`](../INSTALL_FOR_AGENTS.md), then add the derived interpreter and
 arguments below through Cline's approved config flow.
 
 ```json
@@ -452,6 +484,11 @@ intended user or project config:
   }
 }
 ```
+
+For the semantic invocation block, render `memory-policy --host opencode` and
+review it into the project-root `AGENTS.md` or the explicitly configured
+instruction surface. The renderer does not alter `opencode.json`; OpenCode
+loading and actual `recall` use require separate host evidence.
 
 ## Hermes
 

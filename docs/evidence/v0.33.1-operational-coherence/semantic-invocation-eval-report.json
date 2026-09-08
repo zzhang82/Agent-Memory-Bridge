@@ -1,0 +1,1261 @@
+{
+  "schema": "amb.semantic-invocation-evaluation.v1",
+  "version": 1,
+  "source_version": "0.33.1",
+  "policy": {
+    "version": "canonical-policy-v1",
+    "sha256": "4e2b343a03717300f65cd3c123bf641488c5279d7dad8290da7705b237c4ad3c"
+  },
+  "fixture": {
+    "schema": "amb.semantic-invocation-eval.v1",
+    "version": "1",
+    "baseline": {
+      "label": "v0.33.0",
+      "commit": "cb314ebbf96d48c13c0c298f6ac7273d701682f4"
+    },
+    "case_count": 13
+  },
+  "validation_errors": [],
+  "rows": [
+    {
+      "case_id": "positive-explicit-prior-decision",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-fresh-session-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-constraint-shaped-architecture",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-repeated-gotcha",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-indirect-history-reference",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-cross-client-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-stale-superseded",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-live-evidence-conflict",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-no-relevant-memory",
+      "case_class": "governance",
+      "expected_decision": "must_recall_then_no_hit",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-amb-unavailable",
+      "case_class": "governance",
+      "expected_decision": "recall_or_report_unavailable",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-isolated-typo-fix",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-deterministic-lint-edit",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_repeat",
+      "arm": "A",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-explicit-prior-decision",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-fresh-session-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-constraint-shaped-architecture",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-repeated-gotcha",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-indirect-history-reference",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-cross-client-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-stale-superseded",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-live-evidence-conflict",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-no-relevant-memory",
+      "case_class": "governance",
+      "expected_decision": "must_recall_then_no_hit",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-amb-unavailable",
+      "case_class": "governance",
+      "expected_decision": "recall_or_report_unavailable",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-isolated-typo-fix",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-deterministic-lint-edit",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_repeat",
+      "arm": "A",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-explicit-prior-decision",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-fresh-session-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-constraint-shaped-architecture",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-repeated-gotcha",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-indirect-history-reference",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-cross-client-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-stale-superseded",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-live-evidence-conflict",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-no-relevant-memory",
+      "case_class": "governance",
+      "expected_decision": "must_recall_then_no_hit",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-amb-unavailable",
+      "case_class": "governance",
+      "expected_decision": "recall_or_report_unavailable",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-isolated-typo-fix",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-deterministic-lint-edit",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_repeat",
+      "arm": "A",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-explicit-prior-decision",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-fresh-session-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-constraint-shaped-architecture",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-repeated-gotcha",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-indirect-history-reference",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-cross-client-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-stale-superseded",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-live-evidence-conflict",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-no-relevant-memory",
+      "case_class": "governance",
+      "expected_decision": "must_recall_then_no_hit",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-amb-unavailable",
+      "case_class": "governance",
+      "expected_decision": "recall_or_report_unavailable",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-isolated-typo-fix",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-deterministic-lint-edit",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_repeat",
+      "arm": "B",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-explicit-prior-decision",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-fresh-session-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-constraint-shaped-architecture",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-repeated-gotcha",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-indirect-history-reference",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-cross-client-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-stale-superseded",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-live-evidence-conflict",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-no-relevant-memory",
+      "case_class": "governance",
+      "expected_decision": "must_recall_then_no_hit",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-amb-unavailable",
+      "case_class": "governance",
+      "expected_decision": "recall_or_report_unavailable",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-isolated-typo-fix",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-deterministic-lint-edit",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_repeat",
+      "arm": "B",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-explicit-prior-decision",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-fresh-session-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-constraint-shaped-architecture",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-repeated-gotcha",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-indirect-history-reference",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-cross-client-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-stale-superseded",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-live-evidence-conflict",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-no-relevant-memory",
+      "case_class": "governance",
+      "expected_decision": "must_recall_then_no_hit",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-amb-unavailable",
+      "case_class": "governance",
+      "expected_decision": "recall_or_report_unavailable",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-isolated-typo-fix",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-deterministic-lint-edit",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_repeat",
+      "arm": "B",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-explicit-prior-decision",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-fresh-session-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-constraint-shaped-architecture",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-repeated-gotcha",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-indirect-history-reference",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-cross-client-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-stale-superseded",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-live-evidence-conflict",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-no-relevant-memory",
+      "case_class": "governance",
+      "expected_decision": "must_recall_then_no_hit",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-amb-unavailable",
+      "case_class": "governance",
+      "expected_decision": "recall_or_report_unavailable",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-isolated-typo-fix",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-deterministic-lint-edit",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_repeat",
+      "arm": "C",
+      "host": "codex",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-explicit-prior-decision",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-fresh-session-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-constraint-shaped-architecture",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-repeated-gotcha",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-indirect-history-reference",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-cross-client-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-stale-superseded",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-live-evidence-conflict",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-no-relevant-memory",
+      "case_class": "governance",
+      "expected_decision": "must_recall_then_no_hit",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-amb-unavailable",
+      "case_class": "governance",
+      "expected_decision": "recall_or_report_unavailable",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-isolated-typo-fix",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-deterministic-lint-edit",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_repeat",
+      "arm": "C",
+      "host": "opencode",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-explicit-prior-decision",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-fresh-session-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-constraint-shaped-architecture",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-repeated-gotcha",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-indirect-history-reference",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "positive-cross-client-continuation",
+      "case_class": "positive_recall",
+      "expected_decision": "must_recall",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-stale-superseded",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-live-evidence-conflict",
+      "case_class": "governance",
+      "expected_decision": "recall_and_reconcile",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-no-relevant-memory",
+      "case_class": "governance",
+      "expected_decision": "must_recall_then_no_hit",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "governance-amb-unavailable",
+      "case_class": "governance",
+      "expected_decision": "recall_or_report_unavailable",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-isolated-typo-fix",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-deterministic-lint-edit",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_recall",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    },
+    {
+      "case_id": "negative-recall-sufficient-no-repeat",
+      "case_class": "negative_control",
+      "expected_decision": "do_not_repeat",
+      "arm": "C",
+      "host": "generic",
+      "status": "NOT RUN / UNOBSERVED",
+      "reason": "No sanitized host evidence was supplied."
+    }
+  ],
+  "metrics": {
+    "A/codex": {
+      "observed": 0,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 0,
+      "not_run": 13,
+      "critical_recall_miss_rate": null,
+      "governance_safe_handling_rate": null,
+      "unnecessary_recall_rate": null,
+      "unsupported_memory_claim_count": 0,
+      "stale_or_superseded_misuse_count": 0,
+      "correct_memory_use_count": 0,
+      "task_outcome_pass_rate": null,
+      "amb_calls": 0,
+      "evidence_completeness": null,
+      "failure_class_counts": {},
+      "case_status": {}
+    },
+    "A/opencode": {
+      "observed": 0,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 0,
+      "not_run": 13,
+      "critical_recall_miss_rate": null,
+      "governance_safe_handling_rate": null,
+      "unnecessary_recall_rate": null,
+      "unsupported_memory_claim_count": 0,
+      "stale_or_superseded_misuse_count": 0,
+      "correct_memory_use_count": 0,
+      "task_outcome_pass_rate": null,
+      "amb_calls": 0,
+      "evidence_completeness": null,
+      "failure_class_counts": {},
+      "case_status": {}
+    },
+    "A/generic": {
+      "observed": 0,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 0,
+      "not_run": 13,
+      "critical_recall_miss_rate": null,
+      "governance_safe_handling_rate": null,
+      "unnecessary_recall_rate": null,
+      "unsupported_memory_claim_count": 0,
+      "stale_or_superseded_misuse_count": 0,
+      "correct_memory_use_count": 0,
+      "task_outcome_pass_rate": null,
+      "amb_calls": 0,
+      "evidence_completeness": null,
+      "failure_class_counts": {},
+      "case_status": {}
+    },
+    "B/codex": {
+      "observed": 0,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 0,
+      "not_run": 13,
+      "critical_recall_miss_rate": null,
+      "governance_safe_handling_rate": null,
+      "unnecessary_recall_rate": null,
+      "unsupported_memory_claim_count": 0,
+      "stale_or_superseded_misuse_count": 0,
+      "correct_memory_use_count": 0,
+      "task_outcome_pass_rate": null,
+      "amb_calls": 0,
+      "evidence_completeness": null,
+      "failure_class_counts": {},
+      "case_status": {}
+    },
+    "B/opencode": {
+      "observed": 0,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 0,
+      "not_run": 13,
+      "critical_recall_miss_rate": null,
+      "governance_safe_handling_rate": null,
+      "unnecessary_recall_rate": null,
+      "unsupported_memory_claim_count": 0,
+      "stale_or_superseded_misuse_count": 0,
+      "correct_memory_use_count": 0,
+      "task_outcome_pass_rate": null,
+      "amb_calls": 0,
+      "evidence_completeness": null,
+      "failure_class_counts": {},
+      "case_status": {}
+    },
+    "B/generic": {
+      "observed": 0,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 0,
+      "not_run": 13,
+      "critical_recall_miss_rate": null,
+      "governance_safe_handling_rate": null,
+      "unnecessary_recall_rate": null,
+      "unsupported_memory_claim_count": 0,
+      "stale_or_superseded_misuse_count": 0,
+      "correct_memory_use_count": 0,
+      "task_outcome_pass_rate": null,
+      "amb_calls": 0,
+      "evidence_completeness": null,
+      "failure_class_counts": {},
+      "case_status": {}
+    },
+    "C/codex": {
+      "observed": 0,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 0,
+      "not_run": 13,
+      "critical_recall_miss_rate": null,
+      "governance_safe_handling_rate": null,
+      "unnecessary_recall_rate": null,
+      "unsupported_memory_claim_count": 0,
+      "stale_or_superseded_misuse_count": 0,
+      "correct_memory_use_count": 0,
+      "task_outcome_pass_rate": null,
+      "amb_calls": 0,
+      "evidence_completeness": null,
+      "failure_class_counts": {},
+      "case_status": {}
+    },
+    "C/opencode": {
+      "observed": 0,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 0,
+      "not_run": 13,
+      "critical_recall_miss_rate": null,
+      "governance_safe_handling_rate": null,
+      "unnecessary_recall_rate": null,
+      "unsupported_memory_claim_count": 0,
+      "stale_or_superseded_misuse_count": 0,
+      "correct_memory_use_count": 0,
+      "task_outcome_pass_rate": null,
+      "amb_calls": 0,
+      "evidence_completeness": null,
+      "failure_class_counts": {},
+      "case_status": {}
+    },
+    "C/generic": {
+      "observed": 0,
+      "pass": 0,
+      "fail": 0,
+      "inconclusive": 0,
+      "not_run": 13,
+      "critical_recall_miss_rate": null,
+      "governance_safe_handling_rate": null,
+      "unnecessary_recall_rate": null,
+      "unsupported_memory_claim_count": 0,
+      "stale_or_superseded_misuse_count": 0,
+      "correct_memory_use_count": 0,
+      "task_outcome_pass_rate": null,
+      "amb_calls": 0,
+      "evidence_completeness": null,
+      "failure_class_counts": {},
+      "case_status": {}
+    }
+  },
+  "comparison": {
+    "arms": [
+      {
+        "host": "codex",
+        "verdict": "NOT ENOUGH EVIDENCE"
+      },
+      {
+        "host": "opencode",
+        "verdict": "NOT ENOUGH EVIDENCE"
+      },
+      {
+        "host": "generic",
+        "verdict": "NOT ENOUGH EVIDENCE"
+      }
+    ],
+    "router_arm": "NOT RUN / OUT OF SCOPE"
+  },
+  "observed_evidence_count": 0,
+  "rubric": {
+    "path": "benchmark/semantic-invocation-rubric-v1.md",
+    "sha256": "c0d8137d2c6db91c1b99bafff764e03afbb3d615e2dcd78c34c6ee833e024a98",
+    "hash_path": "benchmark/semantic-invocation-rubric-v1.sha256"
+  }
+}

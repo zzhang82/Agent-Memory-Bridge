@@ -52,6 +52,22 @@ combine:
 The result can look like a task packet, but it is not a separate public tool. It
 is a compact rendering of existing records for the current job.
 
+## Semantic Invocation Policy
+
+Context assembly answers what governed project memory can be supplied after a
+task-time question is known. The separate [canonical semantic memory-use
+policy](SEMANTIC-MEMORY-POLICY.md) answers when that memory could materially
+affect the next decision and should therefore be consulted first. It is a
+portable, host-rendered instruction block, not a router or a second retrieval
+system.
+
+When a host uses the policy, a successful recall is still subject to the
+existing lifecycle, authority, relevance, and current-evidence checks. A
+successful empty recall means no relevant memory was found; an error or
+unavailable tool is recorded as unavailable. Existing run-event types can
+carry bounded invocation evidence when a run is already being recorded. The
+policy never writes durable memory automatically.
+
 ## Optional Task Brief
 
 AMB can render a Task Brief report for a specific task:

@@ -23,7 +23,7 @@ def test_pre_move_inventory_is_complete_mutually_exclusive_and_accounts_for_move
 
     assert inventory["baseline_sha"] == "9aeffe1c9c78201212c5060ff637a39b2838cc99"
     assert inventory["classification_kind"] == "mutually_exclusive_primary"
-    assert inventory["module_count"] == 100
+    assert inventory["module_count"] == 103
     assert len(modules) == inventory["module_count"]
     assert len({item["module"] for item in modules}) == inventory["module_count"]
     assert sum(primary_counts.values()) == inventory["module_count"]
