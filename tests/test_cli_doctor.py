@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from importlib.metadata import version
 from pathlib import Path
+
+from packaging.version import Version
 
 from agent_mem_bridge.cli import main
 from agent_mem_bridge.onboarding import run_doctor
@@ -85,7 +88,8 @@ def test_run_doctor_reports_modern_and_legacy_stdio_independently(tmp_path: Path
     assert checks["mcp_legacy_stdio"]["status"] == "pass"
     assert checks["mcp_legacy_stdio"]["report"]["protocol_version"] == "2025-11-25"
     assert checks["stdio_verify"]["status"] == "pass"
-    assert report["mcp_sdk_version"] == "2.0.0"
+    assert Version("2.0.0") <= Version(report["mcp_sdk_version"]) < Version("3")
+    assert report["mcp_sdk_version"] == version("mcp")
     assert report["modern_stdio"]["protocol_version"] == "2026-07-28"
     assert report["legacy_stdio"]["protocol_version"] == "2025-11-25"
     assert _database_dump(runtime["db_path"]) == before

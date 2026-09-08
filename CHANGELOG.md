@@ -20,6 +20,22 @@ This document records the durable capability milestones in Agent Memory Bridge (
 
 See [v0.32.2 announcement](docs/v0.32.2-announcement.md) for the release contract and [Production Status](docs/PRODUCTION-STATUS.md) for current-source facts.
 
+## v0.33.0 source candidate — Operationalization (unreleased)
+
+This is an unreleased source candidate. Package/source identity remains `0.32.2` until an explicit release cut.
+
+- Decouples core release CI from README presentation copy so tagline and heading changes do not fail the OS/Python test matrix.
+- Adds an automated first-win proof: store a project decision over stdio process A, terminate A, recall it from a fresh stdio process B against the same isolated home.
+- Rewrites onboarding so the first win is a fresh coding-agent session recall, not CLI Explore/Inspect.
+- README Quick Start names this checkout as the unreleased v0.33 candidate and installs from source; published package identity remains `0.32.2`.
+- Replaces the exact `mcp==2.0.0` pin with evidence-backed `mcp>=2.0.0,<3`. Floor and latest 2.x jobs feed the stable `CI success` aggregate gate.
+- Records the multi-machine authority topology: one canonical SQLite/WAL host plus a remote adapter; network-shared WAL is rejected; PostgreSQL is deferred.
+- Distinguishes current-source MCP 2.x policy from the historical 0.26.1 denominator, treats committed-but-unacked writes as possible, and keeps unexpected internal ValueErrors off the public ToolError path.
+- First-win Windows process liveness uses `OpenProcess` plus `WaitForSingleObject(0)`: an open handle is not proof the process is still running.
+- Keeps schema v12, exactly 17 public MCP tools, and no automatic learning.
+
+See [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md), and [cross-machine authority ADR](docs/adr/0001-cross-machine-authority.md). External coding-client first-win remains separately observed.
+
 ## v0.32.1 — PyPI Distribution
 
 - Makes `pip install agent-memory-bridge==0.32.1` the normal release install route.

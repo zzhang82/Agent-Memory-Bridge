@@ -1,13 +1,41 @@
 # MCP 2026-07-28 Compatibility Contract
 
-Last updated: 2026-07-29 (America/New_York)
+Last updated: 2026-09-07 (America/New_York)
 
-This is the compatibility denominator for AMB 0.26.1. It defines the smallest
-compatible runtime contract for the dual-era implementation without widening
-the AMB product boundary.
+This document has two layers. Keep them distinct:
+
+- **Current source (v0.33 candidate):** Python SDK dependency policy for this
+  checkout. Package identity remains `0.32.2` until an explicit release cut.
+- **Historical AMB 0.26.1 denominator:** the dual-era protocol contract from
+  that line (schema v7, 13 tools). That historical package did not ship today's
+  `mcp>=2.0.0,<3` range.
 
 This document is not a release note. Release metadata remains in
 `pyproject.toml`.
+
+## Current source Python SDK policy (v0.33 candidate)
+
+AMB current source supports the MCP Python SDK range `mcp>=2.0.0,<3`. The
+tested floor is `mcp==2.0.0`. CI resolves the latest supported 2.x release and
+the `CI success` aggregate job depends on those floor/latest jobs. Local proofs
+on 2026-09-07 covered `mcp==2.1.1` and later `mcp==2.2.0` for focused stdio,
+first-win, and bounded reliability. GitHub run `34155215628` on
+`36cd07bfc89d99022bd7dc86ec5f1bfd1ab5c088` resolved latest 2.x to `mcp==2.2.0`
+with `mcp-types==2.2.0`.
+
+This bounded range is intentional: AMB uses the SDK's public stdio
+server/client APIs and does not rely on an internal SDK implementation detail.
+Expected public-tool validation `ValueError` failures are remapped to the SDK
+`ToolError` type so 2.1.x still returns the original validation text. Unexpected
+internal `ValueError`s are not converted into model-visible internal text. A
+major SDK release requires a separate compatibility review before the `<3`
+bound changes.
+
+The MCP Python SDK documents Python 3.10+ support and version 2 as its current
+stable release line. AMB's own Python floor remains 3.11. The separate Python
+1.28.1 client job is an interoperation proof; it does not make MCP 1.x an AMB
+runtime dependency. Current source keeps schema v12 and exactly 17 public MCP
+tools.
 
 ## Source Basis
 
@@ -52,7 +80,7 @@ The compatibility baseline inherited from AMB 0.25.2 is:
 - Task Briefs, activation receipts, review queues, and context assembly as CLI
   or derived reports, not public MCP tools
 
-The 13 public tools are:
+The historical 0.26.1 public tools were:
 
 1. `store`
 2. `recall`
@@ -111,7 +139,7 @@ Tasks, or `input_required` behavior.
 
 For `tools/list`, AMB must return:
 
-- exactly the 13 public tools listed in this document
+- exactly the 13 public tools listed in the historical 0.26.1 baseline above
 - no hidden Task Brief, activation receipt, review queue, Apps, Tasks, OAuth, or
   Episode Ledger tools
 - deterministic ordering when the underlying tool set has not changed
@@ -193,7 +221,8 @@ Minimum rollback expectations:
 
 | Client era | AMB era | Expected path | Expected result |
 | --- | --- | --- | --- |
-| Python MCP 2.0.0 | AMB 0.26.1 | `server/discover`, then per-request `_meta` | modern complete results; discover `300000/public`; deterministic 13-tool list `0/private` |
+| Python MCP 2.0.0 (dependency floor) | AMB 0.26.1 | `server/discover`, then per-request `_meta` | modern complete results; discover `300000/public`; deterministic 13-tool list `0/private` |
+| Latest resolved Python MCP 2.x (2.1.1 on 2026-09-07) | AMB 0.26.1 | `server/discover`, then per-request `_meta` | same modern raw-wire, dual-era, and reliability proof as the floor |
 | TypeScript MCP client 2.0.0 | AMB 0.26.1 | auto version negotiation | discover, list, store, and recall succeed over spawned stdio |
 | Python MCP 1.28.1 | AMB 0.26.1 | `initialize`, then `notifications/initialized` | initialize, list, store, and recall succeed from a separate client environment |
 | dual-era MCP 2026-07-28 stdio | AMB 0.25.x | `server/discover` fails or times out, then legacy fallback | existing initialize-based stdio path; no modern support claim |
@@ -221,7 +250,8 @@ Before code changes are accepted for AMB 0.26.1 compatibility:
   initialize/initialized/list/call, missing envelopes, malformed client info,
   unsupported-version behavior, modern result fields, and legacy field
   isolation.
-- Separate environments cover Python MCP 1.28.1 and Python MCP 2.0.0.
+- Separate environments cover Python MCP 1.28.1, the Python MCP 2.0.0 floor,
+  and the latest resolver-selected MCP 2.x release.
 - The official TypeScript MCP client 2.0.0 covers modern discover/list/call.
 - `doctor` and `verify` report both eras independently against isolated stores.
 - A 20-process shared-SQLite proof and 100 connect/disconnect cycles complete

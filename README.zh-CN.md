@@ -4,10 +4,10 @@
 
 <h1 align="center">Agent Memory Bridge</h1>
 
-<p align="center"><strong>把散落的项目上下文变成受治理的记忆。</strong></p>
+<p align="center"><strong>把项目决策带到下一次编码会话。</strong></p>
 
 <p align="center">
-  AMB 帮助编码智能体把真正重要的知识延续下去——跨会话、跨工具，也跨时间。
+  AMB 帮助编码智能体记住真正重要的决策——跨会话、跨工具，也跨时间。
 </p>
 
 <p align="center"><a href="README.md">English</a></p>
@@ -29,9 +29,9 @@ pip install agent-memory-bridge
 
 ## 你的项目不该在每个新会话里重新开始
 
-一个项目远不只是当前那一份文件。随着时间推移，真正有用的上下文会散落在仓库、聊天、编码智能体、review、修复记录和一次次临时决策里。新会话也许能看到代码，却仍然不知道那些让项目成立的理由、约束、修正和历史。
+一个项目远不只是当前那一份文件。随着时间推移，真正有用的上下文会散落在仓库、聊天、编码智能体、review、修复记录和一次次临时决策里。新会话也许能看到代码，却仍然不知道那些让项目成立的理由。
 
-AMB 给这些项目上下文一个可以长期积累的位置，同时避免把“记忆”变成一堆无法审阅的聊天记录。
+AMB 给这些决策一个可以长期保存的位置。第一次成功很简单：教给它一个真实决策，关掉会话，打开一个全新的编码智能体会话，再听到 AMB 把同一个决策带回来。
 
 | 没有共享项目记忆 | 使用 AMB |
 |---|---|
@@ -42,33 +42,17 @@ AMB 给这些项目上下文一个可以长期积累的位置，同时避免把�
 
 AMB 本地优先，而且可检查。它不会默默归档每一段对话，也不会把所有“记住的内容”都当成同等权威的事实。
 
-## 一个项目，一份随它成长的记忆
-
-AMB 从很小、很安全的起点开始：先从仓库派生一份可审阅的 baseline，再把真正值得带到未来的决策、约束、修正和上下文逐步加入进去。
-
-```text
-repo / project baseline
-        +
-明确的决策与约束
-        +
-修订、纠正、provenance
-        ↓
-   受治理的项目记忆
-        ↓
-未来会话 · 编码智能体 · 工具
-```
-
-对软件项目来说，仓库通常是最自然的起点，但 AMB 的记忆模型面向的是**项目本身**，而不只是 codebase：围绕工作的持久知识可以跨越任何一次聊天、任何一个智能体和任何一个工具继续存在。
-
 ## 快速开始
 
 AMB 需要 **Python 3.11+**、Git，以及能够启动本地 stdio server 的 MCP 兼容编码客户端。
 
-当前源码版本：`0.32.2`
+当前检出是尚未发布的 **v0.33 运营化候选**。在明确做 release cut 之前，包身份仍是 `0.32.2`。
 
-已发布版本：请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
+已发布的 `0.32.2`：请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)
 
-从 `0.32.2` 发布线开始，正常安装路径为 PyPI。GitHub Releases 仍是源码 tag 与 release notes 的发布权威；开发或审计时仍可对精确 source checkout 使用 `pip install -e .`。
+评估本候选时，请从当前检出安装。不要把 `pip install agent-memory-bridge==0.32.2` 当成这份源码。GitHub Releases 仍是 tag 与 release notes 的发布权威。
+
+第一次成功发生在编码智能体里，而且必须是一个全新会话。CLI Explore/Inspect 以及 `doctor`/`verify` 是后续检查，不是这次成功本身。
 
 ### 1. 安装 AMB
 
@@ -76,10 +60,10 @@ AMB 需要 **Python 3.11+**、Git，以及能够启动本地 stdio server 的 MC
 
 ```bash
 python -m venv .amb-venv
-<venv-python> -m pip install agent-memory-bridge
+<venv-python> -m pip install -e .
 ```
 
-如果需要固定、可复现的 `0.32.2` 环境，请改用下面这一条安装命令：
+这会安装本候选。最近一次已发布的包仍是：
 
 ```bash
 <venv-python> -m pip install agent-memory-bridge==0.32.2
@@ -93,7 +77,7 @@ python -m venv .amb-venv
 <venv-python> -m agent_mem_bridge setup --client <client>
 ```
 
-`setup` 默认只读：它只会在有边界的客户端配置位置做检测或检查，并展示建议的 AMB 配置片段或下一步动作，不会直接写配置。`<client>` 可以使用 `codex`、`claude-code`、`vscode`、`cursor`、`cline`、`opencode`，或[集成文档](docs/INTEGRATIONS.md)中列出的其他支持客户端。
+`setup` 默认只读：它只会在有边界的客户端配置位置做检测或检查，并展示建议的 AMB 配置片段或下一步动作，不会直接写配置。`<client>` 可以使用 `codex`、`claude-code`、`vscode`、`cursor`、`cline`、`opencode`，或[集成文档](docs/INTEGRATIONS.md)中列出的其他支持客户端。Codex 是参考工作流。
 
 如果预览结果明确标记该客户端可以进行安全自动配置，可以在检查后显式执行：
 
@@ -103,23 +87,44 @@ python -m venv .amb-venv
 
 有些客户端仍然只支持 preview/manual，因为 AMB 不会猜测不安全的配置路径，也不会冒险重写不适合自动修改的格式。这时请复制生成的配置片段，或按对应的[集成指南](docs/INTEGRATIONS.md)完成设置。你要使用几个编码客户端，就分别重复这一步几次；如果它们要共享同一份项目记忆，请让它们都指向同一个 `AGENT_MEMORY_BRIDGE_HOME`，完成注册后再重载对应客户端。
 
+只有编码客户端自己列出了 `store`、`recall` 这些 AMB 工具，才算连接成功。`doctor` 和 `verify` 不能证明外部客户端已经加载了 MCP 配置。
+
 ### 3. 初始化项目
 
 ```bash
 <venv-python> -m agent_mem_bridge project init .
 ```
 
-Project Init 会检测本地 Git 仓库，建议一个类似 `project:my-app` 的 namespace，并等待你确认。随后它会派生当前仓库 baseline，并打开 Human-first Explore 视图。它不会自动学习项目决策。
+Project Init 会检测本地 Git 仓库，建议一个类似 `project:my-app` 的 namespace，并等待你确认。随后它会派生当前仓库 baseline。它不会自动学习项目决策。
 
-### 4. 教给项目一个值得保留的决策
+### 4. 教给项目一个真实决策
 
-例如，直接告诉已连接的编码智能体：
+在已连接的编码智能体里，告诉它一个你真正做过的决策。例如：
 
-> 记住：我们决定不添加 Redis，因为这个项目刻意保持本地优先、单节点运行。
+> 记住：我们只在目标分支 CI 全绿之后才合并 pull request，因为主分支坏掉已经耽误了两次发布。
 
-已连接的智能体会使用 AMB 现有的公开记忆工具，保存这项明确决策及其理由。AMB 不会从代码中推断出持久决策，也不会归档整段对话。
+已连接的智能体会使用 AMB 公开的 `store` 工具，保存这项明确决策及其理由。AMB 不会从代码中推断出持久决策，也不会归档整段对话。
 
-### 5. 打开一个新会话，继续使用这份记忆
+另一个有效例子是技术选型，例如继续保持本地优先、不引入 Redis。成功标准是“决策 + 理由”，而不是某一种技术本身。
+
+### 5. 关掉当前会话，再在全新会话里问一次
+
+彻底结束第一个智能体会话。用同一个项目、同一套客户端注册、同一个 AMB home 打开新会话，然后问一个普通问题：
+
+> 合并 pull request 之前必须满足什么条件？
+
+第一次成功，是新会话因为 AMB 召回了记忆，而答出刚才那条决策和理由。在 CLI Explore 或 Inspect 里看到同一条事实，只是事后审阅，不是这次成功的判定标准。
+
+Codex 的完整观察步骤见[首次成功验收](docs/FIRST-WIN-ACCEPTANCE.md)。
+
+## 第一次成功之后
+
+当一条决策能在全新会话里活下来之后，你再检查 AMB 目前知道什么、刷新仓库事实，并使用下面的治理模型。
+
+<details>
+<summary>可选的审阅、刷新与故障排查</summary>
+
+Human-first Explore 回答“AMB 目前知道这个项目的什么信息？”Inspect 回答“为什么这条信息会针对这个问题出现？”两者都只在本地读取，不会修改记忆。
 
 ```bash
 <venv-python> -m agent_mem_bridge explore \
@@ -127,31 +132,24 @@ Project Init 会检测本地 Git 仓库，建议一个类似 `project:my-app` �
 
 <venv-python> -m agent_mem_bridge inspect \
   --namespace project:my-app \
-  --query "Should we add Redis?"
+  --query "What is required before we merge a pull request?"
 ```
-
-Explore 回答“AMB 目前知道这个项目的什么信息？”Inspect 回答“为什么这条信息会针对这个问题出现？”两者都只在本地读取，不会修改记忆。
 
 下面是概念视图，不是 CLI 的逐字输出：
 
 ```text
 CODE / WHAT                     CONVERSATION / WHY
 ────────────────────            ──────────────────────────
-Runtime: Python >=3.11          Decision: Do not add Redis
-Package: my-app                 Reason: local-first,
-Tests: pytest                   single-node project
+Runtime: Python >=3.11          Decision: 只在 CI 全绿后合并
+Package: my-app                 Reason: 主分支坏掉耽误了
+Tests: pytest                   两次发布
 ```
-
-在底层，AMB 会把从仓库派生的事实和人明确教给它的项目知识分开：
 
 **代码告诉 AMB 项目“是什么”（WHAT）。**
 
 **对话告诉 AMB 项目“为什么这样”（WHY）。**
 
-这个区分是一条**信任边界**，而不是整个产品故事：派生事实可以从当前代码重新构建，而持久项目知识则保持显式、可审阅、可治理。
-
-<details>
-<summary>刷新与故障排查边界</summary>
+这个区分是一条**信任边界**：派生事实可以从当前代码重新构建，而持久项目知识则保持显式、可审阅、可治理。
 
 仓库 WHAT 来自干净的 Git commit。如果 HEAD 发生变化或 worktree 不干净，AMB 不会把旧 snapshot 当作当前事实。刷新不是自动发生的。请重新运行显式底层命令：
 
@@ -162,13 +160,13 @@ Tests: pytest                   single-node project
 
 刷新仓库 WHAT 不会改变持久项目 WHY。Explore 只属于 CLI，不是 MCP 工具 #18，也不会为模型排序上下文。
 
-`first-run` 仍可作为可选引导，但它不是现代 Project Learning 的入口：
+`first-run` 仍可作为可选引导，但它不是第一次成功的路径：
 
 ```bash
 <venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I remember?"
 ```
 
-只有在安装或连接状态不确定时才需要运行：
+只有在安装或连接状态不确定时才需要运行。它们不能证明编码客户端已经加载 MCP 配置：
 
 ```bash
 <venv-python> -m agent_mem_bridge doctor
@@ -204,12 +202,13 @@ AMB 通过本地 stdio MCP 工作。它支持通用 MCP 客户端；Codex 是参
 
 AMB 是面向编码智能体的、受治理的本地项目记忆层。它让有价值的上下文能够跨会话、跨工具保留下来，同时继续区分持久知识、仓库派生事实、provenance 与后续修正。
 
-它不是聊天记录归档器，不承诺智能体会记住所有事情，也不会默默把每一段对话都转换成持久事实。
+它不是聊天记录归档器，不承诺智能体会记住所有事情，也不会默默把每一段对话都转换成持久事实。它没有自动学习。
 
 ## 想了解细节？
 
 | 文档 | 用途 |
 |---|---|
+| [首次成功验收](docs/FIRST-WIN-ACCEPTANCE.md) | Codex 首次成功的精确观察包 |
 | [架构](docs/ARCHITECTURE.md) | 系统形态与数据流 |
 | [权威模型](docs/AUTHORITY-CONTRACT.md) | 持久权威、派生视图、修正与审计规则 |
 | [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) | 面向人的只读项目视图 |
@@ -260,7 +259,7 @@ AMB 暴露 **17 个公开 MCP 工具**：
 
 ## 当前成熟度
 
-当前源码版本为 `0.32.2`，使用 schema v12，并保持冻结的 17 工具 MCP 接口。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
+当前检出是尚未发布的 v0.33 运营化候选。在明确做 release cut 之前，包身份仍是 `0.32.2`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
 
 ## 参与贡献
 

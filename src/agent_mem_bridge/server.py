@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from functools import wraps
 from typing import Annotated, Any, Literal, cast
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import Tool as MCPTool
 from pydantic import Field
 
@@ -1301,6 +1304,45 @@ _PUBLIC_TOOL_HANDLERS = (
 )
 
 
+_INTERNAL_VALUE_ERROR = re.compile(
+    r"(?:[A-Za-z]:[\\/]|\\\\|/(?:home|mnt|tmp|var|Users|root)/|Traceback)",
+    re.IGNORECASE,
+)
+_PUBLIC_VALIDATION_LIMIT = 280
+
+
+def _public_validation_message(exc: ValueError) -> str | None:
+    """Return caller-correctable validation text, or None for unexpected internals."""
+
+    message = str(exc).strip()
+    if not message or len(message) > _PUBLIC_VALIDATION_LIMIT or "\n" in message:
+        return None
+    if _INTERNAL_VALUE_ERROR.search(message):
+        return None
+    return message
+
+
+def _surface_validation_error(handler: Callable[..., dict[str, Any]]) -> Callable[..., dict[str, Any]]:
+    """Expose expected public-tool validation failures consistently across MCP 2.x.
+
+    Unexpected internal ``ValueError``s stay unexpected: they are not converted
+    into model-visible ``ToolError`` text that could leak paths or internals.
+    """
+
+    @wraps(handler)
+    def wrapped(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        try:
+            return handler(*args, **kwargs)
+        except ValueError as exc:
+            public_message = _public_validation_message(exc)
+            if public_message is None:
+                logging.getLogger(__name__).exception("unexpected public-tool ValueError")
+                raise RuntimeError("internal tool failure") from exc
+            raise ToolError(public_message) from exc
+
+    return wrapped
+
+
 def create_mcp_server(
     *,
     store: MemoryStore | None = None,
@@ -1327,7 +1369,7 @@ def create_mcp_server(
         middleware=[ProtocolObservabilityMiddleware()],
     )
     for handler in _PUBLIC_TOOL_HANDLERS:
-        server.tool(structured_output=True)(handler)
+        server.tool(structured_output=True)(_surface_validation_error(handler))
     return server
 
 

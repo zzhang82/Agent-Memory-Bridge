@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
+from packaging.version import Version
 
 from agent_mem_bridge.cli import main
 from agent_mem_bridge.onboarding import run_verify
@@ -13,7 +15,8 @@ def test_run_verify_succeeds_with_isolated_runtime(tmp_path: Path) -> None:
     report = run_verify(project_root=Path(__file__).resolve().parents[1], runtime_dir=tmp_path / "verify-runtime")
 
     assert report["ok"] is True
-    assert report["mcp_sdk_version"] == "2.0.0"
+    assert Version("2.0.0") <= Version(report["mcp_sdk_version"]) < Version("3")
+    assert report["mcp_sdk_version"] == version("mcp")
     assert report["tool_count"] == 17
     check_names = {check["name"] for check in report["checks"]}
     assert check_names == {"mcp_modern_stdio", "mcp_legacy_stdio"}

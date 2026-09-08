@@ -1,0 +1,87 @@
+name: MCP Python SDK compatibility
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-mcp-floor:
+    name: Compatibility / Python MCP 2.0.0 floor
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install with dev extras and pin the MCP 2.0.0 floor
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m pip install --upgrade --force-reinstall "mcp==2.0.0"
+          python -m pip check
+          python -c "import importlib.metadata as metadata; assert metadata.version('mcp') == '2.0.0', metadata.version('mcp')"
+
+      - name: Prove raw-wire and dual-era operator contracts
+        run: >
+          python -m pytest
+          tests/test_mcp_boundary.py
+          tests/test_mcp_raw_wire.py
+          tests/test_v026_dual_era.py
+          tests/test_cli_verify.py
+          tests/test_cli_doctor.py
+
+      - name: Prove concurrent writes and process cleanup
+        run: >
+          python scripts/run_mcp_reliability_proof.py
+          --project-root "$GITHUB_WORKSPACE"
+          --runtime-dir "$RUNNER_TEMP/amb-mcp-floor-reliability"
+          --writers 20
+          --cycles 100
+
+  python-mcp-latest-2x:
+    name: Compatibility / Python MCP latest supported 2.x
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install with dev extras and resolve latest supported MCP 2.x
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+          python -m pip index versions mcp
+          python -m pip check
+          python -c "import importlib.metadata as metadata; from packaging.version import Version; installed = Version(metadata.version('mcp')); assert Version('2.0.0') <= installed < Version('3'), installed; print(installed)"
+
+      - name: Prove raw-wire and dual-era operator contracts
+        run: >
+          python -m pytest
+          tests/test_mcp_boundary.py
+          tests/test_mcp_raw_wire.py
+          tests/test_v026_dual_era.py
+          tests/test_cli_verify.py
+          tests/test_cli_doctor.py
+
+      - name: Prove concurrent writes and process cleanup
+        run: >
+          python scripts/run_mcp_reliability_proof.py
+          --project-root "$GITHUB_WORKSPACE"
+          --runtime-dir "$RUNNER_TEMP/amb-mcp-latest-reliability"
+          --writers 20
+          --cycles 100

@@ -109,5 +109,6 @@ The [run-consolidation reference](RUN-CONSOLIDATION.md) describes the current sh
 | What does shadow-only consolidation mean? | [Run Consolidation](RUN-CONSOLIDATION.md) |
 | What is implemented in the checked-out source? | [Production Status](PRODUCTION-STATUS.md) |
 | What is planned rather than implemented? | [Roadmap](ROADMAP.md) |
+| How should multiple machines share authority without network-sharing SQLite/WAL? | [Cross-machine authority ADR](adr/0001-cross-machine-authority.md) |
 
 [Capability History](../CHANGELOG.md) summarizes durable historical milestones; retained release announcements and benchmark/proof artifacts remain available as detailed evidence. They are no longer required reading for the current architecture story.

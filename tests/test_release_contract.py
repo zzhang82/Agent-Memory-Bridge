@@ -202,6 +202,20 @@ def test_v027_episode_release_contract_checks_exact_surface_and_evidence(tmp_pat
     assert tuple(report["public_tool_order"]) == V027_PUBLIC_TOOL_ORDER
 
 
+def test_v027_episode_release_contract_rejects_schema_v12_drift(tmp_path: Path) -> None:
+    root = create_v027_episode_contract_fixture(tmp_path)
+    schema = root / "src" / "agent_mem_bridge" / "schema.py"
+    schema.write_text(
+        schema.read_text(encoding="utf-8").replace("CURRENT_SCHEMA_VERSION = 12", "CURRENT_SCHEMA_VERSION = 13"),
+        encoding="utf-8",
+    )
+
+    report = build_v027_episode_release_check(root, "0.27.4")
+
+    assert report["ok"] is False
+    assert {mismatch["field"] for mismatch in report["mismatches"]} >= {"schema.CURRENT_SCHEMA_VERSION"}
+
+
 @pytest.mark.parametrize(
     ("relative_path", "needle", "replacement", "expected_field"),
     [
