@@ -31,6 +31,7 @@ This is an unreleased source candidate. Package/source identity remains `0.32.2`
 - Replaces the exact `mcp==2.0.0` pin with evidence-backed `mcp>=2.0.0,<3`. Floor and latest 2.x jobs feed the stable `CI success` aggregate gate.
 - Records the multi-machine authority topology: one canonical SQLite/WAL host plus a remote adapter; network-shared WAL is rejected; PostgreSQL is deferred.
 - Distinguishes current-source MCP 2.x policy from the historical 0.26.1 denominator, treats committed-but-unacked writes as possible, and keeps unexpected internal ValueErrors off the public ToolError path.
+- First-win Windows process liveness uses `OpenProcess` plus `WaitForSingleObject(0)`: an open handle is not proof the process is still running.
 - Keeps schema v12, exactly 17 public MCP tools, and no automatic learning.
 
 See [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md), and [cross-machine authority ADR](docs/adr/0001-cross-machine-authority.md). External coding-client first-win remains separately observed.

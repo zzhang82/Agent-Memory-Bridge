@@ -190,18 +190,32 @@ def _read_pid(path: Path) -> int:
 
 
 def _process_exists(pid: int) -> bool:
-    """Non-destructive liveness check. Never sends a fatal signal."""
+    """Non-destructive liveness check. Never sends a fatal signal.
+
+    On Windows, a terminated process object can still be opened while any handle
+    remains. OpenProcess success is therefore not liveness; WaitForSingleObject
+    with a zero timeout is: WAIT_TIMEOUT means still running, WAIT_OBJECT_0
+    means terminated.
+    """
 
     if pid <= 0:
         return False
     if os.name == "nt":
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
         SYNCHRONIZE = 0x00100000
+        WAIT_TIMEOUT = 0x00000102
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_bool, ctypes.c_uint32]
+        kernel32.WaitForSingleObject.restype = ctypes.c_uint32
+        kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
         handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
-        if handle:
+        if not handle:
+            return False
+        try:
+            return kernel32.WaitForSingleObject(handle, 0) == WAIT_TIMEOUT
+        finally:
             kernel32.CloseHandle(handle)
-            return True
-        return False
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
