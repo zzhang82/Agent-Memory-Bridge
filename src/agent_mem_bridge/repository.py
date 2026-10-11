@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .lineage import DEGRADING_LINEAGE_RELATIONS, LineageRelation
+from .namespaces import canonical_namespace
 from .record_projection import sync_record_projection
 from .relation_metadata import extract_relation_tags, parse_relation_metadata, resolve_validity_status
 from .schema import exact_content_hash as exact_content_hash_for_content
@@ -259,7 +260,7 @@ def store_entry(
     expires_at: str | None = None,
     ttl_seconds: int | None = None,
 ) -> dict[str, Any]:
-    cleaned_namespace = namespace.strip()
+    cleaned_namespace = canonical_namespace(namespace)
     cleaned_content = content.strip()
     cleaned_kind = kind.strip()
     if not cleaned_namespace:
@@ -817,7 +818,7 @@ def _optional_row_int(row: sqlite3.Row, key: str) -> int | None:
 
 
 def stats_for_namespace(store: Any, namespace: str) -> dict[str, Any]:
-    cleaned_namespace = namespace.strip()
+    cleaned_namespace = canonical_namespace(namespace)
     if not cleaned_namespace:
         raise ValueError("namespace must not be empty")
 

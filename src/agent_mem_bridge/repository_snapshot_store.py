@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from .namespaces import canonical_namespace
+
 SNAPSHOT_STORE_SCHEMA = "repository.snapshot.v1"
 BINDING_STORE_SCHEMA = "repository.binding.v1"
 
@@ -224,8 +226,21 @@ class RepositorySnapshotStore:
             return {"store_schema": BINDING_STORE_SCHEMA, "bindings": {}}
         if not isinstance(data, dict) or data.get("store_schema") != BINDING_STORE_SCHEMA:
             return {"store_schema": BINDING_STORE_SCHEMA, "bindings": {}}
-        bindings = data.get("bindings")
-        return {"store_schema": BINDING_STORE_SCHEMA, "bindings": bindings if isinstance(bindings, dict) else {}}
+        raw_bindings = data.get("bindings")
+        bindings: dict[str, Any] = {}
+        if isinstance(raw_bindings, dict):
+            for k, v in raw_bindings.items():
+                norm_k = canonical_namespace(k) if isinstance(k, str) else k
+                if norm_k in bindings:
+                    existing = bindings[norm_k]
+                    existing_repo = existing.get("repository_id") if isinstance(existing, dict) else None
+                    incoming_repo = v.get("repository_id") if isinstance(v, dict) else None
+                    if existing_repo != incoming_repo:
+                        raise ValueError(
+                            f"binding collision: namespace {norm_k!r} is bound to conflicting repositories"
+                        )
+                bindings[norm_k] = v
+        return {"store_schema": BINDING_STORE_SCHEMA, "bindings": bindings}
 
     def bindings(self) -> dict[str, Any]:
         with self._bindings_lock():
@@ -236,7 +251,7 @@ class RepositorySnapshotStore:
         return self._read_bindings_unlocked()
 
     def bind_namespace(self, namespace: str, repository_id: str, *, allow_rebind: bool = False) -> dict[str, Any]:
-        cleaned = namespace.strip()
+        cleaned = canonical_namespace(namespace)
         if not cleaned:
             raise ValueError("namespace must not be empty")
         with self._bindings_lock():
@@ -253,7 +268,7 @@ class RepositorySnapshotStore:
             }
 
     def unbind_namespace(self, namespace: str) -> bool:
-        cleaned = namespace.strip()
+        cleaned = canonical_namespace(namespace)
         with self._bindings_lock():
             data = self._read_bindings_unlocked()
             removed = data["bindings"].pop(cleaned, None) is not None
@@ -262,7 +277,8 @@ class RepositorySnapshotStore:
             return removed
 
     def load_bound_snapshot(self, namespace: str) -> dict[str, Any] | None:
-        binding = self.bindings()["bindings"].get(namespace.strip())
+        cleaned = canonical_namespace(namespace)
+        binding = self.bindings()["bindings"].get(cleaned)
         if not isinstance(binding, dict):
             return None
         repository_id = binding.get("repository_id")

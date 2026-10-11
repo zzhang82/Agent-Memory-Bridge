@@ -7,6 +7,8 @@ from datetime import UTC, datetime, timedelta
 from hashlib import blake2b
 from typing import Any, Callable
 
+from .namespaces import canonical_namespace
+
 SIGNAL_STATUSES = {"pending", "claimed", "acked", "expired"}
 FAIR_CLAIM_WINDOW = 8
 
@@ -234,7 +236,7 @@ def claim_signal_entry(
     fetch_row_by_id: Callable[[sqlite3.Connection, str], sqlite3.Row | None],
     row_to_item: Callable[[sqlite3.Row], dict[str, Any]],
 ) -> dict[str, Any]:
-    cleaned_namespace = namespace.strip()
+    cleaned_namespace = canonical_namespace(namespace)
     cleaned_consumer = consumer.strip()
     cleaned_signal_id = signal_id.strip() if signal_id else None
     if not cleaned_namespace:
@@ -633,7 +635,7 @@ def explain_claim_failure(
 ) -> str:
     if row is None:
         return "missing"
-    if row["namespace"] != namespace:
+    if canonical_namespace(row["namespace"]) != canonical_namespace(namespace):
         return "namespace-mismatch"
     if row["kind"] != "signal":
         return "not-signal"

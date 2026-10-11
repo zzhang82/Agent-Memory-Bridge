@@ -419,3 +419,14 @@ def test_cli_resolve_is_machine_readable_and_read_only(
     assert namespace_for_host_adapter(ambiguous) is None
     assert main(["project"]) == 2
     assert "project resolve" in capsys.readouterr().err
+
+
+def test_mixed_case_bound_repository_resolves(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path, name="Moebius")
+    snapshot_root = tmp_path / "repository"
+    identity = bind_current(repo, snapshot_root, "project:Moebius")
+    result = resolve_project_context(repo, snapshot_root=snapshot_root)
+    assert result["status"] == "bound"
+    assert result["namespace"] == "project:moebius"
+    assert namespace_for_host_adapter(result) == "project:moebius"
+    assert result["repository_identity"] == identity
