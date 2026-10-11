@@ -17,6 +17,7 @@ from .embedding_index import (
     normalize_embedding_capability,
     normalize_embedding_provider,
 )
+from .namespaces import canonical_namespace
 from .paths import resolve_hybrid_semantic_weight, resolve_retrieval_mode
 from .poll_cursor import decode_poll_cursor
 from .repository import MEMORY_ROW_SELECT, MemoryRow, memory_row_select, normalize_tags
@@ -798,7 +799,7 @@ def build_filters(
 ) -> tuple[str, list[Any]]:
     prefix = f"{alias}." if alias else ""
     clauses = [f"{prefix}namespace = ?"]
-    params: list[Any] = [namespace]
+    params: list[Any] = [canonical_namespace(namespace)]
 
     include_learning_candidates = should_include_learning_candidates(tags_any)
     if not include_learning_candidates:
@@ -921,9 +922,10 @@ def build_since_filter(
     connection: sqlite3.Connection | None = None,
     current_database_epoch: str | None = None,
 ) -> tuple[str, list[Any]]:
+    norm_namespace = canonical_namespace(namespace)
     opaque = decode_poll_cursor(since_id)
     if opaque is not None:
-        if opaque.namespace != namespace:
+        if canonical_namespace(opaque.namespace) != norm_namespace:
             raise ValueError("invalid since cursor: namespace mismatch")
         active_epoch = current_database_epoch
         if active_epoch is None:
@@ -959,7 +961,7 @@ def build_since_filter(
             ).fetchone()
     if row is None:
         raise ValueError(f"invalid since cursor: {since_id}")
-    if row["namespace"] != namespace:
+    if canonical_namespace(str(row["namespace"])) != norm_namespace:
         raise ValueError("invalid since cursor: namespace mismatch")
     return (
         f"(SELECT sequence FROM memory_insertions WHERE memory_id = {prefix}id) > ?",

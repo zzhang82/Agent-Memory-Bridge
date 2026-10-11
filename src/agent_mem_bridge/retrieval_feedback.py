@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from .filesystem_safety import ensure_private_directory, ensure_private_file
+from .namespaces import canonical_namespace
 from .schema import database_epoch as read_database_epoch
 from .telemetry import hash_label
 
@@ -133,7 +134,7 @@ def record_retrieval_feedback(
     client_transport: str | None = None,
     actor: str | None = None,
 ) -> dict[str, Any]:
-    cleaned_namespace = _required_text(namespace, "namespace")
+    cleaned_namespace = canonical_namespace(_required_text(namespace, "namespace"))
     cleaned_memory_id = _required_text(memory_id, "memory_id")
     cleaned_feedback_type = _normalize_feedback_type(feedback_type)
     cleaned_supersedes_feedback_id = _normalize_supersedes_feedback_id(supersedes_feedback_id)
@@ -361,7 +362,9 @@ def validate_recall_receipt(
         raise ValueError("invalid recall receipt: schema mismatch")
     if payload.get("bridge_instance_id") != resolved_secret.bridge_instance_id:
         raise ValueError("invalid recall receipt: bridge instance mismatch")
-    if payload.get("namespace") != namespace:
+    norm_namespace = canonical_namespace(namespace)
+    payload_namespace = canonical_namespace(str(payload.get("namespace", "")))
+    if payload_namespace != norm_namespace:
         raise ValueError("invalid recall receipt: namespace mismatch")
     _validate_retrieval_contract(payload)
     _validate_evidence_context(payload)
@@ -407,7 +410,7 @@ def validate_recall_receipt(
             WHERE id = ? AND namespace = ? AND kind = 'memory'
             LIMIT 1
             """,
-            (memory_id, namespace),
+            (memory_id, norm_namespace),
         ).fetchone()
     if payload.get("database_epoch") != active_epoch:
         raise ValueError("invalid recall receipt: database epoch mismatch")
@@ -443,7 +446,9 @@ def validate_recall_receipt_exposures(
         raise ValueError("invalid recall receipt: schema mismatch")
     if payload.get("bridge_instance_id") != resolved_secret.bridge_instance_id:
         raise ValueError("invalid recall receipt: bridge instance mismatch")
-    if payload.get("namespace") != namespace:
+    norm_namespace = canonical_namespace(namespace)
+    payload_namespace = canonical_namespace(str(payload.get("namespace", "")))
+    if payload_namespace != norm_namespace:
         raise ValueError("invalid recall receipt: namespace mismatch")
     _validate_retrieval_contract(payload)
     _validate_evidence_context(payload)
@@ -490,7 +495,7 @@ def validate_recall_receipt_exposures(
             WHERE id = ? AND namespace = ? AND kind = 'memory'
             LIMIT 1
             """,
-            (memory_id, namespace),
+            (memory_id, norm_namespace),
         ).fetchone()
         if row is None or not hmac.compare_digest(str(row["exact_content_hash"]), exact_content_version):
             raise ValueError("invalid recall receipt: memory content hash mismatch")

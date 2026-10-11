@@ -20,6 +20,7 @@ from .learning_candidates import (
     store_learning_review as store_learning_review_entry,
 )
 from .log_maintenance import rotate_log_if_needed
+from .namespaces import canonical_namespace
 from .paths import (
     resolve_bridge_db_path,
     resolve_bridge_home,
@@ -417,10 +418,11 @@ class MemoryStore:
                 raise ValueError("expires_at and ttl_seconds are only valid for kind='signal'")
             expires_at = None
         relation_metadata = parse_relation_metadata(content)
+        cleaned_namespace = canonical_namespace(namespace)
         with self.telemetry.span(
             "amb.store.write",
             {
-                "namespace": namespace.strip(),
+                "namespace": cleaned_namespace,
                 "kind": kind,
                 "tags_count": len(tags or []),
                 "has_session_id": bool(session_id),
@@ -442,7 +444,7 @@ class MemoryStore:
                 try:
                     payload = store_entry(
                         self,
-                        namespace=namespace,
+                        namespace=cleaned_namespace,
                         content=content,
                         kind=kind,
                         tags=tags,
@@ -489,7 +491,7 @@ class MemoryStore:
         evidence_context: dict[str, str] | None = None,
         eligibility: str = "default",
     ) -> dict[str, Any]:
-        cleaned_namespace = namespace.strip()
+        cleaned_namespace = canonical_namespace(namespace)
         if not cleaned_namespace:
             raise ValueError("namespace must not be empty")
 
@@ -655,7 +657,7 @@ class MemoryStore:
         signal_status: str | None = None,
         limit: int = 10,
     ) -> dict[str, Any]:
-        cleaned_namespace = namespace.strip()
+        cleaned_namespace = canonical_namespace(namespace)
         if not cleaned_namespace:
             raise ValueError("namespace must not be empty")
         if kind is not None and kind not in ALLOWED_KINDS:
@@ -721,13 +723,14 @@ class MemoryStore:
             return payload
 
     def stats(self, namespace: str) -> dict[str, Any]:
+        cleaned_namespace = canonical_namespace(namespace)
         with self.telemetry.span(
             "amb.store.stats",
             {
-                "namespace": namespace.strip(),
+                "namespace": cleaned_namespace,
             },
         ) as span:
-            payload = stats_for_namespace(self, namespace)
+            payload = stats_for_namespace(self, cleaned_namespace)
             span.set_attributes(
                 {
                     "total_count": payload.get("total_count"),
@@ -754,6 +757,7 @@ class MemoryStore:
         client_transport: str | None = None,
         actor: str | None = None,
     ) -> dict[str, Any]:
+        cleaned_namespace = canonical_namespace(namespace)
         reason = _optional_text(reason)
         source_app = normalize_provenance_value("source_app", source_app)
         source_client = normalize_provenance_value("source_client", source_client)
@@ -768,7 +772,7 @@ class MemoryStore:
         with self.telemetry.span(
             "amb.feedback.record",
             {
-                "namespace_hash": hash_label(namespace),
+                "namespace_hash": hash_label(cleaned_namespace),
                 "memory_id_hash": hash_label(memory_id),
                 "result_rank": result_rank,
                 "outcome": _safe_feedback_outcome_category(outcome or ""),
@@ -792,7 +796,7 @@ class MemoryStore:
             payload = record_retrieval_feedback(
                 self,
                 secret_path=self.recall_receipt_secret_path,
-                namespace=namespace,
+                namespace=cleaned_namespace,
                 recall_receipt=recall_receipt,
                 memory_id=memory_id,
                 result_rank=result_rank,
@@ -827,13 +831,14 @@ class MemoryStore:
         tags_any: list[str] | None = None,
         correlation_id: str | None = None,
     ) -> dict[str, Any]:
+        cleaned_namespace = canonical_namespace(namespace)
         signal_id = _optional_text(signal_id)
         tags_any = _optional_list(tags_any)
         correlation_id = _optional_text(correlation_id)
         with self.telemetry.span(
             "amb.signal.claim",
             {
-                "namespace": namespace.strip(),
+                "namespace": cleaned_namespace,
                 "consumer_hash": hash_label(consumer),
                 "lease_seconds": lease_seconds,
                 "has_signal_id": bool(signal_id),
@@ -843,7 +848,7 @@ class MemoryStore:
         ) as span:
             payload = claim_signal_entry(
                 store=self,
-                namespace=namespace,
+                namespace=cleaned_namespace,
                 consumer=consumer,
                 lease_seconds=lease_seconds,
                 signal_id=signal_id,
@@ -1076,7 +1081,7 @@ class MemoryStore:
         tags_any: list[str] | None = None,
         limit: int = 100,
     ) -> dict[str, Any]:
-        cleaned_namespace = namespace.strip()
+        cleaned_namespace = canonical_namespace(namespace)
         export_format = format.strip().lower()
         if not cleaned_namespace:
             raise ValueError("namespace must not be empty")

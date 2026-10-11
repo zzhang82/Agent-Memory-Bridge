@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .namespaces import canonical_namespace
 from .paths import resolve_bridge_db_path
 from .recall_eligibility import direct_lookup_ineligibility_reasons
 from .relation_metadata import parse_content_fields, parse_relation_metadata
@@ -113,7 +114,7 @@ def _build_explorer(
     memory_store: Any | None = None,
     limit: int = 100,
 ) -> _ExplorerBuild:
-    cleaned_namespace = namespace.strip()
+    cleaned_namespace = canonical_namespace(namespace)
     if not cleaned_namespace:
         raise ValueError("namespace must not be empty")
     bounded_limit = max(1, min(int(limit), 500))

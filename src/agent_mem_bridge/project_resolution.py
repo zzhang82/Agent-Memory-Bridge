@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from . import repository_snapshot_store as snapshots
+from .namespaces import canonical_namespace
 from .project_init import PROJECT_NAMESPACE_RE
 
 SCHEMA_VERSION = "project.resolution.v1"
@@ -233,9 +234,19 @@ def _read_bindings(snapshot_root: Path) -> tuple[str, dict[str, Any], dict[str, 
         return "unreadable", {}, {"error_type": exc.__class__.__name__, "reason": "bindings_unreadable"}
     if not isinstance(data, dict) or data.get("store_schema") != snapshots.BINDING_STORE_SCHEMA:
         return "invalid", {}, {"reason": "bindings_invalid"}
-    bindings = data.get("bindings")
-    if not isinstance(bindings, dict):
+    raw_bindings = data.get("bindings")
+    if not isinstance(raw_bindings, dict):
         return "invalid", {}, {"reason": "bindings_invalid"}
+    bindings: dict[str, Any] = {}
+    for k, v in raw_bindings.items():
+        norm_k = canonical_namespace(k) if isinstance(k, str) else k
+        if norm_k in bindings:
+            existing = bindings[norm_k]
+            existing_repo = existing.get("repository_id") if isinstance(existing, dict) else None
+            incoming_repo = v.get("repository_id") if isinstance(v, dict) else None
+            if existing_repo != incoming_repo:
+                return "invalid", {}, {"reason": "binding_collision"}
+        bindings[norm_k] = v
     return "ok", bindings, None
 
 
