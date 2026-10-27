@@ -4,10 +4,10 @@
 
 <h1 align="center">Agent Memory Bridge</h1>
 
-<p align="center"><strong>Carry project decisions into the next coding session.</strong></p>
+<p align="center"><strong>Teach one decision and its reason. The next session can recall that reason when it recalls at the start.</strong></p>
 
 <p align="center">
-  AMB helps coding agents remember the decisions that matter — across sessions, tools, and time.
+  AMB keeps a confirmed project decision in a local store. A later session gets it back by recalling, not by rereading the old chat.
 </p>
 
 <p align="center"><a href="README.zh-CN.md">简体中文</a></p>
@@ -21,179 +21,100 @@
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-3776AB.svg" alt="Python 3.11+" /></a>
 </p>
 
-```bash
-pip install agent-memory-bridge
-```
+## The loop
 
-Connecting a specific coding client is outside AMB Core. AMB does not discover, write, or certify Codex, Claude, Cursor, OpenCode, Hermes, Cline, VS Code, or Antigravity. Clients configure AMB as a standard MCP stdio server independently, pointing to the same local AMB home when they share project memory. See [Integrations](docs/INTEGRATIONS.md) for the generic installer and registration contract.
+One process stores a decision. A second process, on the same AMB home, recalls the claim and the reason. The recording is that local stdio proof. It is not a filmed coding-agent session, and it is not an adoption measurement.
 
-If an existing bridge lives at `~/.codex/mem-bridge`, v0.36 does not open it automatically. Set `AGENT_MEMORY_BRIDGE_HOME` to that directory, or copy it to `~/.local/share/agent-memory-bridge`. The [configuration guide](docs/CONFIGURATION.md) has the exact cutover.
-
-## Your project should not start over with every session
-
-A project is more than its current files. Over time, useful context gets scattered across repositories, chats, coding agents, reviews, fixes, and one-off decisions. A new session can see the code but still miss the reasons that make the project make sense.
-
-AMB gives those decisions a durable place to live. The first win is simple: teach one real decision, close the session, open a fresh coding-agent session, and hear the same decision come back from AMB.
-
-| Without shared project memory | With AMB |
-|---|---|
-| Each session reconstructs context | Useful project knowledge carries forward |
-| Decisions disappear into old chats | Explicit decisions and reasons stay with the project |
-| Different tools build different partial pictures | Supported MCP clients can use the same configured local AMB home |
-| Memory can become stale or ambiguous | Provenance, revision, supersession, and inspection keep it governable |
-
-AMB is local-first and inspectable. It does not silently archive every conversation or treat every remembered statement as equal authority.
-
-## Quick Start
-
-AMB requires **Python 3.11+**, Git, and an MCP-compatible coding client that can launch a local stdio server or connect via Streamable HTTP.
-
-Current package/source version: `0.36.0`.
-
-Published releases: see [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
-
-### Agent setup (Recommended)
-
-Install the official companion skills from [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills) (`amb` for everyday memory and `amb-connect` for host capability discovery and connection):
-
-- If you are in an agent CLI supporting skills (e.g. Claude Code, Cursor, OpenCode):
-  ```bash
-  npx skills add zzhang82/Agent-Memory-Skills --skill amb
-  npx skills add zzhang82/Agent-Memory-Skills --skill amb-connect
-  ```
-- Or read the skills directly:
-  - **`amb`** (Everyday memory recall, store, revise, annotate): [SKILL.md](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb/SKILL.md) ([raw](https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb/SKILL.md))
-  - **`amb-connect`** (Host capability discovery, stdio / Streamable HTTP MCP, tool profiles): [SKILL.md](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/SKILL.md) ([raw](https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb-connect/SKILL.md))
-
-#### Copy Agent Prompt
-
-Paste this into any coding agent chat to immediately configure and use AMB:
+The source is [examples/demo/first-win-demo.cast](examples/demo/first-win-demo.cast). The block below is an abridged transcript of that cast. Regenerating it runs the two processes, then writes generated playback: the header time and the line delays are fixed, not a measurement of the run. Command: `python ./scripts/build_first_win_cast.py`. Rendering a GIF needs `agg`; this repository does not include that GIF.
 
 ```text
-You have access to Agent Memory Bridge (AMB) for persistent, governed project memory.
-- If AMB is not connected yet, use the `amb-connect` skill or follow https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb-connect/SKILL.md to discover host capabilities and configure MCP (local stdio or remote Streamable HTTP).
-- For everyday coding in this project, use the `amb` skill at https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb/SKILL.md to recall relevant gotchas, check live code against stored decisions, and preserve confirmed project knowledge.
+# Session A: store one explicit decision
+namespace: project:checkout-app
+claim: Merge pull requests only after CI is green on the target branch.
+reason: Broken main blocked two releases this month.
+stored: true
+
+# Session B: a second stdio process, same home, recall at start
+query: What is required before we merge a pull request?
+claim: Merge pull requests only after CI is green on the target branch.
+reason: Broken main blocked two releases this month.
+same_record: true
+fresh_process: true
 ```
 
-### Manual Quickstart
+## Recall at the start
 
-The product story is four steps: install AMB, initialize or resolve a project, run the generic MCP server, and use or inspect memory. Client connection stays outside Core.
+Connecting the server is not enough. The next session has to recall on purpose. This page does not claim that connecting MCP, or leaving a skill where it can be found, makes that happen by itself. There is no automatic learning.
 
-### 1. Install AMB
+Put this rule where the next session will actually follow it:
 
-Use a virtual environment so the MCP server points at one stable Python launcher. Replace `<venv-python>` with the Python executable inside `.amb-venv` for your operating system.
+```text
+Before changing code, recall this project's Agent Memory Bridge decisions and their reasons.
+Use the namespace from `project resolve`. Call the public `recall` tool.
+Store a decision only after it is confirmed. Do not treat chat history as already stored.
+```
+
+## Install, then bind the project
+
+AMB requires **Python 3.11+** and Git.
+
+Current package/source version: `0.36.0`.
 
 ```bash
 python -m venv .amb-venv
 <venv-python> -m pip install agent-memory-bridge==0.36.0
-```
-
-For development or audit work against an exact source checkout, use:
-
-```bash
-<venv-python> -m pip install -e .
-```
-
-### 2. Initialize or resolve the project
-
-```bash
 <venv-python> -m agent_mem_bridge project init .
 ```
 
-Project Init detects the local Git repository, proposes a namespace such as `project:my-app`, and waits for confirmation. It then derives a current repository baseline. It does not automatically learn decisions. Once bound, `project resolve .` can resolve the namespace for the checkout without reinitializing.
+Replace `<venv-python>` with the Python executable inside `.amb-venv`. `project init` detects the Git repository, proposes a namespace such as `project:my-app`, and waits for confirmation. It does not learn decisions from the tree. After that, `project resolve .` returns the namespace.
 
-### 3. Run the generic MCP server
+Run `<venv-python> -m agent_mem_bridge` with one persistent `AGENT_MEMORY_BRIDGE_HOME`. How a client launches that process stays outside Core. The command shape is in [Integrations](docs/INTEGRATIONS.md). Connection is real when the client lists `store` and `recall`.
 
-Run AMB as a standard MCP stdio server: command `<venv-python>`, arguments `-m agent_mem_bridge`, and a persistent `AGENT_MEMORY_BRIDGE_HOME` shared by any client accessing the project memory.
-
-How a client launches that process is outside Core. The command shape is in [Integrations](docs/INTEGRATIONS.md).
-
-Connection is verified when the client lists AMB's standard MCP tools such as `store` and `recall`. Health checks like `doctor` and `verify` test server prerequisites, not external client configuration loading.
-
-### 4. Use or inspect memory
-
-Teach an explicit project decision through the connected client using AMB's public `store` tool:
-
-> Remember that we merge pull requests only after CI is green on the target branch, because broken main blocked two releases this month.
-
-The agent stores the explicit decision and reason under the project namespace. AMB does not infer decisions from code or archive conversational transcripts.
-
-In a fresh session against the same project and AMB home, ask:
-
-> What is required before we merge a pull request?
-
-The new session answers with the stored decision and reason because AMB recalled it. Seeing the decision in CLI Explore or Inspect is useful review, not the success check.
-
-Historical Codex observations from the v0.35 line are documented in [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md).
-
-## After the first win
-
-Once one decision survives a fresh session, you can inspect what AMB knows, keep repository facts current, and use the governance model below.
+Store one confirmed decision with `store`. In the next session, use the startup rule above and ask for that decision.
 
 <details>
-<summary>Optional review, refresh, and troubleshooting</summary>
+<summary>Clients, an existing home, and optional review</summary>
 
-Human-first Explore answers “What does AMB currently know about this project?” Inspect answers “Why did this information surface for this question?” Both are local and read-only.
+AMB does not discover, write, or certify Codex, Claude, Cursor, OpenCode, Hermes, Cline, VS Code, or Antigravity. Clients configure AMB as a standard MCP stdio server and point shared projects at the same local home.
+
+If an existing bridge lives at `~/.codex/mem-bridge`, v0.36 does not open it automatically. Set `AGENT_MEMORY_BRIDGE_HOME` to that directory, or copy it to `~/.local/share/agent-memory-bridge`. The [configuration guide](docs/CONFIGURATION.md) has the cutover.
+
+The companion skills are optional help for discovery and everyday use. They do not replace the startup rule above. Install them from [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills):
 
 ```bash
-<venv-python> -m agent_mem_bridge explore \
-  --namespace project:my-app
+npx skills add zzhang82/Agent-Memory-Skills --skill amb
+npx skills add zzhang82/Agent-Memory-Skills --skill amb-connect
+```
 
+- [`amb`](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb/SKILL.md) ([raw](https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb/SKILL.md))
+- [`amb-connect`](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/SKILL.md) ([raw](https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb-connect/SKILL.md))
+
+For a source checkout, install with `<venv-python> -m pip install -e .` instead of the pinned package.
+
+Human-first Explore answers “What does AMB currently know?” Inspect answers “Why did this information surface?” Both are local and read-only. They are not the success check.
+
+```bash
+<venv-python> -m agent_mem_bridge explore --namespace project:my-app
 <venv-python> -m agent_mem_bridge inspect \
   --namespace project:my-app \
   --query "What is required before we merge a pull request?"
 ```
 
-This is a conceptual view, not verbatim CLI output:
-
-```text
-CODE / WHAT                     CONVERSATION / WHY
-────────────────────            ──────────────────────────
-Runtime: Python >=3.11          Decision: Merge only after
-Package: my-app                 CI is green
-Tests: pytest                   Reason: broken main blocked
-                                two releases
-```
-
-**Code tells AMB WHAT the project is.**
-
-**Conversations teach AMB WHY it is that way.**
-
-That distinction is a trust boundary: derived facts can be rebuilt from current code, while durable project knowledge remains explicit, reviewable, and governed.
-
-Repository WHAT comes from a clean Git commit. If HEAD changes or the worktree is dirty, AMB will not present an old snapshot as current truth. Refresh is not automatic. Rerun the explicit primitive:
+Code tells AMB what the repository contains. A confirmed decision tells it why. Derived repository facts come from a clean Git commit. If HEAD moves or the worktree is dirty, refresh on purpose:
 
 ```bash
-<venv-python> -m agent_mem_bridge bootstrap-repo . \
-  --namespace project:<name>
+<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:my-app
 ```
 
-Refreshing repository WHAT leaves durable project WHY unchanged. Explore is CLI-only, not MCP tool #18, and it does not rank context for the model.
+Refreshing repository facts leaves stored decisions unchanged. Explore is CLI-only. It is not an extra MCP tool.
 
-`first-run` remains optional guided help; it is not the first-win path:
-
-```bash
-<venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I remember?"
-```
-
-Use health checks only when the connection is uncertain. They do not prove that a coding client loaded MCP config:
-
-```bash
-<venv-python> -m agent_mem_bridge doctor
-<venv-python> -m agent_mem_bridge verify
-```
+`doctor` and `verify` check server prerequisites. They do not prove that a client loaded its MCP config. `first-run` is optional guided help, not the first-win path. Historical Codex observations from the v0.35 line are in [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md).
 
 </details>
 
-## Integrations
-
-AMB runs as a generic local stdio MCP server. Client connection is outside Core. The command shape, project initialization, lifecycle-hook input, and server checks are in [Integrations](docs/INTEGRATIONS.md).
-
 ## Why the memory stays trustworthy
 
-The useful part of long-lived project memory is not simply remembering more. It is being able to tell where knowledge came from, whether it is still current, and how it changed.
-
-AMB therefore keeps several boundaries explicit:
+The useful part is not remembering more. It is knowing where a decision came from, whether it is still current, and how it changed.
 
 | Memory concern | AMB approach |
 |---|---|
@@ -204,11 +125,11 @@ AMB therefore keeps several boundaries explicit:
 | Cross-session reuse | Shared through the same configured local AMB home |
 | Privacy | Local-first; no hosted memory service is required |
 
-This is where the earlier **WHAT / WHY** model belongs: it explains one of the mechanisms that keeps memory trustworthy, rather than defining the entire product.
+Code tells the next session what exists. AMB retains the confirmed reasons the code does not explain.
 
 ## What AMB is — and is not
 
-AMB is a governed local project-memory layer for coding agents. It is designed to preserve useful context across sessions and tools while keeping durable knowledge, derived repository facts, provenance, and corrections distinguishable.
+AMB is a governed local project-memory layer for coding agents. Durable knowledge, derived repository facts, provenance, and corrections stay distinguishable.
 
 It is not a transcript archive, a promise that an agent will remember everything, or a system that silently converts every conversation into durable truth. There is no automatic learning.
 
@@ -216,6 +137,7 @@ It is not a transcript archive, a promise that an agent will remember everything
 
 | Read | For |
 |---|---|
+| [First-win demo](examples/demo/README.md) | The local two-process recording, and the older coordination demo |
 | [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md) | Historical Codex observation from the v0.35 line |
 | [Architecture](docs/ARCHITECTURE.md) | System shape and data flow |
 | [Authority model](docs/AUTHORITY-CONTRACT.md) | Durable authority, derived views, correction, and audit rules |
@@ -228,7 +150,7 @@ It is not a transcript archive, a promise that an agent will remember everything
 
 ## Technical model
 
-The product story above intentionally postpones implementation vocabulary. Internally, AMB keeps `derived_repository` data separate from governed durable memory so one cannot silently become the other. For maintainers and reviewers, the current authority flow is:
+Internally, AMB keeps `derived_repository` data separate from governed durable memory so one cannot silently become the other. For maintainers and reviewers, the current authority flow is:
 
 ```mermaid
 flowchart LR

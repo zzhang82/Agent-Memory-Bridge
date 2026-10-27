@@ -4,10 +4,10 @@
 
 <h1 align="center">Agent Memory Bridge</h1>
 
-<p align="center"><strong>把项目决策带到下一次编码会话。</strong></p>
+<p align="center"><strong>教一次决策和它的理由。下一次会话在开始时召回，就能带回那条理由。</strong></p>
 
 <p align="center">
-  AMB 帮助编码智能体记住真正重要的决策——跨会话、跨工具，也跨时间。
+  AMB 把已确认的项目决策放在本地存储里。后来的会话要靠召回拿回它，而不是靠重读旧聊天。
 </p>
 
 <p align="center"><a href="README.md">English</a></p>
@@ -21,178 +21,100 @@
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-3776AB.svg" alt="Python 3.11+" /></a>
 </p>
 
-```bash
-pip install agent-memory-bridge
-```
+## 这一次闭环
 
-连接具体的编码客户端属于 AMB Core 范围之外。AMB 不会发现、写入或认证 Codex、Claude、Cursor、OpenCode、Hermes、Cline、VS Code 或 Antigravity。客户端独立将 AMB 配置为标准 MCP stdio 服务；共享项目记忆的客户端需要指向同一个本地 AMB home。通用安装与注册契约请见[集成文档](docs/INTEGRATIONS.md)。
+一个进程存下一条决策。同一个 AMB home 上的第二个进程召回主张和理由。这段记录是本地 stdio 证明。它不是编码智能体的屏幕录像，也不是采用率测量。
 
-如果已有 bridge 位于 `~/.codex/mem-bridge`，v0.36 不会自动打开它。把 `AGENT_MEMORY_BRIDGE_HOME` 指到该目录，或把目录复制到 `~/.local/share/agent-memory-bridge`。具体切换见[配置说明](docs/CONFIGURATION.md)。
-
-## 你的项目不该在每个新会话里重新开始
-
-一个项目远不只是当前那一份文件。随着时间推移，真正有用的上下文会散落在仓库、聊天、编码智能体、review、修复记录和一次次临时决策里。新会话也许能看到代码，却仍然不知道那些让项目成立的理由。
-
-AMB 给这些决策一个可以长期保存的位置。第一次成功很简单：教给它一个真实决策，关掉会话，打开一个全新的编码智能体会话，再听到 AMB 把同一个决策带回来。
-
-| 没有共享项目记忆 | 使用 AMB |
-|---|---|
-| 每个会话都重新拼上下文 | 有价值的项目知识可以继续沿用 |
-| 决策消失在旧聊天里 | 明确记录的决策和理由跟着项目走 |
-| 不同工具各自形成残缺理解 | 支持的 MCP 客户端可以共用同一个本地 AMB home |
-| 记忆可能过期、冲突或含义不清 | provenance、修订、supersession 和 inspection 让它保持可治理 |
-
-AMB 本地优先，而且可检查。它不会默默归档每一段对话，也不会把所有“记住的内容”都当成同等权威的事实。
-
-## 快速开始
-
-AMB 需要 **Python 3.11+**、Git，以及能够启动本地 stdio server 或连接 Streamable HTTP 的 MCP 兼容编码客户端。
-
-当前包/源码版本：`0.36.0`。
-
-已发布版本请见 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
-
-### 智能体技能设置（推荐）
-
-安装官方配套技能仓库 [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills)（包含日常记忆操作 `amb` 和宿主能力发现与连接 `amb-connect`）：
-
-- 如果使用的是支持 skills CLI 的智能体环境（例如 Claude Code、Cursor、OpenCode）：
-  ```bash
-  npx skills add zzhang82/Agent-Memory-Skills --skill amb
-  npx skills add zzhang82/Agent-Memory-Skills --skill amb-connect
-  ```
-- 或直接让智能体阅读技能文档：
-  - **`amb`**（日常记忆检索、存储、修订、元数据追加）：[SKILL.md](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb/SKILL.md)（[raw](https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb/SKILL.md)）
-  - **`amb-connect`**（宿主能力发现、stdio / Streamable HTTP MCP、工具 Profile 配置）：[SKILL.md](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/SKILL.md)（[raw](https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb-connect/SKILL.md))
-
-#### 智能体提示词
-
-复制此提示词发送给任何编码智能体，即可快速完成配置与记忆使用：
+来源是 [examples/demo/first-win-demo.cast](examples/demo/first-win-demo.cast)。下面的文本块是这段 cast 的节选。重新生成会先跑两个进程，再写入生成的回放：文件头时间和逐行延迟是固定的，不是这次运行的耗时测量。命令是 `python ./scripts/build_first_win_cast.py`。渲染 GIF 需要 `agg`；本仓库不附带该 GIF。
 
 ```text
-你有权使用 Agent Memory Bridge (AMB) 维护跨会话、跨工具的项目持久记忆。
-- 如果尚未连接 AMB，请使用 `amb-connect` 技能或参考 https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb-connect/SKILL.md 发现宿主能力并配置 MCP（本地 stdio 或远程 Streamable HTTP）。
-- 在本项目的日常编码中，请使用 `amb` 技能（https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb/SKILL.md）检索相关 gotcha、根据已存决策校验代码，并在确认后沉淀关键项目知识。
+# Session A: store one explicit decision
+namespace: project:checkout-app
+claim: Merge pull requests only after CI is green on the target branch.
+reason: Broken main blocked two releases this month.
+stored: true
+
+# Session B: a second stdio process, same home, recall at start
+query: What is required before we merge a pull request?
+claim: Merge pull requests only after CI is green on the target branch.
+reason: Broken main blocked two releases this month.
+same_record: true
+fresh_process: true
 ```
 
-### 手动安装与使用
+## 在会话开始时召回
 
-当前产品路径包含四个步骤：安装 AMB、初始化或解析项目、运行通用 MCP 服务，以及使用或检查记忆。客户端连接不属于 Core。
+只连上服务器不够。下一次会话必须主动召回。本页不声称连上 MCP，或把技能放在可发现的位置，就会自己完成这一步。没有自动学习。
 
-### 1. 安装 AMB
+把下面这条规则放在下一次会话真正会遵守的地方：
 
-快速开始建议使用虚拟环境，让 MCP 服务指向一个稳定的 Python launcher。请根据操作系统，用 `.amb-venv` 中的 Python 可执行文件代替 `<venv-python>`。
+```text
+改代码之前，先召回这个项目在 Agent Memory Bridge 里的决策和理由。
+使用 `project resolve` 得到的 namespace。调用公开的 `recall` 工具。
+只在决策被确认之后再 store。不要把聊天记录当成已经保存的记忆。
+```
+
+## 安装，然后绑定项目
+
+AMB 需要 **Python 3.11+** 和 Git。
+
+当前包/源码版本：`0.36.0`。
 
 ```bash
 python -m venv .amb-venv
 <venv-python> -m pip install agent-memory-bridge==0.36.0
-```
-
-如果是在开发或审计一个精确源码检出，请使用：
-
-```bash
-<venv-python> -m pip install -e .
-```
-
-### 2. 初始化或解析项目
-
-```bash
 <venv-python> -m agent_mem_bridge project init .
 ```
 
-Project Init 会检测本地 Git 仓库，建议一个类似 `project:my-app` 的 namespace，并等待你确认。随后它会派生当前仓库 baseline。它不会自动学习项目决策。绑定后，可使用 `project resolve .` 解析当前检出的 namespace，无需重新初始化。
+用 `.amb-venv` 里的 Python 可执行文件代替 `<venv-python>`。`project init` 检测 Git 仓库，建议一个类似 `project:my-app` 的 namespace，并等待确认。它不会从代码树学习决策。绑定之后，`project resolve .` 返回该 namespace。
 
-### 3. 运行通用 MCP 服务
+用持久的 `AGENT_MEMORY_BRIDGE_HOME` 运行 `<venv-python> -m agent_mem_bridge`。客户端如何启动这个进程不属于 Core。命令形式见[集成文档](docs/INTEGRATIONS.md)。客户端列出 `store` 和 `recall` 时，连接才算成立。
 
-将 AMB 作为标准 MCP stdio 服务运行：命令为 `<venv-python>`，参数为 `-m agent_mem_bridge`，并使用所有访问该项目记忆的客户端所共享的持久 `AGENT_MEMORY_BRIDGE_HOME`。
-
-客户端如何启动这个进程不属于 Core。命令形式见[集成文档](docs/INTEGRATIONS.md)。
-
-当客户端列出 AMB 的标准 MCP 工具（如 `store` 和 `recall`）时，即表明连接有效。`doctor` 和 `verify` 等健康检查验证的是服务端先决条件，而不是外部客户端配置的加载情况。
-
-### 4. 使用或检查记忆
-
-在已连接的客户端中，使用 AMB 公开的 `store` 工具教给项目一个显式决策：
-
-> 记住：我们只在目标分支 CI 全绿之后才合并 pull request，因为主分支坏掉已经耽误了两次发布。
-
-智能体会将这项显式决策与理由保存在项目 namespace 下。AMB 不会从代码中推断决策，也不会归档对话记录。
-
-在针对同一项目和同一 AMB home 的全新会话中提问：
-
-> 合并 pull request 之前必须满足什么条件？
-
-新会话将因为 AMB 召回了该项记忆而答出刚才保存的决策与理由。在 CLI Explore 或 Inspect 中看到该条事实是很有用的审阅手段，但并非成功验收标准。
-
-v0.35 系列的历史 Codex 观察记录参见[首次成功验收](docs/FIRST-WIN-ACCEPTANCE.md)。
-
-## 第一次成功之后
-
-当一条决策能在全新会话里活下来之后，你再检查 AMB 目前知道什么、刷新仓库事实，并使用下面的治理模型。
+用 `store` 保存一条已确认的决策。下一次会话按上面的启动规则询问这条决策。
 
 <details>
-<summary>可选的审阅、刷新与故障排查</summary>
+<summary>客户端、已有 home，以及可选审阅</summary>
 
-Human-first Explore 回答“AMB 目前知道这个项目的什么信息？”Inspect 回答“为什么这条信息会针对这个问题出现？”两者都只在本地读取，不会修改记忆。
+AMB 不会发现、写入或认证 Codex、Claude、Cursor、OpenCode、Hermes、Cline、VS Code 或 Antigravity。客户端把 AMB 配置为标准 MCP stdio 服务，并让共享同一项目的客户端指向同一个本地 home。
+
+如果已有 bridge 位于 `~/.codex/mem-bridge`，v0.36 不会自动打开它。把 `AGENT_MEMORY_BRIDGE_HOME` 指到该目录，或把目录复制到 `~/.local/share/agent-memory-bridge`。具体切换见[配置说明](docs/CONFIGURATION.md)。
+
+配套技能是发现和日常使用的可选帮助。它们不能代替上面的启动规则。从 [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills) 安装：
 
 ```bash
-<venv-python> -m agent_mem_bridge explore \
-  --namespace project:my-app
+npx skills add zzhang82/Agent-Memory-Skills --skill amb
+npx skills add zzhang82/Agent-Memory-Skills --skill amb-connect
+```
 
+- [`amb`](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb/SKILL.md)（[raw](https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb/SKILL.md)）
+- [`amb-connect`](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/SKILL.md)（[raw](https://raw.githubusercontent.com/zzhang82/Agent-Memory-Skills/main/skills/amb-connect/SKILL.md)）
+
+源码检出请改用 `<venv-python> -m pip install -e .`，不要装固定版本包。
+
+面向人的 Explore 回答“AMB 现在知道什么”。Inspect 回答“这条信息为什么出现”。两者都是本地只读操作，不是成功验收。
+
+```bash
+<venv-python> -m agent_mem_bridge explore --namespace project:my-app
 <venv-python> -m agent_mem_bridge inspect \
   --namespace project:my-app \
   --query "What is required before we merge a pull request?"
 ```
 
-下面是概念视图，不是 CLI 的逐字输出：
-
-```text
-CODE / WHAT                     CONVERSATION / WHY
-────────────────────            ──────────────────────────
-Runtime: Python >=3.11          Decision: 只在 CI 全绿后合并
-Package: my-app                 Reason: 主分支坏掉耽误了
-Tests: pytest                   两次发布
-```
-
-**代码告诉 AMB 项目“是什么”（WHAT）。**
-
-**对话告诉 AMB 项目“为什么这样”（WHY）。**
-
-这个区分是一条**信任边界**：派生事实可以从当前代码重新构建，而持久项目知识则保持显式、可审阅、可治理。
-
-仓库 WHAT 来自干净的 Git commit。如果 HEAD 发生变化或 worktree 不干净，AMB 不会把旧 snapshot 当作当前事实。刷新不是自动发生的。请重新运行显式底层命令：
+代码告诉 AMB 仓库里有什么。已确认的决策告诉它为什么。派生的仓库事实来自一次干净的 Git 提交。HEAD 变了，或工作区不干净时，要显式刷新：
 
 ```bash
-<venv-python> -m agent_mem_bridge bootstrap-repo . \
-  --namespace project:<name>
+<venv-python> -m agent_mem_bridge bootstrap-repo . --namespace project:my-app
 ```
 
-刷新仓库 WHAT 不会改变持久项目 WHY。Explore 只属于 CLI，不是 MCP 工具 #18，也不会为模型排序上下文。
+刷新仓库事实不会改动已保存的决策。Explore 只在 CLI 里，不是多出来的 MCP 工具。
 
-`first-run` 仍可作为可选引导，但它不是第一次成功的路径：
-
-```bash
-<venv-python> -m agent_mem_bridge first-run --namespace project:my-app --query "What should I remember?"
-```
-
-只有在安装或连接状态不确定时才需要运行。它们不能证明编码客户端已经加载 MCP 配置：
-
-```bash
-<venv-python> -m agent_mem_bridge doctor
-<venv-python> -m agent_mem_bridge verify
-```
+`doctor` 和 `verify` 检查服务端先决条件。它们不能证明客户端加载了 MCP 配置。`first-run` 是可选引导，不是第一次成功的路径。v0.35 系列的历史 Codex 观察记录见[首次成功验收](docs/FIRST-WIN-ACCEPTANCE.md)。
 
 </details>
 
-## 集成
-
-AMB 作为通用本地 stdio MCP 服务运行。客户端连接不属于 Core。命令形式、项目初始化、生命周期钩子输入和服务端检查见[集成文档](docs/INTEGRATIONS.md)。
-
 ## 为什么这份记忆能保持可信
 
-长期项目记忆真正有价值的地方，不只是“记得更多”，而是能够知道一条知识从哪里来、现在是否仍然有效，以及它后来发生过什么变化。
-
-因此 AMB 会明确保留这些边界：
+有用的部分不是记得更多，而是知道一条决策从哪里来、现在是否仍然有效，以及后来怎样变过。
 
 | 记忆问题 | AMB 的处理方式 |
 |---|---|
@@ -203,11 +125,11 @@ AMB 作为通用本地 stdio MCP 服务运行。客户端连接不属于 Core。
 | 跨会话复用 | 通过同一个已配置的本地 AMB home 共享 |
 | 隐私 | 本地优先，不要求托管式记忆服务 |
 
-之前的 **WHAT / WHY** 模型应该放在这里：它解释了 AMB 如何让记忆保持可信的一部分机制，而不是用来定义整个产品。
+代码告诉下一次会话现在有什么。AMB 保留代码解释不了的、已经确认的理由。
 
 ## AMB 是什么——以及不是什么
 
-AMB 是面向编码智能体的、受治理的本地项目记忆层。它让有价值的上下文能够跨会话、跨工具保留下来，同时继续区分持久知识、仓库派生事实、provenance 与后续修正。
+AMB 是面向编码智能体的、受治理的本地项目记忆层。持久知识、仓库派生事实、provenance 和后续修正保持可区分。
 
 它不是聊天记录归档器，不承诺智能体会记住所有事情，也不会默默把每一段对话都转换成持久事实。它没有自动学习。
 
@@ -215,6 +137,7 @@ AMB 是面向编码智能体的、受治理的本地项目记忆层。它让有�
 
 | 文档 | 用途 |
 |---|---|
+| [首次成功演示](examples/demo/README.md) | 本地双进程记录，以及更早的协作演示 |
 | [首次成功验收](docs/FIRST-WIN-ACCEPTANCE.md) | v0.35 系列的历史 Codex 观察记录 |
 | [架构](docs/ARCHITECTURE.md) | 系统形态与数据流 |
 | [权威模型](docs/AUTHORITY-CONTRACT.md) | 持久权威、派生视图、修正与审计规则 |
@@ -227,7 +150,7 @@ AMB 是面向编码智能体的、受治理的本地项目记忆层。它让有�
 
 ## 技术模型
 
-上面的产品叙事有意把实现词汇后置。在内部，AMB 仍将 `derived_repository` 数据与受治理的持久记忆分开，避免一方悄悄变成另一方。对维护者和审阅者，当前权威流如下：
+在内部，AMB 将 `derived_repository` 数据与受治理的持久记忆分开，避免一方悄悄变成另一方。对维护者和审阅者，当前权威流如下：
 
 ```mermaid
 flowchart LR

@@ -1,71 +1,55 @@
 # Demo
 
-This folder holds the reusable terminal demo source for Agent Memory Bridge.
+The public story is the first-win loop: one stdio process stores an explicit decision, and a second process on the same AMB home recalls the claim and the reason.
 
-The current terminal demo shows:
+That recording is [first-win-demo.cast](first-win-demo.cast). It is a local server proof, not a filmed coding-agent session. Regenerate it with:
 
-- a small durable memory bundle shaped like `belief -> concept-note -> procedure`
+```bash
+python ./scripts/build_first_win_cast.py
+```
+
+The generator runs [scripts/demo_first_win.py](../../scripts/demo_first_win.py), checks that the recalled record matches the stored decision, and scrubs workstation paths before writing the cast. The cast header time and line delays are fixed playback, not a measurement of that run. Rendering a GIF needs `agg`. This folder does not include a first-win GIF. When `agg` is available:
+
+```bash
+agg ./examples/demo/first-win-demo.cast ./examples/demo/first-win-demo.gif
+```
+
+Do not check in a GIF that was not rendered from that cast.
+
+## Coordination demo
+
+[terminal-demo.cast](terminal-demo.cast) and [terminal-demo.gif](terminal-demo.gif) are the older coordination recording. They show:
+
+- a durable memory bundle shaped like `belief -> concept-note -> procedure`
 - one coordination `signal`
 - `claim_signal`
 - `extend_signal_lease`
 - `ack_signal`
-- a later `recall_first(...)` moment where the bridge surfaces useful task memory
+- a later `recall_first(...)` moment
 - a small benchmark snapshot
 
-There is also a lightweight before/after story source for the "viral moment":
-without Agent Memory Bridge, the user has to re-teach a repo gotcha; with Agent
-Memory Bridge, the next session recalls the gotcha before touching code.
+That recording stays because the release check requires `terminal-demo.cast` and `terminal-demo.gif`. It is not the public first-win story. Historical `v0.5` assets are kept separately and are not the primary public demo.
 
-The checked-in demo is meant to show both coordination state and a later
-"the agent remembered something useful" retrieval moment, while still matching
-the current benchmark snapshot.
-Historical `v0.5` demo assets are kept separately and are not the primary public demo.
-
-The v0.30 Project Knowledge Activation adoption demo is separate at
-[`v030-project-knowledge/`](v030-project-knowledge/). It is a reproducible
-four-stage local proof of a commit-bound repository WHAT fact plus a durable
-explicit project-decision WHY written and read through fresh MCP stdio
-processes. Code tells the derived, rebuildable WHAT; conversations teach the
-WHY; `inspect` reports only the supported repository/provenance boundary. It
-does not replace or regenerate the historical terminal demos.
-
-Files:
-
-- `before-after-gotcha.cast.md` as a text-only source transcript for the before/after gotcha story
-- `scripts/demo_terminal.py` for the terminal flow itself
-- `scripts/build_demo_cast.py` to regenerate the asciicast
-- `terminal-demo.cast` as the canonical recorded source
-- `terminal-demo.tape` as an optional VHS source
-- `v030-project-knowledge/README.md` and `v030-project-knowledge/run_demo.py` for the v0.30 project-knowledge activation proof
-
-To use the before/after gotcha story:
-
-```bash
-python -c "from pathlib import Path; print(Path('examples/demo/before-after-gotcha.cast.md').read_text())"
-```
-
-It is source material only. If you want to turn it into a shareable recording,
-save the generated asciicast as `examples/demo/before-after-gotcha.cast`; if you
-render a GIF from that cast, use:
-
-```bash
-agg ./examples/demo/before-after-gotcha.cast ./examples/demo/before-after-gotcha.gif
-```
-
-The checked-in text source is enough for readers; generated binaries are
-optional release assets.
-
-To regenerate the cast:
+Regenerate the coordination cast with:
 
 ```bash
 python ./scripts/build_demo_cast.py
 ```
 
-The checked-in cast uses a scrubbed placeholder prompt path so the public demo
-does not expose a maintainer workstation path.
+The checked-in cast uses a scrubbed placeholder prompt path so the public demo does not expose a maintainer workstation path. Optional VHS source: `terminal-demo.tape`.
 
-To render the cast to GIF after installing `agg`:
+To render that cast after installing `agg`:
 
 ```bash
 agg ./examples/demo/terminal-demo.cast ./examples/demo/terminal-demo.gif
 ```
+
+## Other sources
+
+The before/after gotcha note, [before-after-gotcha.cast.md](before-after-gotcha.cast.md), is narration only. Commands written as `amb store` and `amb recall` are not a shipped shell CLI. Do not turn that transcript into the public recording.
+
+```bash
+python -c "from pathlib import Path; print(Path('examples/demo/before-after-gotcha.cast.md').read_text())"
+```
+
+The v0.30 project-knowledge proof is separate at [v030-project-knowledge/](v030-project-knowledge/). It does not replace the first-win cast or the coordination recording.

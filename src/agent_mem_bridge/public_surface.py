@@ -53,6 +53,7 @@ PUBLIC_DOC_PATHS = (
     Path("examples/README.md"),
     Path("examples/demo/before-after-gotcha.cast.md"),
     Path("examples/demo/README.md"),
+    Path("examples/demo/first-win-demo.cast"),
     Path("examples/demo/terminal-demo.cast"),
     Path("examples/demo/terminal-demo.tape"),
     Path("examples/diagrams/v0.22-cross-client-activation.svg"),
