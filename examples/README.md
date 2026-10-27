@@ -11,7 +11,8 @@ It is intentionally limited to sanitized examples that show the shape of:
 - a reusable terminal demo source in [demo](demo/README.md)
 - sanitized harness preview packet shapes in [harness-preview](harness-preview/README.md)
 
-The canonical current demo lives in `demo/terminal-demo.*`.
+The public demo is the first-win cast in `demo/first-win-demo.cast`.
+`demo/terminal-demo.*` is the older coordination recording.
 Any `v0.5` demo artifacts are historical only.
 
 Machine-specific reports and local validation output are generated during development,
