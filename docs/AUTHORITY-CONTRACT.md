@@ -4,7 +4,7 @@ Agent Memory Bridge stores durable engineering memory, but not every artifact
 around the bridge has the same authority. This contract explains what users and
 contributors can safely treat as source of truth.
 
-For cross-layer AMB/AMH/runtime-provider integrations, keep this contract as
+For cross-layer AMB/runtime-provider integrations, keep this contract as
 the in-repository durable-authority source for AMB stored records and governed
 mutation. Runtime or harness-layer verb ownership maps may reference this
 contract, but they do not replace it.
