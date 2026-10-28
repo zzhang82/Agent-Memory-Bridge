@@ -37,6 +37,7 @@ PUBLIC_DOC_PATHS = (
     Path("docs/INTEGRATIONS.md"),
     Path("docs/FIRST-WIN-ACCEPTANCE.md"),
     Path("docs/MEMORY-TAXONOMY.md"),
+    Path("docs/MEMORY-HYGIENE.md"),
     Path("docs/PROMOTION-RULES.md"),
     Path("docs/RELEASE-COMMUNICATIONS.md"),
     Path("docs/TRUST-BOUNDARY.md"),

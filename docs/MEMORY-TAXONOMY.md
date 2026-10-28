@@ -33,6 +33,15 @@ That means a memory is not trapped in one folder or one tree. A single item may 
 - one or more topics
 - one or more problem/fix patterns
 
+### Structure Over Prose (Anti-Pollution Principle)
+
+Never store mechanical rules that can be enforced by a compiler, linter, type system, or test suite.
+- If a mistake can be caught by an AST linter rule (e.g., ESLint, Biome, Ruff), write the rule instead of adding memory.
+- If an invariant can be enforced by static typing or assertions, harden the types instead of adding memory.
+- Reserve durable memory for knowledge that cannot be derived from code: architectural rationale, domain boundaries, and external library gotchas.
+
+See [Memory Hygiene](MEMORY-HYGIENE.md) for the complete 3-question ingestion filter.
+
 ## Core Memory Levels
 
 ### 1. Session Summary
@@ -69,7 +78,11 @@ What it contains:
 - a constraint
 - a validated finding
 - a successful pattern
-- a mistake and correction
+- a non-obvious mistake and correction
+
+What it should NOT contain:
+- mechanical syntax rules or linter errors that belong in AST tooling
+- directory or formatting conventions that belong in configs
 
 Characteristics:
 - durable
@@ -94,6 +107,9 @@ What it contains:
 - fix
 - warning signs
 - links to related domains and projects
+
+What it should NOT contain:
+- build or typo errors easily caught by local compiler or linter feedback loops
 
 Characteristics:
 - high-value cross-project memory

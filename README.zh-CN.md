@@ -133,6 +133,10 @@ AMB 是面向编码智能体的、受治理的本地项目记忆层。持久知�
 
 它不是聊天记录归档器，不承诺智能体会记住所有事情，也不会默默把每一段对话都转换成持久事实。它没有自动学习。
 
+### 记忆卫生：结构优先于提示词
+
+切勿将记忆当成存放 linter 报错、目录约定或语法禁忌的“提示词垃圾桶”。如果智能体两次犯同样的机械性错误，请通过 linter 规则、类型守卫（type guard）或 pre-commit 检查来加固仓库环境。AMB 持久记忆应严格保留给代码无法自述的“原因”：架构决策、业务不变量边界与第三方库坑点。详见[记忆卫生指南](docs/MEMORY-HYGIENE.md)与 3 步入库过滤法则。
+
 ## 想了解细节？
 
 | 文档 | 用途 |
@@ -142,6 +146,7 @@ AMB 是面向编码智能体的、受治理的本地项目记忆层。持久知�
 | [架构](docs/ARCHITECTURE.md) | 系统形态与数据流 |
 | [权威模型](docs/AUTHORITY-CONTRACT.md) | 持久权威、派生视图、修正与审计规则 |
 | [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) | 面向人的只读项目视图 |
+| [记忆卫生指南](docs/MEMORY-HYGIENE.md) | 防污染准则与“结构优于提示词”边界 |
 | [生产状态](docs/PRODUCTION-STATUS.md) | 当前实现事实、证据与已知边界 |
 | [集成](docs/INTEGRATIONS.md) | 通用 stdio MCP 安装契约 |
 | [智能体安装指南](INSTALL_FOR_AGENTS.md) | 从安装到首次成功的完整流程 |

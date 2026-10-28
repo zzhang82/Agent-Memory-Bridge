@@ -133,6 +133,10 @@ AMB is a governed local project-memory layer for coding agents. Durable knowledg
 
 It is not a transcript archive, a promise that an agent will remember everything, or a system that silently converts every conversation into durable truth. There is no automatic learning.
 
+### Memory hygiene: Structure over prose
+
+Do not treat memory as a prompt trash can for linter errors, directory conventions, or syntax dos and don'ts. If an agent makes the same mechanical mistake twice, harden the repository environment with linter rules, type guards, or pre-commit checks. Reserve AMB durable memory for the *reasons* that code cannot convey: architectural decisions, domain invariants, and third-party library gotchas. See the [Memory Hygiene Guide](docs/MEMORY-HYGIENE.md) for the 3-question ingestion filter.
+
 ## Want the details?
 
 | Read | For |
@@ -142,6 +146,7 @@ It is not a transcript archive, a promise that an agent will remember everything
 | [Architecture](docs/ARCHITECTURE.md) | System shape and data flow |
 | [Authority model](docs/AUTHORITY-CONTRACT.md) | Durable authority, derived views, correction, and audit rules |
 | [Knowledge Explorer](docs/KNOWLEDGE-EXPLORER.md) | Human-first read-only project view |
+| [Memory Hygiene](docs/MEMORY-HYGIENE.md) | Anti-pollution rules and the structure-over-prose boundary |
 | [Production Status](docs/PRODUCTION-STATUS.md) | Current implementation facts, evidence, and known limits |
 | [Integrations](docs/INTEGRATIONS.md) | Generic stdio MCP installer contract |
 | [Install for Agents](INSTALL_FOR_AGENTS.md) | Full install-to-first-success workflow |

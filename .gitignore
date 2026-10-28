@@ -36,3 +36,4 @@ scripts/preview_profile_bundle.py
 scripts/preview_startup_assembly.py
 scripts/run_belief_*.py
 scripts/run_cutover_dashboard.py
+uv.lock
