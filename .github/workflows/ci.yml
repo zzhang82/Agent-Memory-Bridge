@@ -169,13 +169,13 @@ jobs:
           "$RUNNER_TEMP/amb-wheel-venv/bin/python" -m pip install dist/*.whl
           python scripts/check_installed_distribution.py \
             --server-python "$RUNNER_TEMP/amb-wheel-venv/bin/python" \
-            --expected-version 0.36.0
+            --expected-version 0.36.1
           python -m venv "$RUNNER_TEMP/amb-sdist-venv"
           "$RUNNER_TEMP/amb-sdist-venv/bin/python" -m pip install --upgrade pip
           "$RUNNER_TEMP/amb-sdist-venv/bin/python" -m pip install dist/*.tar.gz
           python scripts/check_installed_distribution.py \
             --server-python "$RUNNER_TEMP/amb-sdist-venv/bin/python" \
-            --expected-version 0.36.0
+            --expected-version 0.36.1
 
       - name: Build hardened Docker runtime
         run: docker build --build-arg "VCS_REF=$GITHUB_SHA" --tag agent-memory-bridge:ci .
@@ -189,7 +189,7 @@ jobs:
         run: >
           python scripts/check_container_deployment.py
           --image agent-memory-bridge:ci
-          --expected-version 0.36.0 --expected-revision "$GITHUB_SHA"
+          --expected-version 0.36.1 --expected-revision "$GITHUB_SHA"
           --runtime-dir "$RUNNER_TEMP/amb-container-acceptance"
 
   legacy-sdk-compat:

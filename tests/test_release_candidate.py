@@ -102,7 +102,7 @@ def test_current_source_contract_rejects_automatic_learning_claim_drift(tmp_path
 def test_readmes_use_v036_release_identity() -> None:
     english = (ROOT / "README.md").read_text(encoding="utf-8")
     chinese = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert CURRENT == "0.36.0"
+    assert CURRENT == "0.36.1"
     assert f"Current package/source version: `{CURRENT}`." in english
     assert f"当前包/源码版本：`{CURRENT}`。" in chinese
     assert f"agent-memory-bridge=={CURRENT}" in english
@@ -129,11 +129,11 @@ def test_current_package_and_source_docs_use_published_identity() -> None:
     assert "no automatic learning" in announcement
     contract = (ROOT / "docs/evidence/v0.35.0-lifecycle/CONTRACT.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "v0.36.0 — Core Boundary Cleanup" in announcement
+    assert "v0.36.1 — Structure Over Prose & Memory Hygiene" in announcement
+    assert "v0.36.1 — Structure Over Prose & Memory Hygiene" in changelog
+    assert "v0.36.1 source/release line" in changelog
     assert "v0.36.0 — Core Boundary Cleanup" in changelog
     assert "v0.36.0 source/release line" in changelog
-    assert "v0.35.0 — Governed Lifecycle Activation" in changelog
-    assert "v0.35.0 source/release line" in changelog
     assert "Codex CLI 0.160.0" in contract
     assert "gpt-6-luna" in contract
     assert "10 PASS / 0 FAIL / 0 INCONCLUSIVE" in contract
