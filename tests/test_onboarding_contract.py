@@ -197,3 +197,13 @@ def test_onboarding_contract_flags_codex_specific_docker_defaults(tmp_path: Path
     assert report["ok"] is False
     docs_check = next(check for check in report["checks"] if check["name"] == "onboarding_docs_stay_placeholder_safe")
     assert any(violation["path"] == "Dockerfile" for violation in docs_check["violations"])
+
+
+def test_documented_host_recipes_pass_json_and_subcommand_contract() -> None:
+    root = Path(__file__).resolve().parents[1]
+    integrations_text = (root / "docs" / "INTEGRATIONS.md").read_text(encoding="utf-8")
+
+    assert ".claude/mcp.json" not in integrations_text
+    assert ".mcp.json" in integrations_text
+    assert '["agent-memory-bridge", "mcp"]' not in integrations_text
+    assert '["agent-memory-bridge", "serve"]' in integrations_text

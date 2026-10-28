@@ -6,16 +6,16 @@ This page describes **future direction**, not a release ledger. Current implemen
 
 | Capability area | Intended direction | Boundary that remains in force |
 |---|---|---|
-| Repository and documentation stabilization | Make current product truth easy to find, reduce duplication, preserve historical evidence, and keep public claims tied to source facts. | Documentation must not replace implementation or relax public, release, or onboarding contracts. |
-| Adoption and installation simplification | Reduce the path from discovery to a verified local MCP registration while retaining client-specific reference material. | Setup remains local and explicit; configuration and durable writes remain user-controlled. |
+| Repository and documentation stabilization | **Delivered in v0.37.0:** Single canonical source facts in `PRODUCTION-STATUS.md`, 4-tier model standardized in `ARCHITECTURE.md`. | Documentation must not replace implementation or relax public, release, or onboarding contracts. |
+| Adoption and installation simplification | **Delivered in v0.37.0:** Standardized host configuration recipes for Cursor, Claude Code, OpenCode, and uvx serve; documented cross-platform onboarding diagnostics. | Setup remains local and explicit; configuration and durable writes remain user-controlled. |
 | Controlled Context Compiler activation | Consider clearly scoped, user-approved operational activation of the existing derived-view capability after its use boundary is designed and reviewed. | The compiler remains transient, consumes governed task memory and Dynamic State snapshots, and does not become a second retrieval/ranking system. |
 | Knowledge Explorer and observability | **Implemented now:** a local-first, read-only Knowledge Explorer MVP over existing project knowledge. **Possible future Explorer expansion:** additional state, run, outcome, and evidence observability only while remaining derived and non-authoritative. | Views, clustering, and reflection remain derived and non-authoritative; no dashboard becomes a write authority by implication. |
 | Controlled memory adaptation | Investigate reviewable adaptation informed by bounded evidence and evaluated outcomes. | No automatic ranking changes, prompt/policy mutation, or durable memory writeback follows from a derived signal alone. |
 | Verified skill acquisition | Consider human-governed promotion of evidence-backed lessons only after evidence, evaluation, and review contracts are explicit. | No autonomous skill acquisition, self-trusting reflection, or automatic procedure promotion is implied. |
 
-## Near-Term Direction
+## Medium-Term Direction
 
-The immediate priority is **clarity and stability**: one product entrypoint, one current-source status reference, one high-level architecture story, and preserved detailed contracts. This work should make the durable-memory, Dynamic State, context, and outcome boundaries understandable without requiring readers to reconstruct current truth from release announcements.
+Following the delivery of repository stabilization and adoption simplification in v0.37.0, the immediate priority advances to **controlled activation and observability**: operationalizing the transient Context Compiler after explicit boundary review, and expanding read-only Knowledge Explorer projections over run trajectories and verification evidence.
 
 ## Later Product Direction
 

@@ -12,7 +12,7 @@ RUN python -m pip wheel --no-cache-dir --wheel-dir /wheels .
 
 FROM python:3.12-slim AS runtime
 
-ARG AMB_VERSION=0.36.1
+ARG AMB_VERSION=0.37.0
 ARG VCS_REF=unverified
 
 LABEL org.opencontainers.image.title="Agent Memory Bridge" \

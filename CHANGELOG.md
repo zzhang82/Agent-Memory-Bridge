@@ -8,6 +8,16 @@ The v0.28.0 tagged archive route, when using that tag, is:
 
 This document records the durable capability milestones in Agent Memory Bridge (AMB). It is **not** a release-by-release ledger, a current-status page, or a substitute for detailed proof artifacts. Current implementation facts belong in [Production Status](docs/PRODUCTION-STATUS.md); future work belongs in the [Roadmap](docs/ROADMAP.md); detailed development chronology remains in Git history and published GitHub Releases where available.
 
+## v0.37.0 — Documentation Stabilization & Adoption Simplification
+
+- Re-anchors `docs/PRODUCTION-STATUS.md` as the single canonical source of truth for checked-in current-source facts.
+- Unifies the 4-tier data lifecycle architecture in `docs/ARCHITECTURE.md` (Durable Authority, Derived Views, Transient Data, Historical Evidence).
+- Adds standardized MCP host configuration recipes in `docs/INTEGRATIONS.md` for Cursor, Claude Code, OpenCode, and uvx serve.
+- Documents standardized cross-platform onboarding diagnostics (`doctor` and `verify`) with verified exit codes.
+- Keeps schema v12, exactly 17 public MCP tools, and the public tool-schema digest unchanged.
+
+See [v0.37.0 announcement](docs/v0.37.0-announcement.md).
+
 ## v0.36.1 — Structure Over Prose & Memory Hygiene
 
 - Establishes the **Structure Over Prose** principle: mechanical errors belong in deterministic AST tooling (linters, type guards, tests), not prompt prose in memory.
@@ -147,6 +157,7 @@ See [v0.32.1 announcement](docs/v0.32.1-announcement.md) for the distribution co
 | v0.32.1 source/release line | **PyPI Distribution** | The release line adds a PyPI install path and release-triggered Trusted Publishing without changing runtime behavior, schema, public MCP surface, or authority boundaries. | [v0.32.1 announcement](docs/v0.32.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.32.2 source/release line | **Governed Project Memory** | Repositions AMB around governed project memory, synchronizes the new hero and bilingual README story, and makes install-versus-client-registration boundaries explicit without changing runtime behavior or authority. | [v0.32.2 announcement](docs/v0.32.2-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
 | v0.33.0 source/release line | **Operationalization** | Fresh-session first-win evidence, MCP 2.x floor/latest gates, cross-platform liveness semantics, public/internal error separation, and single-authority multi-machine guidance strengthen release and operational confidence without expanding durable authority. | [v0.33.0 announcement](docs/v0.33.0-announcement.md), [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md) |
+| v0.37.0 source/release line | **Documentation Stabilization & Adoption Simplification** | Formalizes documentation convergence with PRODUCTION-STATUS.md as single source of truth and standardizes host integration recipes. Schema v12 and exactly 17 tools stay unchanged. | [v0.37.0 announcement](docs/v0.37.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
 | v0.36.1 source/release line | **Structure Over Prose & Memory Hygiene** | Formalizes anti-pollution memory hygiene, the Structure Over Prose principle, and the 3-question ingestion filter. Schema v12 and exactly 17 tools stay unchanged. | [v0.36.1 announcement](docs/v0.36.1-announcement.md), [Memory Hygiene](docs/MEMORY-HYGIENE.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.36.0 source/release line | **Core Boundary Cleanup** | Named-client adapters, `setup`, and `config` leave AMB Core. Default home discovery no longer uses `~/.codex/mem-bridge`. Schema v12 and exactly 17 tools stay unchanged. Production NAS cutover remains separate. | [v0.36.0 announcement](docs/v0.36.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.35.0 source/release line | **Governed Lifecycle Activation** | Governed scope, optional lifecycle recall, bounded Stop review-candidate capture, exclusive remote recall authority and matched Codex Luna 10/10 evidence; plain MCP, schema v12 and 17 tools remain unchanged. | [v0.35.0 announcement](docs/v0.35.0-announcement.md), [Lifecycle release contract](docs/evidence/v0.35.0-lifecycle/CONTRACT.md) |
