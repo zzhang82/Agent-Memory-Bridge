@@ -159,7 +159,7 @@ The image installs a wheel from official AMB source and runs as UID/GID 10001.
 The command is exec-form;
 Docker SIGTERM reaches the server for graceful shutdown.
 
-Use the repository's `compose.yml`. Before an approved deployment, provision a
+Use the repository's `compose.yml`. The checked-in Compose configuration selects the static single-token private-bearer profile through `AMB_HTTP_TOKEN_FILE`; it does not select gateway/RBAC. Before an approved deployment, provision a
 mode-0600 dedicated token file readable by UID 10001, outside the checkout.
 Set `AMB_HTTP_TOKEN_FILE` to its path. Compose fails configuration if it is
 missing. The token value is not part of Compose environment or image metadata.

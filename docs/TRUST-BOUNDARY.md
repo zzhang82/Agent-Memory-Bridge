@@ -42,7 +42,7 @@ that deployment configuration.
   `principal_id` identifies only its configured token principal
 - OAuth, login, or hosted identity
 - per-namespace ACL enforcement outside the optional gateway/RBAC deployment
-- multi-user or remote ACL systems
+- a general multi-user or remote ACL system; optional gateway/RBAC limits do not provide one
 - sandboxing for configured local command providers
 - distributed locking or exactly-once coordination across machines
 - encrypted recall receipt tokens; they are tamper-evident, not confidential

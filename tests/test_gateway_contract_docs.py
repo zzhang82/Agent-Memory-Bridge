@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from agent_mem_bridge.gateway.audit import AuditRecord
+from agent_mem_bridge.gateway.middleware import MAX_RESPONSE_CAPTURE
 from agent_mem_bridge.gateway.permissions import ROLE_PERMISSIONS
 from agent_mem_bridge.mcp_boundary import PUBLIC_TOOL_ORDER
 
@@ -73,6 +74,13 @@ def test_role_doc_guard_rejects_undocumented_permission() -> None:
     assert documented["reader"][0] != mutated["reader"]
 
 
+def _documented_audit_fields() -> tuple[str, ...]:
+    text = DEPLOYMENT.read_text(encoding="utf-8")
+    match = re.search(r"A serialized line always contains these twelve fields: ([^.]+)\.", text)
+    assert match is not None
+    return tuple(re.findall(r"`([A-Za-z0-9_]+)`", match.group(1)))
+
+
 def test_serialized_audit_contract_matches_remote_deployment_docs() -> None:
     text = DEPLOYMENT.read_text(encoding="utf-8")
     without_error = AuditRecord(
@@ -101,21 +109,33 @@ def test_serialized_audit_contract_matches_remote_deployment_docs() -> None:
         error_message="RuntimeError",
     ).to_dict()
 
-    assert tuple(without_error) == ALWAYS_PRESENT_AUDIT_FIELDS
+    documented_fields = _documented_audit_fields()
+    assert documented_fields == ALWAYS_PRESENT_AUDIT_FIELDS
+    assert tuple(without_error) == documented_fields
     assert "error_message" not in without_error
-    assert tuple(key for key in with_error if key != "error_message") == ALWAYS_PRESENT_AUDIT_FIELDS
+    assert tuple(key for key in with_error if key != "error_message") == documented_fields
     assert with_error["error_message"] == "RuntimeError"
-    for field in (*ALWAYS_PRESENT_AUDIT_FIELDS, "error_message"):
-        assert f"`{field}`" in text
     for status in AUDIT_STATUSES:
         assert f"`{status}`" in text
-    assert "at least 4096 bytes" in text
+    assert f"at least {MAX_RESPONSE_CAPTURE} bytes" in text
     assert "first 64 characters" in text
     assert "not redaction" in text
 
 
 def test_audit_doc_guard_rejects_undocumented_serialized_field() -> None:
-    serialized = set(ALWAYS_PRESENT_AUDIT_FIELDS)
-    mutated = serialized | {"unexpected_debug"}
+    documented = _documented_audit_fields()
+    mutated = AuditRecord(
+        audit_id="audit-3",
+        timestamp="2026-10-30T00:00:00.000Z",
+        request_id="request-3",
+        principal_id="principal-3",
+        client_ip=None,
+        transport="http_mcp",
+        tool=None,
+        namespace=None,
+        status="success",
+        duration_ms=1,
+    ).to_dict()
+    mutated["unexpected_debug"] = True
 
-    assert mutated - serialized == {"unexpected_debug"}
+    assert tuple(mutated) != documented
