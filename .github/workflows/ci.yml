@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - name: Check out repository
@@ -109,6 +109,10 @@ jobs:
           src/agent_mem_bridge/filesystem_safety.py
           src/agent_mem_bridge/activation_policy.py
           src/agent_mem_bridge/lifecycle_activation.py
+          src/agent_mem_bridge/gateway/auth.py
+          src/agent_mem_bridge/gateway/permissions.py
+          src/agent_mem_bridge/gateway/audit.py
+          src/agent_mem_bridge/gateway/middleware.py
 
       - name: Core branch coverage
         run: >

@@ -165,23 +165,36 @@ def build_http_app(
         else:
             raise ValueError("RBAC mode requires gateway config or token file")
 
-        verifier = MultiTokenVerifier(gw_config)
-        audit_emitter = AuditEmitter(target=config.audit_stream or gw_config.audit_stream, sink=audit_sink)
+        gw_verifier = MultiTokenVerifier(gw_config)
+        audit_target = (
+            gw_config.audit_stream
+            if (config.audit_stream == "stdout" and gw_config.audit_stream != "stdout")
+            else config.audit_stream
+        )
+        audit_emitter = AuditEmitter(target=audit_target, sink=audit_sink)
+        # Starlette applies the most recently registered middleware first.
+        # Register in reverse order:
+        # 1. AuthenticationMiddleware populates scope["user"] and scope["auth"]
+        # 2. AuthContextMiddleware sets SDK contextvars for Session Manager
+        # 3. EnterpriseGatewayMiddleware evaluates RBAC, record dereference, and audit
         app.add_middleware(
             EnterpriseGatewayMiddleware,
             config=gw_config,
-            verifier=verifier,
+            verifier=gw_verifier,
             audit_emitter=audit_emitter,
+            db_path=db_path,
             mcp_path=_MCP_PATH,
         )
+        app.add_middleware(AuthContextMiddleware)
+        app.add_middleware(AuthenticationMiddleware, backend=BearerAuthBackend(gw_verifier))
     elif config.token_file is not None:
-        verifier = _StaticTokenVerifier(read_token_file(config.token_file))
+        static_verifier = _StaticTokenVerifier(read_token_file(config.token_file))
         # Starlette applies the most recently registered middleware first.
         # Register in reverse so authentication populates request state before
         # the SDK context and route gate inspect it.
         app.add_middleware(_McpAuthGate, mcp_path=_MCP_PATH)
         app.add_middleware(AuthContextMiddleware)
-        app.add_middleware(AuthenticationMiddleware, backend=BearerAuthBackend(verifier))
+        app.add_middleware(AuthenticationMiddleware, backend=BearerAuthBackend(static_verifier))
     return app
 
 

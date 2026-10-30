@@ -64,7 +64,7 @@ def current_iso_timestamp() -> str:
 
 
 def summarize_arguments(arguments: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Extract a safe, bounded summary of tool arguments without sensitive values or unbounded text."""
+    """Extract a safe, bounded metadata summary of tool arguments without sensitive text."""
     if not isinstance(arguments, dict) or not arguments:
         return None
 
@@ -74,8 +74,7 @@ def summarize_arguments(arguments: dict[str, Any] | None) -> dict[str, Any] | No
         summary["kind"] = arguments["kind"]
 
     if "title" in arguments and isinstance(arguments["title"], str):
-        title = arguments["title"].strip()
-        summary["title"] = title[:80] + ("..." if len(title) > 80 else "")
+        summary["title_bytes"] = len(arguments["title"].encode("utf-8"))
 
     if "content" in arguments and isinstance(arguments["content"], str):
         summary["content_bytes"] = len(arguments["content"].encode("utf-8"))
@@ -84,8 +83,7 @@ def summarize_arguments(arguments: dict[str, Any] | None) -> dict[str, Any] | No
         summary["replacement_content_bytes"] = len(arguments["replacement_content"].encode("utf-8"))
 
     if "query" in arguments and isinstance(arguments["query"], str):
-        query = arguments["query"].strip()
-        summary["query"] = query[:80] + ("..." if len(query) > 80 else "")
+        summary["query_bytes"] = len(arguments["query"].encode("utf-8"))
 
     if "limit" in arguments and isinstance(arguments["limit"], int):
         summary["limit"] = arguments["limit"]
@@ -100,8 +98,7 @@ def summarize_arguments(arguments: dict[str, Any] | None) -> dict[str, Any] | No
         summary["correlation_id"] = arguments["correlation_id"][:64]
 
     if "goal" in arguments and isinstance(arguments["goal"], str):
-        goal = arguments["goal"].strip()
-        summary["goal"] = goal[:80] + ("..." if len(goal) > 80 else "")
+        summary["goal_bytes"] = len(arguments["goal"].encode("utf-8"))
 
     if "event_type" in arguments and isinstance(arguments["event_type"], str):
         summary["event_type"] = arguments["event_type"]
@@ -121,17 +118,20 @@ def summarize_arguments(arguments: dict[str, Any] | None) -> dict[str, Any] | No
     return summary or None
 
 
-def summarize_output(output: Any) -> dict[str, Any] | None:
-    """Extract a safe summary from MCP tool response content or JSON-RPC result payload."""
+def summarize_output(output: Any) -> tuple[dict[str, Any] | None, bool]:
+    """Extract a safe summary from MCP tool response and report whether a business error occurred."""
     if output is None:
-        return None
+        return None, False
 
+    is_error = False
     if isinstance(output, dict):
         summary: dict[str, Any] = {}
-        # If response wraps MCP tool content
+        if output.get("isError") is True or "error" in output:
+            is_error = True
+            summary["is_error"] = True
+
         if "content" in output and isinstance(output["content"], list):
             summary["content_blocks"] = len(output["content"])
-            # Inspect first text block for structured JSON payloads
             if output["content"] and isinstance(output["content"][0], dict):
                 first_block = output["content"][0]
                 text = first_block.get("text", "")
@@ -147,9 +147,9 @@ def summarize_output(output: Any) -> dict[str, Any] | None:
         for key in ("id", "stored_id", "status", "count", "item_count", "outcome", "run_id", "tools_count"):
             if key in output:
                 summary[key] = output[key]
-        return summary or None
+        return (summary or None), is_error
 
-    return None
+    return None, False
 
 
 class AuditEmitter:

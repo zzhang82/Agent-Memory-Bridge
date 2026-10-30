@@ -46,6 +46,11 @@ class Principal:
             )
         if not self.allowed_namespaces:
             raise ValueError(f"allowed_namespaces for '{self.principal_id}' cannot be empty")
+        if self.role != "admin" and self.allowed_namespaces == ("*",):
+            raise ValueError(
+                f"Principal '{self.principal_id}' with role '{self.role}' cannot declare blanket wildcard '*'; "
+                f"blanket namespace access is strictly reserved for the 'admin' role"
+            )
         if self.rate_limit_rpm < 0:
             raise ValueError(f"rate_limit_rpm for '{self.principal_id}' must be non-negative")
 
@@ -62,8 +67,10 @@ class GatewayConfig:
     def validate(self) -> None:
         if self.auth_mode not in ("rbac", "static"):
             raise ValueError(f"auth_mode must be 'rbac' or 'static', got '{self.auth_mode}'")
-        if self.require_auth and not self.principals:
-            raise ValueError("GatewayConfig requires at least one principal when require_auth is True")
+        if not self.principals:
+            raise ValueError("GatewayConfig requires at least one configured principal")
+        if not self.require_auth:
+            raise ValueError("Gateway authentication cannot be disabled; require_auth must be True")
         seen_ids: set[str] = set()
         seen_hashes: set[str] = set()
         for principal in self.principals:
@@ -110,6 +117,8 @@ def load_gateway_config(source: str | Path | dict[str, Any]) -> GatewayConfig:
 
         principal_id = str(item.get("principal_id", "")).strip()
         role = str(item.get("role", "")).strip()
+        if role not in ALL_ROLES:
+            raise ValueError(f"role '{role}' for '{principal_id}' is invalid; must be one of {sorted(ALL_ROLES)}")
 
         # Support either pre-hashed 'token_hash' or plain 'token' for convenience
         token_hash_raw = item.get("token_hash")
@@ -121,11 +130,25 @@ def load_gateway_config(source: str | Path | dict[str, Any]) -> GatewayConfig:
         else:
             raise ValueError(f"Principal '{principal_id}' must provide either 'token_hash' or 'token'")
 
-        allowed_namespaces_raw = item.get("allowed_namespaces", ["*"])
-        if isinstance(allowed_namespaces_raw, list):
-            allowed_namespaces = tuple(str(ns).strip() for ns in allowed_namespaces_raw if str(ns).strip())
+        allowed_namespaces_raw = item.get("allowed_namespaces")
+        allowed_namespaces: tuple[str, ...]
+        if allowed_namespaces_raw is None:
+            if role == "admin":
+                allowed_namespaces = ("*",)
+            else:
+                raise ValueError(
+                    f"Principal '{principal_id}' with role '{role}' must explicitly declare 'allowed_namespaces'"
+                )
+        elif isinstance(allowed_namespaces_raw, list):
+            cleaned = tuple(str(ns).strip() for ns in allowed_namespaces_raw if str(ns).strip())
+            if not cleaned:
+                raise ValueError(f"Principal '{principal_id}' has empty 'allowed_namespaces'")
+            allowed_namespaces = cleaned
         else:
-            allowed_namespaces = ("*",)
+            raise ValueError(
+                f"Principal '{principal_id}' 'allowed_namespaces' must be a JSON array of strings, "
+                f"got {type(allowed_namespaces_raw).__name__}"
+            )
 
         rate_limit_rpm = int(item.get("rate_limit_rpm", 0))
 

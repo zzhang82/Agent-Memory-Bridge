@@ -17,6 +17,8 @@ from .permissions import (
     check_tool_permission,
     extract_namespace_from_arguments,
     match_namespace,
+    resolve_record_namespace,
+    resolve_run_workspace,
 )
 
 __all__ = [
@@ -41,6 +43,8 @@ __all__ = [
     "hash_token",
     "load_gateway_config",
     "match_namespace",
+    "resolve_record_namespace",
+    "resolve_run_workspace",
     "summarize_arguments",
     "summarize_output",
 ]

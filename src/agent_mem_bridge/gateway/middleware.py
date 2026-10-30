@@ -1,8 +1,9 @@
 """ASGI Middleware for AMB Enterprise Gateway.
 
 Intercepts requests to the MCP endpoint, enforces multi-token authentication,
-RBAC tool permission matrices, namespace tenant boundaries, and emits
-structured single-line JSONL audit records with zero SQLite database lock contention.
+RBAC tool permission matrices, namespace tenant boundaries (including record-level
+dereference for ID-based mutations), and emits structured single-line JSONL audit
+records with bounded memory and zero SQLite database lock contention.
 """
 
 from __future__ import annotations
@@ -10,13 +11,24 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 
+from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .audit import AuditEmitter, AuditRecord, current_iso_timestamp, summarize_arguments, summarize_output
 from .auth import GatewayConfig, MultiTokenVerifier
-from .permissions import check_namespace_permission, check_tool_permission, extract_namespace_from_arguments
+from .permissions import (
+    check_namespace_permission,
+    check_tool_permission,
+    extract_namespace_from_arguments,
+    resolve_record_namespace,
+    resolve_run_workspace,
+)
+
+MAX_REQUEST_BYTES = 16 * 1024 * 1024  # 16 MiB
+MAX_RESPONSE_CAPTURE = 4096  # 4 KiB
 
 
 class EnterpriseGatewayMiddleware:
@@ -29,12 +41,14 @@ class EnterpriseGatewayMiddleware:
         config: GatewayConfig,
         verifier: MultiTokenVerifier,
         audit_emitter: AuditEmitter,
+        db_path: Path | None = None,
         mcp_path: str = "/mcp",
     ) -> None:
         self.app = app
         self.config = config
         self.verifier = verifier
         self.audit_emitter = audit_emitter
+        self.db_path = db_path
         self.mcp_path = mcp_path
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -54,14 +68,24 @@ class EnterpriseGatewayMiddleware:
         client_ip = _extract_client_ip(scope)
         transport = "http_mcp"
 
-        # 1. Extract Bearer token
-        auth_header_val: str | None = None
-        for name, value in scope.get("headers", []):
-            if name.lower() == b"authorization":
-                auth_header_val = value.decode("latin1", errors="replace").strip()
-                break
+        # 1. Identity resolution
+        # First, inspect if upstream AuthenticationMiddleware populated scope["user"]
+        auth_user = scope.get("user")
+        if isinstance(auth_user, AuthenticatedUser):
+            access_token = auth_user.access_token
+            principal_id = access_token.client_id
+            role = access_token.scopes[0] if access_token.scopes else "reader"
+            claims = access_token.claims or {}
+            allowed_namespaces = tuple(claims.get("allowed_namespaces", ()))
+            rate_limit_rpm = int(claims.get("rate_limit_rpm", 0))
+        else:
+            # Fallback to direct Bearer token verification
+            auth_header_val: str | None = None
+            for name, value in scope.get("headers", []):
+                if name.lower() == b"authorization":
+                    auth_header_val = value.decode("latin1", errors="replace").strip()
+                    break
 
-        if self.config.require_auth:
             if not auth_header_val or not auth_header_val.lower().startswith("bearer "):
                 duration_ms = (time.perf_counter() - start_time) * 1000
                 record = AuditRecord(
@@ -87,8 +111,8 @@ class EnterpriseGatewayMiddleware:
                 return
 
             token = auth_header_val[7:].strip()
-            access_token = await self.verifier.verify_token(token)
-            if access_token is None:
+            verified_token = await self.verifier.verify_token(token)
+            if verified_token is None:
                 duration_ms = (time.perf_counter() - start_time) * 1000
                 record = AuditRecord(
                     audit_id=audit_id,
@@ -112,17 +136,11 @@ class EnterpriseGatewayMiddleware:
                 )
                 return
 
-            principal_id = access_token.client_id
-            role = access_token.scopes[0] if access_token.scopes else "reader"
-            claims = access_token.claims or {}
+            principal_id = verified_token.client_id
+            role = verified_token.scopes[0] if verified_token.scopes else "reader"
+            claims = verified_token.claims or {}
             allowed_namespaces = tuple(claims.get("allowed_namespaces", ()))
             rate_limit_rpm = int(claims.get("rate_limit_rpm", 0))
-        else:
-            # Unauthenticated local superadmin mode
-            principal_id = "local_root"
-            role = "admin"
-            allowed_namespaces = ("*",)
-            rate_limit_rpm = 0
 
         # 2. Rate limiting check
         if rate_limit_rpm > 0 and not self.verifier.rate_limiter.is_allowed(principal_id, rate_limit_rpm):
@@ -157,11 +175,36 @@ class EnterpriseGatewayMiddleware:
 
         if method == "POST":
             body_chunks: list[bytes] = []
+            total_bytes = 0
             more_body = True
             while more_body:
                 msg = await receive()
                 if msg["type"] == "http.request":
-                    body_chunks.append(msg.get("body", b""))
+                    chunk = msg.get("body", b"")
+                    total_bytes += len(chunk)
+                    if total_bytes > MAX_REQUEST_BYTES:
+                        duration_ms = (time.perf_counter() - start_time) * 1000
+                        record = AuditRecord(
+                            audit_id=audit_id,
+                            timestamp=current_iso_timestamp(),
+                            request_id=request_id,
+                            principal_id=principal_id,
+                            client_ip=client_ip,
+                            transport=transport,
+                            tool=None,
+                            namespace=None,
+                            status="error",
+                            duration_ms=duration_ms,
+                            error_message="Payload too large",
+                        )
+                        self.audit_emitter.emit(record)
+                        await _send_http_json(
+                            send,
+                            413,
+                            {"error": "payload_too_large", "error_description": "Request body exceeds 16 MiB"},
+                        )
+                        return
+                    body_chunks.append(chunk)
                     more_body = msg.get("more_body", False)
                 elif msg["type"] == "http.disconnect":
                     return
@@ -208,7 +251,7 @@ class EnterpriseGatewayMiddleware:
                         )
                         return
 
-                    # RBAC Step 2: Namespace check
+                    # RBAC Step 2: Namespace check for tools with explicit namespace arguments
                     ns_ok, ns_err = check_namespace_permission(allowed_namespaces, namespace)
                     if not ns_ok:
                         duration_ms = (time.perf_counter() - start_time) * 1000
@@ -234,40 +277,140 @@ class EnterpriseGatewayMiddleware:
                         )
                         return
 
-                    # RBAC Step 3: Authoritative Actor Binding
-                    # Overwrite or bind the caller-declared actor to prevent agent identity spoofing
-                    if isinstance(arguments, dict) and (
-                        "actor" in arguments or tool_name in ("store", "annotate", "revise", "feedback")
-                    ):
-                        arguments["actor"] = principal_id
+                    # RBAC Step 3: Record-Level Dereference for ID-based Operations
+                    # Prevents cross-tenant mutation on annotate, revise, forget, ack_signal, extend_signal_lease
+                    if role != "admin" and self.db_path is not None:
+                        # 3a. Memories & Signals by record ID
+                        record_id = None
+                        if isinstance(arguments, dict):
+                            record_id = arguments.get("id") or arguments.get("signal_id") or arguments.get("memory_id")
+                        if record_id:
+                            target_ns = resolve_record_namespace(self.db_path, str(record_id))
+                            if target_ns is not None:
+                                rec_ok, rec_err = check_namespace_permission(allowed_namespaces, target_ns)
+                                if not rec_ok:
+                                    duration_ms = (time.perf_counter() - start_time) * 1000
+                                    err_msg = (
+                                        f"Access denied: Record '{record_id}' belongs to namespace '{target_ns}', "
+                                        f"which is outside principal's allowed scope"
+                                    )
+                                    record = AuditRecord(
+                                        audit_id=audit_id,
+                                        timestamp=current_iso_timestamp(),
+                                        request_id=request_id,
+                                        principal_id=principal_id,
+                                        client_ip=client_ip,
+                                        transport=transport,
+                                        tool=tool_name,
+                                        namespace=target_ns,
+                                        status="denied_forbidden",
+                                        duration_ms=duration_ms,
+                                        arguments_summary=arguments_summary,
+                                        error_message=err_msg,
+                                    )
+                                    self.audit_emitter.emit(record)
+                                    await _send_http_json(
+                                        send,
+                                        403,
+                                        {"error": "forbidden", "error_description": err_msg},
+                                    )
+                                    return
+
+                        # 3b. Agent Runs by run_id
+                        run_id = None
+                        if isinstance(arguments, dict):
+                            run_id = arguments.get("run_id")
+                        if run_id:
+                            run_ws = resolve_run_workspace(self.db_path, str(run_id))
+                            if run_ws is not None:
+                                ws_ok, ws_err = check_namespace_permission(allowed_namespaces, run_ws)
+                                if not ws_ok:
+                                    duration_ms = (time.perf_counter() - start_time) * 1000
+                                    err_msg = (
+                                        f"Access denied: Run '{run_id}' belongs to workspace '{run_ws}', "
+                                        f"which is outside principal's allowed scope"
+                                    )
+                                    record = AuditRecord(
+                                        audit_id=audit_id,
+                                        timestamp=current_iso_timestamp(),
+                                        request_id=request_id,
+                                        principal_id=principal_id,
+                                        client_ip=client_ip,
+                                        transport=transport,
+                                        tool=tool_name,
+                                        namespace=run_ws,
+                                        status="denied_forbidden",
+                                        duration_ms=duration_ms,
+                                        arguments_summary=arguments_summary,
+                                        error_message=err_msg,
+                                    )
+                                    self.audit_emitter.emit(record)
+                                    await _send_http_json(
+                                        send,
+                                        403,
+                                        {"error": "forbidden", "error_description": err_msg},
+                                    )
+                                    return
+
+                    # RBAC Step 4: Authoritative Actor & Provenance Binding
+                    if isinstance(arguments, dict):
+                        # Force caller-declared actor to verified principal
+                        if "actor" in arguments or tool_name in ("store", "annotate", "revise", "feedback"):
+                            arguments["actor"] = principal_id
+
+                        # Provenance binding for run events and outcomes
+                        if "provenance" in arguments and isinstance(arguments["provenance"], dict):
+                            arguments["provenance"]["authenticated_principal"] = principal_id
+                            arguments["provenance"]["actor"] = principal_id
+                        elif tool_name in ("store", "annotate", "revise", "record_run_event", "complete_run"):
+                            arguments["provenance"] = {
+                                "authenticated_principal": principal_id,
+                                "actor": principal_id,
+                            }
+
+                        if "agent_id" in arguments and arguments["agent_id"]:
+                            arguments["declared_agent_id"] = arguments["agent_id"]
+                            arguments["agent_id"] = principal_id
+
                         full_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
                         _update_content_length(scope, len(full_body))
 
-        sent_body = False
+            sent_body = False
 
-        async def new_receive() -> Message:
-            nonlocal sent_body
-            if not sent_body:
-                sent_body = True
-                return {"type": "http.request", "body": full_body, "more_body": False}
-            return {"type": "http.request", "body": b"", "more_body": False}
+            async def post_receive() -> Message:
+                nonlocal sent_body
+                if not sent_body:
+                    sent_body = True
+                    return {"type": "http.request", "body": full_body, "more_body": False}
+                # Forward subsequent calls to real receive to allow proper http.disconnect detection
+                return await receive()
 
-        # 4. Wrap downstream send to capture output and status
+            effective_receive: Receive = post_receive
+
+        else:
+            # Non-POST requests (e.g. GET /mcp for SSE streams) pass through original receive without wrapping
+            effective_receive = receive
+
+        # 4. Wrap downstream send to capture output and status with 4KB cap
         response_status = 200
+        captured_bytes = 0
         response_chunks: list[bytes] = []
 
         async def wrapped_send(message: Message) -> None:
-            nonlocal response_status
+            nonlocal response_status, captured_bytes
             if message["type"] == "http.response.start":
                 response_status = message.get("status", 200)
             elif message["type"] == "http.response.body":
                 chunk = message.get("body", b"")
-                if chunk:
-                    response_chunks.append(chunk)
+                if chunk and captured_bytes < MAX_RESPONSE_CAPTURE:
+                    remaining = MAX_RESPONSE_CAPTURE - captured_bytes
+                    to_add = chunk[:remaining]
+                    response_chunks.append(to_add)
+                    captured_bytes += len(to_add)
             await send(message)
 
         try:
-            await self.app(scope, new_receive, wrapped_send)
+            await self.app(scope, effective_receive, wrapped_send)
         except Exception as exc:
             duration_ms = (time.perf_counter() - start_time) * 1000
             record = AuditRecord(
@@ -282,25 +425,32 @@ class EnterpriseGatewayMiddleware:
                 status="error",
                 duration_ms=duration_ms,
                 arguments_summary=arguments_summary,
-                error_message=str(exc),
+                error_message=exc.__class__.__name__,
             )
             self.audit_emitter.emit(record)
             raise
 
         duration_ms = (time.perf_counter() - start_time) * 1000
         output_summary: dict[str, Any] | None = None
+        is_tool_error = False
         if response_chunks:
             try:
-                raw_resp = b"".join(response_chunks).decode("utf-8")
+                raw_resp = b"".join(response_chunks).decode("utf-8", errors="replace")
                 resp_json = json.loads(raw_resp)
                 if isinstance(resp_json, dict) and "result" in resp_json:
-                    output_summary = summarize_output(resp_json["result"])
+                    output_summary, is_tool_error = summarize_output(resp_json["result"])
                 else:
-                    output_summary = summarize_output(resp_json)
+                    output_summary, is_tool_error = summarize_output(resp_json)
             except ValueError:
                 pass
 
-        status = "success" if response_status < 400 else "error"
+        if response_status >= 400:
+            status = "error"
+        elif is_tool_error:
+            status = "tool_error"
+        else:
+            status = "success"
+
         record = AuditRecord(
             audit_id=audit_id,
             timestamp=current_iso_timestamp(),

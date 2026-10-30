@@ -69,30 +69,36 @@ Configure principals, token hashes, roles, and allowed namespace patterns:
   "principals": [
     {
       "principal_id": "agent:planner",
-      "token_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "token_hash": "sha256:c43bdeb6daa16e9dbd038fd9df9306376c51fd576e9cb6bea333d2c80df66036",
       "role": "writer",
       "allowed_namespaces": ["project:agent-memory-bridge", "domain:*"],
       "rate_limit_rpm": 120
     },
     {
       "principal_id": "service:ci-auditor",
-      "token_hash": "sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+      "token_hash": "sha256:2421a9f92eeb674cf1cc61a1862c9a95afbaaede5cba12ab4f32a220d31f987f",
       "role": "reader",
       "allowed_namespaces": ["project:*"],
       "rate_limit_rpm": 300
     },
     {
       "principal_id": "system:orca-orchestrator",
-      "token_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "token_hash": "sha256:19e678d46b2b6515d840ce9a8edfcc0e9b31931a46325b54b87cfa8e4d5bdc65",
       "role": "orchestrator",
-      "allowed_namespaces": ["*"],
+      "allowed_namespaces": ["project:agent-memory-bridge", "project:pipeline-*"],
       "rate_limit_rpm": 600
     }
   ]
 }
 ```
 
-Pre-hashed tokens use SHA-256 (`sha256:<hex>`). For convenience, plain `token` can be provided instead of `token_hash` in secure configuration files; AMB computes the hash at startup.
+To generate a secure token and its deterministic SHA-256 hash locally:
+
+```bash
+python -c "import secrets, hashlib; t = secrets.token_hex(24); print('token:', t); print('token_hash: sha256:' + hashlib.sha256(t.encode()).hexdigest())"
+```
+
+Pre-hashed tokens use SHA-256 (`sha256:<64-hex>`). In secure local configurations (mode 0600), plain `token` can also be provided directly, and AMB computes the hash at startup. Non-admin roles must explicitly declare their allowed namespaces; blanket `*` is reserved for administrators.
 
 ### 2. Role Permissions Matrix
 

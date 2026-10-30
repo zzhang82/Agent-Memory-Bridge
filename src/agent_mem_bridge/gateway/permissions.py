@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import fnmatch
+import sqlite3
+from pathlib import Path
 from typing import Any
 
 # The four standardized enterprise roles
@@ -119,4 +121,36 @@ def extract_namespace_from_arguments(tool_name: str, arguments: dict[str, Any] |
         return arguments["namespace"]
     if "workspace_key" in arguments and isinstance(arguments["workspace_key"], str):
         return arguments["workspace_key"]
+    return None
+
+
+def resolve_record_namespace(db_path: Path, record_id: str) -> str | None:
+    """Resolve the authoritative namespace of a stored memory or signal by its ID."""
+    if not db_path.is_file() or not record_id:
+        return None
+    try:
+        uri = f"{db_path.resolve().as_uri()}?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=1.0) as conn:
+            cursor = conn.execute("SELECT namespace FROM memories WHERE id = ?", (record_id,))
+            row = cursor.fetchone()
+            if row:
+                return str(row[0])
+    except (sqlite3.Error, OSError):
+        return None
+    return None
+
+
+def resolve_run_workspace(db_path: Path, run_id: str) -> str | None:
+    """Resolve the authoritative workspace_key of an agent run by its run_id."""
+    if not db_path.is_file() or not run_id:
+        return None
+    try:
+        uri = f"{db_path.resolve().as_uri()}?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=1.0) as conn:
+            cursor = conn.execute("SELECT workspace_key FROM agent_runs WHERE run_id = ?", (run_id,))
+            row = cursor.fetchone()
+            if row:
+                return str(row[0])
+    except (sqlite3.Error, OSError):
+        return None
     return None

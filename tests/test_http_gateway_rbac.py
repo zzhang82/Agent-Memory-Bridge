@@ -170,10 +170,55 @@ def test_gateway_config_loading_and_validation(tmp_path: Path) -> None:
             {
                 "principals": [
                     {"principal_id": "p1", "token": "same-token", "role": "admin"},
-                    {"principal_id": "p2", "token": "same-token", "role": "reader"},
+                    {
+                        "principal_id": "p2",
+                        "token": "same-token",
+                        "role": "reader",
+                        "allowed_namespaces": ["project:*"],
+                    },
                 ]
             }
         )
+
+    with pytest.raises(ValueError, match="must explicitly declare 'allowed_namespaces'"):
+        load_gateway_config(
+            {
+                "principals": [
+                    {"principal_id": "p1", "token": "t1", "role": "writer"},
+                ]
+            }
+        )
+
+    with pytest.raises(ValueError, match="must be a JSON array of strings"):
+        load_gateway_config(
+            {
+                "principals": [
+                    {"principal_id": "p1", "token": "t1", "role": "writer", "allowed_namespaces": "project:invalid"},
+                ]
+            }
+        )
+
+    with pytest.raises(ValueError, match="cannot declare blanket wildcard"):
+        load_gateway_config(
+            {
+                "principals": [
+                    {"principal_id": "p1", "token": "t1", "role": "writer", "allowed_namespaces": ["*"]},
+                ]
+            }
+        )
+
+    with pytest.raises(ValueError, match="Gateway authentication cannot be disabled"):
+        GatewayConfig(
+            principals=(
+                Principal(
+                    principal_id="p1",
+                    token_hash=hash_token("t"),
+                    role="admin",
+                    allowed_namespaces=("*",),
+                ),
+            ),
+            require_auth=False,
+        ).validate()
 
 
 def test_gateway_unauthenticated_and_invalid_token(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -506,7 +551,7 @@ def test_rate_limiting_enforcement(tmp_path: Path, monkeypatch: pytest.MonkeyPat
                 principal_id="service:throttled-bot",
                 token_hash=hash_token(token),
                 role="reader",
-                allowed_namespaces=("*",),
+                allowed_namespaces=("global", "project:*"),
                 rate_limit_rpm=2,  # strictly 2 requests per minute
             ),
         ),
@@ -572,3 +617,258 @@ def test_audit_record_serialization_and_timing() -> None:
     assert d["status"] == "success"
     json_str = record.to_json()
     assert '"audit_id":"aud_123456"' in json_str
+
+
+def test_adversarial_id_mutation_cross_tenant_blocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    # Target victim record created in forbidden-tenant
+    victim = store.store("project:forbidden-tenant", "confidential victim data", actor="admin")
+    gw_config, tokens = _create_sample_gateway_config()
+    emitted_records: list[AuditRecord] = []
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+        audit_sink=emitted_records.append,
+    )
+
+    with TestClient(app) as client:
+        writer_headers = _initialize_session(client, tokens["writer"])
+
+        # 1. Attacker attempts cross-tenant annotate on victim record
+        resp_annotate = client.post(
+            "/mcp",
+            json=_jsonrpc_call("annotate", {"id": victim["id"], "title": "malicious annotation"}),
+            headers=writer_headers,
+        )
+        assert resp_annotate.status_code == 403
+        assert "outside principal's allowed scope" in resp_annotate.text
+        assert emitted_records[-1].status == "denied_forbidden"
+
+        # 2. Attacker attempts cross-tenant revise on victim record
+        resp_revise = client.post(
+            "/mcp",
+            json=_jsonrpc_call("revise", {"id": victim["id"], "replacement_content": "tampered content"}),
+            headers=writer_headers,
+        )
+        assert resp_revise.status_code == 403
+        assert "outside principal's allowed scope" in resp_revise.text
+        assert emitted_records[-1].status == "denied_forbidden"
+
+        # Verify victim data in SQLite remains completely untampered
+        recalled = store.recall("project:forbidden-tenant", query="")
+        assert recalled["count"] == 1
+        assert recalled["items"][0]["content"] == "confidential victim data"
+
+
+def test_adversarial_signal_cross_tenant_blocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    victim_signal = store.store("project:forbidden-tenant", "victim signal", kind="signal", actor="admin")
+    gw_config, tokens = _create_sample_gateway_config()
+    emitted_records: list[AuditRecord] = []
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+        audit_sink=emitted_records.append,
+    )
+
+    with TestClient(app) as client:
+        orch_headers = _initialize_session(client, tokens["orchestrator"])
+
+        # 1. Orchestrator attempts cross-tenant ack_signal
+        resp_ack = client.post(
+            "/mcp",
+            json=_jsonrpc_call("ack_signal", {"id": victim_signal["id"], "consumer": "agent:attacker"}),
+            headers=orch_headers,
+        )
+        assert resp_ack.status_code == 403
+        assert "outside principal's allowed scope" in resp_ack.text
+        assert emitted_records[-1].status == "denied_forbidden"
+
+        # 2. Orchestrator attempts cross-tenant extend_signal_lease
+        resp_extend = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "extend_signal_lease",
+                {"id": victim_signal["id"], "consumer": "agent:attacker", "lease_seconds": 60},
+            ),
+            headers=orch_headers,
+        )
+        assert resp_extend.status_code == 403
+        assert "outside principal's allowed scope" in resp_extend.text
+        assert emitted_records[-1].status == "denied_forbidden"
+
+
+def test_adversarial_session_hijacking_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    with TestClient(app) as client:
+        # Client 1 initializes session as Writer
+        writer_headers = _initialize_session(client, tokens["writer"])
+        writer_session_id = writer_headers["mcp-session-id"]
+
+        # Attacker with Reader token attempts to issue tools/call using Writer's session-id
+        attacker_headers = {
+            "accept": "application/json, text/event-stream",
+            "content-type": "application/json",
+            "Authorization": f"Bearer {tokens['reader']}",
+            "mcp-session-id": writer_session_id,
+        }
+        resp = client.post(
+            "/mcp",
+            json=_jsonrpc_call("recall", {"namespace": "project:demo", "query": ""}),
+            headers=attacker_headers,
+        )
+        # Upstream SDK Session Manager detects that session owner (Writer) != current user (Reader)
+        assert resp.status_code in (400, 403, 404)
+
+
+def test_adversarial_actor_and_provenance_tamper_sanitized(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    with TestClient(app) as client:
+        writer_headers = _initialize_session(client, tokens["writer"])
+
+        # Writer attempts to spoof actor and provenance
+        resp = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "store",
+                {
+                    "namespace": "project:allowed-proj",
+                    "content": "spoof test",
+                    "actor": "super-admin-root",
+                    "provenance": {"actor": "super-admin-root"},
+                },
+            ),
+            headers=writer_headers,
+        )
+        assert resp.status_code == 200
+
+        recalled = store.recall("project:allowed-proj", query="")
+        assert recalled["count"] == 1
+        # Authoritative actor binding must overwrite the spoofed value
+        assert recalled["items"][0]["actor"] == "agent:writer-bob"
+
+
+def test_adversarial_tool_error_audit_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+    emitted_records: list[AuditRecord] = []
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+        audit_sink=emitted_records.append,
+    )
+
+    with TestClient(app) as client:
+        admin_headers = _initialize_session(client, tokens["admin"])
+
+        # Admin calls a tool with invalid limit (-1) to cause a tool-level validation error
+        resp = client.post(
+            "/mcp",
+            json=_jsonrpc_call("recall", {"namespace": "global", "limit": -1}),
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        # Audit record must correctly capture tool_error rather than false success
+        assert emitted_records[-1].status == "tool_error"

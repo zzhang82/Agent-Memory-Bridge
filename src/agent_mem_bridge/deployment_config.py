@@ -123,6 +123,8 @@ class HttpTransportConfig:
                 raise ValueError("non-loopback HTTP bind requires explicit allowed hosts")
             if not self.allowed_origins:
                 raise ValueError("non-loopback HTTP bind requires explicit allowed origins")
+        if self.gateway_config_file is not None and self.gateway_config_file.is_file():
+            validate_secure_config_file(self.gateway_config_file)
 
     def as_report(self) -> dict[str, object]:
         """Return operator-useful exposure facts without paths or token values."""
@@ -211,6 +213,19 @@ def config_from_env() -> HttpTransportConfig:
     """Compatibility-shaped explicit name for doctor and verify call sites."""
 
     return HttpTransportConfig.from_env()
+
+
+def validate_secure_config_file(path: Path) -> None:
+    """Validate that a sensitive configuration file is a private regular file."""
+
+    try:
+        metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+            raise OSError("config file must be a regular file")
+        if os.name == "posix" and metadata.st_mode & 0o077:
+            raise OSError("config file must not be group or world accessible")
+    except OSError as exc:
+        raise ValueError(f"insecure or inaccessible configuration file: {path.name}") from exc
 
 
 def read_token_file(path: Path) -> str:
