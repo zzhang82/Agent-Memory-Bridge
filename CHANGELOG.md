@@ -14,7 +14,7 @@ This document records the durable capability milestones in Agent Memory Bridge (
 - Implements per-client Bearer authentication with SHA-256 token hashing and constant-time matching (`secrets.compare_digest`).
 - Implements role-based access control across 4 roles (`admin`, `writer`, `reader`, `orchestrator`) over the 17 frozen public MCP tools.
 - Enforces namespace limits with wildcard and literal matching (`project:*`, `domain:*`, `*`, exact), preventing cross-namespace access.
-- In gateway RBAC mode, the `actor` on `store`, `annotate`, `revise` and `feedback` is set to the caller's verified `principal_id`, whatever name the caller sends.
+- In gateway RBAC mode, the gateway overrides the top-level `actor` for `store`, `annotate` and `revise`, and `provenance.actor` for `feedback`, with the caller's verified `principal_id`.
 - Implements per-principal in-memory rate limiting.
 - Implements structured single-line JSONL audit streaming, kept separate from the SQLite database.
 - Preserves schema v12, exactly 17 public MCP tools, and the tool-schema digest. Local stdio is unchanged: it does not go through the gateway and needs no token configuration.

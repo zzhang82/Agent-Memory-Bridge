@@ -114,11 +114,11 @@ The 17 public MCP tools are governed across four standard roles:
 ### 3. Namespace limits and actor binding
 
 - **Namespace limits**: Wildcard patterns (`project:*`, `domain:*`, `*`, exact match) block cross-namespace reads and writes. Out-of-scope calls fail closed with HTTP 403 Forbidden.
-- **Actor Binding**: In gateway RBAC mode, the `actor` on `store`, `annotate`, `revise` and `feedback` is set to the caller's verified `principal_id`, whatever name the caller sends. A caller can't write under another principal's name. It identifies the configured principal, not the person or model behind it.
+- **Actor Binding**: In gateway RBAC mode, the gateway overrides the top-level `actor` for `store`, `annotate` and `revise`, and `provenance.actor` for `feedback`, with the caller's verified `principal_id`, whatever name the caller sends. A caller can't write under another principal's name. It identifies the configured principal, not the person or model behind it.
 
 ### 4. Structured audit logging (JSONL)
 
-Every HTTP MCP interaction (successful or blocked by 401/403/429) emits a single-line JSONL audit event to stdout, stderr, or a dedicated log file specified by `AMB_AUDIT_STREAM`. Those writes stay separate from the SQLite database so audit writes don't compete for database locks.
+A request that completes normally, is rejected (401, 403, or 429), or raises a caught exception writes one JSONL audit line to stdout, stderr, or a dedicated log file specified by `AMB_AUDIT_STREAM`. Those writes stay separate from the SQLite database so audit writes don't compete for database locks.
 
 ## Docker Compose
 
