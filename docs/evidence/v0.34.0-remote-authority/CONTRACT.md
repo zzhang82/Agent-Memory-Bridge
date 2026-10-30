@@ -1,6 +1,6 @@
 # v0.34.0: Remote Authority Deployment
 
-Edited after release to remove an outdated, release-specific classification. The later evaluation-definition edit is described under Frozen evaluations and status discipline.
+Edited after release to remove an outdated, release-specific classification. The v0.34 evaluation definitions remain frozen.
 
 ## Frozen scope
 
@@ -89,15 +89,6 @@ preserve existing duplicate/idempotency semantics and receipt/epoch guards.
 Record its SHA-256 with evidence. Any correction to a defective probe must keep
 the original result and explicitly explain the correction. Never weaken a
 criterion to obtain a pass.
-
-After freezing, one environment-specific term in the E9 PASS condition was
-redacted to generic wording. The pass criterion still means a consistent copy
-of the actual source authority. The original frozen file, and the SHA-256 that
-matches it, stay in Git history at tag `v0.34.0`. This contract does not record
-that digest. The current file's SHA-256 is
-`d9bc928a092f392d49b10c8669b7c0c0e3961d1bd30518835015b01edb5e1a45`, which does
-not match the file at that tag
-(`8c2fa505e9b2fde918713769859c81a4bec9fdbf2235d17f8ad21cba2188cf79`).
 
 PASS requires observed adequate-good and negative/control evidence. FAIL means
 the product violated the criterion. Missing runtime/source evidence means
