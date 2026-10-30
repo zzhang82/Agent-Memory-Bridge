@@ -45,14 +45,16 @@ class EnterpriseGatewayMiddleware:
         config: GatewayConfig,
         verifier: MultiTokenVerifier,
         audit_emitter: AuditEmitter,
-        db_path: Path | None = None,
+        db_path: Path,
         mcp_path: str = "/mcp",
     ) -> None:
+        if db_path is None:
+            raise ValueError("EnterpriseGatewayMiddleware requires db_path for record-level authorization")
         self.app = app
         self.config = config
         self.verifier = verifier
         self.audit_emitter = audit_emitter
-        self.db_path = db_path
+        self.db_path = Path(db_path)
         self.mcp_path = mcp_path
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -311,7 +313,34 @@ class EnterpriseGatewayMiddleware:
                     # RBAC Step 3: Record-Level Dereference for ID-based Operations
                     # Prevents cross-tenant mutation and unauthorized signal lease takeover
                     claimed_by: str | None = None
-                    if record_id and self.db_path:
+                    if record_id:
+                        if not self.db_path or not self.db_path.is_file():
+                            duration_ms = (time.perf_counter() - start_time) * 1000
+                            err_msg = (
+                                "Authorization verification failed: authority database path is missing or inaccessible"
+                            )
+                            record = AuditRecord(
+                                audit_id=audit_id,
+                                timestamp=current_iso_timestamp(),
+                                request_id=request_id,
+                                principal_id=principal_id,
+                                client_ip=client_ip,
+                                transport=transport,
+                                tool=tool_name,
+                                namespace=None,
+                                status="denied_forbidden",
+                                duration_ms=duration_ms,
+                                arguments_summary=arguments_summary,
+                                error_message=err_msg,
+                            )
+                            self.audit_emitter.emit(record)
+                            await _send_http_json(
+                                send,
+                                403,
+                                {"error": "forbidden", "error_description": err_msg},
+                            )
+                            return
+
                         status_res, target_ns, claimed_by = resolve_record_claim(self.db_path, str(record_id))
                         if role != "admin":
                             if status_res == "error":
@@ -430,11 +459,36 @@ class EnterpriseGatewayMiddleware:
                                         return
 
                     # 3b. Agent Runs by run_id
-                    if role != "admin" and self.db_path:
+                    if role != "admin":
                         run_id = None
                         if isinstance(arguments, dict):
                             run_id = arguments.get("run_id")
                         if run_id:
+                            if not self.db_path or not self.db_path.is_file():
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = "Authorization verification failed: authority database path is missing or inaccessible"
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+
                             status_run, run_ws = resolve_run_workspace(self.db_path, str(run_id))
                             if status_run == "error":
                                 duration_ms = (time.perf_counter() - start_time) * 1000
@@ -560,11 +614,15 @@ class EnterpriseGatewayMiddleware:
                             raw_consumer = (
                                 str(arguments.get("consumer", "")).strip() if "consumer" in arguments else None
                             )
-                            if role == "admin" and claimed_by and not claimed_by.startswith("amb:p:"):
-                                # Admin operating on legacy un-prefixed claim: preserve raw/claimed consumer
-                                arguments["consumer"] = raw_consumer or claimed_by
+                            if role == "admin" and claimed_by:
+                                # Admin has global management authority over all claims (legacy or gateway):
+                                # Adopt the authoritative claimed_by unless admin explicitly supplied a distinct consumer
+                                if raw_consumer and raw_consumer != claimed_by:
+                                    arguments["consumer"] = raw_consumer
+                                else:
+                                    arguments["consumer"] = claimed_by
                             else:
-                                # Standard gateway operation: encode with principal's digest
+                                # Standard non-admin gateway operation: encode with principal's digest
                                 if raw_consumer:
                                     arguments["consumer"] = encode_consumer(principal_id, raw_consumer)
                                 elif claimed_by and claimed_by.startswith(principal_consumer_prefix(principal_id)):

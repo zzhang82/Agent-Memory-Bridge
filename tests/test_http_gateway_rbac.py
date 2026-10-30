@@ -1678,3 +1678,117 @@ def test_large_response_truncated_audit_status(tmp_path: Path, monkeypatch: pyte
         assert last_audit.output_summary.get("truncated") is True
         # Since response was truncated at 4KB and not an error, status is unknown_truncated
         assert last_audit.status == "unknown_truncated"
+
+
+def test_admin_can_manage_other_principal_gateway_leases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    sig = store.store("project:orchestrated-app", "task for admin override", kind="signal", actor="admin")
+    sig_id = sig["id"]
+
+    with TestClient(app) as client:
+        orch_headers = _initialize_session(client, tokens["orchestrator"])
+        admin_headers = _initialize_session(client, tokens["admin"])
+
+        # 1. Orchestrator claims the signal with gateway digest prefix
+        resp_claim = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "claim_signal",
+                {
+                    "namespace": "project:orchestrated-app",
+                    "signal_id": sig_id,
+                    "consumer": "worker-1",
+                },
+            ),
+            headers=orch_headers,
+        )
+        assert resp_claim.status_code == 200
+        assert resp_claim.json()["result"]["isError"] is False
+
+        # 2. Administrator extends lease on orchestrator's gateway-prefixed claim
+        resp_extend_admin = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "extend_signal_lease",
+                {
+                    "id": sig_id,
+                    "lease_seconds": 60,
+                },
+            ),
+            headers=admin_headers,
+        )
+        assert resp_extend_admin.status_code == 200
+        assert resp_extend_admin.json()["result"]["isError"] is False
+
+        # 3. Administrator ACKs orchestrator's gateway-prefixed claim
+        resp_ack_admin = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "ack_signal",
+                {
+                    "id": sig_id,
+                },
+            ),
+            headers=admin_headers,
+        )
+        assert resp_ack_admin.status_code == 200
+        assert resp_ack_admin.json()["result"]["isError"] is False
+
+        # Verify SQLite has signal_status='acked'
+        with sqlite3.connect(store.db_path) as conn:
+            sig_status = conn.execute("SELECT signal_status FROM memories WHERE id = ?", (sig_id,)).fetchone()[0]
+            assert sig_status == "acked"
+
+
+def test_middleware_initialization_requires_db_path() -> None:
+    from agent_mem_bridge.gateway import (
+        AuditEmitter,
+        EnterpriseGatewayMiddleware,
+        GatewayConfig,
+        MultiTokenVerifier,
+        Principal,
+    )
+
+    config = GatewayConfig(
+        principals=(
+            Principal(
+                principal_id="admin:root",
+                token_hash="sha256:" + "0" * 64,
+                role="admin",
+                allowed_namespaces=("*",),
+            ),
+        ),
+        auth_mode="rbac",
+    )
+    with pytest.raises(ValueError, match="EnterpriseGatewayMiddleware requires db_path"):
+        EnterpriseGatewayMiddleware(
+            app=lambda *args: None,
+            config=config,
+            verifier=MultiTokenVerifier(config),
+            audit_emitter=AuditEmitter(sink=lambda r: None),
+            db_path=None,  # type: ignore[arg-type]
+        )
