@@ -116,6 +116,12 @@ cause: Default Windows file locking semantics under concurrent WAL checkpoints.
 fix: Set PRAGMA busy_timeout = 5000 in connection factory.
 ```
 
+## Dependency re-check
+
+Use `depends_on: <memory-id>` when a decision relies on another AMB record. Use `depends_on_repo: <path>@<commit>` when it relies on a file at a clean Git commit. Recall may return `recheck_status: needs_recheck` with a reason. A dirty, missing, or unavailable repository returns `unknown`, not `current`.
+
+The flag does not hide, revise, or automatically update the decision. Clear it deliberately with `revise` or confirm it with `annotate`. Do not store a dependency merely to repeat a fact that the current repository already states.
+
 ### Learn Record
 
 Use when capturing a reusable engineering rule or verified constraint.

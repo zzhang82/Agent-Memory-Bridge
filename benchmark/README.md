@@ -390,6 +390,10 @@ the frozen v1/v2 packs or establish a native host pass by itself.
 The [native Codex evidence bundle](../docs/evidence/issue-58-codex-remote/README.md)
 contains the five-case source-bound report and post-merge re-scoring commands.
 
+## Unmarked stale memory
+
+`benchmark/unmarked-stale-memory.md` defines the marked-predecessor and unmarked-repository cases covered by the storage re-check tests. A flagged decision stays visible; the status is not proof that its prose is stale unless the recorded dependency changed.
+
 ## Activation Stress
 
 The activation stress pack is intentionally conservative. It reuses reviewed belief

@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import sqlite3
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from .embedding_index import (
@@ -20,6 +21,7 @@ from .embedding_index import (
 from .namespaces import canonical_namespace
 from .paths import resolve_hybrid_semantic_weight, resolve_retrieval_mode
 from .poll_cursor import decode_poll_cursor
+from .relation_metadata import resolve_validity_status
 from .repository import MEMORY_ROW_SELECT, MemoryRow, memory_row_select, normalize_tags
 from .schema import database_epoch as read_database_epoch
 
@@ -245,7 +247,10 @@ def _recall_lexical_candidates(
             exclude_ids=exclude_ids,
         )
         if rows:
-            items = [_row_to_item(row, include_rowid=include_rowid) for row in rows]
+            items = [
+                _row_to_item(row, include_rowid=include_rowid, connection=connection, database_path=store.db_path)
+                for row in rows
+            ]
             if signal_status is not None:
                 items = [item for item in items if item.get("signal_status") == signal_status]
             return rerank_items(query, items, limit)
@@ -283,7 +288,10 @@ def _recall_lexical_candidates(
             current_database_epoch=current_database_epoch,
             exclude_ids=exclude_ids,
         )
-    items = [_row_to_item(row, include_rowid=include_rowid) for row in rows]
+    items = [
+        _row_to_item(row, include_rowid=include_rowid, connection=connection, database_path=store.db_path)
+        for row in rows
+    ]
     if signal_status is not None:
         items = [item for item in items if item.get("signal_status") == signal_status]
     if query:
@@ -432,7 +440,7 @@ def recall_via_semantic(
         score = cosine_similarity(query_vector, vector)
         if score <= 0:
             continue
-        item = _row_to_item(row, include_rowid=include_rowid)
+        item = _row_to_item(row, include_rowid=include_rowid, connection=connection, database_path=store.db_path)
         item["retrieval"] = {
             **(item.get("retrieval") or {}),
             "semantic_score": score,
@@ -1126,13 +1134,77 @@ def escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def _recheck_fields(
+    memory: MemoryRow,
+    connection: sqlite3.Connection | None,
+    *,
+    database_path: Path | None,
+) -> dict[str, Any]:
+    from .recheck import dependency_recheck_status
+
+    target_ids = [
+        str(edge["target_id"])
+        for edge in memory.metadata_edges
+        if edge.get("relation") == "depends_on" and edge.get("target_id")
+    ]
+    states: dict[str, dict[str, Any]] = {}
+    if target_ids and database_path is not None:
+        with sqlite3.connect(database_path) as owned:
+            owned.row_factory = sqlite3.Row
+            states.update(_dependency_states(owned, target_ids))
+    elif connection is not None and target_ids:
+        states.update(_dependency_states(connection, target_ids))
+        print("RECHECK", target_ids, states, connection.in_transaction)
+    repository_root = Path.cwd() if "depends_on_repo:" in memory.content else None
+    return dependency_recheck_status(
+        memory.content,
+        records_by_id=states,
+        repository_root=repository_root,
+    )
+
+
+def _dependency_states(
+    connection: sqlite3.Connection,
+    target_ids: list[str],
+) -> dict[str, dict[str, Any]]:
+    states: dict[str, dict[str, Any]] = {}
+    for target_id in dict.fromkeys(target_ids):
+        target = connection.execute(
+            """
+            SELECT mm.status, mm.valid_from, mm.valid_until,
+                   EXISTS(SELECT 1 FROM memory_revisions r WHERE r.predecessor_id = m.id) AS superseded
+            FROM memories m
+            LEFT JOIN memory_metadata mm ON mm.memory_id = m.id
+            WHERE m.id = ?
+            """,
+            (target_id,),
+        ).fetchone()
+        if target is None:
+            continue
+        states[target_id] = {
+            "status": target["status"],
+            "superseded": bool(target["superseded"]),
+            "validity_status": resolve_validity_status(
+                valid_from=target["valid_from"], valid_until=target["valid_until"]
+            ),
+        }
+    return states
+
+
 def alias_columns(alias: str) -> str:
     return memory_row_select(alias)
 
 
-def _row_to_item(row: sqlite3.Row, *, include_rowid: bool) -> dict[str, Any]:
+def _row_to_item(
+    row: sqlite3.Row,
+    *,
+    include_rowid: bool,
+    connection: sqlite3.Connection | None = None,
+    database_path: Path | None = None,
+) -> dict[str, Any]:
     memory = MemoryRow.from_sqlite(row)
     item = memory.as_dict()
+    item.update(_recheck_fields(memory, connection, database_path=database_path))
     item["_exact_content_hash"] = memory.exact_content_hash
     if include_rowid:
         item["_cursor_sequence"] = int(row["_insertion_sequence"])

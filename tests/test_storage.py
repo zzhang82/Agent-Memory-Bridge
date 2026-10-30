@@ -1,4 +1,5 @@
 import sqlite3
+import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -189,6 +190,75 @@ def test_store_and_recall_relation_metadata_and_validity_window(tmp_path: Path) 
     assert "relation:contradicts" in item["tags"]
     assert "relation:depends_on" in item["tags"]
     assert "validity:bounded" in item["tags"]
+
+
+def test_recall_flags_superseded_dependency_for_recheck(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    original = store.store(
+        namespace="project:recheck",
+        content="record_type: decision\nclaim: Use fixture-old-port-1111.\n",
+        kind="memory",
+        title="Old port decision",
+    )
+    store.revise(
+        original["id"],
+        replacement_content="record_type: decision\nclaim: Use fixture-current-port-2222.\n",
+        reason="The fixture port changed.",
+    )
+    dependent = store.store(
+        namespace="project:recheck",
+        content=f"record_type: decision\ndepends_on: {original['id']}\nclaim: Keep the old port.\n",
+        kind="memory",
+        title="Dependent port decision",
+    )
+
+    recalled = store.recall(namespace="project:recheck", limit=10)
+    item = next(candidate for candidate in recalled["items"] if candidate["id"] == dependent["id"])
+
+    assert item["recheck_status"] == "needs_recheck"
+    assert item["recheck_reasons"] == [f"depends_on:superseded:{original['id']}"]
+
+
+def test_recall_flags_changed_repository_dependency(tmp_path: Path, monkeypatch) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    note = repository / "NOTES.md"
+    note.write_text("fixture-old-port-1111\n", encoding="utf-8")
+    _git(repository, "init")
+    _git(repository, "config", "user.email", "recheck@example.test")
+    _git(repository, "config", "user.name", "Recheck Test")
+    _git(repository, "add", "NOTES.md")
+    _git(repository, "commit", "-m", "old port")
+    old_commit = _git(repository, "rev-parse", "HEAD").strip()
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:recheck",
+        content=(f"record_type: decision\ndepends_on_repo: NOTES.md@{old_commit}\nclaim: Use fixture-old-port-1111.\n"),
+        kind="memory",
+        title="Repository port decision",
+    )
+    monkeypatch.chdir(repository)
+
+    unchanged = store.recall(namespace="project:recheck", query="fixture-old-port", limit=5)
+    assert unchanged["items"][0]["recheck_status"] == "current"
+
+    note.write_text("fixture-current-port-2222\n", encoding="utf-8")
+    _git(repository, "add", "NOTES.md")
+    _git(repository, "commit", "-m", "new port")
+    changed = store.recall(namespace="project:recheck", query="fixture-old-port", limit=5)
+    assert changed["items"][0]["id"] == created["id"]
+    assert changed["items"][0]["recheck_status"] == "needs_recheck"
+    assert changed["items"][0]["recheck_reasons"] == ["depends_on_repo:changed:NOTES.md"]
+
+
+def _git(repository: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repository), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout
 
 
 def test_signal_entries_are_not_deduplicated(tmp_path: Path) -> None:
