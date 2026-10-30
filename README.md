@@ -58,11 +58,11 @@ Store a decision only after it is confirmed. Do not treat chat history as alread
 
 AMB requires **Python 3.11+** and Git.
 
-Current package/source version: `0.38.0`.
+Current package/source version: `0.38.1`.
 
 ```bash
 python -m venv .amb-venv
-<venv-python> -m pip install agent-memory-bridge==0.38.0
+<venv-python> -m pip install agent-memory-bridge==0.38.1
 <venv-python> -m agent_mem_bridge project init .
 ```
 
@@ -204,7 +204,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-Current package/source version is `0.38.0`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+Current package/source version is `0.38.1`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 
