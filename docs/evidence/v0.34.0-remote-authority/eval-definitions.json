@@ -105,7 +105,7 @@
     {
       "id": "E9_MIGRATION_REHEARSAL",
       "critical": true,
-      "pass": "Consistent copy of the source database retains explained epoch handling, durable rows/content, namespaces, indexes, representative recall/write, run/signal state; rollback rehearsed.",
+      "pass": "Consistent actual NAS authority copy retains explained epoch handling, durable rows/content, namespaces, indexes, representative recall/write, run/signal state; rollback rehearsed.",
       "fail": "Unexplained durable-state/retrieval divergence or unrecoverable rollback.",
       "inconclusive": "Required source artifact or realistic snapshot cannot be inspected.",
       "adequate_good_probe": "Immutable backup, isolated clone, before/after manifests and spot checks, write only clone, restore into separate rollback copy.",
