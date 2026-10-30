@@ -49,11 +49,19 @@ class Principal:
         if self.role != "admin":
             for pattern in self.allowed_namespaces:
                 cleaned = pattern.strip()
-                if cleaned in ("*", "**", "*:*", "") or cleaned.startswith("*"):
-                    raise ValueError(
-                        f"Principal '{self.principal_id}' with role '{self.role}' cannot declare "
-                        f"global wildcard '{pattern}'; blanket namespace access is strictly reserved for the 'admin' role"
-                    )
+                if cleaned == "global":
+                    continue
+                if cleaned.startswith("project:") or cleaned.startswith("domain:"):
+                    _, _, subpattern = cleaned.partition(":")
+                    if not subpattern.strip():
+                        raise ValueError(
+                            f"Principal '{self.principal_id}' namespace pattern '{pattern}' missing target subpattern"
+                        )
+                    continue
+                raise ValueError(
+                    f"Principal '{self.principal_id}' with role '{self.role}' declared unconstrained or invalid "
+                    f"pattern '{pattern}'; non-admin namespaces must explicitly start with 'project:' or 'domain:', or be 'global'"
+                )
         if self.rate_limit_rpm < 0:
             raise ValueError(f"rate_limit_rpm for '{self.principal_id}' must be non-negative")
 

@@ -23,7 +23,8 @@ from .permissions import (
     check_namespace_permission,
     check_tool_permission,
     extract_namespace_from_arguments,
-    resolve_record_namespace,
+    extract_record_id_for_tool,
+    resolve_record_claim,
     resolve_run_workspace,
 )
 
@@ -223,10 +224,12 @@ class EnterpriseGatewayMiddleware:
                     tool_name = params.get("name")
                     arguments = params.get("arguments", {})
                     namespace, scope_err = extract_namespace_from_arguments(tool_name or "", arguments)
+                    record_id, id_err = extract_record_id_for_tool(tool_name or "", arguments)
                     arguments_summary = summarize_arguments(arguments)
 
-                    # Reject contradictory or unexpected scope arguments immediately (fail-closed)
-                    if scope_err:
+                    # Reject contradictory or unexpected scope/ID arguments immediately (fail-closed)
+                    contract_err = scope_err or id_err
+                    if contract_err:
                         duration_ms = (time.perf_counter() - start_time) * 1000
                         record = AuditRecord(
                             audit_id=audit_id,
@@ -240,13 +243,13 @@ class EnterpriseGatewayMiddleware:
                             status="denied_forbidden",
                             duration_ms=duration_ms,
                             arguments_summary=arguments_summary,
-                            error_message=scope_err,
+                            error_message=contract_err,
                         )
                         self.audit_emitter.emit(record)
                         await _send_http_json(
                             send,
                             403,
-                            {"error": "forbidden", "error_description": scope_err},
+                            {"error": "forbidden", "error_description": contract_err},
                         )
                         return
 
@@ -303,14 +306,11 @@ class EnterpriseGatewayMiddleware:
                         return
 
                     # RBAC Step 3: Record-Level Dereference for ID-based Operations
-                    # Prevents cross-tenant mutation on annotate, revise, forget, ack_signal, extend_signal_lease
+                    # Prevents cross-tenant mutation and unauthorized signal lease takeover
                     if role != "admin":
                         # 3a. Memories & Signals by record ID
-                        record_id = None
-                        if isinstance(arguments, dict):
-                            record_id = arguments.get("id") or arguments.get("signal_id") or arguments.get("memory_id")
                         if record_id:
-                            status_res, target_ns = resolve_record_namespace(self.db_path, str(record_id))
+                            status_res, target_ns, claimed_by = resolve_record_claim(self.db_path, str(record_id))
                             if status_res == "error":
                                 duration_ms = (time.perf_counter() - start_time) * 1000
                                 err_msg = f"Authorization verification failed: authority database error for record '{record_id}'"
@@ -388,6 +388,36 @@ class EnterpriseGatewayMiddleware:
                                         {"error": "forbidden", "error_description": err_msg},
                                     )
                                     return
+
+                                # Check Signal lease ownership on extend_signal_lease and ack_signal
+                                if tool_name in ("extend_signal_lease", "ack_signal") and claimed_by is not None:
+                                    if claimed_by != principal_id and not claimed_by.startswith(f"{principal_id}:"):
+                                        duration_ms = (time.perf_counter() - start_time) * 1000
+                                        err_msg = (
+                                            f"Access denied: Signal '{record_id}' is claimed by another consumer "
+                                            f"('{claimed_by}') and cannot be operated on by principal '{principal_id}'"
+                                        )
+                                        record = AuditRecord(
+                                            audit_id=audit_id,
+                                            timestamp=current_iso_timestamp(),
+                                            request_id=request_id,
+                                            principal_id=principal_id,
+                                            client_ip=client_ip,
+                                            transport=transport,
+                                            tool=tool_name,
+                                            namespace=target_ns,
+                                            status="denied_forbidden",
+                                            duration_ms=duration_ms,
+                                            arguments_summary=arguments_summary,
+                                            error_message=err_msg,
+                                        )
+                                        self.audit_emitter.emit(record)
+                                        await _send_http_json(
+                                            send,
+                                            403,
+                                            {"error": "forbidden", "error_description": err_msg},
+                                        )
+                                        return
 
                         # 3b. Agent Runs by run_id
                         run_id = None
@@ -503,15 +533,37 @@ class EnterpriseGatewayMiddleware:
                                     )
                                     return
 
-                    # RBAC Step 4: Authoritative Actor Binding
-                    # Strictly adhere to existing tool schema: bind actor without injecting uncontracted fields
+                    # RBAC Step 4: Authoritative Identity Binding
+                    # Strictly adhere to existing tool schemas:
+                    # - Mutating tools bind author 'actor' to verified principal
+                    # - Signal operations bind consumer ownership prefix to verified principal
+                    # - Query filters (like recall.actor) remain untouched
                     if isinstance(arguments, dict):
-                        # Force caller-declared actor to verified principal
-                        if "actor" in arguments or tool_name in ("store", "annotate", "revise", "feedback"):
+                        # 4a. Consumer binding for signal ownership
+                        if tool_name == "claim_signal":
+                            raw_consumer = str(arguments.get("consumer", "")).strip()
+                            if (
+                                raw_consumer
+                                and not raw_consumer.startswith(f"{principal_id}:")
+                                and raw_consumer != principal_id
+                            ):
+                                arguments["consumer"] = f"{principal_id}:{raw_consumer}"
+                            elif not raw_consumer:
+                                arguments["consumer"] = principal_id
+                        elif tool_name in ("extend_signal_lease", "ack_signal"):
+                            raw_consumer = str(arguments.get("consumer", "")).strip()
+                            if (
+                                raw_consumer
+                                and not raw_consumer.startswith(f"{principal_id}:")
+                                and raw_consumer != principal_id
+                            ):
+                                arguments["consumer"] = f"{principal_id}:{raw_consumer}"
+
+                        # 4b. Mutating actor binding (do NOT touch recall.actor!)
+                        if tool_name in ("store", "annotate", "revise", "feedback"):
                             arguments["actor"] = principal_id
 
-                        # Provenance: if caller provided provenance dict, ensure actor is bound to verified principal
-                        # Do NOT inject uncontracted fields like authenticated_principal or declared_agent_id
+                        # 4c. Provenance: if caller provided provenance dict, bind provenance["actor"]
                         if "provenance" in arguments and isinstance(arguments["provenance"], dict):
                             arguments["provenance"]["actor"] = principal_id
 
@@ -626,18 +678,7 @@ class EnterpriseGatewayMiddleware:
 
 
 def _extract_client_ip(scope: Scope) -> str | None:
-    """Extract client IP address respecting reverse proxies."""
-    for name, value in scope.get("headers", []):
-        if name.lower() == b"x-forwarded-for":
-            raw = value.decode("latin1", errors="replace")
-            first_ip = raw.split(",")[0].strip()
-            if first_ip:
-                return first_ip
-        if name.lower() == b"x-real-ip":
-            raw = value.decode("latin1", errors="replace").strip()
-            if raw:
-                return raw
-
+    """Extract direct socket client IP address to prevent unauthenticated header spoofing."""
     client = scope.get("client")
     if client and isinstance(client, (list, tuple)) and client[0]:
         return str(client[0])

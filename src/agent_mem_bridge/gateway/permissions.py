@@ -182,6 +182,80 @@ def extract_namespace_from_arguments(tool_name: str, arguments: dict[str, Any] |
     return None, None
 
 
+RECORD_ID_PARAM_MAP: dict[str, str] = {
+    "forget": "id",
+    "promote": "id",
+    "annotate": "id",
+    "revise": "id",
+    "extend_signal_lease": "id",
+    "ack_signal": "id",
+    "feedback": "memory_id",
+    "claim_signal": "signal_id",
+}
+
+ALL_KNOWN_ID_FIELDS: frozenset[str] = frozenset({"id", "signal_id", "memory_id", "run_id"})
+
+
+def extract_record_id_for_tool(tool_name: str, arguments: dict[str, Any] | None) -> tuple[str | None, str | None]:
+    """Extract and validate the authoritative record ID for a tool call.
+
+    Returns (record_id, error_message).
+    Rogue or conflicting ID parameters intended to confuse authorization are rejected (fail-closed).
+    """
+    if not isinstance(arguments, dict):
+        return None, None
+
+    expected_id_param = RECORD_ID_PARAM_MAP.get(tool_name)
+
+    if expected_id_param is not None:
+        # Tool expects a specific ID parameter
+        for field in ALL_KNOWN_ID_FIELDS:
+            if field != expected_id_param and field in arguments:
+                return (
+                    None,
+                    f"Tool '{tool_name}' operates on '{expected_id_param}'; unexpected ID parameter '{field}' provided",
+                )
+        val = arguments.get(expected_id_param)
+        if val is not None and (not isinstance(val, str) or not val.strip()):
+            return None, f"Tool '{tool_name}' requires a valid non-empty '{expected_id_param}'"
+        return (val.strip() if isinstance(val, str) else None), None
+
+    if tool_name in ("record_run_event", "get_run", "complete_run"):
+        for field in ("id", "signal_id", "memory_id"):
+            if field in arguments:
+                return None, f"Tool '{tool_name}' operates on 'run_id'; unexpected '{field}' parameter provided"
+        val = arguments.get("run_id")
+        if val is not None and (not isinstance(val, str) or not val.strip()):
+            return None, f"Tool '{tool_name}' requires a valid non-empty 'run_id'"
+        return None, None
+
+    # Tools without ID parameters must not contain stray record IDs
+    for field in ("id", "signal_id", "memory_id", "run_id"):
+        if field in arguments:
+            return None, f"Tool '{tool_name}' does not accept record ID parameter '{field}'"
+
+    return None, None
+
+
+def resolve_record_claim(db_path: Path | None, record_id: str) -> tuple[str, str | None, str | None]:
+    """Resolve the authoritative namespace and claimed_by of a record.
+
+    Returns ('found', namespace, claimed_by), ('not_found', None, None), or ('error', error_details, None).
+    """
+    if db_path is None or not db_path.is_file() or not record_id:
+        return "error", "Database file is missing or invalid", None
+    try:
+        uri = f"{db_path.resolve().as_uri()}?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=2.0) as conn:
+            cursor = conn.execute("SELECT namespace, claimed_by FROM memories WHERE id = ?", (record_id,))
+            row = cursor.fetchone()
+            if row:
+                return "found", str(row[0]), (str(row[1]) if row[1] is not None else None)
+            return "not_found", None, None
+    except (sqlite3.Error, OSError) as exc:
+        return "error", str(exc), None
+
+
 def resolve_record_namespace(db_path: Path | None, record_id: str) -> tuple[str, str | None]:
     """Resolve the authoritative namespace of a stored record by its ID with explicit status.
 

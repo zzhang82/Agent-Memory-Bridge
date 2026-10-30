@@ -199,7 +199,7 @@ def test_gateway_config_loading_and_validation(tmp_path: Path) -> None:
             }
         )
 
-    with pytest.raises(ValueError, match="cannot declare global wildcard"):
+    with pytest.raises(ValueError, match="declared unconstrained or invalid pattern"):
         load_gateway_config(
             {
                 "principals": [
@@ -1067,7 +1067,7 @@ def test_legitimate_orchestrator_run_lifecycle_and_provenance(tmp_path: Path, mo
         run_data = json.loads(resp_begin.json()["result"]["content"][0]["text"])
         run_id = run_data["run_id"]
 
-        # 2. record_run_event
+        # 2. record_run_event: complete the root work item to allow run completion
         resp_event = client.post(
             "/mcp",
             json=_jsonrpc_call(
@@ -1075,7 +1075,8 @@ def test_legitimate_orchestrator_run_lifecycle_and_provenance(tmp_path: Path, mo
                 {
                     "workspace_key": "project:orchestrated-app",
                     "run_id": run_id,
-                    "event_type": "checkpoint",
+                    "work_item_id": run_data["root_work_item_id"],
+                    "event_type": "work_item_completed",
                     "summary": "Stage 1 tests passed",
                     "idempotency_key": "event-key-001",
                     "agent_id": "worker:eli-implementer",
@@ -1087,6 +1088,7 @@ def test_legitimate_orchestrator_run_lifecycle_and_provenance(tmp_path: Path, mo
             headers=orch_headers,
         )
         assert resp_event.status_code == 200
+        assert resp_event.json()["result"]["isError"] is False
 
         # 3. complete_run
         resp_complete = client.post(
@@ -1107,6 +1109,29 @@ def test_legitimate_orchestrator_run_lifecycle_and_provenance(tmp_path: Path, mo
             headers=orch_headers,
         )
         assert resp_complete.status_code == 200
+        assert resp_complete.json()["result"]["isError"] is False
+
+        # 4. Verify durable rows exist in SQLite authority tables
+        with sqlite3.connect(store.db_path) as conn:
+            run_row = conn.execute(
+                "SELECT run_id, workspace_key FROM agent_runs WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            assert run_row is not None
+            assert run_row[1] == "project:orchestrated-app"
+
+            event_row = conn.execute(
+                "SELECT event_type, summary FROM run_events WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            assert event_row is not None
+            assert event_row[0] == "work_item_completed"
+            assert event_row[1] == "Stage 1 tests passed"
+
+            outcome_row = conn.execute(
+                "SELECT outcome_type, evaluator_type FROM run_outcomes WHERE run_id = ?", (run_id,)
+            ).fetchone()
+            assert outcome_row is not None
+            assert outcome_row[0] == "unverified"
+            assert outcome_row[1] == "agent"
 
 
 def test_database_unavailable_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1152,9 +1177,9 @@ def test_database_unavailable_fails_closed(tmp_path: Path, monkeypatch: pytest.M
 
 
 def test_non_admin_wildcard_combinations_rejected() -> None:
-    # Combinations like ["*", "project:foo"], ["**"], ["*:*"] must be rejected for non-admin
-    for pattern in ("*", "**", "*:*", "*.*"):
-        with pytest.raises(ValueError, match="cannot declare global wildcard"):
+    # Reject wildcard patterns that bypass namespace scoping
+    for pattern in ("*", "**", "*:*", "*.*", "?*", "[!x]*", "project:"):
+        with pytest.raises(ValueError, match="declared unconstrained or invalid pattern|missing target subpattern"):
             Principal(
                 principal_id="test:writer",
                 token_hash=hash_token("token-secret"),
@@ -1162,13 +1187,253 @@ def test_non_admin_wildcard_combinations_rejected() -> None:
                 allowed_namespaces=(pattern,),
             ).validate()
 
-    with pytest.raises(ValueError, match="cannot declare global wildcard"):
+    # Valid prefixed patterns validate cleanly
+    for valid_pattern in ("project:*", "project:app-*", "domain:auth", "domain:*", "global"):
         Principal(
             principal_id="test:writer",
             token_hash=hash_token("token-secret"),
             role="writer",
-            allowed_namespaces=("*", "project:sub"),
+            allowed_namespaces=(valid_pattern,),
         ).validate()
+
+
+def test_signal_lease_consumer_isolation_and_impersonation_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    # Provision two distinct orchestrators with access to project:orchestrated-app
+    tokens = {
+        "orch_a": "orch-a-token-12345678",
+        "orch_b": "orch-b-token-12345678",
+    }
+    gw_config = GatewayConfig(
+        principals=(
+            Principal(
+                principal_id="system:orchestrator-a",
+                token_hash=hash_token(tokens["orch_a"]),
+                role="orchestrator",
+                allowed_namespaces=("project:orchestrated-app",),
+            ),
+            Principal(
+                principal_id="system:orchestrator-b",
+                token_hash=hash_token(tokens["orch_b"]),
+                role="orchestrator",
+                allowed_namespaces=("project:orchestrated-app",),
+            ),
+        ),
+        auth_mode="rbac",
+    )
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    # Insert a signal in project:orchestrated-app
+    sig = store.store("project:orchestrated-app", "coordination task", kind="signal", actor="admin")
+    sig_id = sig["id"]
+
+    with TestClient(app) as client:
+        headers_a = _initialize_session(client, tokens["orch_a"])
+        headers_b = _initialize_session(client, tokens["orch_b"])
+
+        # 1. Orchestrator A claims the signal with consumer="worker-alpha"
+        resp_claim = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "claim_signal",
+                {
+                    "namespace": "project:orchestrated-app",
+                    "signal_id": sig_id,
+                    "consumer": "worker-alpha",
+                },
+            ),
+            headers=headers_a,
+        )
+        assert resp_claim.status_code == 200
+        # Verify SQLite has claimed_by bound to Orchestrator A
+        with sqlite3.connect(store.db_path) as conn:
+            claimed_by = conn.execute("SELECT claimed_by FROM memories WHERE id = ?", (sig_id,)).fetchone()[0]
+            assert "system:orchestrator-a" in claimed_by
+
+        # 2. Orchestrator B attempts to extend lease on A's signal
+        resp_extend_b = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "extend_signal_lease",
+                {
+                    "id": sig_id,
+                    "consumer": "worker-alpha",
+                    "lease_seconds": 60,
+                },
+            ),
+            headers=headers_b,
+        )
+        assert resp_extend_b.status_code == 403
+        assert "claimed by another consumer" in resp_extend_b.text
+
+        # 3. Orchestrator B attempts to ACK A's signal by spoofing A's consumer
+        resp_ack_b = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "ack_signal",
+                {
+                    "id": sig_id,
+                    "consumer": "worker-alpha",
+                },
+            ),
+            headers=headers_b,
+        )
+        assert resp_ack_b.status_code == 403
+        assert "claimed by another consumer" in resp_ack_b.text
+
+        # 4. Orchestrator A extends lease and ACKs legitimately
+        resp_extend_a = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "extend_signal_lease",
+                {
+                    "id": sig_id,
+                    "consumer": "worker-alpha",
+                    "lease_seconds": 60,
+                },
+            ),
+            headers=headers_a,
+        )
+        assert resp_extend_a.status_code == 200
+
+        resp_ack_a = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "ack_signal",
+                {
+                    "id": sig_id,
+                    "consumer": "worker-alpha",
+                },
+            ),
+            headers=headers_a,
+        )
+        assert resp_ack_a.status_code == 200
+
+
+def test_claim_signal_extra_id_parameter_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    with TestClient(app) as client:
+        orch_headers = _initialize_session(client, tokens["orchestrator"])
+
+        # Caller provides signal_id PLUS rogue "id" parameter to confuse authorization
+        resp = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "claim_signal",
+                {
+                    "namespace": "project:orchestrated-app",
+                    "signal_id": "sig-001",
+                    "id": "conflicting-record-id",
+                    "consumer": "worker-1",
+                },
+            ),
+            headers=orch_headers,
+        )
+        assert resp.status_code == 403
+        assert "unexpected ID parameter 'id'" in resp.text
+
+
+def test_recall_actor_query_filter_preserved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    # Store records with different authors
+    store.store("project:allowed-proj", "Bob's thought", actor="agent:writer-bob")
+    store.store("project:allowed-proj", "Alice's observation", actor="agent:researcher-alice")
+
+    gw_config, tokens = _create_sample_gateway_config()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    with TestClient(app) as client:
+        writer_headers = _initialize_session(client, tokens["writer"])
+
+        # Writer Bob queries for records written by Alice
+        resp = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "recall",
+                {
+                    "namespace": "project:allowed-proj",
+                    "actor": "agent:researcher-alice",
+                    "query": "",
+                },
+            ),
+            headers=writer_headers,
+        )
+        assert resp.status_code == 200
+        result_text = resp.json()["result"]["content"][0]["text"]
+        result_data = json.loads(result_text)
+
+        # Actor filter must NOT have been overwritten to agent:writer-bob!
+        assert result_data["count"] == 1
+        assert result_data["items"][0]["content"] == "Alice's observation"
+        assert result_data["items"][0]["actor"] == "agent:researcher-alice"
 
 
 def test_large_response_truncated_audit_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
