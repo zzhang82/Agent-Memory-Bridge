@@ -50,4 +50,4 @@ jobs:
         run: >
           python scripts/check_installed_distribution.py
           --server-python "$RUNNER_TEMP/amb-release-venv/bin/python"
-          --expected-version 0.38.1
+          --expected-version 0.38.2

@@ -61,7 +61,7 @@ python ./scripts/check_onboarding_contract.py
 - CLI reports, review queues, Task Briefs, activation receipts, benchmarks, and
   context assembly are not separate public MCP tools unless a reviewed contract
   change explicitly adds them.
-- Worker execution, hosted identity, OAuth, per-namespace ACLs, sandboxing,
+- Worker execution, hosted identity, OAuth, general per-namespace ACLs, sandboxing,
   remote multi-user coordination, and distributed locking are outside the core
   bridge boundary unless the implementation and public docs both change.
 

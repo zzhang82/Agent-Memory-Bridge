@@ -32,8 +32,14 @@ clients. No custom JSON-RPC endpoint or separate set of tool handlers exists.
 For an explicit remote listener, configure a dedicated bearer credential file,
 Host allowlist, and Origin allowlist. Tokens are provided through files, never
 command-line token arguments or URLs. Use a cryptographically random token,
-restrict the file to its owner, and grant it only to trusted clients. A token
-grants the whole AMB tool surface, including mutation and export.
+restrict the file to its owner, and grant it only to trusted clients.
+
+In the static single-token private-bearer profile, that one token grants the
+whole AMB tool surface, including mutation and export. This is not true of the
+optional gateway/RBAC deployment below: there, each token represents one
+configured principal and is limited by its role and `allowed_namespaces`. The
+mode follows the selected configuration, not the number of tokens. One token can
+still select gateway/RBAC. Local stdio does not use either HTTP profile.
 
 The private bearer profile uses MCP SDK verification/authentication middleware
 and standard HTTP bearer semantics. It does not implement an OAuth server,
@@ -49,8 +55,11 @@ its backend. Configure the externally presented host/origin explicitly and
 avoid blanket wildcards. Requests without an Origin header can be valid native
 MCP requests; a supplied invalid Origin is rejected.
 
-Keep one dedicated token per authority, separate from all other services. Rotate
-the file and restart the service in an approved maintenance window. Do not log
+In the static single-token profile, keep one dedicated token per authority,
+separate from all other services. Rotate the file and restart the service in an
+approved maintenance window. A gateway/RBAC deployment instead uses its
+configured principals and does not require this one-token-per-authority shape.
+Do not log
 Authorization headers, tokens, complete request bodies, or raw client metadata.
 The HTTP bootstrap filters SDK transport log messages because those messages
 can include rejected headers or session IDs. Severity and logger/source location
@@ -107,9 +116,15 @@ The 17 public MCP tools are governed across four standard roles:
 | Role | Allowed MCP Tools | Strictly Forbidden Tools | Namespace Boundaries |
 |---|---|---|---|
 | **admin** | All 17 tools | None | All namespaces (`*`) |
-| **writer** | `store`, `recall`, `browse`, `annotate`, `revise`, `feedback`, `record_run_event` | `forget`, `promote`, `export`, and orchestration tools | Bound to `allowed_namespaces` |
-| **reader** | `recall`, `browse`, `stats`, `get_run` | All mutating tools | Bound to `allowed_namespaces` |
-| **orchestrator** | `begin_run`, `record_run_event`, `complete_run`, `get_run`, `claim_signal`, `extend_signal_lease`, `ack_signal`, `recall`, `browse` | `forget`, `promote`, `store`, `stats` | Bound to `allowed_namespaces` |
+| **writer** | `store`, `recall`, `browse`, `annotate`, `revise`, `feedback`, `record_run_event` | `stats`, `forget`, `promote`, `export`, `begin_run`, `get_run`, `complete_run`, `claim_signal`, `extend_signal_lease`, `ack_signal` | Bound to `allowed_namespaces` |
+| **reader** | `recall`, `browse`, `stats`, `get_run` | `store`, `forget`, `feedback`, `promote`, `annotate`, `revise`, `export`, `begin_run`, `record_run_event`, `complete_run`, `claim_signal`, `extend_signal_lease`, `ack_signal` | Bound to `allowed_namespaces` |
+| **orchestrator** | `begin_run`, `record_run_event`, `complete_run`, `get_run`, `claim_signal`, `extend_signal_lease`, `ack_signal`, `recall`, `browse` | `store`, `stats`, `forget`, `feedback`, `promote`, `annotate`, `revise`, `export` | Bound to `allowed_namespaces` |
+
+The Allowed MCP Tools column is the normative contract and must match
+`ROLE_PERMISSIONS`. The Strictly Forbidden Tools column is the explicit
+complement shown for readers; it is not a second permission source. `admin`
+matches all 17 public tools. This table does not claim that every admin
+operation is additionally filtered by `allowed_namespaces`.
 
 ### 3. Namespace limits and actor binding
 
@@ -118,7 +133,25 @@ The 17 public MCP tools are governed across four standard roles:
 
 ### 4. Structured audit logging (JSONL)
 
-A request that completes normally, is rejected (401, 403, or 429), or raises a caught exception writes one JSONL audit line to stdout, stderr, or a dedicated log file specified by `AMB_AUDIT_STREAM`. Those writes stay separate from the SQLite database so audit writes don't compete for database locks.
+A request that completes normally, is rejected before the tool, or raises a caught exception writes one JSONL audit line. A disconnected request is not guaranteed to produce one. Audit writes stay separate from SQLite.
+
+Select the destination with `--audit-stream`, `AGENT_MEMORY_BRIDGE_AUDIT_STREAM`, `AMB_AUDIT_STREAM`, or the gateway configuration's `audit_stream`. The choices are stdout, stderr, or a file path. AMB does not rotate, retain, or protect that file. File permissions, rotation, and retention belong to the operator.
+
+A serialized line always contains these twelve fields: `audit_id`, `timestamp`, `request_id`, `principal_id`, `client_ip`, `transport`, `tool`, `namespace`, `status`, `duration_ms`, `arguments_summary`, and `output_summary`. `client_ip`, `tool`, `namespace`, and either summary may be null. `duration_ms` is rounded to two decimal places. `error_message` is included only when it has a value; it is omitted rather than serialized as null.
+
+`status` is one of `success`, `denied_unauthenticated`, `denied_forbidden`, `denied_rate_limited`, `error`, `tool_error`, or `unknown_truncated`. Those are audit labels, not HTTP status numbers. `denied_unauthenticated` corresponds to HTTP 401, `denied_forbidden` to 403, and `denied_rate_limited` to 429. `tool_error` means the captured tool result reported an error. `unknown_truncated` means the captured response reached at least 4096 bytes and the partial capture cannot establish whether the tool succeeded. `error` covers an HTTP status of 400 or higher, or a caught exception.
+
+`arguments_summary` records lengths or counts for `title`, `content`, `replacement_content`, `query`, `goal`, `tags`, and `tags_any`. It preserves `kind`, `limit`, `event_type`, `outcome`, `id`, `signal_id`, and `to_kind` when present, and preserves at most the first 64 characters of `correlation_id`. `output_summary` records selected response metadata such as `id`, `stored_id`, `status`, `count`, `item_count`, `outcome`, `run_id`, `tools_count`, `content_blocks`, and `is_error`; a truncated capture adds `truncated: true`.
+
+This is field minimization, not redaction. The summarizer does not copy the dedicated memory-content or query-text fields listed above. It does not remove sensitive text that a caller places in a retained identifier, namespace, correlation prefix, or another preserved label. Do not put secrets or memory text in those fields.
+
+### 5. What the gateway does not do
+
+- It does not add a human approval gate.
+- It does not provide OAuth, token issuance, or an OAuth discovery server.
+- It does not terminate TLS. Put TLS or an authenticated tunnel in front of a remote listener.
+- It identifies the configured `principal_id`, not the person or model that supplied the token.
+- It does not protect direct local database access or the local stdio path. Those paths do not pass through this gateway.
 
 ## Docker Compose
 

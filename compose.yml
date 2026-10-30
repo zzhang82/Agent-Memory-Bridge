@@ -2,11 +2,11 @@ name: agent-memory-bridge
 
 services:
   amb-mcp:
-    image: ghcr.io/zzhang82/agent-memory-bridge:0.38.1
+    image: ghcr.io/zzhang82/agent-memory-bridge:0.38.2
     build:
       context: .
       args:
-        AMB_VERSION: "0.38.1"
+        AMB_VERSION: "0.38.2"
         VCS_REF: "${AMB_SOURCE_REVISION:-unverified}"
     user: "10001:10001"
     restart: unless-stopped

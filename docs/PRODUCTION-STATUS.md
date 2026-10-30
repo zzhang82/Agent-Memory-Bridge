@@ -6,13 +6,13 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.38.1` |
+| Package/source version | `0.38.2` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
 | Runtime model | Default local stdio and optional standard Streamable HTTP over one host-local SQLite/WAL authority; FTS5 and optional embeddings are derived indexes |
 
-Current source test collection: `1281 tests`
+Current source test collection: `1285 tests`
 
 Default local home is `~/.local/share/agent-memory-bridge`. Current source does not discover `~/.codex/mem-bridge`. Set `AGENT_MEMORY_BRIDGE_HOME` to keep the old directory, or copy it to the neutral home. AMB does not migrate or delete it.
 
@@ -20,7 +20,9 @@ Default local home is `~/.local/share/agent-memory-bridge`. Current source does 
 
 ## Distribution Status
 
-The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.1` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.2` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+
+The `0.38.2` source line qualifies the current trust wording for the static single-token profile and the optional gateway/RBAC deployment. It documents the serialized audit contract and role allowlists without changing gateway behavior.
 
 The `0.38.1` source line publishes the documentation and evidence wording refinements merged in PR #82. It replaces absolute claims about gateway performance, authentication, and audit coverage with implementation-specific descriptions, retains a historical v0.34 migration validation failure without presenting it as current state, and keeps the frozen v0.34 E9 acceptance criterion intact. The release preparation changes version and distribution metadata only; it does not change memory or gateway request handling, schema v12, or the 17 public MCP tools. Existing deployment upgrades remain separate operator actions.
 
@@ -248,7 +250,7 @@ v021_durable_live_writeback_count = 0
 
 ## Known Boundaries and Non-Claims
 
-AMB does not provide hosted execution, a scheduler, a queue, MCP Tasks, Apps, OAuth/ACL, authenticated actor identity, an HTTP product surface, an ANN/graph database, automatic reranking, automatic prompt or policy mutation, online training, automatic durable writeback, or autonomous skill acquisition.
+AMB does not provide hosted execution, a scheduler, a queue, MCP Tasks, Apps, OAuth, hosted identity, authenticated human or model identity, a general ACL system, an ANN/graph database, automatic reranking, automatic prompt or policy mutation, online training, automatic durable writeback, or autonomous skill acquisition. It does provide an optional Streamable HTTP deployment. Its optional gateway/RBAC mode limits configured principals by role and namespace; a `principal_id` is not human or model identity, and local stdio remains outside that mode.
 
 Caller-declared client, session, model, harness, and evaluator labels are provenance metadata, not authenticated identity. Local benchmark and proof artifacts are implementation evidence, not a vendor certification, external adoption proof, or general productivity result.
 

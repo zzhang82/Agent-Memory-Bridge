@@ -102,7 +102,7 @@ def test_current_source_contract_rejects_automatic_learning_claim_drift(tmp_path
 def test_readmes_use_v0381_release_identity() -> None:
     english = (ROOT / "README.md").read_text(encoding="utf-8")
     chinese = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
-    assert CURRENT == "0.38.1"
+    assert CURRENT == "0.38.2"
     assert f"Current package/source version: `{CURRENT}`." in english
     assert f"当前包/源码版本：`{CURRENT}`。" in chinese
     assert f"agent-memory-bridge=={CURRENT}" in english
@@ -129,7 +129,9 @@ def test_current_package_and_source_docs_use_published_identity() -> None:
     assert "no automatic learning" in announcement
     contract = (ROOT / "docs/evidence/v0.35.0-lifecycle/CONTRACT.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "v0.38.1 — Documentation Accuracy and Evidence Hygiene" in announcement
+    assert "v0.38.2 — Gateway Contract Wording" in announcement
+    assert "v0.38.2 — Gateway Contract Wording" in changelog
+    assert "v0.38.2 source/release line" in changelog
     assert "v0.38.1 — Documentation Accuracy and Evidence Hygiene" in changelog
     assert "v0.38.1 source/release line" in changelog
     assert "v0.38.0 — Optional HTTP gateway: per-client tokens, roles and audit logging" in changelog

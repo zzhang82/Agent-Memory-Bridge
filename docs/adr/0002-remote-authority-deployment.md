@@ -12,7 +12,10 @@ The authority host keeps SQLite/WAL on a verified local filesystem. Strict
 deployment startup rejects known remote and unknown filesystem classifications.
 No client opens network-mounted WAL or silently falls back to another writer.
 
-The private deployment profile composes the SDK's bearer TokenVerifier,
+The private deployment profile described by this ADR is the static
+single-token profile. The current optional gateway/RBAC deployment is
+documented in [Remote authority deployment](../REMOTE-DEPLOYMENT.md). The
+private deployment profile composes the SDK's bearer TokenVerifier,
 authentication backend, and authorization middleware without inventing OAuth
 issuer metadata. A dedicated pre-provisioned token authenticates whole-authority
 access. TLS, authenticated tunnels, and token provisioning are operator-owned;

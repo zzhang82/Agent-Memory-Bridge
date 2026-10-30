@@ -2,14 +2,22 @@
 
 Agent Memory Bridge is a local-first MCP server for reusable engineering memory
 and lightweight coordination. It is built for trusted local operators who want
-inspectable memory, not for hosted identity, multi-tenant authorization, or
-remote access control.
+inspectable memory, not for hosted identity or a multi-tenant authorization
+platform. Its optional gateway/RBAC deployment adds configured-principal roles
+and namespace limits; that is not hosted identity or general remote access
+control.
 
 ## What AMB Provides
 
 V0.34 optionally serves the existing public tools over SDK Streamable HTTP.
-The deployment's dedicated bearer credential authenticates access to the whole
-authority, not the identity of a particular person, coding client, or namespace.
+In the static single-token private-bearer profile, the deployment's dedicated
+bearer credential authenticates access to the whole authority, not the identity
+of a particular person, coding client, or namespace. In the optional v0.38
+gateway/RBAC deployment, a token instead selects a configured principal whose
+role and `allowed_namespaces` limit the tools and namespaces it can use. A
+`principal_id` is not the identity of the person or model behind the token.
+The selected configuration determines the mode; token count does not. Local
+stdio uses neither HTTP profile.
 Transport uses standard SDK authentication middleware; token issuance and TLS
 remain operator responsibilities. This is not a hosted OAuth authorization
 server or a claim of full MCP OAuth interoperability. Local stdio needs none of
@@ -30,8 +38,10 @@ that deployment configuration.
 
 ## What AMB Does Not Provide
 
-- authenticated client, user, model, or workspace identity
-- OAuth, login, hosted identity, or per-namespace ACL enforcement
+- authenticated human, model, coding-client, or workspace identity; a gateway
+  `principal_id` identifies only its configured token principal
+- OAuth, login, or hosted identity
+- per-namespace ACL enforcement outside the optional gateway/RBAC deployment
 - multi-user or remote ACL systems
 - sandboxing for configured local command providers
 - distributed locking or exactly-once coordination across machines
@@ -151,6 +161,7 @@ benchmarks.
 ## Contributor Rule
 
 Public docs and examples should preserve this boundary. Do not describe AMB as
-an identity system, ACL system, hosted memory platform, OAuth integration,
-compliance layer, or remote multi-user backend unless that work is explicitly
-scoped and implemented.
+an identity system, a general ACL system, a hosted memory platform, an OAuth
+integration, a compliance layer, or a remote multi-user backend. The optional
+gateway/RBAC deployment may be described only as configured-principal roles,
+namespace limits, specified actor binding, and field-minimized audit lines.

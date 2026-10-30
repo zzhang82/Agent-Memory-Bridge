@@ -8,6 +8,15 @@ The v0.28.0 tagged archive route, when using that tag, is:
 
 This document records the durable capability milestones in Agent Memory Bridge (AMB). It is **not** a release-by-release ledger, a current-status page, or a substitute for detailed proof artifacts. Current implementation facts belong in [Production Status](docs/PRODUCTION-STATUS.md); future work belongs in the [Roadmap](docs/ROADMAP.md); detailed development chronology remains in Git history and published GitHub Releases where available.
 
+## v0.38.2 — Gateway Contract Wording
+
+- Qualifies current trust and deployment wording so the static single-token profile and optional gateway/RBAC deployment are not described by one unqualified token statement.
+- Documents the serialized audit fields and statuses, including `tool_error` and `unknown_truncated`, and states that omitted content fields are not a general redaction guarantee.
+- Adds consistency tests for the documented role allowlists and serialized audit contract.
+- Leaves schema v12, exactly 17 public MCP tools, the tool-schema digest, runtime behavior, and the published v0.38.1 tag unchanged.
+
+See [v0.38.2 announcement](docs/v0.38.2-announcement.md).
+
 ## v0.38.1 — Documentation Accuracy and Evidence Hygiene
 
 - Aligns descriptions of the optional Streamable HTTP gateway with observed implementation boundaries: per-client tokens, four roles, namespace limits, principal-bound actors, and structured JSONL audit records for completed or handled requests.
@@ -180,6 +189,7 @@ See [v0.32.1 announcement](docs/v0.32.1-announcement.md) for the distribution co
 | v0.32.1 source/release line | **PyPI Distribution** | The release line adds a PyPI install path and release-triggered Trusted Publishing without changing runtime behavior, schema, public MCP surface, or authority boundaries. | [v0.32.1 announcement](docs/v0.32.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.32.2 source/release line | **Governed Project Memory** | Repositions AMB around governed project memory, synchronizes the new hero and bilingual README story, and makes install-versus-client-registration boundaries explicit without changing runtime behavior or authority. | [v0.32.2 announcement](docs/v0.32.2-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
 | v0.33.0 source/release line | **Operationalization** | Fresh-session first-win evidence, MCP 2.x floor/latest gates, cross-platform liveness semantics, public/internal error separation, and single-authority multi-machine guidance strengthen release and operational confidence without expanding durable authority. | [v0.33.0 announcement](docs/v0.33.0-announcement.md), [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md) |
+| v0.38.2 source/release line | **Gateway Contract Wording** | Documentation, consistency tests, and release-identity metadata that separate the static bearer profile from gateway/RBAC limits and document the serialized audit contract. No runtime, schema, or public MCP tool change. | [v0.38.2 announcement](docs/v0.38.2-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.38.1 source/release line | **Documentation Accuracy and Evidence Hygiene** | Documentation-only refinement of the HTTP gateway's supported claims and historical migration wording, retaining the frozen v0.34 E9 criterion and failed validation observation. No memory/gateway behavior, schema, or public MCP tool change. | [v0.38.1 announcement](docs/v0.38.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.38.0 source/release line | **Optional HTTP gateway: per-client tokens, roles and audit logging** | Optional gateway on Streamable HTTP transport: per-client Bearer tokens, 4 roles, namespace limits, actor binding to the verified principal, and structured JSONL audit lines. Schema v12 and exactly 17 tools stay unchanged. | [v0.38.0 announcement](docs/v0.38.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
 | v0.37.0 source/release line | **Documentation Stabilization & Adoption Simplification** | Formalizes documentation convergence with PRODUCTION-STATUS.md as single source of truth and standardizes host integration recipes. Schema v12 and exactly 17 tools stay unchanged. | [v0.37.0 announcement](docs/v0.37.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |

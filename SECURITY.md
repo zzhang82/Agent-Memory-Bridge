@@ -11,9 +11,14 @@ For the concise project-wide boundary, see
 ## Trust Boundary Summary
 
 V0.34 adds an optional private Streamable HTTP deployment surface. It uses the
-same MCP server and standard SDK bearer authentication primitives; it does not
-host an OAuth server or provide per-namespace authorization. A dedicated
-operator-provisioned token grants access to the whole authority. Do not reuse
+same MCP server and standard SDK bearer authentication primitives. It does not
+host an OAuth server. In the static single-token private-bearer profile, a
+dedicated operator-provisioned token grants access to the whole authority and
+there is no per-namespace authorization. In the optional gateway/RBAC
+deployment, each token selects a configured principal limited by its role and
+`allowed_namespaces`. That principal is not a human, model, or workspace
+identity. The configuration selects the mode; having one token does not by
+itself select the static profile. Do not reuse
 tokens from another service. Keep token files private and protect remote traffic
 with TLS or an authenticated tunnel. Plain HTTP is suitable only on loopback or
 inside a protected transport boundary.
@@ -28,8 +33,9 @@ validation. See [remote deployment](docs/REMOTE-DEPLOYMENT.md).
 AMB is designed for trusted local operators. Local operating profiles are
 cooperative governance controls, not authenticated identity or access-control
 systems. `hardened-local` tightens local behavior, but it does not add OAuth,
-login, per-namespace ACLs, sandboxing, multi-user isolation, remote access
-control, compliance, or a distributed lock.
+login, gateway/RBAC namespace limits, sandboxing, multi-user isolation, remote
+access control, compliance, or a distributed lock. Namespace limits exist only
+in the optional gateway/RBAC deployment.
 
 Caller-supplied provenance and tags are declared metadata. They help filtering,
 auditing, debugging, and calibration, but AMB does not authenticate that a
@@ -190,10 +196,11 @@ authoritative `memories` table unchanged.
 `local-single-user` is the compatibility profile for one trusted local operator.
 `hardened-local` requires a Signal claim before acknowledgement and rejects the
 trusted-shell escape hatch for classifier and embedding providers. Both profiles
-remain local cooperative security models: neither adds authenticated client
-identity, per-namespace ACLs, sandboxing, multi-user isolation, compliance, or a
-distributed lock. They also do not provide remote ACLs or OAuth-backed
-authorization.
+remain local cooperative security models: neither adds authenticated human or
+model identity, gateway/RBAC namespace limits, sandboxing, multi-user isolation,
+compliance, or a distributed lock. They also do not provide remote ACLs or
+OAuth-backed authorization. Namespace limits belong only to the optional
+gateway/RBAC deployment.
 
 On POSIX systems AMB creates the bridge home as `0700` and managed database,
 state, lock, health, and log files as `0600` where the platform permits. `doctor`
