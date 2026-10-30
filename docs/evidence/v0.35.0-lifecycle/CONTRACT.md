@@ -99,5 +99,5 @@ archiving, hidden-reasoning persistence, new durable authority, schema v13,
 tool #18 and automatic durable promotion are excluded.
 
 No production upgrade, database replacement, credential/configuration
-change, worktree cleanup or NAS cutover is authorized by this document.
+change or worktree cleanup is authorized by this document.
 Tagging and publication are owner-gated steps after release-PR review/merge.

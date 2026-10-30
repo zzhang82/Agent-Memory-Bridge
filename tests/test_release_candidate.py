@@ -129,8 +129,8 @@ def test_current_package_and_source_docs_use_published_identity() -> None:
     assert "no automatic learning" in announcement
     contract = (ROOT / "docs/evidence/v0.35.0-lifecycle/CONTRACT.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "v0.38.0 — Enterprise HTTP Gateway, Multi-Token Auth, RBAC & Audit Logging" in announcement
-    assert "v0.38.0 — Enterprise HTTP Gateway, Multi-Token Auth, RBAC & Audit Logging" in changelog
+    assert "v0.38.0 — Optional HTTP gateway: per-client tokens, roles and audit logging" in announcement
+    assert "v0.38.0 — Optional HTTP gateway: per-client tokens, roles and audit logging" in changelog
     assert "v0.38.0 source/release line" in changelog
     assert "v0.37.0 — Documentation Stabilization & Adoption Simplification" in changelog
     assert "v0.37.0 source/release line" in changelog

@@ -483,7 +483,7 @@ def rehearse_remote_migration(source_snapshot: Path, runtime_dir: Path | None = 
         "evaluation": {
             "id": "E9_MIGRATION_REHEARSAL",
             "status": "INCONCLUSIVE",
-            "reason": "This tool validates an isolated supplied snapshot only; source provenance and real NAS rehearsal remain owner evidence.",
+            "reason": "A rehearsal using a verified, consistent snapshot of the actual source authority remains owner evidence.",
         },
     }
     _write_json(runtime / "rehearsal-report.json", report)

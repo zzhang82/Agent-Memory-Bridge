@@ -8,16 +8,16 @@ The v0.28.0 tagged archive route, when using that tag, is:
 
 This document records the durable capability milestones in Agent Memory Bridge (AMB). It is **not** a release-by-release ledger, a current-status page, or a substitute for detailed proof artifacts. Current implementation facts belong in [Production Status](docs/PRODUCTION-STATUS.md); future work belongs in the [Roadmap](docs/ROADMAP.md); detailed development chronology remains in Git history and published GitHub Releases where available.
 
-## v0.38.0 — Enterprise HTTP Gateway, Multi-Token Auth, RBAC & Audit Logging
+## v0.38.0 — Optional HTTP gateway: per-client tokens, roles and audit logging
 
-- Introduces the Enterprise HTTP Gateway (`src/agent_mem_bridge/gateway/`) as an orthogonal ASGI layer for Streamable HTTP deployments.
-- Implements Multi-Token Bearer Authentication with SHA-256 token hashing and constant-time matching (`secrets.compare_digest`).
-- Implements Role-Based Access Control (RBAC) across 4 roles (`admin`, `writer`, `reader`, `orchestrator`) over the 17 frozen public MCP tools.
-- Enforces namespace tenant enclaves with wildcard and literal matching (`project:*`, `domain:*`, `*`, exact), preventing cross-tenant access.
-- Implements authoritative actor binding, replacing caller-declared `actor` metadata with the verified `principal_id` to prevent identity spoofing.
-- Implements sub-millisecond per-principal in-memory rate limiting.
-- Implements zero-lock structured single-line JSONL audit streaming completely isolated from SQLite database WAL.
-- Preserves schema v12, exactly 17 public MCP tools, Tool Digest SHA-256, and 100% backward-compatibility for unauthenticated local stdio.
+- Introduces the optional HTTP gateway (`src/agent_mem_bridge/gateway/`) as an ASGI layer for Streamable HTTP deployments.
+- Implements per-client Bearer authentication with SHA-256 token hashing and constant-time matching (`secrets.compare_digest`).
+- Implements role-based access control across 4 roles (`admin`, `writer`, `reader`, `orchestrator`) over the 17 frozen public MCP tools.
+- Enforces namespace limits with wildcard and literal matching (`project:*`, `domain:*`, `*`, exact), preventing cross-namespace access.
+- In gateway RBAC mode, the gateway overrides the top-level `actor` for `store`, `annotate` and `revise`, and `provenance.actor` for `feedback`, with the caller's verified `principal_id`.
+- Implements per-principal in-memory rate limiting.
+- Implements structured single-line JSONL audit streaming, kept separate from the SQLite database.
+- Preserves schema v12, exactly 17 public MCP tools, and the tool-schema digest. Local stdio is unchanged: it does not go through the gateway and needs no token configuration.
 
 See [v0.38.0 announcement](docs/v0.38.0-announcement.md).
 
@@ -76,7 +76,7 @@ See [v0.34.1 announcement](docs/v0.34.1-announcement.md).
 - Optional SDK Streamable HTTP deployment reuses the same 17 tools and schema v12; stdio remains the default.
 - Adds local-filesystem deployment guards and read-only HTTP doctor/verify probes.
 - Container and migration acceptance are release gates, including replacement persistence, explicit epoch handling, and rollback on copies.
-- Release workflows bind package and container artifacts to the immutable release source. Production NAS cutover remains a separate owner-approved operation.
+- Release workflows bind package and container artifacts to the immutable release source. Upgrading an existing deployment remains a separate operator step.
 
 See [v0.34.0 announcement](docs/v0.34.0-announcement.md) and the [frozen release contract](docs/evidence/v0.34.0-remote-authority/CONTRACT.md).
 
@@ -170,13 +170,13 @@ See [v0.32.1 announcement](docs/v0.32.1-announcement.md) for the distribution co
 | v0.32.1 source/release line | **PyPI Distribution** | The release line adds a PyPI install path and release-triggered Trusted Publishing without changing runtime behavior, schema, public MCP surface, or authority boundaries. | [v0.32.1 announcement](docs/v0.32.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.32.2 source/release line | **Governed Project Memory** | Repositions AMB around governed project memory, synchronizes the new hero and bilingual README story, and makes install-versus-client-registration boundaries explicit without changing runtime behavior or authority. | [v0.32.2 announcement](docs/v0.32.2-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
 | v0.33.0 source/release line | **Operationalization** | Fresh-session first-win evidence, MCP 2.x floor/latest gates, cross-platform liveness semantics, public/internal error separation, and single-authority multi-machine guidance strengthen release and operational confidence without expanding durable authority. | [v0.33.0 announcement](docs/v0.33.0-announcement.md), [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md) |
-| v0.38.0 source/release line | **Enterprise HTTP Gateway, Multi-Token Auth, RBAC & Audit Logging** | Orthogonal ASGI Enterprise Gateway on Streamable HTTP transport: Multi-token Bearer authentication, 4-role RBAC, namespace tenant enclaves, authoritative actor binding, and zero-lock structured JSONL audit streaming. Schema v12 and exactly 17 tools stay unchanged. | [v0.38.0 announcement](docs/v0.38.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
+| v0.38.0 source/release line | **Optional HTTP gateway: per-client tokens, roles and audit logging** | Optional gateway on Streamable HTTP transport: per-client Bearer tokens, 4 roles, namespace limits, actor binding to the verified principal, and structured JSONL audit lines. Schema v12 and exactly 17 tools stay unchanged. | [v0.38.0 announcement](docs/v0.38.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
 | v0.37.0 source/release line | **Documentation Stabilization & Adoption Simplification** | Formalizes documentation convergence with PRODUCTION-STATUS.md as single source of truth and standardizes host integration recipes. Schema v12 and exactly 17 tools stay unchanged. | [v0.37.0 announcement](docs/v0.37.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
 | v0.36.1 source/release line | **Structure Over Prose & Memory Hygiene** | Formalizes anti-pollution memory hygiene, the Structure Over Prose principle, and the 3-question ingestion filter. Schema v12 and exactly 17 tools stay unchanged. | [v0.36.1 announcement](docs/v0.36.1-announcement.md), [Memory Hygiene](docs/MEMORY-HYGIENE.md), [Production Status](docs/PRODUCTION-STATUS.md) |
-| v0.36.0 source/release line | **Core Boundary Cleanup** | Named-client adapters, `setup`, and `config` leave AMB Core. Default home discovery no longer uses `~/.codex/mem-bridge`. Schema v12 and exactly 17 tools stay unchanged. Production NAS cutover remains separate. | [v0.36.0 announcement](docs/v0.36.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
+| v0.36.0 source/release line | **Core Boundary Cleanup** | Named-client adapters, `setup`, and `config` leave AMB Core. Default home discovery no longer uses `~/.codex/mem-bridge`. Schema v12 and exactly 17 tools stay unchanged. Upgrading an existing deployment remains a separate step. | [v0.36.0 announcement](docs/v0.36.0-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.35.0 source/release line | **Governed Lifecycle Activation** | Governed scope, optional lifecycle recall, bounded Stop review-candidate capture, exclusive remote recall authority and matched Codex Luna 10/10 evidence; plain MCP, schema v12 and 17 tools remain unchanged. | [v0.35.0 announcement](docs/v0.35.0-announcement.md), [Lifecycle release contract](docs/evidence/v0.35.0-lifecycle/CONTRACT.md) |
 | v0.34.1 source/release line | **Filesystem Portability Patch** | Fail-closed Windows and symlink-loop filesystem classification on the v0.34 remote-authority line, preserving schema v12 and exactly 17 tools. | [v0.34.1 announcement](docs/v0.34.1-announcement.md), [Remote deployment](docs/REMOTE-DEPLOYMENT.md) |
-| v0.34.0 source/release line | **Remote Authority Deployment** | Optional SDK Streamable HTTP, local-filesystem deployment guards, official container path, and HTTP doctor/verify preserve schema v12 and exactly 17 tools. Production NAS cutover remains a separate owner-approved operation. | [v0.34.0 announcement](docs/v0.34.0-announcement.md), [Remote deployment](docs/REMOTE-DEPLOYMENT.md), [Remote migration](docs/REMOTE-MIGRATION.md) |
+| v0.34.0 source/release line | **Remote Authority Deployment** | Optional SDK Streamable HTTP, local-filesystem deployment guards, official container path, and HTTP doctor/verify preserve schema v12 and exactly 17 tools. Upgrading an existing deployment remains a separate operator step. | [v0.34.0 announcement](docs/v0.34.0-announcement.md), [Remote deployment](docs/REMOTE-DEPLOYMENT.md), [Remote migration](docs/REMOTE-MIGRATION.md) |
 
 ## Historical Evidence Retained in the Repository
 
