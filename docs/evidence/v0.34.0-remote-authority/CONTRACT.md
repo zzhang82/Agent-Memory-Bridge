@@ -1,5 +1,7 @@
 # v0.34.0: Remote Authority Deployment
 
+Edited after release to remove an outdated, release-specific classification; the evaluation definitions are otherwise unchanged.
+
 ## Frozen scope
 
 Productize optional remote deployment in the official AMB package. One authority
@@ -11,7 +13,7 @@ Unit tests alone cannot establish release readiness.
 Baseline: release 0.33.0, tag `v0.33`, commit
 `cb314ebbf96d48c13c0c298f6ac7273d701682f4`. The source `main` and remote `main`
 matched that commit at inspection. The v0.33.1 semantic-policy experiment is not
-part of this release. Do not import that branch or a NAS fork wholesale.
+part of this release. Do not import that branch wholesale.
 
 Invariants:
 
@@ -31,7 +33,7 @@ Invariants:
 | D2 | Official Dockerfile and Compose, persistent local volume, non-root service, deterministic command, graceful termination, meaningful healthcheck, version/revision labels, bind/named-volume guidance, gated GHCR workflow. |
 | D3 | Loopback default, explicit remote bind/hosts/origins, Origin protection, safe exposure boundary, no secret logs, documented TLS/auth boundary. No custom authentication protocol. |
 | D4 | One logical authority/database on a local filesystem; transport failure when unavailable, never silent local fallback writes. |
-| D5 | Inspect and classify the NAS fork before porting; immutable backup, isolated real-data rehearsal, state/behavior reconciliation, rehearsed rollback, owner-gated production cutover. |
+| D5 | Review existing deployment changes before porting; immutable backup, isolated real-data rehearsal, state/behavior reconciliation, rehearsed rollback, owner-gated production upgrade. |
 | F1 | Actual mounted-filesystem classification, known network FS rejection in hardened deployment, actionable ordinary-mode diagnostics, unknown remains unknown, deterministic fixtures. |
 | F2 | Extend existing doctor/verify for transport, exposure settings, DB/FS, package/schema/tool digest, HTTP reachability/list/call, optional service health. |
 | F3 | Minimal non-MCP liveness/readiness without contents; readiness checks DB/schema/contract/authority, no recurring expensive integrity scan. |
@@ -54,7 +56,7 @@ namespace ACL platform, process supervisor without a demonstrated need.
 
 R1 owns transport/bootstrap/security and HTTP tests. R2 owns Docker/Compose,
 lifecycle/persistence acceptance, and deployment guidance. R3 owns filesystem
-classification, NAS-diff classification, snapshots, migration, and rollback.
+classification, snapshots, migration, and rollback.
 R4 integrates CLI/diagnostics, version/contracts/docs/CI, evaluates the combined
 candidate, and owns release judgment. Shared-file edits have one owner.
 
@@ -68,10 +70,7 @@ independent reviewer must rerun critical probes against the frozen candidate.
 
 ## Migration boundary
 
-Classify every inspected NAS change as GENERIC_DEPLOYMENT_FEATURE, CORE_BUG_FIX,
-HOME_SYSTEM_CONFIGURATION, MIGRATION_ONLY, or OBSOLETE_WORKAROUND. Keep private
-paths, credentials, snapshots, and machine-specific reports outside tracked
-source. Track sanitized classifications and reproducible procedures only.
+Classify every inspected deployment change before porting it. Keep private paths, credentials, snapshots, and machine-specific reports outside tracked source. Track sanitized summaries and reproducible procedures only.
 
 Old production remains active during rehearsal. Obtain a consistent immutable
 SQLite backup, then create an isolated rehearsal copy. Compare schema, epoch,
@@ -97,7 +96,7 @@ INCONCLUSIVE. N/A requires an explicit genuine scope reason, not inconvenience.
 No critical eval may be merely unrun when proposing release readiness.
 
 Final report includes candidate branch/SHA/version; D1-D5/F1-F4 evidence;
-E1-E12 statuses/paths; four work samples; NAS classification; optional ledger;
+E1-E12 statuses/paths; four work samples; optional ledger;
 remaining risks; and exact owner actions. Candidate artifact provenance can be
 verified before publication; a nonexistent release tag/publication must remain
 unobserved, not falsely reported as equal to a tested candidate.
@@ -109,7 +108,7 @@ branches/commits, and PR-ready artifacts.
 
 Not authorized by this contract: merge to main, release tags, GitHub Release,
 PyPI/GHCR publication, stopping production, replacing the production database,
-switching production clients, or NAS cutover. Review verdicts do not grant those
+switching production clients, or upgrading an existing deployment. Review verdicts do not grant those
 permissions. No cleanup of old worktrees, production artifacts, or workarounds
 without separate approval.
 
@@ -119,7 +118,7 @@ Objective: v0.34 candidate, not publication or cutover.
 Last known state: v0.33 baseline verified; no runtime changes at scope freeze.
 Durable context: AMB core/team/workflow/skill/workspace and project memory
 recalled; current files and commands outrank historical implementation claims.
-Open threads: NAS classification, target-runtime availability, security boundary,
+Open threads: target-runtime availability, security boundary,
 all implementation and live eval evidence.
 Gotchas: isolate AMB home for probes; preserve user-owned worktrees; avoid
 cross-platform virtual-environment replacement and generated snapshot churn.

@@ -173,13 +173,13 @@ flowchart LR
 
 SQLite/WAL rows are durable authority. Repository snapshots, FTS rows, embedding sidecars, compiled context, reports, and Explorer views are derived. Context bodies are rendered in process and are not durably persisted by the compiler.
 
-## Enterprise Gateway & Deployment
+## Optional HTTP gateway & deployment
 
-AMB runs as a local-first stdio process by default, with an optional official **Streamable HTTP transport** and **Enterprise Gateway**:
+AMB runs as a local-first stdio process by default, with an optional official **Streamable HTTP transport** and **Optional HTTP gateway**:
 
-- **Local stdio**: 100% unauthenticated, zero-overhead execution for individual agents.
-- **Enterprise Gateway**: Multi-token Bearer authentication, 4-role RBAC (`admin`, `writer`, `reader`, `orchestrator`), namespace tenant enclaves (`project:*`, `domain:*`), and zero-lock structured JSONL audit streaming.
-- **Zero WAL Contention**: Audit events stream directly to stdout or dedicated files, preserving SQLite read latency (<5ms) under concurrent agent traffic.
+- **Local stdio**: no authentication or gateway configuration; it runs as before for individual agents.
+- **Optional HTTP gateway**: per-client Bearer tokens, 4 roles (`admin`, `writer`, `reader`, `orchestrator`), namespace limits (`project:*`, `domain:*`), and structured JSONL audit lines.
+- **Audit kept out of SQLite**: audit lines go to stdout, stderr or a file, not the database.
 
 For remote server, NAS, or container setup, see [Remote Deployment](docs/REMOTE-DEPLOYMENT.md).
 

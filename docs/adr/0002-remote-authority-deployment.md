@@ -1,6 +1,6 @@
 # ADR-0002: Optional standard remote deployment
 
-Status: accepted for v0.34. Production NAS cutover remains owner-gated.
+Status: accepted for v0.34.
 
 V0.34 implements ADR-0001's single canonical authority topology inside the
 official package as an optional deployment surface. It supersedes only that

@@ -173,13 +173,13 @@ flowchart LR
 
 SQLite/WAL 记录是持久权威。仓库 snapshot、FTS 记录、embedding sidecar、编译上下文、报告和 Explorer 视图都是派生内容。Context Compiler 只在进程内渲染上下文正文，不会将其持久保存。
 
-## 企业级网关与部署
+## 可选 HTTP 网关与部署
 
-AMB 默认作为本地优先的 stdio 进程运行，同时提供官方可选的 **Streamable HTTP 传输**与**企业级网关**：
+AMB 默认作为本地优先的 stdio 进程运行，同时提供官方可选的 **Streamable HTTP 传输**与**可选 HTTP 网关**：
 
-- **本地 stdio 模式**：100% 免认证、零开销运行，完全适配单机单 Agent。
-- **企业网关模式**：多 Token Bearer 认证、4 种 RBAC 角色权限（`admin`、`writer`、`reader`、`orchestrator`）、命名空间租户隔离（`project:*`、`domain:*`）与零锁结构化 JSONL 审计日志流。
-- **零 WAL 写锁争用**：审计日志直接异步流式输出至 stdout 或独立文件，确保高并发 Agent 调用下核心 SQLite 读延迟仍小于 5ms。
+- **本地 stdio**：无需认证或网关配置；对单个 Agent 的运行方式与此前相同。
+- **可选 HTTP 网关**：按客户端使用 Bearer token、4 种角色（`admin`、`writer`、`reader`、`orchestrator`）、命名空间限制（`project:*`、`domain:*`），以及结构化 JSONL 审计行。
+- **审计不进入 SQLite**：审计行写入 stdout、stderr 或文件，不写入数据库。
 
 远程服务器、NAS 或容器化部署详情请参阅[远程部署指南](docs/REMOTE-DEPLOYMENT.md)。
 

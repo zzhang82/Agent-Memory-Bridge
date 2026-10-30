@@ -56,9 +56,9 @@ The HTTP bootstrap filters SDK transport log messages because those messages
 can include rejected headers or session IDs. Severity and logger/source location
 remain available, while request details and exception bodies are omitted.
 
-## Enterprise HTTP Gateway (Multi-Token Auth, RBAC, and Audit Logging)
+## Optional HTTP gateway (per-client tokens, roles and audit logging)
 
-Starting in v0.38.0, AMB provides an orthogonal Enterprise Gateway layer for Streamable HTTP deployments. It enables multi-token authentication, role-based access control (RBAC), namespace tenant enclaves, and zero-lock structured JSONL audit streaming.
+Starting in v0.38.0, AMB provides an optional gateway layer for Streamable HTTP deployments. It adds per-client token authentication, role-based access control (RBAC), namespace limits, and structured JSONL audit lines.
 
 ### 1. Gateway Configuration (`amb_tokens.json` or `AMB_GATEWAY_CONFIG`)
 
@@ -111,19 +111,19 @@ The 17 public MCP tools are governed across four standard roles:
 | **reader** | `recall`, `browse`, `stats`, `get_run` | All mutating tools | Bound to `allowed_namespaces` |
 | **orchestrator** | `begin_run`, `record_run_event`, `complete_run`, `get_run`, `claim_signal`, `extend_signal_lease`, `ack_signal`, `recall`, `browse` | `forget`, `promote`, `store`, `stats` | Bound to `allowed_namespaces` |
 
-### 3. Namespace Enclaves & Authoritative Actor Binding
+### 3. Namespace limits and actor binding
 
-- **Namespace Isolation**: Wildcard patterns (`project:*`, `domain:*`, `*`, exact match) block cross-tenant reads and writes. Out-of-scope calls fail closed with HTTP 403 Forbidden.
-- **Actor Binding**: In gateway RBAC mode, caller-declared `actor` metadata is overridden with the verified `principal_id` to eliminate agent identity spoofing.
+- **Namespace limits**: Wildcard patterns (`project:*`, `domain:*`, `*`, exact match) block cross-namespace reads and writes. Out-of-scope calls fail closed with HTTP 403 Forbidden.
+- **Actor Binding**: In gateway RBAC mode, the `actor` on `store`, `annotate`, `revise` and `feedback` is set to the caller's verified `principal_id`, whatever name the caller sends. A caller can't write under another principal's name. It identifies the configured principal, not the person or model behind it.
 
-### 4. Zero-Lock Structured Audit Logging (JSONL)
+### 4. Structured audit logging (JSONL)
 
-Every HTTP MCP interaction (successful or blocked by 401/403/429) emits a single-line JSONL audit event to stdout, stderr, or a dedicated log file specified by `AMB_AUDIT_STREAM`. Audit logging is completely isolated from the SQLite database WAL to prevent write contention with core memory operations.
+Every HTTP MCP interaction (successful or blocked by 401/403/429) emits a single-line JSONL audit event to stdout, stderr, or a dedicated log file specified by `AMB_AUDIT_STREAM`. Those writes stay separate from the SQLite database so audit writes don't compete for database locks.
 
 ## Docker Compose
 
 The image installs a wheel from official AMB source and runs as UID/GID 10001.
-It has no second implementation from the old NAS fork. The command is exec-form;
+The command is exec-form;
 Docker SIGTERM reaches the server for graceful shutdown.
 
 Use the repository's `compose.yml`. Before an approved deployment, provision a
@@ -184,7 +184,7 @@ Release publication is owner-gated. The PyPI and GHCR workflows check out the
 immutable release-event SHA, verify the tag and package version, and test the
 artifacts before publishing. Container acceptance checks version/revision labels,
 non-root execution, HTTP parity, container replacement, outage behavior, and
-readiness negatives. It does not authorize NAS production cutover.
+readiness negatives.
 
 The release gate also requires a real authority-copy migration/rollback rehearsal
 and a two-machine first win. See the [frozen evaluations](evidence/v0.34.0-remote-authority/eval-definitions.json).

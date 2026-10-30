@@ -80,7 +80,7 @@ than treating an incomplete derived index as durable-data loss.
 
 The report always labels E9 as `INCONCLUSIVE`. A synthetic fixture proves the
 tooling only. E9 can become release evidence only after an independent reviewer
-inspects a real, consistent NAS snapshot, its source provenance, the isolated
+inspects a real, consistent snapshot of the source database, its source provenance, the isolated
 candidate behavior, and the rollback artifacts.
 
 ## 4. Cutover remains separate
