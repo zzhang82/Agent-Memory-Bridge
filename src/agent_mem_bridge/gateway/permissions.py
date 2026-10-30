@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -235,6 +236,34 @@ def extract_record_id_for_tool(tool_name: str, arguments: dict[str, Any] | None)
             return None, f"Tool '{tool_name}' does not accept record ID parameter '{field}'"
 
     return None, None
+
+
+def principal_consumer_prefix(principal_id: str) -> str:
+    """Generate unambiguous 16-hex digest prefix for consumer framing."""
+    digest = hashlib.sha256(principal_id.encode("utf-8")).hexdigest()[:16]
+    return f"amb:p:{digest}:"
+
+
+def encode_consumer(principal_id: str, raw_consumer: str | None) -> str:
+    """Encode consumer identifier with unambiguous principal prefix."""
+    prefix = principal_consumer_prefix(principal_id)
+    cleaned = str(raw_consumer).strip() if raw_consumer else ""
+    if cleaned.startswith(prefix):
+        return cleaned
+    return f"{prefix}{cleaned}" if cleaned else f"{prefix}{principal_id}"
+
+
+def match_consumer_claim(claimed_by: str | None, principal_id: str) -> bool:
+    """Verify if a claimed_by identifier belongs to the specified principal or is a legacy un-prefixed claim."""
+    if not claimed_by:
+        return False
+    prefix = principal_consumer_prefix(principal_id)
+    if claimed_by.startswith(prefix):
+        return True
+    # Legacy claim support: if not starting with "amb:p:", it was claimed prior to gateway deployment.
+    if not claimed_by.startswith("amb:p:"):
+        return True
+    return False
 
 
 def resolve_record_claim(db_path: Path | None, record_id: str) -> tuple[str, str | None, str | None]:

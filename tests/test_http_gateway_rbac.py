@@ -1201,7 +1201,7 @@ def test_signal_lease_consumer_isolation_and_impersonation_blocked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = _isolated_store(tmp_path, monkeypatch)
-    # Provision two distinct orchestrators with access to project:orchestrated-app
+    # Provision two orchestrators where Principal A's ID is an exact prefix of Principal B's ID
     tokens = {
         "orch_a": "orch-a-token-12345678",
         "orch_b": "orch-b-token-12345678",
@@ -1209,13 +1209,13 @@ def test_signal_lease_consumer_isolation_and_impersonation_blocked(
     gw_config = GatewayConfig(
         principals=(
             Principal(
-                principal_id="system:orchestrator-a",
+                principal_id="system:orchestrator",
                 token_hash=hash_token(tokens["orch_a"]),
                 role="orchestrator",
                 allowed_namespaces=("project:orchestrated-app",),
             ),
             Principal(
-                principal_id="system:orchestrator-b",
+                principal_id="system:orchestrator:child",
                 token_hash=hash_token(tokens["orch_b"]),
                 role="orchestrator",
                 allowed_namespaces=("project:orchestrated-app",),
@@ -1254,83 +1254,264 @@ def test_signal_lease_consumer_isolation_and_impersonation_blocked(
         headers_a = _initialize_session(client, tokens["orch_a"])
         headers_b = _initialize_session(client, tokens["orch_b"])
 
-        # 1. Orchestrator A claims the signal with consumer="worker-alpha"
-        resp_claim = client.post(
+        # 1. Orchestrator B ("system:orchestrator:child") claims the signal
+        resp_claim_b = client.post(
             "/mcp",
             json=_jsonrpc_call(
                 "claim_signal",
                 {
                     "namespace": "project:orchestrated-app",
                     "signal_id": sig_id,
-                    "consumer": "worker-alpha",
+                    "consumer": "worker-1",
                 },
             ),
-            headers=headers_a,
+            headers=headers_b,
         )
-        assert resp_claim.status_code == 200
-        # Verify SQLite has claimed_by bound to Orchestrator A
+        assert resp_claim_b.status_code == 200
+        assert resp_claim_b.json()["result"]["isError"] is False
+
+        # Verify SQLite has collision-proof prefix bound to Orchestrator B's digest
         with sqlite3.connect(store.db_path) as conn:
-            claimed_by = conn.execute("SELECT claimed_by FROM memories WHERE id = ?", (sig_id,)).fetchone()[0]
-            assert "system:orchestrator-a" in claimed_by
+            claimed_by_b = conn.execute("SELECT claimed_by FROM memories WHERE id = ?", (sig_id,)).fetchone()[0]
+            assert claimed_by_b.startswith("amb:p:")
 
-        # 2. Orchestrator B attempts to extend lease on A's signal
-        resp_extend_b = client.post(
-            "/mcp",
-            json=_jsonrpc_call(
-                "extend_signal_lease",
-                {
-                    "id": sig_id,
-                    "consumer": "worker-alpha",
-                    "lease_seconds": 60,
-                },
-            ),
-            headers=headers_b,
-        )
-        assert resp_extend_b.status_code == 403
-        assert "claimed by another consumer" in resp_extend_b.text
-
-        # 3. Orchestrator B attempts to ACK A's signal by spoofing A's consumer
-        resp_ack_b = client.post(
-            "/mcp",
-            json=_jsonrpc_call(
-                "ack_signal",
-                {
-                    "id": sig_id,
-                    "consumer": "worker-alpha",
-                },
-            ),
-            headers=headers_b,
-        )
-        assert resp_ack_b.status_code == 403
-        assert "claimed by another consumer" in resp_ack_b.text
-
-        # 4. Orchestrator A extends lease and ACKs legitimately
+        # 2. Orchestrator A ("system:orchestrator", whose ID is a prefix of B's) attempts to extend lease on B's signal
         resp_extend_a = client.post(
             "/mcp",
             json=_jsonrpc_call(
                 "extend_signal_lease",
                 {
                     "id": sig_id,
-                    "consumer": "worker-alpha",
+                    "consumer": "worker-1",
                     "lease_seconds": 60,
                 },
             ),
             headers=headers_a,
         )
-        assert resp_extend_a.status_code == 200
+        assert resp_extend_a.status_code == 403
+        assert "claimed by another consumer" in resp_extend_a.text
 
+        # 3. Orchestrator A attempts to ACK B's signal (even passing B's exact claimed_by string)
         resp_ack_a = client.post(
             "/mcp",
             json=_jsonrpc_call(
                 "ack_signal",
                 {
                     "id": sig_id,
-                    "consumer": "worker-alpha",
+                    "consumer": claimed_by_b,
                 },
             ),
             headers=headers_a,
         )
-        assert resp_ack_a.status_code == 200
+        assert resp_ack_a.status_code == 403
+        assert "claimed by another consumer" in resp_ack_a.text
+
+        # 4. Orchestrator B extends lease legitimately
+        resp_extend_b = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "extend_signal_lease",
+                {
+                    "id": sig_id,
+                    "consumer": "worker-1",
+                    "lease_seconds": 60,
+                },
+            ),
+            headers=headers_b,
+        )
+        assert resp_extend_b.status_code == 200
+        assert resp_extend_b.json()["result"]["isError"] is False
+
+        # 5. Orchestrator B ACKs legitimately
+        resp_ack_b = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "ack_signal",
+                {
+                    "id": sig_id,
+                    "consumer": "worker-1",
+                },
+            ),
+            headers=headers_b,
+        )
+        assert resp_ack_b.status_code == 200
+        assert resp_ack_b.json()["result"]["isError"] is False
+
+        # Verify SQLite has signal_status='acked'
+        with sqlite3.connect(store.db_path) as conn:
+            sig_status = conn.execute("SELECT signal_status FROM memories WHERE id = ?", (sig_id,)).fetchone()[0]
+            assert sig_status == "acked"
+
+
+def test_legacy_unprefixed_signal_lease_compatibility(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    # Create pre-existing legacy claimed signal using store then updating SQLite directly
+    legacy_sig = store.store("project:orchestrated-app", "legacy task content", kind="signal", actor="admin")
+    legacy_sig_id = legacy_sig["id"]
+    with sqlite3.connect(store.db_path) as conn:
+        conn.execute(
+            """
+            UPDATE memories
+            SET signal_status = 'claimed',
+                claimed_by = 'legacy-worker-1',
+                claimed_at = datetime('now'),
+                lease_expires_at = datetime('now', '+300 seconds')
+            WHERE id = ?
+            """,
+            (legacy_sig_id,),
+        )
+        conn.commit()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    with TestClient(app) as client:
+        orch_headers = _initialize_session(client, tokens["orchestrator"])
+
+        # Legacy lease extension succeeds using raw legacy consumer
+        resp_extend = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "extend_signal_lease",
+                {
+                    "id": legacy_sig_id,
+                    "consumer": "legacy-worker-1",
+                    "lease_seconds": 60,
+                },
+            ),
+            headers=orch_headers,
+        )
+        assert resp_extend.status_code == 200
+        assert resp_extend.json()["result"]["isError"] is False
+
+        # Legacy ACK succeeds using raw legacy consumer
+        resp_ack = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "ack_signal",
+                {
+                    "id": legacy_sig_id,
+                    "consumer": "legacy-worker-1",
+                },
+            ),
+            headers=orch_headers,
+        )
+        assert resp_ack.status_code == 200
+        assert resp_ack.json()["result"]["isError"] is False
+
+        with sqlite3.connect(store.db_path) as conn:
+            sig_status = conn.execute("SELECT signal_status FROM memories WHERE id = ?", (legacy_sig_id,)).fetchone()[0]
+            assert sig_status == "acked"
+
+
+def test_feedback_provenance_actor_binding(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    with TestClient(app) as client:
+        writer_headers = _initialize_session(client, tokens["writer"])
+
+        # 1. Store a memory
+        resp_store = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "store",
+                {
+                    "namespace": "project:allowed-proj",
+                    "content": "Recallable target memory for feedback evaluation",
+                    "title": "Feedback Eval Target",
+                },
+            ),
+            headers=writer_headers,
+        )
+        assert resp_store.status_code == 200
+        mem_id = store.recall("project:allowed-proj", query="")["items"][0]["id"]
+
+        # 2. Recall memory with kind='memory' to obtain signed recall receipt token
+        resp_recall = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "recall",
+                {
+                    "namespace": "project:allowed-proj",
+                    "query": "Recallable target memory",
+                    "kind": "memory",
+                },
+            ),
+            headers=writer_headers,
+        )
+        assert resp_recall.status_code == 200
+        recall_json = json.loads(resp_recall.json()["result"]["content"][0]["text"])
+        receipt_token = recall_json["recall_receipt"]["token"]
+
+        # 3. Call feedback without provenance
+        resp_feedback_1 = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "feedback",
+                {
+                    "namespace": "project:allowed-proj",
+                    "recall_receipt": receipt_token,
+                    "memory_id": mem_id,
+                    "result_rank": 1,
+                    "outcome": "helpful",
+                },
+            ),
+            headers=writer_headers,
+        )
+        assert resp_feedback_1.status_code == 200
+        assert resp_feedback_1.json()["result"]["isError"] is False
+
+        # Verify in SQLite retrieval_feedback table that actor was bound to writer principal
+        with sqlite3.connect(store.db_path) as conn:
+            fb_actor = conn.execute(
+                "SELECT actor FROM retrieval_feedback WHERE memory_id = ? ORDER BY feedback_id DESC",
+                (mem_id,),
+            ).fetchone()[0]
+            assert fb_actor == "agent:writer-bob"
 
 
 def test_claim_signal_extra_id_parameter_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

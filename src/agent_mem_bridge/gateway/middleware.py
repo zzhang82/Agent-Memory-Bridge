@@ -22,8 +22,10 @@ from .auth import GatewayConfig, MultiTokenVerifier
 from .permissions import (
     check_namespace_permission,
     check_tool_permission,
+    encode_consumer,
     extract_namespace_from_arguments,
     extract_record_id_for_tool,
+    match_consumer_claim,
     resolve_record_claim,
     resolve_run_workspace,
 )
@@ -391,7 +393,7 @@ class EnterpriseGatewayMiddleware:
 
                                 # Check Signal lease ownership on extend_signal_lease and ack_signal
                                 if tool_name in ("extend_signal_lease", "ack_signal") and claimed_by is not None:
-                                    if claimed_by != principal_id and not claimed_by.startswith(f"{principal_id}:"):
+                                    if not match_consumer_claim(claimed_by, principal_id):
                                         duration_ms = (time.perf_counter() - start_time) * 1000
                                         err_msg = (
                                             f"Access denied: Signal '{record_id}' is claimed by another consumer "
@@ -539,32 +541,42 @@ class EnterpriseGatewayMiddleware:
                     # - Signal operations bind consumer ownership prefix to verified principal
                     # - Query filters (like recall.actor) remain untouched
                     if isinstance(arguments, dict):
-                        # 4a. Consumer binding for signal ownership
+                        # 4a. Consumer binding for signal ownership using collision-proof digest framing
                         if tool_name == "claim_signal":
-                            raw_consumer = str(arguments.get("consumer", "")).strip()
-                            if (
-                                raw_consumer
-                                and not raw_consumer.startswith(f"{principal_id}:")
-                                and raw_consumer != principal_id
-                            ):
-                                arguments["consumer"] = f"{principal_id}:{raw_consumer}"
-                            elif not raw_consumer:
-                                arguments["consumer"] = principal_id
+                            raw_consumer = (
+                                str(arguments.get("consumer", "")).strip() if "consumer" in arguments else None
+                            )
+                            arguments["consumer"] = encode_consumer(principal_id, raw_consumer)
                         elif tool_name in ("extend_signal_lease", "ack_signal"):
-                            raw_consumer = str(arguments.get("consumer", "")).strip()
-                            if (
-                                raw_consumer
-                                and not raw_consumer.startswith(f"{principal_id}:")
-                                and raw_consumer != principal_id
-                            ):
-                                arguments["consumer"] = f"{principal_id}:{raw_consumer}"
+                            raw_consumer = (
+                                str(arguments.get("consumer", "")).strip() if "consumer" in arguments else None
+                            )
+                            if claimed_by and not claimed_by.startswith("amb:p:"):
+                                # Legacy claim: preserve raw consumer to allow backward-compatible completion
+                                if raw_consumer:
+                                    arguments["consumer"] = raw_consumer
+                                elif claimed_by:
+                                    arguments["consumer"] = claimed_by
+                            else:
+                                # Gateway digest-prefixed claim
+                                if raw_consumer:
+                                    arguments["consumer"] = encode_consumer(principal_id, raw_consumer)
+                                elif claimed_by:
+                                    arguments["consumer"] = claimed_by
+                                elif tool_name == "extend_signal_lease":
+                                    arguments["consumer"] = encode_consumer(principal_id, None)
 
                         # 4b. Mutating actor binding (do NOT touch recall.actor!)
-                        if tool_name in ("store", "annotate", "revise", "feedback"):
+                        if tool_name in ("store", "annotate", "revise"):
                             arguments["actor"] = principal_id
 
-                        # 4c. Provenance: if caller provided provenance dict, bind provenance["actor"]
-                        if "provenance" in arguments and isinstance(arguments["provenance"], dict):
+                        # 4c. Provenance:
+                        # For feedback: schema accepts provenance.actor, NOT top-level actor
+                        if tool_name == "feedback":
+                            if not isinstance(arguments.get("provenance"), dict):
+                                arguments["provenance"] = {}
+                            arguments["provenance"]["actor"] = principal_id
+                        elif "provenance" in arguments and isinstance(arguments["provenance"], dict):
                             arguments["provenance"]["actor"] = principal_id
 
                         full_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
