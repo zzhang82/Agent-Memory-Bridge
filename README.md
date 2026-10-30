@@ -58,11 +58,11 @@ Store a decision only after it is confirmed. Do not treat chat history as alread
 
 AMB requires **Python 3.11+** and Git.
 
-Current package/source version: `0.37.0`.
+Current package/source version: `0.38.0`.
 
 ```bash
 python -m venv .amb-venv
-<venv-python> -m pip install agent-memory-bridge==0.37.0
+<venv-python> -m pip install agent-memory-bridge==0.38.0
 <venv-python> -m agent_mem_bridge project init .
 ```
 
@@ -173,6 +173,16 @@ flowchart LR
 
 SQLite/WAL rows are durable authority. Repository snapshots, FTS rows, embedding sidecars, compiled context, reports, and Explorer views are derived. Context bodies are rendered in process and are not durably persisted by the compiler.
 
+## Enterprise Gateway & Deployment
+
+AMB runs as a local-first stdio process by default, with an optional official **Streamable HTTP transport** and **Enterprise Gateway**:
+
+- **Local stdio**: 100% unauthenticated, zero-overhead execution for individual agents.
+- **Enterprise Gateway**: Multi-token Bearer authentication, 4-role RBAC (`admin`, `writer`, `reader`, `orchestrator`), namespace tenant enclaves (`project:*`, `domain:*`), and zero-lock structured JSONL audit streaming.
+- **Zero WAL Contention**: Audit events stream directly to stdout or dedicated files, preserving SQLite read latency (<5ms) under concurrent agent traffic.
+
+For remote server, NAS, or container setup, see [Remote Deployment](docs/REMOTE-DEPLOYMENT.md).
+
 ## Trust and privacy
 
 AMB is local-first. It does not require a hosted memory service. It separates durable memory from coordination Signals and mutable Dynamic State, keeps provenance visible, and rejects raw transcripts, hidden reasoning, and inline artifact bodies from the durable episode path.
@@ -194,7 +204,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-Current package/source version is `0.37.0`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+Current package/source version is `0.38.0`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 

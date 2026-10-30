@@ -105,6 +105,7 @@ def build_http_app(
     store: MemoryStore | None = None,
     store_factory: BridgeFactory | None = None,
     readiness_db_path: Path | None = None,
+    audit_sink: Any | None = None,
 ) -> ASGIApp:
     """Build the HTTP app over the existing MCP factory and its 17 handlers."""
 
@@ -132,7 +133,48 @@ def build_http_app(
     _install_transport_lifespan(app, server, readiness_state, db_path)
     app.add_route("/healthz", _liveness, methods=["GET"])
     app.add_route("/readyz", _readiness_endpoint(db_path, readiness_state), methods=["GET"])
-    if config.token_file is not None:
+    if config.gateway_config_file is not None or config.gateway_config_json or config.auth_mode == "rbac":
+        from .gateway import (
+            AuditEmitter,
+            EnterpriseGatewayMiddleware,
+            GatewayConfig,
+            MultiTokenVerifier,
+            Principal,
+            hash_token,
+            load_gateway_config,
+        )
+
+        if config.gateway_config_file is not None:
+            gw_config = load_gateway_config(config.gateway_config_file)
+        elif config.gateway_config_json:
+            gw_config = load_gateway_config(config.gateway_config_json)
+        elif config.token_file is not None:
+            token = read_token_file(config.token_file)
+            gw_config = GatewayConfig(
+                principals=(
+                    Principal(
+                        principal_id="admin:root",
+                        token_hash=hash_token(token),
+                        role="admin",
+                        allowed_namespaces=("*",),
+                    ),
+                ),
+                auth_mode="rbac",
+                audit_stream=config.audit_stream,
+            )
+        else:
+            raise ValueError("RBAC mode requires gateway config or token file")
+
+        verifier = MultiTokenVerifier(gw_config)
+        audit_emitter = AuditEmitter(target=config.audit_stream or gw_config.audit_stream, sink=audit_sink)
+        app.add_middleware(
+            EnterpriseGatewayMiddleware,
+            config=gw_config,
+            verifier=verifier,
+            audit_emitter=audit_emitter,
+            mcp_path=_MCP_PATH,
+        )
+    elif config.token_file is not None:
         verifier = _StaticTokenVerifier(read_token_file(config.token_file))
         # Starlette applies the most recently registered middleware first.
         # Register in reverse so authentication populates request state before

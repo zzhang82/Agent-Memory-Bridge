@@ -6,13 +6,13 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.37.0` |
+| Package/source version | `0.38.0` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
 | Runtime model | Default local stdio and optional standard Streamable HTTP over one host-local SQLite/WAL authority; FTS5 and optional embeddings are derived indexes |
 
-Current source test collection: `1255 tests`
+Current source test collection: `1263 tests`
 
 Default local home is `~/.local/share/agent-memory-bridge`. Current source does not discover `~/.codex/mem-bridge`. Set `AGENT_MEMORY_BRIDGE_HOME` to keep the old directory, or copy it to the neutral home. AMB does not migrate or delete it.
 
@@ -20,7 +20,9 @@ Default local home is `~/.local/share/agent-memory-bridge`. Current source does 
 
 ## Distribution Status
 
-The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.37.0` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.0` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+
+The `0.38.0` source line delivers the Enterprise HTTP Gateway: multi-token Bearer authentication, 4-role RBAC, namespace tenant enclaves, authoritative actor binding, and zero-lock structured JSONL audit streaming. Schema remains v12 and the public MCP surface remains exactly 17 tools. Existing data is not migrated or deleted. Production NAS cutover remains a separate owner-approved operation.
 
 The `0.37.0` source line delivers repository documentation stabilization and adoption simplification: `docs/PRODUCTION-STATUS.md` is re-anchored as the sole canonical reference for checked-in source facts; the 4-tier data lifecycle architecture (Durable Authority, Derived Views, Transient Data, Historical Evidence) is unified; standardized MCP integration recipes are documented for Cursor, Claude Code, OpenCode, and uvx serve; cross-platform onboarding and remote diagnostics are documented. Schema remains v12 and the public MCP surface remains exactly 17 tools. Existing data is not migrated or deleted. Production NAS cutover remains a separate owner-approved operation.
 

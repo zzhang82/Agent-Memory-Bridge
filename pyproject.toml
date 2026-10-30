@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-bridge"
-version = "0.37.0"
+version = "0.38.0"
 description = "Governed project memory for AI coding agents across sessions and tools"
 readme = "README.md"
 license = "MIT"
@@ -47,7 +47,7 @@ agent-memory-bridge = "agent_mem_bridge.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["agent_mem_bridge"]
+packages = ["agent_mem_bridge", "agent_mem_bridge.gateway"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -58,11 +58,11 @@ fresh_process: true
 
 AMB 需要 **Python 3.11+** 和 Git。
 
-当前包/源码版本：`0.37.0`。
+当前包/源码版本：`0.38.0`。
 
 ```bash
 python -m venv .amb-venv
-<venv-python> -m pip install agent-memory-bridge==0.37.0
+<venv-python> -m pip install agent-memory-bridge==0.38.0
 <venv-python> -m agent_mem_bridge project init .
 ```
 
@@ -173,6 +173,16 @@ flowchart LR
 
 SQLite/WAL 记录是持久权威。仓库 snapshot、FTS 记录、embedding sidecar、编译上下文、报告和 Explorer 视图都是派生内容。Context Compiler 只在进程内渲染上下文正文，不会将其持久保存。
 
+## 企业级网关与部署
+
+AMB 默认作为本地优先的 stdio 进程运行，同时提供官方可选的 **Streamable HTTP 传输**与**企业级网关**：
+
+- **本地 stdio 模式**：100% 免认证、零开销运行，完全适配单机单 Agent。
+- **企业网关模式**：多 Token Bearer 认证、4 种 RBAC 角色权限（`admin`、`writer`、`reader`、`orchestrator`）、命名空间租户隔离（`project:*`、`domain:*`）与零锁结构化 JSONL 审计日志流。
+- **零 WAL 写锁争用**：审计日志直接异步流式输出至 stdout 或独立文件，确保高并发 Agent 调用下核心 SQLite 读延迟仍小于 5ms。
+
+远程服务器、NAS 或容器化部署详情请参阅[远程部署指南](docs/REMOTE-DEPLOYMENT.md)。
+
 ## 信任与隐私
 
 AMB 本地优先，不依赖托管式记忆服务。它将持久记忆、协作 Signal 和可变 Dynamic State 分开，保留可见 provenance，并拒绝把原始 transcript、隐藏推理或内联 artifact body 写入持久 episode 通道。
@@ -194,7 +204,7 @@ AMB 暴露 **17 个公开 MCP 工具**：
 
 ## 当前成熟度
 
-当前包/源码版本是 `0.37.0`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
+当前包/源码版本是 `0.38.0`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
 
 ## 参与贡献
 

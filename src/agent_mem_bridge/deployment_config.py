@@ -31,7 +31,7 @@ class HttpTransportConfig:
     """Network boundary for one optional AMB HTTP authority.
 
     The default keeps the authority on loopback. A non-loopback bind is allowed
-    only with a dedicated static bearer token and explicit Host and Origin
+    only with a dedicated static bearer token, enterprise gateway config, and explicit Host and Origin
     allowlists.
     """
 
@@ -40,6 +40,10 @@ class HttpTransportConfig:
     allowed_hosts: tuple[str, ...] = ()
     allowed_origins: tuple[str, ...] = ()
     token_file: Path | None = None
+    gateway_config_file: Path | None = None
+    gateway_config_json: str | None = None
+    auth_mode: str = "static"
+    audit_stream: str = "stdout"
 
     @classmethod
     def from_env(cls) -> "HttpTransportConfig":
@@ -57,17 +61,41 @@ class HttpTransportConfig:
         except ValueError as exc:
             raise ValueError("AGENT_MEMORY_BRIDGE_HTTP_PORT must be an integer") from exc
         token_file_value = os.environ.get("AGENT_MEMORY_BRIDGE_HTTP_TOKEN_FILE")
+        gateway_config_file_value = os.environ.get(
+            "AGENT_MEMORY_BRIDGE_GATEWAY_CONFIG_FILE",
+            os.environ.get("AMB_GATEWAY_CONFIG_FILE"),
+        )
+        gateway_config_json = os.environ.get(
+            "AGENT_MEMORY_BRIDGE_GATEWAY_CONFIG",
+            os.environ.get("AMB_GATEWAY_CONFIG"),
+        )
+        auth_mode = os.environ.get(
+            "AGENT_MEMORY_BRIDGE_AUTH_MODE",
+            os.environ.get("AMB_AUTH_MODE", "rbac" if (gateway_config_file_value or gateway_config_json) else "static"),
+        )
+        audit_stream = os.environ.get(
+            "AGENT_MEMORY_BRIDGE_AUDIT_STREAM",
+            os.environ.get("AMB_AUDIT_STREAM", "stdout"),
+        )
         return cls(
             host=os.environ.get("AGENT_MEMORY_BRIDGE_HTTP_HOST", _DEFAULT_HOST).strip(),
             port=port,
             allowed_hosts=_split_csv_env("AGENT_MEMORY_BRIDGE_HTTP_ALLOWED_HOSTS"),
             allowed_origins=_split_csv_env("AGENT_MEMORY_BRIDGE_HTTP_ALLOWED_ORIGINS"),
             token_file=Path(token_file_value).expanduser() if token_file_value else None,
+            gateway_config_file=Path(gateway_config_file_value).expanduser() if gateway_config_file_value else None,
+            gateway_config_json=gateway_config_json,
+            auth_mode=auth_mode,
+            audit_stream=audit_stream,
         )
 
     @property
     def is_loopback(self) -> bool:
         return _is_loopback_host(self.host)
+
+    @property
+    def is_authenticated(self) -> bool:
+        return self.token_file is not None or self.gateway_config_file is not None or bool(self.gateway_config_json)
 
     @property
     def effective_allowed_hosts(self) -> tuple[str, ...]:
@@ -89,8 +117,8 @@ class HttpTransportConfig:
         _validate_allowed_hosts(self.allowed_hosts)
         _validate_allowed_origins(self.allowed_origins)
         if not self.is_loopback:
-            if self.token_file is None:
-                raise ValueError("non-loopback HTTP bind requires a bearer token file")
+            if not self.is_authenticated:
+                raise ValueError("non-loopback HTTP bind requires a bearer token file or gateway config")
             if not self.allowed_hosts:
                 raise ValueError("non-loopback HTTP bind requires explicit allowed hosts")
             if not self.allowed_origins:
@@ -107,6 +135,8 @@ class HttpTransportConfig:
             "allowed_hosts": list(self.effective_allowed_hosts),
             "allowed_origins": list(self.effective_allowed_origins),
             "token_configured": self.token_file is not None,
+            "gateway_configured": self.gateway_config_file is not None or bool(self.gateway_config_json),
+            "auth_mode": self.auth_mode,
         }
 
 
@@ -133,6 +163,23 @@ def add_http_arguments(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Dedicated private-deployment bearer token file; its contents are never logged.",
     )
+    parser.add_argument(
+        "--gateway-config",
+        type=Path,
+        default=None,
+        help="Path to AMB Enterprise Gateway tokens and RBAC configuration file.",
+    )
+    parser.add_argument(
+        "--auth-mode",
+        choices=["static", "rbac"],
+        default=None,
+        help="Authentication mode ('static' or 'rbac').",
+    )
+    parser.add_argument(
+        "--audit-stream",
+        default=None,
+        help="Target for structured JSONL audit stream ('stdout', 'stderr', or file path).",
+    )
 
 
 def config_from_namespace(namespace: argparse.Namespace) -> HttpTransportConfig:
@@ -141,12 +188,20 @@ def config_from_namespace(namespace: argparse.Namespace) -> HttpTransportConfig:
     defaults = HttpTransportConfig._from_env()
     configured_host = getattr(namespace, "host", None)
     configured_port = getattr(namespace, "port", None)
+    configured_gateway_config = getattr(namespace, "gateway_config", None)
+    configured_auth_mode = getattr(namespace, "auth_mode", None)
+    configured_audit_stream = getattr(namespace, "audit_stream", None)
     config = HttpTransportConfig(
         host=defaults.host if configured_host is None else str(configured_host),
         port=defaults.port if configured_port is None else int(configured_port),
         allowed_hosts=tuple(getattr(namespace, "allowed_host", None) or defaults.allowed_hosts),
         allowed_origins=tuple(getattr(namespace, "allowed_origin", None) or defaults.allowed_origins),
         token_file=getattr(namespace, "token_file", None) or defaults.token_file,
+        gateway_config_file=configured_gateway_config or defaults.gateway_config_file,
+        gateway_config_json=defaults.gateway_config_json,
+        auth_mode=configured_auth_mode
+        or ("rbac" if (configured_gateway_config or defaults.gateway_config_file) else defaults.auth_mode),
+        audit_stream=configured_audit_stream or defaults.audit_stream,
     )
     config.validate()
     return config
