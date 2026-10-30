@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -198,7 +199,7 @@ def test_gateway_config_loading_and_validation(tmp_path: Path) -> None:
             }
         )
 
-    with pytest.raises(ValueError, match="cannot declare blanket wildcard"):
+    with pytest.raises(ValueError, match="cannot declare global wildcard"):
         load_gateway_config(
             {
                 "principals": [
@@ -872,3 +873,348 @@ def test_adversarial_tool_error_audit_status(tmp_path: Path, monkeypatch: pytest
         assert resp.status_code == 200
         # Audit record must correctly capture tool_error rather than false success
         assert emitted_records[-1].status == "tool_error"
+
+
+def test_adversarial_conflicting_scope_arguments_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    with TestClient(app) as client:
+        orch_headers = _initialize_session(client, tokens["orchestrator"])
+
+        # Orchestrator tries to create run in forbidden workspace by injecting a conflicting "namespace" parameter
+        resp = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "begin_run",
+                {
+                    "workspace_key": "project:forbidden-tenant",
+                    "namespace": "project:orchestrated-app",
+                    "goal": "Exploit run",
+                    "idempotency_key": "exploit-run-001",
+                },
+            ),
+            headers=orch_headers,
+        )
+        assert resp.status_code == 403
+        assert "unexpected 'namespace' parameter" in resp.text
+
+        # Verify no run was created in SQLite
+        with sqlite3.connect(store.db_path) as conn:
+            runs = conn.execute("SELECT count(*) FROM agent_runs").fetchone()[0]
+            assert runs == 0
+
+
+def test_legitimate_writer_annotate_and_revise_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    with TestClient(app) as client:
+        writer_headers = _initialize_session(client, tokens["writer"])
+
+        # 1. Writer stores initial memory in allowed namespace
+        resp_store = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "store",
+                {
+                    "namespace": "project:allowed-proj",
+                    "content": "Initial fact",
+                    "title": "Initial Title",
+                },
+            ),
+            headers=writer_headers,
+        )
+        assert resp_store.status_code == 200
+        mem_id = store.recall("project:allowed-proj", query="")["items"][0]["id"]
+
+        # 2. Writer legally annotates with valid standard provenance
+        resp_annotate = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "annotate",
+                {
+                    "id": mem_id,
+                    "title": "Enriched Title",
+                    "provenance": {
+                        "session_id": "sess-writer-1",
+                        "correlation_id": "corr-writer-1",
+                    },
+                },
+            ),
+            headers=writer_headers,
+        )
+        assert resp_annotate.status_code == 200
+        assert resp_annotate.json()["result"]["isError"] is False
+
+        # 3. Writer legally revises with valid replacement content and standard provenance
+        resp_revise = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "revise",
+                {
+                    "id": mem_id,
+                    "replacement_content": "Superseding durable fact",
+                    "reason": "Updated decision",
+                    "provenance": {
+                        "session_id": "sess-writer-2",
+                    },
+                },
+            ),
+            headers=writer_headers,
+        )
+        assert resp_revise.status_code == 200
+        assert resp_revise.json()["result"]["isError"] is False
+
+        recalled = store.recall("project:allowed-proj", query="")
+        assert recalled["count"] == 1
+        assert "Superseding durable fact" in recalled["items"][0]["content"]
+        assert recalled["items"][0]["actor"] == "agent:writer-bob"
+
+
+def test_legitimate_orchestrator_run_lifecycle_and_provenance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+    )
+
+    with TestClient(app) as client:
+        orch_headers = _initialize_session(client, tokens["orchestrator"])
+
+        # 1. begin_run with declared agent_id and standard provenance
+        resp_begin = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "begin_run",
+                {
+                    "workspace_key": "project:orchestrated-app",
+                    "goal": "Autonomous deployment validation",
+                    "idempotency_key": "legit-orch-001",
+                    "agent_id": "worker:eli-implementer",
+                    "provenance": {
+                        "session_id": "run-sess-001",
+                        "correlation_id": "run-corr-001",
+                    },
+                },
+            ),
+            headers=orch_headers,
+        )
+        assert resp_begin.status_code == 200
+        run_data = json.loads(resp_begin.json()["result"]["content"][0]["text"])
+        run_id = run_data["run_id"]
+
+        # 2. record_run_event
+        resp_event = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "record_run_event",
+                {
+                    "workspace_key": "project:orchestrated-app",
+                    "run_id": run_id,
+                    "event_type": "checkpoint",
+                    "summary": "Stage 1 tests passed",
+                    "idempotency_key": "event-key-001",
+                    "agent_id": "worker:eli-implementer",
+                    "provenance": {
+                        "session_id": "run-sess-001",
+                    },
+                },
+            ),
+            headers=orch_headers,
+        )
+        assert resp_event.status_code == 200
+
+        # 3. complete_run
+        resp_complete = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "complete_run",
+                {
+                    "workspace_key": "project:orchestrated-app",
+                    "run_id": run_id,
+                    "outcome": "unverified",
+                    "evaluator_type": "agent",
+                    "idempotency_key": "outcome-key-001",
+                    "provenance": {
+                        "source_app": "orchestrator-test",
+                    },
+                },
+            ),
+            headers=orch_headers,
+        )
+        assert resp_complete.status_code == 200
+
+
+def test_database_unavailable_fails_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    gw_config, tokens = _create_sample_gateway_config()
+
+    # Point db_path to a non-existent file
+    bogus_db = tmp_path / "non-existent" / "missing.db"
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+        readiness_db_path=bogus_db,
+    )
+
+    with TestClient(app) as client:
+        writer_headers = _initialize_session(client, tokens["writer"])
+
+        # When authority database is unavailable for ID dereferencing, fail closed
+        resp = client.post(
+            "/mcp",
+            json=_jsonrpc_call("annotate", {"id": "any-id", "title": "fail closed"}),
+            headers=writer_headers,
+        )
+        assert resp.status_code == 403
+        assert "Authorization verification failed" in resp.text
+
+
+def test_non_admin_wildcard_combinations_rejected() -> None:
+    # Combinations like ["*", "project:foo"], ["**"], ["*:*"] must be rejected for non-admin
+    for pattern in ("*", "**", "*:*", "*.*"):
+        with pytest.raises(ValueError, match="cannot declare global wildcard"):
+            Principal(
+                principal_id="test:writer",
+                token_hash=hash_token("token-secret"),
+                role="writer",
+                allowed_namespaces=(pattern,),
+            ).validate()
+
+    with pytest.raises(ValueError, match="cannot declare global wildcard"):
+        Principal(
+            principal_id="test:writer",
+            token_hash=hash_token("token-secret"),
+            role="writer",
+            allowed_namespaces=("*", "project:sub"),
+        ).validate()
+
+
+def test_large_response_truncated_audit_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    # Store multiple memories to create a response that exceeds 4096 bytes
+    for i in range(30):
+        store.store("global", f"Large memory content row {i:03d} " + ("x" * 200), actor="admin")
+
+    gw_config, tokens = _create_sample_gateway_config()
+    emitted_records: list[AuditRecord] = []
+
+    app = build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps(
+                {
+                    "principals": [
+                        {
+                            "principal_id": p.principal_id,
+                            "token_hash": p.token_hash,
+                            "role": p.role,
+                            "allowed_namespaces": list(p.allowed_namespaces),
+                        }
+                        for p in gw_config.principals
+                    ]
+                }
+            ),
+        ),
+        store=store,
+        audit_sink=emitted_records.append,
+    )
+
+    with TestClient(app) as client:
+        admin_headers = _initialize_session(client, tokens["admin"])
+
+        # Recall all 30 memories -> response exceeds 4KB cap
+        resp = client.post(
+            "/mcp",
+            json=_jsonrpc_call("recall", {"namespace": "global", "limit": 30}),
+            headers=admin_headers,
+        )
+        assert resp.status_code == 200
+        last_audit = emitted_records[-1]
+        assert last_audit.output_summary is not None
+        assert last_audit.output_summary.get("truncated") is True
+        # Since response was truncated at 4KB and not an error, status is unknown_truncated
+        assert last_audit.status == "unknown_truncated"

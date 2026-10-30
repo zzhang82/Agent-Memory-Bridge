@@ -222,8 +222,33 @@ class EnterpriseGatewayMiddleware:
                 if isinstance(params, dict):
                     tool_name = params.get("name")
                     arguments = params.get("arguments", {})
-                    namespace = extract_namespace_from_arguments(tool_name or "", arguments)
+                    namespace, scope_err = extract_namespace_from_arguments(tool_name or "", arguments)
                     arguments_summary = summarize_arguments(arguments)
+
+                    # Reject contradictory or unexpected scope arguments immediately (fail-closed)
+                    if scope_err:
+                        duration_ms = (time.perf_counter() - start_time) * 1000
+                        record = AuditRecord(
+                            audit_id=audit_id,
+                            timestamp=current_iso_timestamp(),
+                            request_id=request_id,
+                            principal_id=principal_id,
+                            client_ip=client_ip,
+                            transport=transport,
+                            tool=tool_name,
+                            namespace=namespace,
+                            status="denied_forbidden",
+                            duration_ms=duration_ms,
+                            arguments_summary=arguments_summary,
+                            error_message=scope_err,
+                        )
+                        self.audit_emitter.emit(record)
+                        await _send_http_json(
+                            send,
+                            403,
+                            {"error": "forbidden", "error_description": scope_err},
+                        )
+                        return
 
                     # RBAC Step 1: Tool check
                     tool_ok, tool_err = check_tool_permission(role, tool_name or "")
@@ -279,14 +304,62 @@ class EnterpriseGatewayMiddleware:
 
                     # RBAC Step 3: Record-Level Dereference for ID-based Operations
                     # Prevents cross-tenant mutation on annotate, revise, forget, ack_signal, extend_signal_lease
-                    if role != "admin" and self.db_path is not None:
+                    if role != "admin":
                         # 3a. Memories & Signals by record ID
                         record_id = None
                         if isinstance(arguments, dict):
                             record_id = arguments.get("id") or arguments.get("signal_id") or arguments.get("memory_id")
                         if record_id:
-                            target_ns = resolve_record_namespace(self.db_path, str(record_id))
-                            if target_ns is not None:
+                            status_res, target_ns = resolve_record_namespace(self.db_path, str(record_id))
+                            if status_res == "error":
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = f"Authorization verification failed: authority database error for record '{record_id}'"
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+                            if status_res == "not_found":
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = f"Access denied: Record '{record_id}' not found in allowed scope"
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+                            if status_res == "found" and target_ns is not None:
                                 rec_ok, rec_err = check_namespace_permission(allowed_namespaces, target_ns)
                                 if not rec_ok:
                                     duration_ms = (time.perf_counter() - start_time) * 1000
@@ -321,8 +394,58 @@ class EnterpriseGatewayMiddleware:
                         if isinstance(arguments, dict):
                             run_id = arguments.get("run_id")
                         if run_id:
-                            run_ws = resolve_run_workspace(self.db_path, str(run_id))
-                            if run_ws is not None:
+                            status_run, run_ws = resolve_run_workspace(self.db_path, str(run_id))
+                            if status_run == "error":
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = (
+                                    f"Authorization verification failed: authority database error for run '{run_id}'"
+                                )
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+                            if status_run == "not_found":
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = f"Access denied: Run '{run_id}' not found in allowed scope"
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+                            if status_run == "found" and run_ws is not None:
                                 ws_ok, ws_err = check_namespace_permission(allowed_namespaces, run_ws)
                                 if not ws_ok:
                                     duration_ms = (time.perf_counter() - start_time) * 1000
@@ -351,26 +474,46 @@ class EnterpriseGatewayMiddleware:
                                         {"error": "forbidden", "error_description": err_msg},
                                     )
                                     return
+                                declared_ws = arguments.get("workspace_key")
+                                if declared_ws and declared_ws != run_ws:
+                                    duration_ms = (time.perf_counter() - start_time) * 1000
+                                    err_msg = (
+                                        f"Access denied: Run '{run_id}' belongs to workspace '{run_ws}', "
+                                        f"but arguments declared '{declared_ws}'"
+                                    )
+                                    record = AuditRecord(
+                                        audit_id=audit_id,
+                                        timestamp=current_iso_timestamp(),
+                                        request_id=request_id,
+                                        principal_id=principal_id,
+                                        client_ip=client_ip,
+                                        transport=transport,
+                                        tool=tool_name,
+                                        namespace=run_ws,
+                                        status="denied_forbidden",
+                                        duration_ms=duration_ms,
+                                        arguments_summary=arguments_summary,
+                                        error_message=err_msg,
+                                    )
+                                    self.audit_emitter.emit(record)
+                                    await _send_http_json(
+                                        send,
+                                        403,
+                                        {"error": "forbidden", "error_description": err_msg},
+                                    )
+                                    return
 
-                    # RBAC Step 4: Authoritative Actor & Provenance Binding
+                    # RBAC Step 4: Authoritative Actor Binding
+                    # Strictly adhere to existing tool schema: bind actor without injecting uncontracted fields
                     if isinstance(arguments, dict):
                         # Force caller-declared actor to verified principal
                         if "actor" in arguments or tool_name in ("store", "annotate", "revise", "feedback"):
                             arguments["actor"] = principal_id
 
-                        # Provenance binding for run events and outcomes
+                        # Provenance: if caller provided provenance dict, ensure actor is bound to verified principal
+                        # Do NOT inject uncontracted fields like authenticated_principal or declared_agent_id
                         if "provenance" in arguments and isinstance(arguments["provenance"], dict):
-                            arguments["provenance"]["authenticated_principal"] = principal_id
                             arguments["provenance"]["actor"] = principal_id
-                        elif tool_name in ("store", "annotate", "revise", "record_run_event", "complete_run"):
-                            arguments["provenance"] = {
-                                "authenticated_principal": principal_id,
-                                "actor": principal_id,
-                            }
-
-                        if "agent_id" in arguments and arguments["agent_id"]:
-                            arguments["declared_agent_id"] = arguments["agent_id"]
-                            arguments["agent_id"] = principal_id
 
                         full_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
                         _update_content_length(scope, len(full_body))
@@ -433,9 +576,10 @@ class EnterpriseGatewayMiddleware:
         duration_ms = (time.perf_counter() - start_time) * 1000
         output_summary: dict[str, Any] | None = None
         is_tool_error = False
-        if response_chunks:
+        raw_combined = b"".join(response_chunks) if response_chunks else b""
+        if raw_combined:
             try:
-                raw_resp = b"".join(response_chunks).decode("utf-8", errors="replace")
+                raw_resp = raw_combined.decode("utf-8", errors="replace")
                 resp_json = json.loads(raw_resp)
                 if isinstance(resp_json, dict) and "result" in resp_json:
                     output_summary, is_tool_error = summarize_output(resp_json["result"])
@@ -444,10 +588,23 @@ class EnterpriseGatewayMiddleware:
             except ValueError:
                 pass
 
+        # Check for tool errors in raw substring if JSON parse was incomplete
+        if not is_tool_error and raw_combined:
+            if b'"isError":true' in raw_combined or b'"isError": true' in raw_combined or b'"error":' in raw_combined:
+                is_tool_error = True
+
+        if captured_bytes >= MAX_RESPONSE_CAPTURE:
+            if output_summary is None:
+                output_summary = {}
+            output_summary["truncated"] = True
+
         if response_status >= 400:
             status = "error"
         elif is_tool_error:
             status = "tool_error"
+        elif captured_bytes >= MAX_RESPONSE_CAPTURE:
+            # 4 KiB truncated response where error cannot be disproven from partial output
+            status = "unknown_truncated"
         else:
             status = "success"
 

@@ -46,11 +46,14 @@ class Principal:
             )
         if not self.allowed_namespaces:
             raise ValueError(f"allowed_namespaces for '{self.principal_id}' cannot be empty")
-        if self.role != "admin" and self.allowed_namespaces == ("*",):
-            raise ValueError(
-                f"Principal '{self.principal_id}' with role '{self.role}' cannot declare blanket wildcard '*'; "
-                f"blanket namespace access is strictly reserved for the 'admin' role"
-            )
+        if self.role != "admin":
+            for pattern in self.allowed_namespaces:
+                cleaned = pattern.strip()
+                if cleaned in ("*", "**", "*:*", "") or cleaned.startswith("*"):
+                    raise ValueError(
+                        f"Principal '{self.principal_id}' with role '{self.role}' cannot declare "
+                        f"global wildcard '{pattern}'; blanket namespace access is strictly reserved for the 'admin' role"
+                    )
         if self.rate_limit_rpm < 0:
             raise ValueError(f"rate_limit_rpm for '{self.principal_id}' must be non-negative")
 

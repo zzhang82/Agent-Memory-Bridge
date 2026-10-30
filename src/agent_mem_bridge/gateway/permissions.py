@@ -113,44 +113,108 @@ def check_namespace_permission(
     return False, f"Namespace '{namespace}' is not permitted for principal (allowed: {list(allowed_namespaces)})"
 
 
-def extract_namespace_from_arguments(tool_name: str, arguments: dict[str, Any] | None) -> str | None:
-    """Extract the target namespace or workspace scope from tool call arguments."""
+NAMESPACE_TOOLS: frozenset[str] = frozenset(
+    {
+        "store",
+        "recall",
+        "browse",
+        "stats",
+        "export",
+        "claim_signal",
+        "feedback",
+    }
+)
+
+WORKSPACE_KEY_TOOLS: frozenset[str] = frozenset(
+    {
+        "begin_run",
+        "record_run_event",
+        "get_run",
+        "complete_run",
+    }
+)
+
+ID_BASED_TOOLS: frozenset[str] = frozenset(
+    {
+        "forget",
+        "promote",
+        "annotate",
+        "revise",
+        "extend_signal_lease",
+        "ack_signal",
+    }
+)
+
+
+def extract_namespace_from_arguments(tool_name: str, arguments: dict[str, Any] | None) -> tuple[str | None, str | None]:
+    """Extract and validate the authoritative namespace or workspace scope from arguments.
+
+    Returns (scope, error_message).
+    Contradictory or rogue scope parameters are rejected immediately (fail-closed).
+    """
     if not isinstance(arguments, dict):
-        return None
-    if "namespace" in arguments and isinstance(arguments["namespace"], str):
-        return arguments["namespace"]
-    if "workspace_key" in arguments and isinstance(arguments["workspace_key"], str):
-        return arguments["workspace_key"]
-    return None
+        return None, None
+
+    if tool_name in WORKSPACE_KEY_TOOLS:
+        if "namespace" in arguments:
+            return None, f"Tool '{tool_name}' operates on 'workspace_key'; unexpected 'namespace' parameter provided"
+        val = arguments.get("workspace_key")
+        if val is not None and (not isinstance(val, str) or not val.strip()):
+            return None, f"Tool '{tool_name}' requires a valid non-empty 'workspace_key'"
+        return (val.strip() if isinstance(val, str) else None), None
+
+    if tool_name in NAMESPACE_TOOLS:
+        if "workspace_key" in arguments:
+            return None, f"Tool '{tool_name}' operates on 'namespace'; unexpected 'workspace_key' parameter provided"
+        val = arguments.get("namespace")
+        if val is not None and (not isinstance(val, str) or not val.strip()):
+            return None, f"Tool '{tool_name}' requires a valid non-empty 'namespace'"
+        return (val.strip() if isinstance(val, str) else None), None
+
+    if tool_name in ID_BASED_TOOLS:
+        if "namespace" in arguments or "workspace_key" in arguments:
+            return (
+                None,
+                f"Tool '{tool_name}' operates by ID; scope parameters 'namespace'/'workspace_key' are not allowed",
+            )
+        return None, None
+
+    return None, None
 
 
-def resolve_record_namespace(db_path: Path, record_id: str) -> str | None:
-    """Resolve the authoritative namespace of a stored memory or signal by its ID."""
-    if not db_path.is_file() or not record_id:
-        return None
+def resolve_record_namespace(db_path: Path | None, record_id: str) -> tuple[str, str | None]:
+    """Resolve the authoritative namespace of a stored record by its ID with explicit status.
+
+    Returns ('found', namespace), ('not_found', None), or ('error', error_details).
+    """
+    if db_path is None or not db_path.is_file() or not record_id:
+        return "error", "Database file is missing or invalid"
     try:
         uri = f"{db_path.resolve().as_uri()}?mode=ro"
-        with sqlite3.connect(uri, uri=True, timeout=1.0) as conn:
+        with sqlite3.connect(uri, uri=True, timeout=2.0) as conn:
             cursor = conn.execute("SELECT namespace FROM memories WHERE id = ?", (record_id,))
             row = cursor.fetchone()
             if row:
-                return str(row[0])
-    except (sqlite3.Error, OSError):
-        return None
-    return None
+                return "found", str(row[0])
+            return "not_found", None
+    except (sqlite3.Error, OSError) as exc:
+        return "error", str(exc)
 
 
-def resolve_run_workspace(db_path: Path, run_id: str) -> str | None:
-    """Resolve the authoritative workspace_key of an agent run by its run_id."""
-    if not db_path.is_file() or not run_id:
-        return None
+def resolve_run_workspace(db_path: Path | None, run_id: str) -> tuple[str, str | None]:
+    """Resolve the authoritative workspace_key of an agent run by its run_id with explicit status.
+
+    Returns ('found', workspace_key), ('not_found', None), or ('error', error_details).
+    """
+    if db_path is None or not db_path.is_file() or not run_id:
+        return "error", "Database file is missing or invalid"
     try:
         uri = f"{db_path.resolve().as_uri()}?mode=ro"
-        with sqlite3.connect(uri, uri=True, timeout=1.0) as conn:
+        with sqlite3.connect(uri, uri=True, timeout=2.0) as conn:
             cursor = conn.execute("SELECT workspace_key FROM agent_runs WHERE run_id = ?", (run_id,))
             row = cursor.fetchone()
             if row:
-                return str(row[0])
-    except (sqlite3.Error, OSError):
-        return None
-    return None
+                return "found", str(row[0])
+            return "not_found", None
+    except (sqlite3.Error, OSError) as exc:
+        return "error", str(exc)
