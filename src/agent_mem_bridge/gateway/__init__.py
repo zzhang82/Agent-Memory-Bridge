@@ -1,0 +1,60 @@
+"""AMB Enterprise Gateway package: Multi-token authentication, RBAC, and JSONL audit logging."""
+
+from __future__ import annotations
+
+from .audit import AuditEmitter, AuditRecord, current_iso_timestamp, summarize_arguments, summarize_output
+from .auth import GatewayConfig, MultiTokenVerifier, Principal, RateLimiter, hash_token, load_gateway_config
+from .middleware import EnterpriseGatewayMiddleware
+from .permissions import (
+    ADMIN,
+    ALL_MCP_TOOLS,
+    ALL_ROLES,
+    ORCHESTRATOR,
+    READER,
+    ROLE_PERMISSIONS,
+    WRITER,
+    check_namespace_permission,
+    check_tool_permission,
+    encode_consumer,
+    extract_namespace_from_arguments,
+    extract_record_id_for_tool,
+    match_consumer_claim,
+    match_namespace,
+    principal_consumer_prefix,
+    resolve_record_claim,
+    resolve_record_namespace,
+    resolve_run_workspace,
+)
+
+__all__ = [
+    "ADMIN",
+    "ALL_MCP_TOOLS",
+    "ALL_ROLES",
+    "AuditEmitter",
+    "AuditRecord",
+    "EnterpriseGatewayMiddleware",
+    "GatewayConfig",
+    "MultiTokenVerifier",
+    "ORCHESTRATOR",
+    "Principal",
+    "READER",
+    "ROLE_PERMISSIONS",
+    "RateLimiter",
+    "WRITER",
+    "check_namespace_permission",
+    "check_tool_permission",
+    "current_iso_timestamp",
+    "encode_consumer",
+    "extract_namespace_from_arguments",
+    "extract_record_id_for_tool",
+    "hash_token",
+    "load_gateway_config",
+    "match_consumer_claim",
+    "match_namespace",
+    "principal_consumer_prefix",
+    "resolve_record_claim",
+    "resolve_record_namespace",
+    "resolve_run_workspace",
+    "summarize_arguments",
+    "summarize_output",
+]

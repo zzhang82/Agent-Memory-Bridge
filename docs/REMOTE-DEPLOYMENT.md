@@ -52,10 +52,73 @@ MCP requests; a supplied invalid Origin is rejected.
 Keep one dedicated token per authority, separate from all other services. Rotate
 the file and restart the service in an approved maintenance window. Do not log
 Authorization headers, tokens, complete request bodies, or raw client metadata.
-The source does not provide per-namespace ACLs or authenticated provenance.
 The HTTP bootstrap filters SDK transport log messages because those messages
 can include rejected headers or session IDs. Severity and logger/source location
 remain available, while request details and exception bodies are omitted.
+
+## Enterprise HTTP Gateway (Multi-Token Auth, RBAC, and Audit Logging)
+
+Starting in v0.38.0, AMB provides an orthogonal Enterprise Gateway layer for Streamable HTTP deployments. It enables multi-token authentication, role-based access control (RBAC), namespace tenant enclaves, and zero-lock structured JSONL audit streaming.
+
+### 1. Gateway Configuration (`amb_tokens.json` or `AMB_GATEWAY_CONFIG`)
+
+Configure principals, token hashes, roles, and allowed namespace patterns:
+
+```json
+{
+  "principals": [
+    {
+      "principal_id": "agent:planner",
+      "token_hash": "sha256:c43bdeb6daa16e9dbd038fd9df9306376c51fd576e9cb6bea333d2c80df66036",
+      "role": "writer",
+      "allowed_namespaces": ["project:agent-memory-bridge", "domain:*"],
+      "rate_limit_rpm": 120
+    },
+    {
+      "principal_id": "service:ci-auditor",
+      "token_hash": "sha256:2421a9f92eeb674cf1cc61a1862c9a95afbaaede5cba12ab4f32a220d31f987f",
+      "role": "reader",
+      "allowed_namespaces": ["project:*"],
+      "rate_limit_rpm": 300
+    },
+    {
+      "principal_id": "system:orca-orchestrator",
+      "token_hash": "sha256:19e678d46b2b6515d840ce9a8edfcc0e9b31931a46325b54b87cfa8e4d5bdc65",
+      "role": "orchestrator",
+      "allowed_namespaces": ["project:agent-memory-bridge", "project:pipeline-*"],
+      "rate_limit_rpm": 600
+    }
+  ]
+}
+```
+
+To generate a secure token and its deterministic SHA-256 hash locally:
+
+```bash
+python -c "import secrets, hashlib; t = secrets.token_hex(24); print('token:', t); print('token_hash: sha256:' + hashlib.sha256(t.encode()).hexdigest())"
+```
+
+Pre-hashed tokens use SHA-256 (`sha256:<64-hex>`). In secure local configurations (mode 0600), plain `token` can also be provided directly, and AMB computes the hash at startup. Non-admin roles must explicitly declare their allowed namespaces; blanket `*` is reserved for administrators.
+
+### 2. Role Permissions Matrix
+
+The 17 public MCP tools are governed across four standard roles:
+
+| Role | Allowed MCP Tools | Strictly Forbidden Tools | Namespace Boundaries |
+|---|---|---|---|
+| **admin** | All 17 tools | None | All namespaces (`*`) |
+| **writer** | `store`, `recall`, `browse`, `annotate`, `revise`, `feedback`, `record_run_event` | `forget`, `promote`, `export`, and orchestration tools | Bound to `allowed_namespaces` |
+| **reader** | `recall`, `browse`, `stats`, `get_run` | All mutating tools | Bound to `allowed_namespaces` |
+| **orchestrator** | `begin_run`, `record_run_event`, `complete_run`, `get_run`, `claim_signal`, `extend_signal_lease`, `ack_signal`, `recall`, `browse` | `forget`, `promote`, `store`, `stats` | Bound to `allowed_namespaces` |
+
+### 3. Namespace Enclaves & Authoritative Actor Binding
+
+- **Namespace Isolation**: Wildcard patterns (`project:*`, `domain:*`, `*`, exact match) block cross-tenant reads and writes. Out-of-scope calls fail closed with HTTP 403 Forbidden.
+- **Actor Binding**: In gateway RBAC mode, caller-declared `actor` metadata is overridden with the verified `principal_id` to eliminate agent identity spoofing.
+
+### 4. Zero-Lock Structured Audit Logging (JSONL)
+
+Every HTTP MCP interaction (successful or blocked by 401/403/429) emits a single-line JSONL audit event to stdout, stderr, or a dedicated log file specified by `AMB_AUDIT_STREAM`. Audit logging is completely isolated from the SQLite database WAL to prevent write contention with core memory operations.
 
 ## Docker Compose
 

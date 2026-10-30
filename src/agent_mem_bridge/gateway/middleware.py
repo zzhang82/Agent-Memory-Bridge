@@ -1,0 +1,803 @@
+"""ASGI Middleware for AMB Enterprise Gateway.
+
+Intercepts requests to the MCP endpoint, enforces multi-token authentication,
+RBAC tool permission matrices, namespace tenant boundaries (including record-level
+dereference for ID-based mutations), and emits structured single-line JSONL audit
+records with bounded memory and zero SQLite database lock contention.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+import uuid
+from pathlib import Path
+from typing import Any
+
+from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from .audit import AuditEmitter, AuditRecord, current_iso_timestamp, summarize_arguments, summarize_output
+from .auth import GatewayConfig, MultiTokenVerifier
+from .permissions import (
+    check_namespace_permission,
+    check_tool_permission,
+    encode_consumer,
+    extract_namespace_from_arguments,
+    extract_record_id_for_tool,
+    match_consumer_claim,
+    principal_consumer_prefix,
+    resolve_record_claim,
+    resolve_run_workspace,
+)
+
+MAX_REQUEST_BYTES = 16 * 1024 * 1024  # 16 MiB
+MAX_RESPONSE_CAPTURE = 4096  # 4 KiB
+
+
+class EnterpriseGatewayMiddleware:
+    """Enterprise Gateway ASGI middleware for authentication, RBAC, and audit streaming."""
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        config: GatewayConfig,
+        verifier: MultiTokenVerifier,
+        audit_emitter: AuditEmitter,
+        db_path: Path,
+        mcp_path: str = "/mcp",
+    ) -> None:
+        if db_path is None:
+            raise ValueError("EnterpriseGatewayMiddleware requires db_path for record-level authorization")
+        self.app = app
+        self.config = config
+        self.verifier = verifier
+        self.audit_emitter = audit_emitter
+        self.db_path = Path(db_path)
+        self.mcp_path = mcp_path
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        # Only gate the MCP path and its subpaths (e.g. /mcp, /mcp/)
+        if not (path == self.mcp_path or path.startswith(f"{self.mcp_path}/")):
+            await self.app(scope, receive, send)
+            return
+
+        start_time = time.perf_counter()
+        audit_id = f"aud_{uuid.uuid4().hex}"
+        request_id = f"req_{uuid.uuid4().hex[:8]}"
+        client_ip = _extract_client_ip(scope)
+        transport = "http_mcp"
+
+        # 1. Identity resolution
+        # First, inspect if upstream AuthenticationMiddleware populated scope["user"]
+        auth_user = scope.get("user")
+        if isinstance(auth_user, AuthenticatedUser):
+            access_token = auth_user.access_token
+            principal_id = access_token.client_id
+            role = access_token.scopes[0] if access_token.scopes else "reader"
+            claims = access_token.claims or {}
+            allowed_namespaces = tuple(claims.get("allowed_namespaces", ()))
+            rate_limit_rpm = int(claims.get("rate_limit_rpm", 0))
+        else:
+            # Fallback to direct Bearer token verification
+            auth_header_val: str | None = None
+            for name, value in scope.get("headers", []):
+                if name.lower() == b"authorization":
+                    auth_header_val = value.decode("latin1", errors="replace").strip()
+                    break
+
+            if not auth_header_val or not auth_header_val.lower().startswith("bearer "):
+                duration_ms = (time.perf_counter() - start_time) * 1000
+                record = AuditRecord(
+                    audit_id=audit_id,
+                    timestamp=current_iso_timestamp(),
+                    request_id=request_id,
+                    principal_id="anonymous",
+                    client_ip=client_ip,
+                    transport=transport,
+                    tool=None,
+                    namespace=None,
+                    status="denied_unauthenticated",
+                    duration_ms=duration_ms,
+                    error_message="Authentication required: missing or invalid Bearer header",
+                )
+                self.audit_emitter.emit(record)
+                await _send_http_json(
+                    send,
+                    401,
+                    {"error": "invalid_token", "error_description": "Authentication required"},
+                    www_authenticate=True,
+                )
+                return
+
+            token = auth_header_val[7:].strip()
+            verified_token = await self.verifier.verify_token(token)
+            if verified_token is None:
+                duration_ms = (time.perf_counter() - start_time) * 1000
+                record = AuditRecord(
+                    audit_id=audit_id,
+                    timestamp=current_iso_timestamp(),
+                    request_id=request_id,
+                    principal_id="unknown",
+                    client_ip=client_ip,
+                    transport=transport,
+                    tool=None,
+                    namespace=None,
+                    status="denied_unauthenticated",
+                    duration_ms=duration_ms,
+                    error_message="Invalid Bearer token",
+                )
+                self.audit_emitter.emit(record)
+                await _send_http_json(
+                    send,
+                    401,
+                    {"error": "invalid_token", "error_description": "Invalid Bearer token"},
+                    www_authenticate=True,
+                )
+                return
+
+            principal_id = verified_token.client_id
+            role = verified_token.scopes[0] if verified_token.scopes else "reader"
+            claims = verified_token.claims or {}
+            allowed_namespaces = tuple(claims.get("allowed_namespaces", ()))
+            rate_limit_rpm = int(claims.get("rate_limit_rpm", 0))
+
+        # 2. Rate limiting check
+        if rate_limit_rpm > 0 and not self.verifier.rate_limiter.is_allowed(principal_id, rate_limit_rpm):
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            record = AuditRecord(
+                audit_id=audit_id,
+                timestamp=current_iso_timestamp(),
+                request_id=request_id,
+                principal_id=principal_id,
+                client_ip=client_ip,
+                transport=transport,
+                tool=None,
+                namespace=None,
+                status="denied_rate_limited",
+                duration_ms=duration_ms,
+                error_message=f"Rate limit exceeded ({rate_limit_rpm} rpm)",
+            )
+            self.audit_emitter.emit(record)
+            await _send_http_json(
+                send,
+                429,
+                {"error": "rate_limited", "error_description": "Rate limit exceeded"},
+            )
+            return
+
+        # 3. Read and inspect incoming body for POST calls
+        method = scope.get("method", "GET").upper()
+        full_body = b""
+        tool_name: str | None = None
+        namespace: str | None = None
+        arguments_summary: dict[str, Any] | None = None
+
+        if method == "POST":
+            body_chunks: list[bytes] = []
+            total_bytes = 0
+            more_body = True
+            while more_body:
+                msg = await receive()
+                if msg["type"] == "http.request":
+                    chunk = msg.get("body", b"")
+                    total_bytes += len(chunk)
+                    if total_bytes > MAX_REQUEST_BYTES:
+                        duration_ms = (time.perf_counter() - start_time) * 1000
+                        record = AuditRecord(
+                            audit_id=audit_id,
+                            timestamp=current_iso_timestamp(),
+                            request_id=request_id,
+                            principal_id=principal_id,
+                            client_ip=client_ip,
+                            transport=transport,
+                            tool=None,
+                            namespace=None,
+                            status="error",
+                            duration_ms=duration_ms,
+                            error_message="Payload too large",
+                        )
+                        self.audit_emitter.emit(record)
+                        await _send_http_json(
+                            send,
+                            413,
+                            {"error": "payload_too_large", "error_description": "Request body exceeds 16 MiB"},
+                        )
+                        return
+                    body_chunks.append(chunk)
+                    more_body = msg.get("more_body", False)
+                elif msg["type"] == "http.disconnect":
+                    return
+            full_body = b"".join(body_chunks)
+
+            payload: dict[str, Any] | None = None
+            if full_body:
+                try:
+                    payload = json.loads(full_body.decode("utf-8"))
+                except ValueError:
+                    payload = None
+
+            if isinstance(payload, dict) and payload.get("method") == "tools/call":
+                params = payload.get("params", {})
+                if isinstance(params, dict):
+                    tool_name = params.get("name")
+                    arguments = params.get("arguments", {})
+                    namespace, scope_err = extract_namespace_from_arguments(tool_name or "", arguments)
+                    record_id, id_err = extract_record_id_for_tool(tool_name or "", arguments)
+                    arguments_summary = summarize_arguments(arguments)
+
+                    # Reject contradictory or unexpected scope/ID arguments immediately (fail-closed)
+                    contract_err = scope_err or id_err
+                    if contract_err:
+                        duration_ms = (time.perf_counter() - start_time) * 1000
+                        record = AuditRecord(
+                            audit_id=audit_id,
+                            timestamp=current_iso_timestamp(),
+                            request_id=request_id,
+                            principal_id=principal_id,
+                            client_ip=client_ip,
+                            transport=transport,
+                            tool=tool_name,
+                            namespace=namespace,
+                            status="denied_forbidden",
+                            duration_ms=duration_ms,
+                            arguments_summary=arguments_summary,
+                            error_message=contract_err,
+                        )
+                        self.audit_emitter.emit(record)
+                        await _send_http_json(
+                            send,
+                            403,
+                            {"error": "forbidden", "error_description": contract_err},
+                        )
+                        return
+
+                    # RBAC Step 1: Tool check
+                    tool_ok, tool_err = check_tool_permission(role, tool_name or "")
+                    if not tool_ok:
+                        duration_ms = (time.perf_counter() - start_time) * 1000
+                        record = AuditRecord(
+                            audit_id=audit_id,
+                            timestamp=current_iso_timestamp(),
+                            request_id=request_id,
+                            principal_id=principal_id,
+                            client_ip=client_ip,
+                            transport=transport,
+                            tool=tool_name,
+                            namespace=namespace,
+                            status="denied_forbidden",
+                            duration_ms=duration_ms,
+                            arguments_summary=arguments_summary,
+                            error_message=tool_err,
+                        )
+                        self.audit_emitter.emit(record)
+                        await _send_http_json(
+                            send,
+                            403,
+                            {"error": "forbidden", "error_description": tool_err},
+                        )
+                        return
+
+                    # RBAC Step 2: Namespace check for tools with explicit namespace arguments
+                    ns_ok, ns_err = check_namespace_permission(allowed_namespaces, namespace)
+                    if not ns_ok:
+                        duration_ms = (time.perf_counter() - start_time) * 1000
+                        record = AuditRecord(
+                            audit_id=audit_id,
+                            timestamp=current_iso_timestamp(),
+                            request_id=request_id,
+                            principal_id=principal_id,
+                            client_ip=client_ip,
+                            transport=transport,
+                            tool=tool_name,
+                            namespace=namespace,
+                            status="denied_forbidden",
+                            duration_ms=duration_ms,
+                            arguments_summary=arguments_summary,
+                            error_message=ns_err,
+                        )
+                        self.audit_emitter.emit(record)
+                        await _send_http_json(
+                            send,
+                            403,
+                            {"error": "forbidden", "error_description": ns_err},
+                        )
+                        return
+
+                    # RBAC Step 3: Record-Level Dereference for ID-based Operations
+                    # Prevents cross-tenant mutation and unauthorized signal lease takeover
+                    claimed_by: str | None = None
+                    if record_id:
+                        if not self.db_path or not self.db_path.is_file():
+                            duration_ms = (time.perf_counter() - start_time) * 1000
+                            err_msg = (
+                                "Authorization verification failed: authority database path is missing or inaccessible"
+                            )
+                            record = AuditRecord(
+                                audit_id=audit_id,
+                                timestamp=current_iso_timestamp(),
+                                request_id=request_id,
+                                principal_id=principal_id,
+                                client_ip=client_ip,
+                                transport=transport,
+                                tool=tool_name,
+                                namespace=None,
+                                status="denied_forbidden",
+                                duration_ms=duration_ms,
+                                arguments_summary=arguments_summary,
+                                error_message=err_msg,
+                            )
+                            self.audit_emitter.emit(record)
+                            await _send_http_json(
+                                send,
+                                403,
+                                {"error": "forbidden", "error_description": err_msg},
+                            )
+                            return
+
+                        status_res, target_ns, claimed_by = resolve_record_claim(self.db_path, str(record_id))
+                        if role != "admin":
+                            if status_res == "error":
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = f"Authorization verification failed: authority database error for record '{record_id}'"
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+                            if status_res == "not_found":
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = f"Access denied: Record '{record_id}' not found in allowed scope"
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+                            if status_res == "found" and target_ns is not None:
+                                rec_ok, rec_err = check_namespace_permission(allowed_namespaces, target_ns)
+                                if not rec_ok:
+                                    duration_ms = (time.perf_counter() - start_time) * 1000
+                                    err_msg = (
+                                        f"Access denied: Record '{record_id}' belongs to namespace '{target_ns}', "
+                                        f"which is outside principal's allowed scope"
+                                    )
+                                    record = AuditRecord(
+                                        audit_id=audit_id,
+                                        timestamp=current_iso_timestamp(),
+                                        request_id=request_id,
+                                        principal_id=principal_id,
+                                        client_ip=client_ip,
+                                        transport=transport,
+                                        tool=tool_name,
+                                        namespace=target_ns,
+                                        status="denied_forbidden",
+                                        duration_ms=duration_ms,
+                                        arguments_summary=arguments_summary,
+                                        error_message=err_msg,
+                                    )
+                                    self.audit_emitter.emit(record)
+                                    await _send_http_json(
+                                        send,
+                                        403,
+                                        {"error": "forbidden", "error_description": err_msg},
+                                    )
+                                    return
+
+                                # Check Signal lease ownership on extend_signal_lease and ack_signal
+                                if tool_name in ("extend_signal_lease", "ack_signal") and claimed_by is not None:
+                                    if not match_consumer_claim(claimed_by, principal_id, role=role):
+                                        duration_ms = (time.perf_counter() - start_time) * 1000
+                                        if not claimed_by.startswith("amb:p:"):
+                                            err_msg = (
+                                                f"Access denied: Signal '{record_id}' has an unauthenticated or external lease "
+                                                f"('{claimed_by}') and cannot be operated on by non-admin principal '{principal_id}'. "
+                                                f"Wait for lease expiry or use admin credentials."
+                                            )
+                                        else:
+                                            err_msg = (
+                                                f"Access denied: Signal '{record_id}' is claimed by another consumer "
+                                                f"('{claimed_by}') and cannot be operated on by principal '{principal_id}'"
+                                            )
+                                        record = AuditRecord(
+                                            audit_id=audit_id,
+                                            timestamp=current_iso_timestamp(),
+                                            request_id=request_id,
+                                            principal_id=principal_id,
+                                            client_ip=client_ip,
+                                            transport=transport,
+                                            tool=tool_name,
+                                            namespace=target_ns,
+                                            status="denied_forbidden",
+                                            duration_ms=duration_ms,
+                                            arguments_summary=arguments_summary,
+                                            error_message=err_msg,
+                                        )
+                                        self.audit_emitter.emit(record)
+                                        await _send_http_json(
+                                            send,
+                                            403,
+                                            {"error": "forbidden", "error_description": err_msg},
+                                        )
+                                        return
+
+                    # 3b. Agent Runs by run_id
+                    if role != "admin":
+                        run_id = None
+                        if isinstance(arguments, dict):
+                            run_id = arguments.get("run_id")
+                        if run_id:
+                            if not self.db_path or not self.db_path.is_file():
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = "Authorization verification failed: authority database path is missing or inaccessible"
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+
+                            status_run, run_ws = resolve_run_workspace(self.db_path, str(run_id))
+                            if status_run == "error":
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = (
+                                    f"Authorization verification failed: authority database error for run '{run_id}'"
+                                )
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+                            if status_run == "not_found":
+                                duration_ms = (time.perf_counter() - start_time) * 1000
+                                err_msg = f"Access denied: Run '{run_id}' not found in allowed scope"
+                                record = AuditRecord(
+                                    audit_id=audit_id,
+                                    timestamp=current_iso_timestamp(),
+                                    request_id=request_id,
+                                    principal_id=principal_id,
+                                    client_ip=client_ip,
+                                    transport=transport,
+                                    tool=tool_name,
+                                    namespace=None,
+                                    status="denied_forbidden",
+                                    duration_ms=duration_ms,
+                                    arguments_summary=arguments_summary,
+                                    error_message=err_msg,
+                                )
+                                self.audit_emitter.emit(record)
+                                await _send_http_json(
+                                    send,
+                                    403,
+                                    {"error": "forbidden", "error_description": err_msg},
+                                )
+                                return
+                            if status_run == "found" and run_ws is not None:
+                                ws_ok, ws_err = check_namespace_permission(allowed_namespaces, run_ws)
+                                if not ws_ok:
+                                    duration_ms = (time.perf_counter() - start_time) * 1000
+                                    err_msg = (
+                                        f"Access denied: Run '{run_id}' belongs to workspace '{run_ws}', "
+                                        f"which is outside principal's allowed scope"
+                                    )
+                                    record = AuditRecord(
+                                        audit_id=audit_id,
+                                        timestamp=current_iso_timestamp(),
+                                        request_id=request_id,
+                                        principal_id=principal_id,
+                                        client_ip=client_ip,
+                                        transport=transport,
+                                        tool=tool_name,
+                                        namespace=run_ws,
+                                        status="denied_forbidden",
+                                        duration_ms=duration_ms,
+                                        arguments_summary=arguments_summary,
+                                        error_message=err_msg,
+                                    )
+                                    self.audit_emitter.emit(record)
+                                    await _send_http_json(
+                                        send,
+                                        403,
+                                        {"error": "forbidden", "error_description": err_msg},
+                                    )
+                                    return
+                                declared_ws = arguments.get("workspace_key")
+                                if declared_ws and declared_ws != run_ws:
+                                    duration_ms = (time.perf_counter() - start_time) * 1000
+                                    err_msg = (
+                                        f"Access denied: Run '{run_id}' belongs to workspace '{run_ws}', "
+                                        f"but arguments declared '{declared_ws}'"
+                                    )
+                                    record = AuditRecord(
+                                        audit_id=audit_id,
+                                        timestamp=current_iso_timestamp(),
+                                        request_id=request_id,
+                                        principal_id=principal_id,
+                                        client_ip=client_ip,
+                                        transport=transport,
+                                        tool=tool_name,
+                                        namespace=run_ws,
+                                        status="denied_forbidden",
+                                        duration_ms=duration_ms,
+                                        arguments_summary=arguments_summary,
+                                        error_message=err_msg,
+                                    )
+                                    self.audit_emitter.emit(record)
+                                    await _send_http_json(
+                                        send,
+                                        403,
+                                        {"error": "forbidden", "error_description": err_msg},
+                                    )
+                                    return
+
+                    # RBAC Step 4: Authoritative Identity Binding
+                    # Strictly adhere to existing tool schemas:
+                    # - Mutating tools bind author 'actor' to verified principal
+                    # - Signal operations bind consumer ownership prefix to verified principal
+                    # - Query filters (like recall.actor) remain untouched
+                    if isinstance(arguments, dict):
+                        # 4a. Consumer binding for signal ownership using collision-proof digest framing
+                        if tool_name == "claim_signal":
+                            raw_consumer = (
+                                str(arguments.get("consumer", "")).strip() if "consumer" in arguments else None
+                            )
+                            arguments["consumer"] = encode_consumer(principal_id, raw_consumer)
+                        elif tool_name in ("extend_signal_lease", "ack_signal"):
+                            raw_consumer = (
+                                str(arguments.get("consumer", "")).strip() if "consumer" in arguments else None
+                            )
+                            if role == "admin" and claimed_by:
+                                # Admin has global management authority over all claims (legacy or gateway):
+                                # Adopt the authoritative claimed_by unless admin explicitly supplied a distinct consumer
+                                if raw_consumer and raw_consumer != claimed_by:
+                                    arguments["consumer"] = raw_consumer
+                                else:
+                                    arguments["consumer"] = claimed_by
+                            else:
+                                # Standard non-admin gateway operation: encode with principal's digest
+                                if raw_consumer:
+                                    arguments["consumer"] = encode_consumer(principal_id, raw_consumer)
+                                elif claimed_by and claimed_by.startswith(principal_consumer_prefix(principal_id)):
+                                    arguments["consumer"] = claimed_by
+                                elif tool_name == "extend_signal_lease":
+                                    arguments["consumer"] = encode_consumer(principal_id, None)
+
+                        # 4b. Mutating actor binding (do NOT touch recall.actor!)
+                        if tool_name in ("store", "annotate", "revise"):
+                            arguments["actor"] = principal_id
+
+                        # 4c. Provenance:
+                        # For feedback: schema accepts provenance.actor, NOT top-level actor
+                        if tool_name == "feedback":
+                            if not isinstance(arguments.get("provenance"), dict):
+                                arguments["provenance"] = {}
+                            arguments["provenance"]["actor"] = principal_id
+                        elif "provenance" in arguments and isinstance(arguments["provenance"], dict):
+                            arguments["provenance"]["actor"] = principal_id
+
+                        full_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                        _update_content_length(scope, len(full_body))
+
+            sent_body = False
+
+            async def post_receive() -> Message:
+                nonlocal sent_body
+                if not sent_body:
+                    sent_body = True
+                    return {"type": "http.request", "body": full_body, "more_body": False}
+                # Forward subsequent calls to real receive to allow proper http.disconnect detection
+                return await receive()
+
+            effective_receive: Receive = post_receive
+
+        else:
+            # Non-POST requests (e.g. GET /mcp for SSE streams) pass through original receive without wrapping
+            effective_receive = receive
+
+        # 4. Wrap downstream send to capture output and status with 4KB cap
+        response_status = 200
+        captured_bytes = 0
+        response_chunks: list[bytes] = []
+
+        async def wrapped_send(message: Message) -> None:
+            nonlocal response_status, captured_bytes
+            if message["type"] == "http.response.start":
+                response_status = message.get("status", 200)
+            elif message["type"] == "http.response.body":
+                chunk = message.get("body", b"")
+                if chunk and captured_bytes < MAX_RESPONSE_CAPTURE:
+                    remaining = MAX_RESPONSE_CAPTURE - captured_bytes
+                    to_add = chunk[:remaining]
+                    response_chunks.append(to_add)
+                    captured_bytes += len(to_add)
+            await send(message)
+
+        try:
+            await self.app(scope, effective_receive, wrapped_send)
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            record = AuditRecord(
+                audit_id=audit_id,
+                timestamp=current_iso_timestamp(),
+                request_id=request_id,
+                principal_id=principal_id,
+                client_ip=client_ip,
+                transport=transport,
+                tool=tool_name,
+                namespace=namespace,
+                status="error",
+                duration_ms=duration_ms,
+                arguments_summary=arguments_summary,
+                error_message=exc.__class__.__name__,
+            )
+            self.audit_emitter.emit(record)
+            raise
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        output_summary: dict[str, Any] | None = None
+        is_tool_error = False
+        raw_combined = b"".join(response_chunks) if response_chunks else b""
+        if raw_combined:
+            try:
+                raw_resp = raw_combined.decode("utf-8", errors="replace")
+                resp_json = json.loads(raw_resp)
+                if isinstance(resp_json, dict) and "result" in resp_json:
+                    output_summary, is_tool_error = summarize_output(resp_json["result"])
+                else:
+                    output_summary, is_tool_error = summarize_output(resp_json)
+            except ValueError:
+                pass
+
+        # Check for tool errors in raw substring if JSON parse was incomplete
+        if not is_tool_error and raw_combined:
+            if b'"isError":true' in raw_combined or b'"isError": true' in raw_combined or b'"error":' in raw_combined:
+                is_tool_error = True
+
+        if captured_bytes >= MAX_RESPONSE_CAPTURE:
+            if output_summary is None:
+                output_summary = {}
+            output_summary["truncated"] = True
+
+        if response_status >= 400:
+            status = "error"
+        elif is_tool_error:
+            status = "tool_error"
+        elif captured_bytes >= MAX_RESPONSE_CAPTURE:
+            # 4 KiB truncated response where error cannot be disproven from partial output
+            status = "unknown_truncated"
+        else:
+            status = "success"
+
+        record = AuditRecord(
+            audit_id=audit_id,
+            timestamp=current_iso_timestamp(),
+            request_id=request_id,
+            principal_id=principal_id,
+            client_ip=client_ip,
+            transport=transport,
+            tool=tool_name,
+            namespace=namespace,
+            status=status,
+            duration_ms=duration_ms,
+            arguments_summary=arguments_summary,
+            output_summary=output_summary,
+        )
+        self.audit_emitter.emit(record)
+
+
+def _extract_client_ip(scope: Scope) -> str | None:
+    """Extract direct socket client IP address to prevent unauthenticated header spoofing."""
+    client = scope.get("client")
+    if client and isinstance(client, (list, tuple)) and client[0]:
+        return str(client[0])
+    return None
+
+
+def _update_content_length(scope: Scope, length: int) -> None:
+    """Update or append content-length header in ASGI scope."""
+    headers: list[tuple[bytes, bytes]] = []
+    for name, value in scope.get("headers", []):
+        if name.lower() != b"content-length":
+            headers.append((name, value))
+    headers.append((b"content-length", str(length).encode("ascii")))
+    scope["headers"] = headers
+
+
+async def _send_http_json(
+    send: Send,
+    status_code: int,
+    data: dict[str, Any],
+    *,
+    www_authenticate: bool = False,
+) -> None:
+    """Send a structured JSON error response."""
+    body_bytes = json.dumps(data, separators=(",", ":")).encode("utf-8")
+    headers: list[tuple[bytes, bytes]] = [
+        (b"content-type", b"application/json"),
+        (b"content-length", str(len(body_bytes)).encode("ascii")),
+    ]
+    if www_authenticate:
+        headers.append((b"www-authenticate", b'Bearer error="invalid_token"'))
+
+    await send(
+        {
+            "type": "http.response.start",
+            "status": status_code,
+            "headers": headers,
+        }
+    )
+    await send(
+        {
+            "type": "http.response.body",
+            "body": body_bytes,
+            "more_body": False,
+        }
+    )
