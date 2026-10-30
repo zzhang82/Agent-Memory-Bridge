@@ -26,6 +26,7 @@ from .permissions import (
     extract_namespace_from_arguments,
     extract_record_id_for_tool,
     match_consumer_claim,
+    principal_consumer_prefix,
     resolve_record_claim,
     resolve_run_workspace,
 )
@@ -309,10 +310,10 @@ class EnterpriseGatewayMiddleware:
 
                     # RBAC Step 3: Record-Level Dereference for ID-based Operations
                     # Prevents cross-tenant mutation and unauthorized signal lease takeover
-                    if role != "admin":
-                        # 3a. Memories & Signals by record ID
-                        if record_id:
-                            status_res, target_ns, claimed_by = resolve_record_claim(self.db_path, str(record_id))
+                    claimed_by: str | None = None
+                    if record_id and self.db_path:
+                        status_res, target_ns, claimed_by = resolve_record_claim(self.db_path, str(record_id))
+                        if role != "admin":
                             if status_res == "error":
                                 duration_ms = (time.perf_counter() - start_time) * 1000
                                 err_msg = f"Authorization verification failed: authority database error for record '{record_id}'"
@@ -393,12 +394,19 @@ class EnterpriseGatewayMiddleware:
 
                                 # Check Signal lease ownership on extend_signal_lease and ack_signal
                                 if tool_name in ("extend_signal_lease", "ack_signal") and claimed_by is not None:
-                                    if not match_consumer_claim(claimed_by, principal_id):
+                                    if not match_consumer_claim(claimed_by, principal_id, role=role):
                                         duration_ms = (time.perf_counter() - start_time) * 1000
-                                        err_msg = (
-                                            f"Access denied: Signal '{record_id}' is claimed by another consumer "
-                                            f"('{claimed_by}') and cannot be operated on by principal '{principal_id}'"
-                                        )
+                                        if not claimed_by.startswith("amb:p:"):
+                                            err_msg = (
+                                                f"Access denied: Signal '{record_id}' has an unauthenticated or external lease "
+                                                f"('{claimed_by}') and cannot be operated on by non-admin principal '{principal_id}'. "
+                                                f"Wait for lease expiry or use admin credentials."
+                                            )
+                                        else:
+                                            err_msg = (
+                                                f"Access denied: Signal '{record_id}' is claimed by another consumer "
+                                                f"('{claimed_by}') and cannot be operated on by principal '{principal_id}'"
+                                            )
                                         record = AuditRecord(
                                             audit_id=audit_id,
                                             timestamp=current_iso_timestamp(),
@@ -421,7 +429,8 @@ class EnterpriseGatewayMiddleware:
                                         )
                                         return
 
-                        # 3b. Agent Runs by run_id
+                    # 3b. Agent Runs by run_id
+                    if role != "admin" and self.db_path:
                         run_id = None
                         if isinstance(arguments, dict):
                             run_id = arguments.get("run_id")
@@ -551,17 +560,14 @@ class EnterpriseGatewayMiddleware:
                             raw_consumer = (
                                 str(arguments.get("consumer", "")).strip() if "consumer" in arguments else None
                             )
-                            if claimed_by and not claimed_by.startswith("amb:p:"):
-                                # Legacy claim: preserve raw consumer to allow backward-compatible completion
-                                if raw_consumer:
-                                    arguments["consumer"] = raw_consumer
-                                elif claimed_by:
-                                    arguments["consumer"] = claimed_by
+                            if role == "admin" and claimed_by and not claimed_by.startswith("amb:p:"):
+                                # Admin operating on legacy un-prefixed claim: preserve raw/claimed consumer
+                                arguments["consumer"] = raw_consumer or claimed_by
                             else:
-                                # Gateway digest-prefixed claim
+                                # Standard gateway operation: encode with principal's digest
                                 if raw_consumer:
                                     arguments["consumer"] = encode_consumer(principal_id, raw_consumer)
-                                elif claimed_by:
+                                elif claimed_by and claimed_by.startswith(principal_consumer_prefix(principal_id)):
                                     arguments["consumer"] = claimed_by
                                 elif tool_name == "extend_signal_lease":
                                     arguments["consumer"] = encode_consumer(principal_id, None)

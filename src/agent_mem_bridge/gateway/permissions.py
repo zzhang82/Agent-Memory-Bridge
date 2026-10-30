@@ -253,17 +253,19 @@ def encode_consumer(principal_id: str, raw_consumer: str | None) -> str:
     return f"{prefix}{cleaned}" if cleaned else f"{prefix}{principal_id}"
 
 
-def match_consumer_claim(claimed_by: str | None, principal_id: str) -> bool:
-    """Verify if a claimed_by identifier belongs to the specified principal or is a legacy un-prefixed claim."""
+def match_consumer_claim(claimed_by: str | None, principal_id: str, role: str = "") -> bool:
+    """Verify if a claimed_by identifier belongs to the specified principal.
+
+    Admins have global management authority over all claims (including legacy/external claims).
+    Non-admin principals are strictly constrained to their own digest-prefixed leases ('amb:p:<digest>:').
+    External or un-prefixed claims cannot be operated on by non-admin principals (fail-closed).
+    """
     if not claimed_by:
         return False
+    if role == "admin":
+        return True
     prefix = principal_consumer_prefix(principal_id)
-    if claimed_by.startswith(prefix):
-        return True
-    # Legacy claim support: if not starting with "amb:p:", it was claimed prior to gateway deployment.
-    if not claimed_by.startswith("amb:p:"):
-        return True
-    return False
+    return claimed_by.startswith(prefix)
 
 
 def resolve_record_claim(db_path: Path | None, record_id: str) -> tuple[str, str | None, str | None]:

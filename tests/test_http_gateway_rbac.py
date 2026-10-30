@@ -1388,9 +1388,10 @@ def test_legacy_unprefixed_signal_lease_compatibility(tmp_path: Path, monkeypatc
 
     with TestClient(app) as client:
         orch_headers = _initialize_session(client, tokens["orchestrator"])
+        admin_headers = _initialize_session(client, tokens["admin"])
 
-        # Legacy lease extension succeeds using raw legacy consumer
-        resp_extend = client.post(
+        # 1. Non-admin orchestrator is blocked from hijacking unauthenticated/legacy claims
+        resp_extend_orch = client.post(
             "/mcp",
             json=_jsonrpc_call(
                 "extend_signal_lease",
@@ -1402,11 +1403,24 @@ def test_legacy_unprefixed_signal_lease_compatibility(tmp_path: Path, monkeypatc
             ),
             headers=orch_headers,
         )
-        assert resp_extend.status_code == 200
-        assert resp_extend.json()["result"]["isError"] is False
+        assert resp_extend_orch.status_code == 403
+        assert "unauthenticated or external lease" in resp_extend_orch.text
 
-        # Legacy ACK succeeds using raw legacy consumer
-        resp_ack = client.post(
+        resp_ack_orch = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "ack_signal",
+                {
+                    "id": legacy_sig_id,
+                },
+            ),
+            headers=orch_headers,
+        )
+        assert resp_ack_orch.status_code == 403
+        assert "unauthenticated or external lease" in resp_ack_orch.text
+
+        # 2. Administrator has global authority to safely complete legacy claims
+        resp_ack_admin = client.post(
             "/mcp",
             json=_jsonrpc_call(
                 "ack_signal",
@@ -1415,10 +1429,10 @@ def test_legacy_unprefixed_signal_lease_compatibility(tmp_path: Path, monkeypatc
                     "consumer": "legacy-worker-1",
                 },
             ),
-            headers=orch_headers,
+            headers=admin_headers,
         )
-        assert resp_ack.status_code == 200
-        assert resp_ack.json()["result"]["isError"] is False
+        assert resp_ack_admin.status_code == 200
+        assert resp_ack_admin.json()["result"]["isError"] is False
 
         with sqlite3.connect(store.db_path) as conn:
             sig_status = conn.execute("SELECT signal_status FROM memories WHERE id = ?", (legacy_sig_id,)).fetchone()[0]
