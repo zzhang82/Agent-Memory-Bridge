@@ -47,7 +47,15 @@ jobs:
           "$RUNNER_TEMP/amb-release-venv/bin/python" -m pip install dist/*.tar.gz
 
       - name: Prove installed distribution over stdio
-        run: >
-          python scripts/check_installed_distribution.py
-          --server-python "$RUNNER_TEMP/amb-release-venv/bin/python"
-          --expected-version 0.38.2
+        run: |
+          version="$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])")"
+          python scripts/check_installed_distribution.py \
+            --server-python "$RUNNER_TEMP/amb-release-venv/bin/python" \
+            --expected-version "$version"
+
+      - name: Check announcement and release contracts
+        run: |
+          python -m pip install -e ".[dev]"
+          python -m pytest tests/test_release_candidate.py tests/test_gateway_contract_docs.py -q
+          python scripts/check_release_contract.py
+          python scripts/check_release_version_pins.py

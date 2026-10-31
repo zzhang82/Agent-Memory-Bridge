@@ -49,6 +49,9 @@ jobs:
       - name: Run tests
         run: python -m pytest
 
+      - name: Check release version pins
+        run: python scripts/check_release_version_pins.py
+
       - name: Run release contract check
         run: python scripts/check_release_contract.py
 
@@ -168,18 +171,19 @@ jobs:
 
       - name: Verify installed wheel and sdist over stdio
         run: |
+          version="$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])")"
           python -m venv "$RUNNER_TEMP/amb-wheel-venv"
           "$RUNNER_TEMP/amb-wheel-venv/bin/python" -m pip install --upgrade pip
           "$RUNNER_TEMP/amb-wheel-venv/bin/python" -m pip install dist/*.whl
           python scripts/check_installed_distribution.py \
             --server-python "$RUNNER_TEMP/amb-wheel-venv/bin/python" \
-            --expected-version 0.38.2
+            --expected-version "$version"
           python -m venv "$RUNNER_TEMP/amb-sdist-venv"
           "$RUNNER_TEMP/amb-sdist-venv/bin/python" -m pip install --upgrade pip
           "$RUNNER_TEMP/amb-sdist-venv/bin/python" -m pip install dist/*.tar.gz
           python scripts/check_installed_distribution.py \
             --server-python "$RUNNER_TEMP/amb-sdist-venv/bin/python" \
-            --expected-version 0.38.2
+            --expected-version "$version"
 
       - name: Build hardened Docker runtime
         run: docker build --build-arg "VCS_REF=$GITHUB_SHA" --tag agent-memory-bridge:ci .
@@ -191,9 +195,10 @@ jobs:
 
       - name: Prove container replacement, HTTP authority and readiness negatives
         run: >
+          version="$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])")"
           python scripts/check_container_deployment.py
           --image agent-memory-bridge:ci
-          --expected-version 0.38.2 --expected-revision "$GITHUB_SHA"
+          --expected-version "$version" --expected-revision "$GITHUB_SHA"
           --runtime-dir "$RUNNER_TEMP/amb-container-acceptance"
 
   legacy-sdk-compat:
