@@ -194,12 +194,12 @@ jobs:
           docker run --rm agent-memory-bridge:ci python -c "import os; assert os.getuid() == 10001"
 
       - name: Prove container replacement, HTTP authority and readiness negatives
-        run: >
+        run: |
           version="$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])")"
-          python scripts/check_container_deployment.py
-          --image agent-memory-bridge:ci
-          --expected-version "$version" --expected-revision "$GITHUB_SHA"
-          --runtime-dir "$RUNNER_TEMP/amb-container-acceptance"
+          python scripts/check_container_deployment.py \
+            --image agent-memory-bridge:ci \
+            --expected-version "$version" --expected-revision "$GITHUB_SHA" \
+            --runtime-dir "$RUNNER_TEMP/amb-container-acceptance"
 
   legacy-sdk-compat:
     name: Compatibility / Python MCP 1.28.1 client

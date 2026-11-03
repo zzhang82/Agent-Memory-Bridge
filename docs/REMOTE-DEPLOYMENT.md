@@ -37,9 +37,12 @@ restrict the file to its owner, and grant it only to trusted clients.
 In the static single-token private-bearer profile, that one token grants the
 whole AMB tool surface, including mutation and export. This is not true of the
 optional gateway/RBAC deployment below: there, each token represents one
-configured principal and is limited by its role and `allowed_namespaces`. The
-mode follows the selected configuration, not the number of tokens. One token can
-still select gateway/RBAC. Local stdio does not use either HTTP profile.
+configured principal and is limited by its role and `allowed_namespaces`.
+An optional `allowed_record_types` list can further limit which record types
+that principal may `store`, `annotate`, or `revise`. The mode follows the
+selected configuration, not the number of tokens. One token can still select
+gateway/RBAC. Local stdio does not use either HTTP profile, and neither stdio
+nor the static single-token profile applies `allowed_record_types`.
 
 The private bearer profile uses MCP SDK verification/authentication middleware
 and standard HTTP bearer semantics. It does not implement an OAuth server,
@@ -81,6 +84,7 @@ Configure principals, token hashes, roles, and allowed namespace patterns:
       "token_hash": "sha256:c43bdeb6daa16e9dbd038fd9df9306376c51fd576e9cb6bea333d2c80df66036",
       "role": "writer",
       "allowed_namespaces": ["project:agent-memory-bridge", "domain:*"],
+      "allowed_record_types": ["gotcha"],
       "rate_limit_rpm": 120
     },
     {
@@ -108,6 +112,8 @@ python -c "import secrets, hashlib; t = secrets.token_hex(24); print('token:', t
 ```
 
 Pre-hashed tokens use SHA-256 (`sha256:<64-hex>`). In secure local configurations (mode 0600), plain `token` can also be provided directly, and AMB computes the hash at startup. Non-admin roles must explicitly declare their allowed namespaces; blanket `*` is reserved for administrators.
+
+`allowed_record_types` is optional. When it is omitted, the principal's role and namespace limits are unchanged. When it is set, it is a JSON array of record types, and `store`, `annotate`, and `revise` refuse a record type outside that list. `store` and a `revise` replacement are judged by the `record_type` declared in their content. `annotate` does not change content, so it is judged by the stored record's type. A stored record or write that declares no record type is outside any set list. The static single-token profile and local stdio do not read this field.
 
 ### 2. Role Permissions Matrix
 

@@ -251,6 +251,82 @@ def test_recall_flags_changed_repository_dependency(tmp_path: Path, monkeypatch)
     assert changed["items"][0]["recheck_reasons"] == ["depends_on_repo:changed:NOTES.md"]
 
 
+def test_annotate_records_dependency_confirmation_without_rewriting_content(tmp_path: Path, monkeypatch) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    note = repository / "NOTES.md"
+    note.write_text("fixture-old-port-1111\n", encoding="utf-8")
+    _git(repository, "init")
+    _git(repository, "config", "user.email", "recheck@example.test")
+    _git(repository, "config", "user.name", "Recheck Test")
+    _git(repository, "add", "NOTES.md")
+    _git(repository, "commit", "-m", "old port")
+    old_commit = _git(repository, "rev-parse", "HEAD").strip()
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    content = f"record_type: decision\ndepends_on_repo: NOTES.md@{old_commit}\nclaim: Use fixture-old-port-1111."
+    created = store.store(
+        namespace="project:recheck",
+        content=content,
+        kind="memory",
+        title="Repository port decision",
+    )
+    monkeypatch.chdir(repository)
+    note.write_text("fixture-current-port-2222\n", encoding="utf-8")
+    _git(repository, "add", "NOTES.md")
+    _git(repository, "commit", "-m", "new port")
+    confirmation_commit = _git(repository, "rev-parse", "HEAD").strip()
+
+    annotated = store.annotate(
+        created["id"],
+        tags=[f"confirmed_against:{confirmation_commit}"],
+        actor="reviewer",
+    )
+    confirmed = store.recall(namespace="project:recheck", query="fixture-old-port", limit=5)
+
+    assert annotated["changed"] is True
+    assert annotated["item"]["content"] == content
+    assert confirmed["items"][0]["content"] == content
+    assert confirmed["items"][0]["recheck_status"] == "current"
+    assert confirmed["items"][0]["recheck_reasons"] == []
+
+    note.write_text("fixture-later-port-3333\n", encoding="utf-8")
+    _git(repository, "add", "NOTES.md")
+    _git(repository, "commit", "-m", "later port")
+    drifted = store.recall(namespace="project:recheck", query="fixture-old-port", limit=5)
+    assert drifted["items"][0]["recheck_status"] == "needs_recheck"
+    assert drifted["items"][0]["recheck_reasons"] == ["depends_on_repo:changed:NOTES.md"]
+
+
+def test_dirty_repository_dependency_reports_unknown(tmp_path: Path, monkeypatch) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    note = repository / "NOTES.md"
+    note.write_text("fixture-old-port-1111\n", encoding="utf-8")
+    _git(repository, "init")
+    _git(repository, "config", "user.email", "recheck@example.test")
+    _git(repository, "config", "user.name", "Recheck Test")
+    _git(repository, "add", "NOTES.md")
+    _git(repository, "commit", "-m", "old port")
+    recorded_commit = _git(repository, "rev-parse", "HEAD").strip()
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    store.store(
+        namespace="project:recheck",
+        content=(
+            f"record_type: decision\ndepends_on_repo: NOTES.md@{recorded_commit}\nclaim: Use fixture-old-port-1111.\n"
+        ),
+        kind="memory",
+        title="Repository port decision",
+    )
+    monkeypatch.chdir(repository)
+    note.write_text("fixture-uncommitted-port-9999\n", encoding="utf-8")
+
+    dirty = store.recall(namespace="project:recheck", query="fixture-old-port", limit=5)
+
+    assert dirty["items"][0]["recheck_status"] == "unknown"
+    assert dirty["items"][0]["recheck_reasons"] == []
+    assert "fixture-uncommitted-port-9999" in note.read_text(encoding="utf-8")
+
+
 def _git(repository: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", "-C", str(repository), *args],

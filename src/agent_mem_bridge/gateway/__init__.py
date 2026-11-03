@@ -14,6 +14,7 @@ from .permissions import (
     ROLE_PERMISSIONS,
     WRITER,
     check_namespace_permission,
+    check_record_type_permission,
     check_tool_permission,
     encode_consumer,
     extract_namespace_from_arguments,
@@ -23,6 +24,7 @@ from .permissions import (
     principal_consumer_prefix,
     resolve_record_claim,
     resolve_record_namespace,
+    resolve_record_type,
     resolve_run_workspace,
 )
 
@@ -42,6 +44,7 @@ __all__ = [
     "RateLimiter",
     "WRITER",
     "check_namespace_permission",
+    "check_record_type_permission",
     "check_tool_permission",
     "current_iso_timestamp",
     "encode_consumer",
@@ -54,6 +57,7 @@ __all__ = [
     "principal_consumer_prefix",
     "resolve_record_claim",
     "resolve_record_namespace",
+    "resolve_record_type",
     "resolve_run_workspace",
     "summarize_arguments",
     "summarize_output",

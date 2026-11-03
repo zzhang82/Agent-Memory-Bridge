@@ -13,7 +13,25 @@ from typing import Any
 
 from mcp.server.auth.middleware.bearer_auth import AccessToken
 
+from ..record_projection import RECORD_TYPE_RE
 from .permissions import ALL_ROLES
+
+
+def _load_allowed_record_types(raw: Any, principal_id: str) -> tuple[str, ...] | None:
+    """Parse an optional record-type allowlist. Absent means unrestricted."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        raise ValueError(
+            f"Principal '{principal_id}' 'allowed_record_types' must be a JSON array of strings, "
+            f"got {type(raw).__name__}"
+        )
+    cleaned = tuple(str(record_type).strip() for record_type in raw)
+    if any(not record_type for record_type in cleaned):
+        raise ValueError(f"Principal '{principal_id}' 'allowed_record_types' contains an empty record type")
+    if len(cleaned) != len(set(cleaned)):
+        raise ValueError(f"Principal '{principal_id}' 'allowed_record_types' contains duplicates")
+    return cleaned
 
 
 def hash_token(token: str) -> str:
@@ -32,6 +50,7 @@ class Principal:
     role: str
     allowed_namespaces: tuple[str, ...] = ("*",)
     rate_limit_rpm: int = 0
+    allowed_record_types: tuple[str, ...] | None = None
 
     def validate(self) -> None:
         if not self.principal_id or not self.principal_id.strip():
@@ -64,6 +83,14 @@ class Principal:
                 )
         if self.rate_limit_rpm < 0:
             raise ValueError(f"rate_limit_rpm for '{self.principal_id}' must be non-negative")
+        if self.allowed_record_types is not None:
+            if not self.allowed_record_types:
+                raise ValueError(f"allowed_record_types for '{self.principal_id}' cannot be empty")
+            for record_type in self.allowed_record_types:
+                if RECORD_TYPE_RE.fullmatch(record_type) is None:
+                    raise ValueError(
+                        f"allowed_record_types for '{self.principal_id}' contains invalid record type '{record_type}'"
+                    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,6 +189,7 @@ def load_gateway_config(source: str | Path | dict[str, Any]) -> GatewayConfig:
             )
 
         rate_limit_rpm = int(item.get("rate_limit_rpm", 0))
+        allowed_record_types = _load_allowed_record_types(item.get("allowed_record_types"), principal_id)
 
         principal = Principal(
             principal_id=principal_id,
@@ -169,6 +197,7 @@ def load_gateway_config(source: str | Path | dict[str, Any]) -> GatewayConfig:
             role=role,
             allowed_namespaces=allowed_namespaces,
             rate_limit_rpm=rate_limit_rpm,
+            allowed_record_types=allowed_record_types,
         )
         principals.append(principal)
 
@@ -238,5 +267,8 @@ class MultiTokenVerifier:
                 "role": matched.role,
                 "allowed_namespaces": list(matched.allowed_namespaces),
                 "rate_limit_rpm": matched.rate_limit_rpm,
+                "allowed_record_types": (
+                    None if matched.allowed_record_types is None else list(matched.allowed_record_types)
+                ),
             },
         )
