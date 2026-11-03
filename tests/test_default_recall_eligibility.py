@@ -47,6 +47,37 @@ def _actionable_ids(report: dict[str, Any]) -> list[str]:
     return actionables
 
 
+@pytest.mark.parametrize("relation", ["supersedes", "contradicts"])
+def test_default_recall_suppresses_current_relation_targets_but_historical_returns_them(
+    tmp_path: Path,
+    relation: str,
+) -> None:
+    store = _store(tmp_path)
+    shared_query = "service listen port"
+    target = store.store(
+        namespace="project:checkout",
+        title="Legacy service port",
+        content=f"claim: The {shared_query} is 1111.\n",
+    )
+    current = store.store(
+        namespace="project:checkout",
+        title="Current service port",
+        content=(f"claim: The {shared_query} is 2222.\n{relation}: {target['id']}\n"),
+    )
+
+    default_recall = store.recall(namespace="project:checkout", query=shared_query, limit=5)
+    historical_recall = store.recall(
+        namespace="project:checkout",
+        query=shared_query,
+        limit=5,
+        eligibility="historical",
+    )
+
+    assert _ids(default_recall) == [str(current["id"])]
+    assert str(target["id"]) in _ids(historical_recall)
+    assert default_recall["retrieval"]["suppression_reason_counts"] == {relation: 1}
+
+
 def test_default_recall_hides_revision_predecessors_but_historical_access_and_direct_lookup_remain(
     tmp_path: Path,
 ) -> None:

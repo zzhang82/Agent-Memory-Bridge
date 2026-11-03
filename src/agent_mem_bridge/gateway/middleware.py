@@ -17,10 +17,13 @@ from typing import Any
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from ..record_projection import build_record_projection
 from .audit import AuditEmitter, AuditRecord, current_iso_timestamp, summarize_arguments, summarize_output
 from .auth import GatewayConfig, MultiTokenVerifier
 from .permissions import (
+    RECORD_TYPE_TOOLS,
     check_namespace_permission,
+    check_record_type_permission,
     check_tool_permission,
     encode_consumer,
     extract_namespace_from_arguments,
@@ -28,6 +31,7 @@ from .permissions import (
     match_consumer_claim,
     principal_consumer_prefix,
     resolve_record_claim,
+    resolve_record_type,
     resolve_run_workspace,
 )
 
@@ -84,6 +88,7 @@ class EnterpriseGatewayMiddleware:
             claims = access_token.claims or {}
             allowed_namespaces = tuple(claims.get("allowed_namespaces", ()))
             rate_limit_rpm = int(claims.get("rate_limit_rpm", 0))
+            allowed_record_types = _record_types_from_claims(claims)
         else:
             # Fallback to direct Bearer token verification
             auth_header_val: str | None = None
@@ -147,6 +152,7 @@ class EnterpriseGatewayMiddleware:
             claims = verified_token.claims or {}
             allowed_namespaces = tuple(claims.get("allowed_namespaces", ()))
             rate_limit_rpm = int(claims.get("rate_limit_rpm", 0))
+            allowed_record_types = _record_types_from_claims(claims)
 
         # 2. Rate limiting check
         if rate_limit_rpm > 0 and not self.verifier.rate_limiter.is_allowed(principal_id, rate_limit_rpm):
@@ -283,6 +289,40 @@ class EnterpriseGatewayMiddleware:
                             {"error": "forbidden", "error_description": tool_err},
                         )
                         return
+
+                    # RBAC Step 1b: Optional record-type restriction for store, annotate, and revise.
+                    # Unset means unrestricted, including records that declare no record type.
+                    if tool_name in RECORD_TYPE_TOOLS and allowed_record_types is not None:
+                        type_err = _record_type_denial(
+                            tool_name or "",
+                            arguments if isinstance(arguments, dict) else None,
+                            record_id,
+                            allowed_record_types,
+                            self.db_path,
+                        )
+                        if type_err:
+                            duration_ms = (time.perf_counter() - start_time) * 1000
+                            record = AuditRecord(
+                                audit_id=audit_id,
+                                timestamp=current_iso_timestamp(),
+                                request_id=request_id,
+                                principal_id=principal_id,
+                                client_ip=client_ip,
+                                transport=transport,
+                                tool=tool_name,
+                                namespace=namespace,
+                                status="denied_forbidden",
+                                duration_ms=duration_ms,
+                                arguments_summary=arguments_summary,
+                                error_message=type_err,
+                            )
+                            self.audit_emitter.emit(record)
+                            await _send_http_json(
+                                send,
+                                403,
+                                {"error": "forbidden", "error_description": type_err},
+                            )
+                            return
 
                     # RBAC Step 2: Namespace check for tools with explicit namespace arguments
                     ns_ok, ns_err = check_namespace_permission(allowed_namespaces, namespace)
@@ -751,6 +791,69 @@ class EnterpriseGatewayMiddleware:
             output_summary=output_summary,
         )
         self.audit_emitter.emit(record)
+
+
+def _record_types_from_claims(claims: dict[str, Any]) -> tuple[str, ...] | None:
+    """Read the optional allowlist. A missing claim means unrestricted."""
+    raw = claims.get("allowed_record_types")
+    if raw is None:
+        return None
+    if isinstance(raw, (tuple, list)):
+        return tuple(str(record_type) for record_type in raw)
+    return ()
+
+
+def _declared_record_type(content: str | None) -> str | None:
+    """Read record_type the same way durable projection does, without writing."""
+    if not isinstance(content, str):
+        return None
+    return build_record_projection(
+        content=content,
+        tags=[],
+        kind="memory",
+        actor=None,
+        source_app=None,
+        is_learning_candidate=False,
+    ).metadata.record_type
+
+
+def _record_type_denial(
+    tool_name: str,
+    arguments: dict[str, Any] | None,
+    record_id: str | None,
+    allowed_record_types: tuple[str, ...],
+    db_path: Path,
+) -> str | None:
+    """Return a refusal when a restricted principal targets a disallowed type.
+
+    ``store`` is judged by its content. ``annotate`` cannot change content, so
+    it is judged by the stored record. ``revise`` must keep both the stored
+    record and the replacement content inside the allowlist.
+    """
+    if tool_name == "store":
+        record_type = _declared_record_type(None if arguments is None else arguments.get("content"))
+        _ok, error = check_record_type_permission(allowed_record_types, record_type)
+        return error
+
+    if tool_name not in ("annotate", "revise"):
+        return None
+
+    if not record_id:
+        return "Authorization verification failed: record id is required to verify record type"
+    status, stored_type = resolve_record_type(db_path, record_id)
+    if status == "error":
+        return f"Authorization verification failed: authority database error for record '{record_id}'"
+    if status == "not_found":
+        return f"Access denied: Record '{record_id}' not found in allowed scope"
+    _ok, error = check_record_type_permission(allowed_record_types, stored_type)
+    if error:
+        return error
+    if tool_name == "revise":
+        replacement = None if arguments is None else arguments.get("replacement_content")
+        replacement_type = _declared_record_type(replacement if isinstance(replacement, str) else None)
+        _ok, error = check_record_type_permission(allowed_record_types, replacement_type)
+        return error
+    return None
 
 
 def _extract_client_ip(scope: Scope) -> str | None:

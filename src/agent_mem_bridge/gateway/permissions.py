@@ -101,6 +101,29 @@ def check_tool_permission(role: str, tool_name: str) -> tuple[bool, str | None]:
     return True, None
 
 
+RECORD_TYPE_TOOLS: frozenset[str] = frozenset({"store", "annotate", "revise"})
+
+
+def check_record_type_permission(
+    allowed_record_types: tuple[str, ...] | None,
+    record_type: str | None,
+) -> tuple[bool, str | None]:
+    """Verify a declared record type against an optional principal allowlist.
+
+    ``None`` means the principal has no record-type restriction. A restricted
+    principal may only write a type that is explicitly listed.
+    """
+    if allowed_record_types is None:
+        return True, None
+    if record_type in allowed_record_types:
+        return True, None
+    presented = "none" if record_type is None else f"'{record_type}'"
+    return (
+        False,
+        f"Record type {presented} is not permitted for principal (allowed: {list(allowed_record_types)})",
+    )
+
+
 def check_namespace_permission(
     allowed_namespaces: tuple[str, ...],
     namespace: str | None,
@@ -266,6 +289,34 @@ def match_consumer_claim(claimed_by: str | None, principal_id: str, role: str = 
         return True
     prefix = principal_consumer_prefix(principal_id)
     return claimed_by.startswith(prefix)
+
+
+def resolve_record_type(db_path: Path | None, record_id: str) -> tuple[str, str | None]:
+    """Resolve the stored record type of a memory by its ID.
+
+    Returns ('found', record_type), ('not_found', None), or ('error', error_details).
+    A found memory with no record type returns ('found', None).
+    """
+    if db_path is None or not db_path.is_file() or not record_id:
+        return "error", "Database file is missing or invalid"
+    try:
+        uri = f"{db_path.resolve().as_uri()}?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=2.0) as conn:
+            cursor = conn.execute(
+                """
+                SELECT memory_metadata.record_type
+                FROM memories
+                LEFT JOIN memory_metadata ON memory_metadata.memory_id = memories.id
+                WHERE memories.id = ?
+                """,
+                (record_id,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return "not_found", None
+            return "found", (str(row[0]) if row[0] is not None else None)
+    except (sqlite3.Error, OSError) as exc:
+        return "error", str(exc)
 
 
 def resolve_record_claim(db_path: Path | None, record_id: str) -> tuple[str, str | None, str | None]:

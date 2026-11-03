@@ -14,12 +14,14 @@ def dependency_recheck_status(
     *,
     records_by_id: dict[str, dict[str, Any]],
     repository_root: Path | None = None,
+    confirmation_commits: list[str] | None = None,
 ) -> dict[str, Any]:
     """Return a read-time status without revising or hiding the decision.
 
     Memory dependencies use existing record lifecycle fields. Repository
     dependencies use ``depends_on_repo: path@commit`` and require a clean Git
-    checkout. Missing Git state is ``unknown``, never ``current``.
+    checkout. A recorded confirmation commit replaces the stored dependency
+    commit. Missing or dirty Git state is ``unknown``, never ``current``.
     """
 
     metadata = parse_relation_metadata(content)
@@ -38,15 +40,21 @@ def dependency_recheck_status(
     if references and repository_root is None:
         unknown = True
     elif references:
-        snapshot = _repository_snapshot(repository_root or Path())
-        if snapshot is None:
+        root = repository_root or Path()
+        snapshot = _repository_snapshot(root)
+        if snapshot is None or _repository_is_dirty(root, [path for path, _commit in references]):
             unknown = True
         else:
+            confirmed_commit = next(
+                (commit for commit in reversed(confirmation_commits or []) if _is_commit(commit)),
+                None,
+            )
             for path, recorded_commit in references:
-                if not _path_exists_at(repository_root or Path(), recorded_commit, path):
+                baseline = confirmed_commit or recorded_commit
+                if not _path_exists_at(root, baseline, path):
                     unknown = True
                     continue
-                if _path_changed(repository_root or Path(), recorded_commit, snapshot["head"], path):
+                if _path_changed(root, baseline, snapshot["head"], path):
                     reasons.append(f"depends_on_repo:changed:{path}")
 
     status = "needs_recheck" if reasons else "unknown" if unknown else "current"
@@ -73,6 +81,21 @@ def _repository_snapshot(root: Path) -> dict[str, str] | None:
     if head is None:
         return None
     return {"head": head.strip()}
+
+
+def _repository_is_dirty(root: Path, paths: list[str]) -> bool:
+    """True when a declared dependency has uncommitted content or an unmerged stage.
+
+    A clean checkout returns no output. Git failures stay unknown, matching a
+    missing repository rather than reporting the recorded commit as current.
+    """
+
+    for path in paths:
+        unstaged = _git(root, "diff", "--name-only", "--", path)
+        staged = _git(root, "diff", "--cached", "--name-only", "--", path)
+        if unstaged is None or staged is None or unstaged.strip() or staged.strip():
+            return True
+    return False
 
 
 def _path_exists_at(root: Path, commit: str, path: str) -> bool:

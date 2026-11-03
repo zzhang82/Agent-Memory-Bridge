@@ -139,6 +139,7 @@ def test_gateway_config_loading_and_validation(tmp_path: Path) -> None:
     assert cfg.principals[0].role == "writer"
     assert cfg.principals[0].allowed_namespaces == ("project:test",)
     assert cfg.principals[0].rate_limit_rpm == 60
+    assert cfg.principals[0].allowed_record_types is None
 
     # Test file loading
     cfg_file = tmp_path / "amb_tokens.json"
@@ -204,6 +205,66 @@ def test_gateway_config_loading_and_validation(tmp_path: Path) -> None:
             {
                 "principals": [
                     {"principal_id": "p1", "token": "t1", "role": "writer", "allowed_namespaces": ["*"]},
+                ]
+            }
+        )
+
+    restricted = load_gateway_config(
+        {
+            "principals": [
+                {
+                    "principal_id": "agent:gotcha-writer",
+                    "token": "restricted-token",
+                    "role": "writer",
+                    "allowed_namespaces": ["project:test"],
+                    "allowed_record_types": ["gotcha"],
+                }
+            ]
+        }
+    )
+    assert restricted.principals[0].allowed_record_types == ("gotcha",)
+
+    with pytest.raises(ValueError, match="must be a JSON array of strings"):
+        load_gateway_config(
+            {
+                "principals": [
+                    {
+                        "principal_id": "p1",
+                        "token": "t1",
+                        "role": "writer",
+                        "allowed_namespaces": ["project:test"],
+                        "allowed_record_types": "gotcha",
+                    },
+                ]
+            }
+        )
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        load_gateway_config(
+            {
+                "principals": [
+                    {
+                        "principal_id": "p1",
+                        "token": "t1",
+                        "role": "writer",
+                        "allowed_namespaces": ["project:test"],
+                        "allowed_record_types": [],
+                    },
+                ]
+            }
+        )
+
+    with pytest.raises(ValueError, match="invalid record type"):
+        load_gateway_config(
+            {
+                "principals": [
+                    {
+                        "principal_id": "p1",
+                        "token": "t1",
+                        "role": "writer",
+                        "allowed_namespaces": ["project:test"],
+                        "allowed_record_types": ["Gotcha"],
+                    },
                 ]
             }
         )
@@ -1762,6 +1823,188 @@ def test_admin_can_manage_other_principal_gateway_leases(tmp_path: Path, monkeyp
         with sqlite3.connect(store.db_path) as conn:
             sig_status = conn.execute("SELECT signal_status FROM memories WHERE id = ?", (sig_id,)).fetchone()[0]
             assert sig_status == "acked"
+
+
+def _gateway_app(store: MemoryStore, principals: list[dict[str, Any]]):
+    return build_http_app(
+        HttpTransportConfig(
+            allowed_hosts=("testserver",),
+            allowed_origins=("http://testserver",),
+            auth_mode="rbac",
+            gateway_config_json=json.dumps({"principals": principals}),
+        ),
+        store=store,
+    )
+
+
+def _writer_principal(
+    principal_id: str,
+    token: str,
+    *,
+    allowed_record_types: list[str] | None = None,
+) -> dict[str, Any]:
+    principal: dict[str, Any] = {
+        "principal_id": principal_id,
+        "token": token,
+        "role": "writer",
+        "allowed_namespaces": ["project:allowed-proj"],
+    }
+    if allowed_record_types is not None:
+        principal["allowed_record_types"] = allowed_record_types
+    return principal
+
+
+def test_writer_allowed_record_types_limits_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    limited_token = "limited-writer-token-12345678"
+    open_token = "open-writer-token-123456789"
+    app = _gateway_app(
+        store,
+        [
+            _writer_principal("agent:gotcha-writer", limited_token, allowed_record_types=["gotcha"]),
+            _writer_principal("agent:open-writer", open_token),
+        ],
+    )
+
+    with TestClient(app) as client:
+        limited_headers = _initialize_session(client, limited_token)
+        allowed = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "store",
+                {
+                    "namespace": "project:allowed-proj",
+                    "content": "record_type: gotcha\nclaim: Keep the gateway check in middleware.\n",
+                    "title": "Allowed gotcha",
+                },
+            ),
+            headers=limited_headers,
+        )
+        assert allowed.status_code == 200
+        assert allowed.json()["result"]["isError"] is False
+
+        refused = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "store",
+                {
+                    "namespace": "project:allowed-proj",
+                    "content": "record_type: constraint\nclaim: Do not store this.\n",
+                    "title": "Refused constraint",
+                },
+                req_id=2,
+            ),
+            headers=limited_headers,
+        )
+        assert refused.status_code == 403
+        assert "constraint" in refused.text
+
+        open_headers = _initialize_session(client, open_token)
+        open_gotcha = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "store",
+                {
+                    "namespace": "project:allowed-proj",
+                    "content": "record_type: gotcha\nclaim: An unrestricted writer can store a gotcha.\n",
+                    "title": "Open gotcha",
+                },
+                req_id=3,
+            ),
+            headers=open_headers,
+        )
+        open_constraint = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "store",
+                {
+                    "namespace": "project:allowed-proj",
+                    "content": "record_type: constraint\nclaim: An unrestricted writer can store a constraint.\n",
+                    "title": "Open constraint",
+                },
+                req_id=4,
+            ),
+            headers=open_headers,
+        )
+        assert open_gotcha.status_code == 200
+        assert open_constraint.status_code == 200
+
+    stored = store.recall("project:allowed-proj", query="", limit=10)
+    stored_types = {item["record_type"] for item in stored["items"]}
+    assert stored_types == {"gotcha", "constraint"}
+    assert sum(item["record_type"] == "constraint" for item in stored["items"]) == 1
+
+
+def test_writer_allowed_record_types_limits_annotate_and_revise(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    limited_token = "limited-writer-token-12345678"
+    app = _gateway_app(
+        store,
+        [_writer_principal("agent:gotcha-writer", limited_token, allowed_record_types=["gotcha"])],
+    )
+    gotcha = store.store(
+        namespace="project:allowed-proj",
+        content="record_type: gotcha\nclaim: Existing gotcha.\n",
+        kind="memory",
+        title="Stored gotcha",
+    )
+    constraint = store.store(
+        namespace="project:allowed-proj",
+        content="record_type: constraint\nclaim: Existing constraint.\n",
+        kind="memory",
+        title="Stored constraint",
+    )
+
+    with TestClient(app) as client:
+        headers = _initialize_session(client, limited_token)
+        annotated = client.post(
+            "/mcp",
+            json=_jsonrpc_call("annotate", {"id": gotcha["id"], "title": "Annotated gotcha"}),
+            headers=headers,
+        )
+        refused_annotate = client.post(
+            "/mcp",
+            json=_jsonrpc_call("annotate", {"id": constraint["id"], "title": "Annotated constraint"}, req_id=2),
+            headers=headers,
+        )
+        revised = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "revise",
+                {
+                    "id": gotcha["id"],
+                    "replacement_content": "record_type: gotcha\nclaim: Revised gotcha.\n",
+                    "reason": "Still a gotcha",
+                },
+                req_id=3,
+            ),
+            headers=headers,
+        )
+        refused_revise = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "revise",
+                {
+                    "id": gotcha["id"],
+                    "replacement_content": "record_type: constraint\nclaim: Revised into a constraint.\n",
+                    "reason": "Type change",
+                },
+                req_id=4,
+            ),
+            headers=headers,
+        )
+
+    assert annotated.status_code == 200
+    assert annotated.json()["result"]["isError"] is False
+    assert refused_annotate.status_code == 403
+    assert revised.status_code == 200
+    assert revised.json()["result"]["isError"] is False
+    assert refused_revise.status_code == 403
+    assert "constraint" in refused_revise.text
+    current = store.recall("project:allowed-proj", query="Revised", limit=10)
+    assert all(item["record_type"] != "constraint" or item["id"] == constraint["id"] for item in current["items"])
 
 
 def test_middleware_initialization_requires_db_path() -> None:

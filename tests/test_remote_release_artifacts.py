@@ -17,6 +17,10 @@ def test_workflows_parse_and_require_http_deployment_checks() -> None:
     ci = (ROOT / ".github/workflows/ci.yml").read_text()
     compat = (ROOT / ".github/workflows/mcp-compat.yml").read_text()
     assert "scripts/check_container_deployment.py" in ci
+    container_step = ci.split("Prove container replacement", 1)[1].split("- name:", 1)[0]
+    assert "run: |" in container_step
+    assert 'version="$(' in container_step
+    assert "--expected-version" in container_step.split('version="$(', 1)[1]
     assert "scripts/check_http_deployment.py" in ci
     assert compat.count("scripts/check_http_deployment.py") == 2
     assert "python-mcp-compat," in ci

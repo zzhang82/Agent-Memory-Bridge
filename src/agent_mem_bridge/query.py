@@ -1154,13 +1154,29 @@ def _recheck_fields(
             states.update(_dependency_states(owned, target_ids))
     elif connection is not None and target_ids:
         states.update(_dependency_states(connection, target_ids))
-        print("RECHECK", target_ids, states, connection.in_transaction)
     repository_root = Path.cwd() if "depends_on_repo:" in memory.content else None
     return dependency_recheck_status(
         memory.content,
         records_by_id=states,
         repository_root=repository_root,
+        confirmation_commits=_confirmation_commits(memory),
     )
+
+
+def _confirmation_commits(memory: MemoryRow) -> list[str]:
+    """Read confirmation commits from annotation tags, oldest confirmation first.
+
+    ``confirmed_against:<commit>`` is caller metadata, not a reserved policy tag,
+    so annotate can record it without rewriting the decision content.
+    """
+
+    commits: list[str] = []
+    for annotation in memory.annotations:
+        for tag in annotation.get("added_tags") or []:
+            prefix, separator, commit = str(tag).partition(":")
+            if separator and prefix == "confirmed_against" and commit:
+                commits.append(commit)
+    return commits
 
 
 def _dependency_states(

@@ -40,6 +40,7 @@ from .recall_eligibility import (
     filter_default_recall_candidates,
     normalize_recall_eligibility,
     recall_eligibility_suppresses_procedures,
+    recall_eligibility_suppresses_relation_targets,
 )
 from .relation_metadata import parse_relation_metadata
 from .repository import (
@@ -118,6 +119,7 @@ def _collect_default_recall_items(
         return fetch_candidates(set())[:limit]
 
     suppress_ineligible_procedures = recall_eligibility_suppresses_procedures(eligibility)
+    suppress_relation_targets = recall_eligibility_suppresses_relation_targets(eligibility)
     eligible: list[dict[str, Any]] = []
     excluded_ids: set[str] = set()
     suppression_reason_counts: dict[str, int] = {}
@@ -131,6 +133,7 @@ def _collect_default_recall_items(
             candidates,
             connection=connection,
             suppress_ineligible_procedures=suppress_ineligible_procedures,
+            suppress_relation_targets=suppress_relation_targets,
         )
         for reason, count in batch_reason_counts.items():
             suppression_reason_counts[reason] = suppression_reason_counts.get(reason, 0) + count
