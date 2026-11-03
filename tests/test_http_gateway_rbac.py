@@ -2090,7 +2090,34 @@ def test_non_admin_annotate_and_revise_require_stored_actor(tmp_path: Path, monk
         owner_successor = store.recall("project:allowed-proj", query="Writer A revised")["items"][0]["id"]
         assert owner_successor != memory_id
 
+        owner_annotate = client.post(
+            "/mcp",
+            json=_jsonrpc_call("annotate", {"id": owner_successor, "title": "Writer A annotation"}, req_id=7),
+            headers=writer_a,
+        )
+        assert owner_annotate.status_code == 200
+        assert owner_annotate.json()["result"]["isError"] is False
+        assert (
+            store.recall("project:allowed-proj", query="Writer A revised")["items"][0]["title"] == "Writer A annotation"
+        )
+
         admin = _initialize_session(client, admin_token)
+        admin_annotate = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "annotate",
+                {"id": owner_successor, "title": "Admin annotation of writer A"},
+                req_id=8,
+            ),
+            headers=admin,
+        )
+        assert admin_annotate.status_code == 200
+        assert admin_annotate.json()["result"]["isError"] is False
+        assert (
+            store.recall("project:allowed-proj", query="Writer A revised")["items"][0]["title"]
+            == "Admin annotation of writer A"
+        )
+
         admin_revise = client.post(
             "/mcp",
             json=_jsonrpc_call(
@@ -2123,11 +2150,27 @@ def test_non_admin_annotate_and_revise_require_stored_actor(tmp_path: Path, monk
         )
         assert empty_actor.status_code == 403
         assert "not owned by principal" in empty_actor.text
+        empty_actor_revise = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "revise",
+                {
+                    "id": unowned["id"],
+                    "replacement_content": "record_type: decision\nclaim: Writer A claimed the unowned decision.\n",
+                    "reason": "Claim unowned",
+                },
+                req_id=9,
+            ),
+            headers=writer_a,
+        )
+        assert empty_actor_revise.status_code == 403
+        assert "not owned by principal" in empty_actor_revise.text
 
     recalled = store.recall("project:allowed-proj", query="", limit=10)
     contents = [item["content"] for item in recalled["items"]]
     assert any("Admin revised writer A's decision." in content for content in contents)
     assert all("Writer B rewrote it." not in content for content in contents)
+    assert all("Writer A claimed the unowned decision." not in content for content in contents)
     with sqlite3.connect(store.db_path) as conn:
         owner_row = conn.execute(
             "SELECT content, actor FROM memories WHERE id = ?",
