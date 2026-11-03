@@ -136,6 +136,7 @@ operation is additionally filtered by `allowed_namespaces`.
 
 - **Namespace limits**: Wildcard patterns (`project:*`, `domain:*`, `*`, exact match) block cross-namespace reads and writes. Out-of-scope calls fail closed with HTTP 403 Forbidden.
 - **Actor Binding**: In gateway RBAC mode, the gateway overrides the top-level `actor` for `store`, `annotate` and `revise`, and `provenance.actor` for `feedback`, with the caller's verified `principal_id`, whatever name the caller sends. A caller can't write under another principal's name. It identifies the configured principal, not the person or model behind it.
+- **Memory ownership**: In gateway RBAC mode, a non-admin principal may `annotate` or `revise` a memory only when that memory's stored `actor` equals the caller's `principal_id`. An admin may `annotate` or `revise` another principal's memory. A memory with an empty stored `actor` is not owned by the caller and is refused for a non-admin. This check applies to `annotate` and `revise` only. Stdio and the static single-token profile do not apply it.
 
 ### 4. Structured audit logging (JSONL)
 
