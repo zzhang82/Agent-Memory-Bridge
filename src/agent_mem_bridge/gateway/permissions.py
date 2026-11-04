@@ -338,6 +338,39 @@ def resolve_record_claim(db_path: Path | None, record_id: str) -> tuple[str, str
         return "error", str(exc), None
 
 
+def resolve_memory_actor(db_path: Path | None, record_id: str) -> tuple[str, str | None]:
+    """Resolve the stored actor of a memory by its ID.
+
+    Returns ('found', actor), ('not_found', None), or ('error', error_details).
+    A found memory with a missing or blank actor returns ('found', None).
+    """
+    if db_path is None or not db_path.is_file() or not record_id:
+        return "error", "Database file is missing or invalid"
+    try:
+        uri = f"{db_path.resolve().as_uri()}?mode=ro"
+        with sqlite3.connect(uri, uri=True, timeout=2.0) as conn:
+            cursor = conn.execute("SELECT actor FROM memories WHERE id = ?", (record_id,))
+            row = cursor.fetchone()
+            if row is None:
+                return "not_found", None
+            actor = str(row[0]).strip() if row[0] is not None else ""
+            return "found", (actor or None)
+    except (sqlite3.Error, OSError) as exc:
+        return "error", str(exc)
+
+
+def memory_actor_owned_by(actor: str | None, principal_id: str, role: str) -> bool:
+    """Return whether this caller may annotate or revise a memory with this actor.
+
+    An admin may change any memory. Any other role may change a memory only when
+    its stored actor equals that caller's principal_id. A missing or blank actor
+    is not owned by the caller.
+    """
+    if role == ADMIN:
+        return True
+    return bool(actor) and actor == principal_id
+
+
 def resolve_record_namespace(db_path: Path | None, record_id: str) -> tuple[str, str | None]:
     """Resolve the authoritative namespace of a stored record by its ID with explicit status.
 

@@ -1949,12 +1949,14 @@ def test_writer_allowed_record_types_limits_annotate_and_revise(
         content="record_type: gotcha\nclaim: Existing gotcha.\n",
         kind="memory",
         title="Stored gotcha",
+        actor="agent:gotcha-writer",
     )
     constraint = store.store(
         namespace="project:allowed-proj",
         content="record_type: constraint\nclaim: Existing constraint.\n",
         kind="memory",
         title="Stored constraint",
+        actor="agent:gotcha-writer",
     )
 
     with TestClient(app) as client:
@@ -2005,6 +2007,179 @@ def test_writer_allowed_record_types_limits_annotate_and_revise(
     assert "constraint" in refused_revise.text
     current = store.recall("project:allowed-proj", query="Revised", limit=10)
     assert all(item["record_type"] != "constraint" or item["id"] == constraint["id"] for item in current["items"])
+
+
+def test_non_admin_annotate_and_revise_require_stored_actor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = _isolated_store(tmp_path, monkeypatch)
+    writer_a_token = "writer-a-token-1234567890"
+    writer_b_token = "writer-b-token-1234567890"
+    admin_token = "admin-owner-token-123456789"
+    app = _gateway_app(
+        store,
+        [
+            _writer_principal("agent:writer-a", writer_a_token),
+            _writer_principal("agent:writer-b", writer_b_token),
+            {
+                "principal_id": "agent:admin-operator",
+                "token": admin_token,
+                "role": "admin",
+                "allowed_namespaces": ["*"],
+            },
+        ],
+    )
+
+    with TestClient(app) as client:
+        writer_a = _initialize_session(client, writer_a_token)
+        stored = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "store",
+                {
+                    "namespace": "project:allowed-proj",
+                    "content": "record_type: decision\nclaim: Writer A owns this decision.\n",
+                    "title": "Writer A decision",
+                    "actor": "agent:someone-else",
+                },
+            ),
+            headers=writer_a,
+        )
+        assert stored.status_code == 200
+        assert stored.json()["result"]["isError"] is False
+        memory_id = store.recall("project:allowed-proj", query="Writer A owns")["items"][0]["id"]
+        assert store.recall("project:allowed-proj", query="")["items"][0]["actor"] == "agent:writer-a"
+
+        writer_b = _initialize_session(client, writer_b_token)
+        refused_revise = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "revise",
+                {
+                    "id": memory_id,
+                    "replacement_content": "record_type: decision\nclaim: Writer B rewrote it.\n",
+                    "reason": "Cross-principal rewrite",
+                },
+                req_id=2,
+            ),
+            headers=writer_b,
+        )
+        refused_annotate = client.post(
+            "/mcp",
+            json=_jsonrpc_call("annotate", {"id": memory_id, "title": "Writer B annotation"}, req_id=3),
+            headers=writer_b,
+        )
+        assert refused_revise.status_code == 403
+        assert "not owned by principal" in refused_revise.text
+        assert refused_annotate.status_code == 403
+        assert "not owned by principal" in refused_annotate.text
+
+        owner_revise = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "revise",
+                {
+                    "id": memory_id,
+                    "replacement_content": "record_type: decision\nclaim: Writer A revised their own decision.\n",
+                    "reason": "Owner revision",
+                },
+                req_id=4,
+            ),
+            headers=writer_a,
+        )
+        assert owner_revise.status_code == 200
+        assert owner_revise.json()["result"]["isError"] is False
+        owner_successor = store.recall("project:allowed-proj", query="Writer A revised")["items"][0]["id"]
+        assert owner_successor != memory_id
+
+        owner_annotate = client.post(
+            "/mcp",
+            json=_jsonrpc_call("annotate", {"id": owner_successor, "title": "Writer A annotation"}, req_id=7),
+            headers=writer_a,
+        )
+        assert owner_annotate.status_code == 200
+        assert owner_annotate.json()["result"]["isError"] is False
+        assert (
+            store.recall("project:allowed-proj", query="Writer A revised")["items"][0]["title"] == "Writer A annotation"
+        )
+
+        admin = _initialize_session(client, admin_token)
+        admin_annotate = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "annotate",
+                {"id": owner_successor, "title": "Admin annotation of writer A"},
+                req_id=8,
+            ),
+            headers=admin,
+        )
+        assert admin_annotate.status_code == 200
+        assert admin_annotate.json()["result"]["isError"] is False
+        assert (
+            store.recall("project:allowed-proj", query="Writer A revised")["items"][0]["title"]
+            == "Admin annotation of writer A"
+        )
+
+        admin_revise = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "revise",
+                {
+                    "id": owner_successor,
+                    "replacement_content": "record_type: decision\nclaim: Admin revised writer A's decision.\n",
+                    "reason": "Admin correction",
+                },
+                req_id=5,
+            ),
+            headers=admin,
+        )
+        assert admin_revise.status_code == 200
+        assert admin_revise.json()["result"]["isError"] is False
+        assert (
+            store.recall("project:allowed-proj", query="Admin revised")["items"][0]["actor"] == "agent:admin-operator"
+        )
+
+        unowned = store.store(
+            namespace="project:allowed-proj",
+            content="record_type: decision\nclaim: This decision has no stored actor.\n",
+            kind="memory",
+            title="Unowned decision",
+        )
+        empty_actor = client.post(
+            "/mcp",
+            json=_jsonrpc_call("annotate", {"id": unowned["id"], "title": "Claim unowned"}, req_id=6),
+            headers=writer_a,
+        )
+        assert empty_actor.status_code == 403
+        assert "not owned by principal" in empty_actor.text
+        empty_actor_revise = client.post(
+            "/mcp",
+            json=_jsonrpc_call(
+                "revise",
+                {
+                    "id": unowned["id"],
+                    "replacement_content": "record_type: decision\nclaim: Writer A claimed the unowned decision.\n",
+                    "reason": "Claim unowned",
+                },
+                req_id=9,
+            ),
+            headers=writer_a,
+        )
+        assert empty_actor_revise.status_code == 403
+        assert "not owned by principal" in empty_actor_revise.text
+
+    recalled = store.recall("project:allowed-proj", query="", limit=10)
+    contents = [item["content"] for item in recalled["items"]]
+    assert any("Admin revised writer A's decision." in content for content in contents)
+    assert all("Writer B rewrote it." not in content for content in contents)
+    assert all("Writer A claimed the unowned decision." not in content for content in contents)
+    with sqlite3.connect(store.db_path) as conn:
+        owner_row = conn.execute(
+            "SELECT content, actor FROM memories WHERE id = ?",
+            (owner_successor,),
+        ).fetchone()
+    assert owner_row is not None
+    assert "Writer A revised their own decision." in owner_row[0]
+    assert owner_row[1] == "agent:writer-a"
+    assert store.recall("project:allowed-proj", query="no stored actor")["items"][0]["title"] == "Unowned decision"
 
 
 def test_middleware_initialization_requires_db_path() -> None:
