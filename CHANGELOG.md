@@ -8,6 +8,15 @@ The v0.28.0 tagged archive route, when using that tag, is:
 
 This document records the durable capability milestones in Agent Memory Bridge (AMB). It is **not** a release-by-release ledger, a current-status page, or a substitute for detailed proof artifacts. Current implementation facts belong in [Production Status](docs/PRODUCTION-STATUS.md); future work belongs in the [Roadmap](docs/ROADMAP.md); detailed development chronology remains in Git history and published GitHub Releases where available.
 
+## v0.38.4 — Gateway Memory Ownership
+
+- In gateway RBAC mode, a non-admin principal may `annotate` or `revise` a memory only when its stored actor equals that principal's ID.
+- An admin may still `annotate` or `revise` another principal's memory. A memory with an empty stored actor is refused for a non-admin.
+- `store`, local stdio, and the static single-token profile remain unrestricted. No proposer role or review-staging path is added.
+- Leaves schema v12, exactly 17 public MCP tools, the tool-schema digest, and the published v0.38.3 tag unchanged.
+
+See [v0.38.4 announcement](docs/v0.38.4-announcement.md).
+
 ## v0.38.3 — Recall Lifecycle, Recheck Confirmation, and Record-Type Scope
 
 - Default recall suppresses a memory targeted by a current `supersedes` or `contradicts` relation. `eligibility="historical"` still returns it. Ranking is unchanged.
@@ -198,6 +207,7 @@ See [v0.32.1 announcement](docs/v0.32.1-announcement.md) for the distribution co
 | v0.32.1 source/release line | **PyPI Distribution** | The release line adds a PyPI install path and release-triggered Trusted Publishing without changing runtime behavior, schema, public MCP surface, or authority boundaries. | [v0.32.1 announcement](docs/v0.32.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.32.2 source/release line | **Governed Project Memory** | Repositions AMB around governed project memory, synchronizes the new hero and bilingual README story, and makes install-versus-client-registration boundaries explicit without changing runtime behavior or authority. | [v0.32.2 announcement](docs/v0.32.2-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md), [Integrations](docs/INTEGRATIONS.md) |
 | v0.33.0 source/release line | **Operationalization** | Fresh-session first-win evidence, MCP 2.x floor/latest gates, cross-platform liveness semantics, public/internal error separation, and single-authority multi-machine guidance strengthen release and operational confidence without expanding durable authority. | [v0.33.0 announcement](docs/v0.33.0-announcement.md), [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md), [MCP compatibility](docs/MCP-2026-COMPATIBILITY.md) |
+| v0.38.4 source/release line | **Gateway Memory Ownership** | Gateway RBAC limits non-admin annotate and revise operations to the stored actor, while admin corrections remain allowed. Schema v12, exactly 17 tools, and the tool-schema digest stay unchanged. | [v0.38.4 announcement](docs/v0.38.4-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.38.3 source/release line | **Recall Lifecycle, Recheck Confirmation, and Record-Type Scope** | Default recall hides current supersession and contradiction targets, repository recheck records confirmation and dirty state, and gateway principals can optionally limit record types. Schema v12, exactly 17 tools, and the tool-schema digest stay unchanged. | [v0.38.3 announcement](docs/v0.38.3-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.38.2 source/release line | **Gateway Contract Wording** | Documentation, consistency tests, and release-identity metadata that separate the static bearer profile from gateway/RBAC limits and document the serialized audit contract. No runtime, schema, or public MCP tool change. | [v0.38.2 announcement](docs/v0.38.2-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
 | v0.38.1 source/release line | **Documentation Accuracy and Evidence Hygiene** | Documentation-only refinement of the HTTP gateway's supported claims and historical migration wording, retaining the frozen v0.34 E9 criterion and failed validation observation. No memory/gateway behavior, schema, or public MCP tool change. | [v0.38.1 announcement](docs/v0.38.1-announcement.md), [Production Status](docs/PRODUCTION-STATUS.md) |
