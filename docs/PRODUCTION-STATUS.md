@@ -6,7 +6,7 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.38.3` |
+| Package/source version | `0.38.4` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
@@ -20,7 +20,9 @@ Default local home is `~/.local/share/agent-memory-bridge`. Current source does 
 
 ## Distribution Status
 
-The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.3` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.4` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+
+The `0.38.4` source line adds a gateway ownership check. In gateway RBAC mode, a non-admin principal may `annotate` or `revise` a memory only when its stored actor equals that principal. An admin may change another principal's memory. A memory with an empty stored actor is refused for a non-admin. `store`, local stdio, and the static single-token profile remain unrestricted. Schema remains v12 and the public MCP surface remains exactly 17 tools.
 
 The `0.38.3` source line adds three compatible behavior refinements. Default recall suppresses a memory that is the target of a current `supersedes` or `contradicts` relation; `eligibility="historical"` still returns it. Repository-dependency recheck treats a dirty declared path as `unknown`, and an annotation tag `confirmed_against:<commit>` can record a later confirmation without rewriting the decision. An optional gateway principal field, `allowed_record_types`, limits `store`, `annotate`, and `revise`; omitting it preserves the existing role and namespace behavior. Schema remains v12 and the public MCP surface remains exactly 17 tools.
 
