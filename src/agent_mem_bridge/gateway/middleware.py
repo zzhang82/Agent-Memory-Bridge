@@ -463,105 +463,105 @@ class EnterpriseGatewayMiddleware:
                                     )
                                     return
 
-                                # Annotate and revise follow the stored actor. An admin may change
-                                # another principal's memory; any other role may change a memory
-                                # only when its stored actor equals the caller's principal_id.
-                                # A missing or blank actor is not owned by the caller.
-                                if tool_name in ("annotate", "revise"):
-                                    actor_status, stored_actor = resolve_memory_actor(self.db_path, str(record_id))
-                                    if actor_status == "error":
-                                        duration_ms = (time.perf_counter() - start_time) * 1000
-                                        err_msg = (
-                                            f"Authorization verification failed: authority database error "
-                                            f"for record '{record_id}'"
-                                        )
-                                        record = AuditRecord(
-                                            audit_id=audit_id,
-                                            timestamp=current_iso_timestamp(),
-                                            request_id=request_id,
-                                            principal_id=principal_id,
-                                            client_ip=client_ip,
-                                            transport=transport,
-                                            tool=tool_name,
-                                            namespace=target_ns,
-                                            status="denied_forbidden",
-                                            duration_ms=duration_ms,
-                                            arguments_summary=arguments_summary,
-                                            error_message=err_msg,
-                                        )
-                                        self.audit_emitter.emit(record)
-                                        await _send_http_json(
-                                            send,
-                                            403,
-                                            {"error": "forbidden", "error_description": err_msg},
-                                        )
-                                        return
-                                    if actor_status != "found" or not memory_actor_owned_by(
-                                        stored_actor, principal_id, role
-                                    ):
-                                        duration_ms = (time.perf_counter() - start_time) * 1000
-                                        err_msg = (
-                                            f"Access denied: Memory '{record_id}' is not owned by principal "
-                                            f"'{principal_id}'"
-                                        )
-                                        record = AuditRecord(
-                                            audit_id=audit_id,
-                                            timestamp=current_iso_timestamp(),
-                                            request_id=request_id,
-                                            principal_id=principal_id,
-                                            client_ip=client_ip,
-                                            transport=transport,
-                                            tool=tool_name,
-                                            namespace=target_ns,
-                                            status="denied_forbidden",
-                                            duration_ms=duration_ms,
-                                            arguments_summary=arguments_summary,
-                                            error_message=err_msg,
-                                        )
-                                        self.audit_emitter.emit(record)
-                                        await _send_http_json(
-                                            send,
-                                            403,
-                                            {"error": "forbidden", "error_description": err_msg},
-                                        )
-                                        return
+                            # Annotate and revise follow the stored actor. An admin may change
+                            # another principal's memory; any other role may change a memory
+                            # only when its stored actor equals the caller's principal_id.
+                            # A missing or blank actor is not owned by the caller.
+                            if tool_name in ("annotate", "revise"):
+                                actor_status, stored_actor = resolve_memory_actor(self.db_path, str(record_id))
+                                if actor_status == "error":
+                                    duration_ms = (time.perf_counter() - start_time) * 1000
+                                    err_msg = (
+                                        f"Authorization verification failed: authority database error "
+                                        f"for record '{record_id}'"
+                                    )
+                                    record = AuditRecord(
+                                        audit_id=audit_id,
+                                        timestamp=current_iso_timestamp(),
+                                        request_id=request_id,
+                                        principal_id=principal_id,
+                                        client_ip=client_ip,
+                                        transport=transport,
+                                        tool=tool_name,
+                                        namespace=target_ns,
+                                        status="denied_forbidden",
+                                        duration_ms=duration_ms,
+                                        arguments_summary=arguments_summary,
+                                        error_message=err_msg,
+                                    )
+                                    self.audit_emitter.emit(record)
+                                    await _send_http_json(
+                                        send,
+                                        403,
+                                        {"error": "forbidden", "error_description": err_msg},
+                                    )
+                                    return
+                                if actor_status != "found" or not memory_actor_owned_by(
+                                    stored_actor, principal_id, role
+                                ):
+                                    duration_ms = (time.perf_counter() - start_time) * 1000
+                                    err_msg = (
+                                        f"Access denied: Memory '{record_id}' is not owned by principal "
+                                        f"'{principal_id}'"
+                                    )
+                                    record = AuditRecord(
+                                        audit_id=audit_id,
+                                        timestamp=current_iso_timestamp(),
+                                        request_id=request_id,
+                                        principal_id=principal_id,
+                                        client_ip=client_ip,
+                                        transport=transport,
+                                        tool=tool_name,
+                                        namespace=target_ns,
+                                        status="denied_forbidden",
+                                        duration_ms=duration_ms,
+                                        arguments_summary=arguments_summary,
+                                        error_message=err_msg,
+                                    )
+                                    self.audit_emitter.emit(record)
+                                    await _send_http_json(
+                                        send,
+                                        403,
+                                        {"error": "forbidden", "error_description": err_msg},
+                                    )
+                                    return
 
-                                # Check Signal lease ownership on extend_signal_lease and ack_signal
-                                if tool_name in ("extend_signal_lease", "ack_signal") and claimed_by is not None:
-                                    if not match_consumer_claim(claimed_by, principal_id, role=role):
-                                        duration_ms = (time.perf_counter() - start_time) * 1000
-                                        if not claimed_by.startswith("amb:p:"):
-                                            err_msg = (
-                                                f"Access denied: Signal '{record_id}' has an unauthenticated or external lease "
-                                                f"('{claimed_by}') and cannot be operated on by non-admin principal '{principal_id}'. "
-                                                f"Wait for lease expiry or use admin credentials."
-                                            )
-                                        else:
-                                            err_msg = (
-                                                f"Access denied: Signal '{record_id}' is claimed by another consumer "
-                                                f"('{claimed_by}') and cannot be operated on by principal '{principal_id}'"
-                                            )
-                                        record = AuditRecord(
-                                            audit_id=audit_id,
-                                            timestamp=current_iso_timestamp(),
-                                            request_id=request_id,
-                                            principal_id=principal_id,
-                                            client_ip=client_ip,
-                                            transport=transport,
-                                            tool=tool_name,
-                                            namespace=target_ns,
-                                            status="denied_forbidden",
-                                            duration_ms=duration_ms,
-                                            arguments_summary=arguments_summary,
-                                            error_message=err_msg,
+                            # Check Signal lease ownership on extend_signal_lease and ack_signal
+                            if tool_name in ("extend_signal_lease", "ack_signal") and claimed_by is not None:
+                                if not match_consumer_claim(claimed_by, principal_id, role=role):
+                                    duration_ms = (time.perf_counter() - start_time) * 1000
+                                    if not claimed_by.startswith("amb:p:"):
+                                        err_msg = (
+                                            f"Access denied: Signal '{record_id}' has an unauthenticated or external lease "
+                                            f"('{claimed_by}') and cannot be operated on by non-admin principal '{principal_id}'. "
+                                            f"Wait for lease expiry or use admin credentials."
                                         )
-                                        self.audit_emitter.emit(record)
-                                        await _send_http_json(
-                                            send,
-                                            403,
-                                            {"error": "forbidden", "error_description": err_msg},
+                                    else:
+                                        err_msg = (
+                                            f"Access denied: Signal '{record_id}' is claimed by another consumer "
+                                            f"('{claimed_by}') and cannot be operated on by principal '{principal_id}'"
                                         )
-                                        return
+                                    record = AuditRecord(
+                                        audit_id=audit_id,
+                                        timestamp=current_iso_timestamp(),
+                                        request_id=request_id,
+                                        principal_id=principal_id,
+                                        client_ip=client_ip,
+                                        transport=transport,
+                                        tool=tool_name,
+                                        namespace=target_ns,
+                                        status="denied_forbidden",
+                                        duration_ms=duration_ms,
+                                        arguments_summary=arguments_summary,
+                                        error_message=err_msg,
+                                    )
+                                    self.audit_emitter.emit(record)
+                                    await _send_http_json(
+                                        send,
+                                        403,
+                                        {"error": "forbidden", "error_description": err_msg},
+                                    )
+                                    return
 
                     # 3b. Agent Runs by run_id
                     if role != "admin":
