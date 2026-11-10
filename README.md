@@ -2,6 +2,10 @@
   <img src="assets/amb-hero.png" alt="Agent Memory Bridge — governed project memory across sessions and tools" width="100%" />
 </p>
 
+<p align="center">
+  <a href="assets/readme-loop-v1.2-1280x720.mp4"><img src="assets/readme-loop-v1.2.gif" alt="Scripted UI of a local stdio loop: one session stores an example decision, and a fresh process on the same AMB home recalls that same record from a real local AMB v0.38.4 run." width="880" /></a>
+</p>
+
 <h1 align="center">Agent Memory Bridge</h1>
 
 <p align="center"><strong>Teach one decision and its reason. The next session can recall that reason when it recalls at the start.</strong></p>
