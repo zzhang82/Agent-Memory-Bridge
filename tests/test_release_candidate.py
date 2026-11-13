@@ -105,7 +105,7 @@ def test_readmes_use_v0381_release_identity() -> None:
     english = (ROOT / "README.md").read_text(encoding="utf-8")
     chinese = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
     server_json = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
-    assert CURRENT == "0.38.6"
+    assert CURRENT == "0.38.7"
     assert f"Current package/source version: `{CURRENT}`." in english
     assert f"当前包/源码版本：`{CURRENT}`。" in chinese
     assert f"agent-memory-bridge=={CURRENT}" in english
@@ -137,12 +137,14 @@ def test_current_package_and_source_docs_use_published_identity() -> None:
     assert "no automatic learning" in announcement
     contract = (ROOT / "docs/evidence/v0.35.0-lifecycle/CONTRACT.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "v0.38.7 — Operator Memory CLI" in announcement
+    assert "v0.38.7 — Operator Memory CLI" in changelog
+    assert "v0.38.7 source/release line" in changelog
     assert (
         "v0.38.6 — First-Run Bound Namespace Default, Lock File Permissions, and Documentation Polish" in announcement
     )
     assert "v0.38.6 — First-Run Bound Namespace Default, Lock File Permissions, and Documentation Polish" in changelog
     assert "v0.38.6 source/release line" in changelog
-    assert "v0.38.5 — First-Install Polish, Doctor Summary, and Record-Shape Guidance" in announcement
     assert "v0.38.5 — First-Install Polish, Doctor Summary, and Record-Shape Guidance" in changelog
     assert "v0.38.5 source/release line" in changelog
     assert "v0.38.4 — Gateway Memory Ownership" in changelog
