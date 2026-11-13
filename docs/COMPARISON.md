@@ -2,7 +2,7 @@
 
 This document compares **decision categories**, not benchmark scores or vendor rankings. Agent Memory Bridge (AMB), broad memory layers, packaged coding-agent memory, managed Context Graph platforms, temporal graph frameworks, and memory operating systems can all be described as “agent memory,” but they make materially different choices about authority, deployment, context construction, automation, and review.
 
-**Externally reviewed:** 2026-08-19. External product facts below are limited to the primary sources listed in [Sources reviewed](#sources-reviewed). Product capabilities and release information can change after that review date.
+**Externally reviewed:** 2026-11-13. External product facts below are limited to the primary sources listed in [Sources reviewed](#sources-reviewed). Product capabilities and release information can change after that review date.
 
 > **Comparison discipline:** a documented feature is not proof of feature parity, production fitness, adoption, security certification, or superior outcomes. Architectural fit is an interpretation stated as such; it is not a vendor ranking.
 
@@ -24,6 +24,8 @@ The entries below are intentionally adjacent but **not treated as interchangeabl
 | **Zep** | A managed enterprise agent-memory platform built on Context Graphs, describing context assembly, access control, retention, provenance, and audit. [3] | Managed graph-oriented platform with enterprise deployment options. [3] | Consider when a managed, enterprise-scale Context Graph service is the primary architectural need. |
 | **Graphiti** | Zep’s open-source temporal Context Graph framework, with real-time incremental updates, episodes, hybrid semantic/keyword/graph search, and a documented MCP server. [4] | Framework and graph-backed integration model, distinct from Zep’s managed platform. [4] | Consider when temporal graph modeling and graph-native retrieval are foundational requirements. |
 | **MemOS** | A memory operating-system project with unified memory APIs, MemCubes, multiple memory representations, scheduling, cloud/self-hosted paths, and agent plugins. [5] [6] | Broader memory-system architecture with cloud, self-hosted, and local-plugin routes. [5] [6] | Consider when a team wants a wider memory operating system, including memory modules and plugin ecosystem, rather than a narrow engineering-memory bridge. |
+| **basic-memory** | Local Markdown files connected over MCP to Claude, Codex, and Cursor, with a Claude Code plugin. [7] [8] | File-based memory that the agent searches and writes into during a session. [7] [8] | Consider when plain Markdown files in the project, read and written by the agent over MCP, are the desired record. |
+| **Letta Code** | Letta's coding harness, where memory is MemFS, a git-backed memory filesystem updated by background "dreaming" subagents. [9] [10] | Agent-managed memory with an optional review step that does not ask for approval. [10] | Consider when a git-backed memory filesystem maintained by background agents fits the workflow. |
 
 ## The Decision Dimensions That Matter
 
@@ -41,7 +43,7 @@ The table does not mark a single approach as “more capable.” It identifies w
 
 ### Mem0: broad memory layer for applications and agents
 
-Mem0’s official documentation describes long-term memory that persists across sessions, tools, and runs. It presents a managed platform, an open-source option that can run as a library or Docker stack, coding-agent plugins, and framework integrations. [1] The source supports describing Mem0 as a broader memory layer with managed and self-hosted routes. It does **not** support treating it as a drop-in implementation of AMB’s lifecycle-governed task-memory assembly, Dynamic State authority, or episode/verification contracts.
+Mem0’s official documentation describes long-term memory that persists across sessions, tools, and runs. It presents a managed platform, an open-source option that can run as a library or Docker stack, coding-agent plugins, and framework integrations. [1] Its README documents the extraction path as "Single-pass ADD-only extraction" where "Memories accumulate; nothing is overwritten." [11] AMB instead records a change with an explicit `revise` supersession link, so the predecessor stays auditable rather than accumulating beside the new fact. The sources support describing Mem0 as a broader memory layer with managed and self-hosted routes. It does **not** support treating it as a drop-in implementation of AMB’s lifecycle-governed task-memory assembly, Dynamic State authority, or episode/verification contracts.
 
 **Architectural-fit interpretation.** Mem0 is a reasonable starting point when a product needs broad memory infrastructure and deployment choice for application or agent integration. AMB is more focused when the problem is local, inspectable engineering memory for coding-agent work and the team wants explicit separation between durable records, derived context, and reviewable evidence.
 
@@ -59,7 +61,7 @@ Zep’s official product page positions its service as managed agent memory buil
 
 ### Graphiti: open-source temporal Context Graph framework
 
-Graphiti’s official documentation calls it an open-source framework for temporal knowledge graphs, also called Context Graphs. The docs describe real-time incremental graph updates without batch recomputation, adding text or JSON episodes, hybrid semantic/keyword/graph search, custom entities, and a Graphiti MCP server for assistants such as Claude Desktop or Cursor. [4]
+Graphiti’s official documentation calls it an open-source framework for temporal knowledge graphs, also called Context Graphs. The docs describe real-time incremental graph updates without batch recomputation, adding text or JSON episodes, hybrid semantic/keyword/graph search, custom entities, and a Graphiti MCP server for assistants such as Claude Desktop or Cursor. [4] Its README states that facts "have validity windows" and that when information changes, "old facts are invalidated — not deleted." [12]
 
 **Architectural-fit interpretation.** Graphiti is relevant when temporal graph structure, custom entities/edges, and graph-native retrieval are core design requirements. AMB’s lifecycle state and revision history govern engineering-memory eligibility, but AMB does not claim to be a temporal knowledge-graph framework or graph database.
 
@@ -70,6 +72,22 @@ The MemOS repository and documentation describe a Memory Operating System for LL
 The repository additionally documents some local and cloud plugin behaviors that automatically recall context before a task and retain experience after a successful turn, plus a tiered skill-evolution model. [5] This is evidence of MemOS’s stated operating model; it is not a claim about its outcome quality or a cross-project benchmark conclusion.
 
 **Architectural-fit interpretation.** MemOS is relevant when a team wants a broad memory-system architecture with multiple memory representations, plugins, and optional automated retention or skill-evolution behavior. AMB explicitly chooses a smaller local engineering-memory scope, keeps learning/consolidation shadow-only, and requires review rather than automatic durable change.
+
+### basic-memory: local Markdown files over MCP
+
+basic-memory stores memory as local Markdown files and connects them over MCP to Claude, Codex, and Cursor. Its Claude Code plugin, installed with `bm install claude-code`, adds session-start briefings and pre-compaction checkpoints. [7] Its default output style instructs Claude to search before recalling and to capture material decisions inline "without being asked." [8]
+
+**Architectural-fit interpretation.** basic-memory fits when the record should be ordinary Markdown files the agent reads and writes directly. AMB keeps the durable record in SQLite/WAL and requires an explicit `store` or `revise` rather than capturing decisions without being asked.
+
+### Letta Code: a git-backed memory filesystem with background updates
+
+Letta Code is Letta's coding harness in the `letta-ai/letta` repository. [9] Its memory is MemFS, a git-backed memory filesystem, and "dreaming" uses background subagents to update that memory. Its optional agent review step "does not ask you for approval." [10]
+
+**Architectural-fit interpretation.** Letta Code fits when background agents should maintain a git-tracked memory filesystem on their own. AMB does not run background memory updates, and a change to durable memory stays an explicit, reviewed action.
+
+### Cursor Memories (removed in 2.1.x)
+
+Cursor previously shipped a built-in Memories feature. Per a Cursor staff forum reply, that feature "was intentionally removed starting from version 2.1.x," and users were directed to "Export memories" into Rules or to downgrade to 2.0.77. [13] This comparison records that removal; it does not describe a current Cursor memory product.
 
 ## Choosing a Direction
 
@@ -83,6 +101,10 @@ Choose **Zep** when the principal need is a managed enterprise Context Graph pla
 
 Choose **MemOS** when the principal need is a broader memory operating system with memory modules, MemCube composition, scheduling, and plugin/deployment options that are intentionally beyond AMB’s scope. [5] [6]
 
+Choose **basic-memory** when the principal need is local Markdown files the agent searches and writes over MCP, including session-start briefings from its Claude Code plugin. [7] [8]
+
+Choose **Letta Code** when the principal need is a coding harness whose memory is a git-backed filesystem updated by background subagents. [9] [10]
+
 ## AMB’s Deliberate Boundaries
 
 The narrowness of AMB is intentional. The current implementation does not claim hosted execution, a hosted multi-tenant HTTP platform, a scheduler or queue, OAuth, a general ACL system, authenticated human or model identity, automatic reranking, online training, automatic durable writeback, automatic prompt/policy mutation, or autonomous skill acquisition. Optional Streamable HTTP and gateway/RBAC principal limits do not change those non-claims. The Context Compiler is internal and transient; it does not add a public tool, persist prompt-facing context bodies, or bypass governed recall. A metadata-only context attestation and a read-only evaluation linkage do not prove that a memory was applied or caused a verified result. See [Production Status](PRODUCTION-STATUS.md), [Architecture](ARCHITECTURE.md), [Trust Boundary](TRUST-BOUNDARY.md), and [Closed-Loop Episode Authority](CLOSED-LOOP-EPISODE.md).
@@ -93,12 +115,19 @@ These boundaries should remain visible when comparing AMB with products that int
 
 | Source | Product / scope | Reviewed |
 |---|---|---|
-| [Mem0 documentation][1] | Managed platform, integrations, and open-source/self-hosted overview. | 2026-08-19 |
-| [OpenMemory official product page][2] | Coding-agent MCP positioning, automatic capture/delivery, project scope, and controls. | 2026-08-19 |
-| [Zep official product page][3] | Managed Context Graph platform, context assembly, governance, and provenance/audit positioning. | 2026-08-19 |
-| [Graphiti official documentation][4] | Open-source temporal Context Graph framework, graph updates, search, and MCP server. | 2026-08-19 |
-| [MemOS official repository][5] | Memory Operating System, APIs, plugins, deployment routes, and documented automation behavior. | 2026-08-19 |
-| [MemOS official documentation][6] | Modular memory architecture, MemCube, memory types, and open-source concepts. | 2026-08-19 |
+| [Mem0 documentation][1] | Managed platform, integrations, and open-source/self-hosted overview. | 2026-11-13 |
+| [OpenMemory official product page][2] | Coding-agent MCP positioning, automatic capture/delivery, project scope, and controls. | 2026-11-13 |
+| [Zep official product page][3] | Managed Context Graph platform, context assembly, governance, and provenance/audit positioning. | 2026-11-13 |
+| [Graphiti official documentation][4] | Open-source temporal Context Graph framework, graph updates, search, and MCP server. | 2026-11-13 |
+| [MemOS official repository][5] | Memory Operating System, APIs, plugins, deployment routes, and documented automation behavior. | 2026-11-13 |
+| [MemOS official documentation][6] | Modular memory architecture, MemCube, memory types, and open-source concepts. | 2026-11-13 |
+| [basic-memory README][7] | Local Markdown memory over MCP for Claude, Codex, and Cursor, plus the Claude Code plugin. | 2026-11-13 |
+| [basic-memory Claude Code output style][8] | Default output style: search before recalling and capture material decisions inline. | 2026-11-13 |
+| [Letta repository][9] | Letta's coding harness, Letta Code. | 2026-11-13 |
+| [Letta Code memory documentation][10] | MemFS git-backed memory filesystem, dreaming subagents, and the optional review step. | 2026-11-13 |
+| [Mem0 README][11] | Single-pass ADD-only extraction where memories accumulate and nothing is overwritten. | 2026-11-13 |
+| [Graphiti README][12] | Fact validity windows and invalidation of old facts instead of deletion. | 2026-11-13 |
+| [Cursor forum: Memories removal][13] | Staff reply that built-in Memories was removed starting in version 2.1.x. | 2026-11-13 |
 
 [1]: https://docs.mem0.ai/introduction "Mem0 Documentation — Build with Mem0"
 [2]: https://mem0.ai/openmemory "OpenMemory — Mem0"
@@ -106,3 +135,10 @@ These boundaries should remain visible when comparing AMB with products that int
 [4]: https://help.getzep.com/graphiti/getting-started/welcome "Graphiti Documentation — Welcome"
 [5]: https://github.com/MemTensor/MemOS "MemTensor/MemOS — GitHub"
 [6]: https://memos-docs.openmem.net/open_source/home/overview/ "MemOS Documentation — Overview"
+[7]: https://github.com/basicmachines-co/basic-memory/blob/main/README.md "basic-memory — README"
+[8]: https://github.com/basicmachines-co/basic-memory/blob/main/plugins/claude-code/output-styles/basic-memory.md "basic-memory — Claude Code output style"
+[9]: https://github.com/letta-ai/letta "letta-ai/letta — GitHub"
+[10]: https://docs.letta.com/letta-code/memory "Letta Code — Memory"
+[11]: https://github.com/mem0ai/mem0/blob/main/README.md "Mem0 — README"
+[12]: https://github.com/getzep/graphiti/blob/main/README.md "Graphiti — README"
+[13]: https://forum.cursor.com/t/are-my-memories-gone/144057 "Cursor forum — Are my memories gone?"

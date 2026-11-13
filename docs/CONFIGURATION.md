@@ -378,6 +378,21 @@ It is not per-write freshness, identity authentication, or caller provenance.
 Signal cleanup is dry-run unless `--apply` is supplied and uses the same governed
 deletion path as `forget`.
 
+## Moving or leaving
+
+Three different paths move AMB data, and they are not interchangeable:
+
+1. **`backup` / `verify-backup` / `restore`** is the supported way to move a whole
+   AMB home and its SQLite authority to another directory or machine while
+   preserving schema v12 rows, relations, and audit history.
+2. **The `export` MCP tool** renders one namespace as a derived `markdown`,
+   `json`, or `text` view (up to 500 entries per call, excluding hidden learning
+   candidates by default) for reading, archiving, or moving notes into external docs/rules.
+   Today there is no importer to load `export` output back into AMB.
+3. **`scripts/import_profile_memory.py` (`[profile].source_root`)** imports a
+   structured Markdown profile source tree and is not a round-trip importer for
+   `export` output.
+
 ## `[governance]`
 
 Controls the review-trigger scanner over AMB's own hidden learning-candidate
@@ -443,7 +458,9 @@ remains `false`.
 Optional profile import and migration helpers.
 
 The sample config points `source_root` at a neutral local path so imports and
-migration helpers do not assume a Codex-specific home layout. You can leave this
+migration helpers do not assume a Codex-specific home layout.
+`scripts/import_profile_memory.py` reads a Markdown profile source tree from
+`source_root` and is not an importer for `export` output. You can leave this
 section alone if you only want the basic bridge runtime.
 
 ## Runtime Environment Variables

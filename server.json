@@ -7,12 +7,12 @@
     "url": "https://github.com/zzhang82/Agent-Memory-Bridge",
     "source": "github"
   },
-  "version": "0.38.5",
+  "version": "0.38.6",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "agent-memory-bridge",
-      "version": "0.38.5",
+      "version": "0.38.6",
       "transport": {
         "type": "stdio"
       }

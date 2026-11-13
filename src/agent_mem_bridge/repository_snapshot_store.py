@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from .filesystem_safety import ensure_private_directory
+from .filesystem_safety import ensure_private_directory, ensure_private_file
 from .namespaces import canonical_namespace
 from .paths import resolve_bridge_home
 
@@ -126,6 +126,7 @@ def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
         for attempt in range(8):
             try:
                 os.replace(temporary, path)
+                ensure_private_file(path)
                 last_error = None
                 break
             except PermissionError as error:
@@ -208,7 +209,9 @@ class RepositorySnapshotStore:
     def _bindings_lock(self):
         self._ensure_private_store_root()
         lock_path = self.root / "bindings.lock"
-        with lock_path.open("a+b") as handle:
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "r+b") as handle:
+            ensure_private_file(lock_path)
             handle.seek(0)
             handle.write(b"0")
             handle.flush()

@@ -58,11 +58,11 @@ fresh_process: true
 
 AMB 需要 **Python 3.11+** 和 Git。
 
-当前包/源码版本：`0.38.5`。
+当前包/源码版本：`0.38.6`。
 
 ```bash
 python3 -m venv .amb-venv
-.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.5
+.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.6
 .amb-venv/bin/python -m agent_mem_bridge project init . --yes
 .amb-venv/bin/python -m agent_mem_bridge doctor
 ```
@@ -88,7 +88,7 @@ AMB 不会发现、写入或认证 Codex、Claude、Cursor、OpenCode、Hermes�
 
 如果已有 bridge 位于 `~/.codex/mem-bridge`，v0.36 不会自动打开它。把 `AGENT_MEMORY_BRIDGE_HOME` 指到该目录，或把目录复制到 `~/.local/share/agent-memory-bridge`。具体切换见[配置说明](docs/CONFIGURATION.md)。
 
-配套技能是发现和日常使用的可选帮助。它们不能代替上面的启动规则。从 [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills) 安装：
+配套技能是发现和日常使用的可选帮助。它们不能代替上面的启动规则；Claude Code 与 Cursor 的触发时机和 hook 配置见[生命周期与 hook 配方](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/references/lifecycle_and_hooks.md)。从 [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills) 安装：
 
 ```bash
 npx skills add zzhang82/Agent-Memory-Skills --skill amb
@@ -121,7 +121,7 @@ npx skills add zzhang82/Agent-Memory-Skills --skill amb-connect
 
 </details>
 
-## 为什么这份记忆能保持可信
+## 一条决策如何保持可追溯
 
 有用的部分不是记得更多，而是知道一条决策从哪里来、现在是否仍然有效，以及后来怎样变过。
 
@@ -213,7 +213,7 @@ AMB 暴露 **17 个公开 MCP 工具**：
 
 ## 当前成熟度
 
-当前包/源码版本是 `0.38.5`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
+当前包/源码版本是 `0.38.6`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
 
 ## 参与贡献
 

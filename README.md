@@ -58,11 +58,11 @@ Store a decision only after it is confirmed. Do not treat chat history as alread
 
 AMB requires **Python 3.11+** and Git.
 
-Current package/source version: `0.38.5`.
+Current package/source version: `0.38.6`.
 
 ```bash
 python3 -m venv .amb-venv
-.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.5
+.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.6
 .amb-venv/bin/python -m agent_mem_bridge project init . --yes
 .amb-venv/bin/python -m agent_mem_bridge doctor
 ```
@@ -88,7 +88,7 @@ AMB does not discover, write, or certify Codex, Claude, Cursor, OpenCode, Hermes
 
 If an existing bridge lives at `~/.codex/mem-bridge`, v0.36 does not open it automatically. Set `AGENT_MEMORY_BRIDGE_HOME` to that directory, or copy it to `~/.local/share/agent-memory-bridge`. The [configuration guide](docs/CONFIGURATION.md) has the cutover.
 
-The companion skills are optional help for discovery and everyday use. They do not replace the startup rule above. Install them from [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills):
+The companion skills are optional help for discovery and everyday use. They do not replace the startup rule above; see [trigger moments and hook recipes](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/references/lifecycle_and_hooks.md) for Claude Code and Cursor reminders. Install them from [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills):
 
 ```bash
 npx skills add zzhang82/Agent-Memory-Skills --skill amb
@@ -121,7 +121,7 @@ Refreshing repository facts leaves stored decisions unchanged. Explore is CLI-on
 
 </details>
 
-## Why the memory stays trustworthy
+## How a decision stays traceable
 
 The useful part is not remembering more. It is knowing where a decision came from, whether it is still current, and how it changed.
 
@@ -213,7 +213,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-Current package/source version is `0.38.5`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+Current package/source version is `0.38.6`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 

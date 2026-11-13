@@ -204,6 +204,26 @@ service` as a separate container/process using the same image and same local
 volume, with the existing service singleton lock. Do not introduce another
 authority or a process supervisor. Validate enabled background lanes separately.
 
+## Two-machine, two-harness recipe on one HTTP authority
+
+One Streamable HTTP authority runs on a server or NAS and keeps its SQLite/WAL
+database on that machine's local disk. Machine A (for example Claude Code) and
+Machine B (for example Cursor or OpenCode) each connect to that authority over a
+protected tunnel or TLS, and each machine uses its own bearer credential file,
+either `amb_tokens.json` principals or a static token.
+
+`project init` binds a checkout-local `local_repository_source_id`
+(`root:<canonical_root>`), so the two machines have different local paths and do
+not share a binding. Both harnesses share durable WHY by passing the same
+explicit project namespace, for example `project:my-app`, to `store` and
+`recall`.
+
+Verify connectivity from each machine with
+`agent-memory-bridge doctor --url <url> --token-file <path>` and
+`verify --url <url> --token-file <path>`. This recipe makes no hosted-sync
+promise and no multi-writer shared-SQLite promise: one authority process owns
+the database, and the clients only talk to it over HTTP.
+
 ## Health, readiness, and failure
 
 `/healthz` indicates the HTTP process is alive. `/readyz` checks the authority
