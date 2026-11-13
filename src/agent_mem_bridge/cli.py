@@ -27,6 +27,12 @@ from .knowledge_explorer import (
     render_explorer_human_markdown,
     render_explorer_technical_markdown,
 )
+from .memory_cli import (
+    run_memory_forget,
+    run_memory_list,
+    run_memory_revise,
+    run_memory_show,
+)
 from .onboarding import render_report, render_verify_success_message, run_doctor, run_verify
 from .paths import (
     resolve_bridge_db_path,
@@ -141,8 +147,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_signal_cleanup(namespace)
     if namespace.command == "consolidate-runs":
         return _run_consolidate_runs(namespace)
+    if namespace.command == "memory":
+        return _run_memory(parser, namespace)
 
     parser.print_help()
+    return 2
+
+
+def _run_memory(parser: argparse.ArgumentParser, namespace: argparse.Namespace) -> int:
+    command = getattr(namespace, "memory_command", None)
+    if command == "list":
+        return run_memory_list(namespace)
+    if command == "show":
+        return run_memory_show(namespace)
+    if command == "forget":
+        return run_memory_forget(namespace)
+    if command == "revise":
+        return run_memory_revise(namespace)
+
+    print(
+        "usage: agent-memory-bridge memory {list,show,forget,revise} ...\n\n"
+        "Inspect, forget, or revise durable memories directly from the terminal.",
+        file=sys.stderr,
+    )
     return 2
 
 
@@ -546,6 +573,133 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=("markdown", "json"),
         default="markdown",
         help="Output format.",
+    )
+
+    memory_parser = subparsers.add_parser(
+        "memory",
+        help="List, show, forget, or revise durable memories directly from the terminal.",
+    )
+    memory_subparsers = memory_parser.add_subparsers(dest="memory_command")
+
+    memory_list_parser = memory_subparsers.add_parser(
+        "list",
+        help="List durable memories in a namespace or across all namespaces.",
+    )
+    memory_list_parser.add_argument(
+        "--namespace",
+        help="Namespace to list. Defaults to the bound repository namespace or project:demo.",
+    )
+    memory_list_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="List memories across all namespaces.",
+    )
+    memory_list_parser.add_argument(
+        "--kind",
+        choices=("memory", "signal"),
+        default=None,
+        help="Filter by kind (default: memory).",
+    )
+    memory_list_parser.add_argument(
+        "--query",
+        "-q",
+        default="",
+        help="Optional text filter.",
+    )
+    memory_list_parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum number of memories to return (default: 20).",
+    )
+    memory_list_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON instead of formatted text.",
+    )
+
+    memory_show_parser = memory_subparsers.add_parser(
+        "show",
+        help="Show a single memory by ID.",
+    )
+    memory_show_parser.add_argument(
+        "id",
+        help="Memory ID to display.",
+    )
+    memory_show_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON instead of formatted text.",
+    )
+
+    memory_forget_parser = memory_subparsers.add_parser(
+        "forget",
+        help="Forget and tombstone a memory by ID.",
+    )
+    memory_forget_parser.add_argument(
+        "id",
+        help="Memory ID to forget.",
+    )
+    memory_forget_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Confirm deletion without prompting.",
+    )
+    memory_forget_parser.add_argument(
+        "--reason",
+        default="cli",
+        help="Reason for deletion.",
+    )
+    memory_forget_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON receipt instead of formatted text.",
+    )
+
+    memory_revise_parser = memory_subparsers.add_parser(
+        "revise",
+        help="Revise an existing memory with successor content.",
+    )
+    memory_revise_parser.add_argument(
+        "id",
+        help="Target memory ID to supersede.",
+    )
+    memory_revise_parser.add_argument(
+        "--content",
+        required=True,
+        help="New replacement content.",
+    )
+    memory_revise_parser.add_argument(
+        "--title",
+        help="Optional replacement title.",
+    )
+    memory_revise_parser.add_argument(
+        "--tag",
+        action="append",
+        dest="tags",
+        help="Optional tags (repeatable).",
+    )
+    memory_revise_parser.add_argument(
+        "--reason",
+        default="cli revision",
+        help="Optional reason for the revision.",
+    )
+    memory_revise_parser.add_argument(
+        "--actor",
+        default="operator",
+        help="Actor recording the revision (default: operator).",
+    )
+    memory_revise_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Confirm revision without prompting.",
+    )
+    memory_revise_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON instead of formatted text.",
     )
     return parser
 
