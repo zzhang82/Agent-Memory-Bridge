@@ -202,7 +202,8 @@ def test_memory_audit_cli_runner(tmp_path: Path, monkeypatch, capsys) -> None:
         kind="memory",
     )
 
-    monkeypatch.setenv("AMB_DB_PATH", str(db_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(db_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(tmp_path))
     monkeypatch.chdir(tmp_path)
 
     args = argparse.Namespace(
