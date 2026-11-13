@@ -58,19 +58,28 @@ Store a decision only after it is confirmed. Do not treat chat history as alread
 
 AMB requires **Python 3.11+** and Git.
 
-Current package/source version: `0.38.4`.
+Current package/source version: `0.38.5`.
 
 ```bash
-python -m venv .amb-venv
-<venv-python> -m pip install agent-memory-bridge==0.38.4
-<venv-python> -m agent_mem_bridge project init .
+python3 -m venv .amb-venv
+.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.5
+.amb-venv/bin/python -m agent_mem_bridge project init . --yes
+.amb-venv/bin/python -m agent_mem_bridge doctor
 ```
 
-Replace `<venv-python>` with the Python executable inside `.amb-venv`. `project init` detects the Git repository, proposes a namespace such as `project:my-app`, and waits for confirmation. It does not learn decisions from the tree. After that, `project resolve .` returns the namespace.
+In later commands, `<venv-python>` means `.amb-venv/bin/python` on Linux and macOS. `project init` detects the Git repository and proposes a namespace such as `project:my-app`; it accepts `--yes` for non-interactive runs and `--dry-run` to preview without writing. It does not learn decisions from the tree. After that, `project resolve .` returns the namespace.
 
 Run `<venv-python> -m agent_mem_bridge` with one persistent `AGENT_MEMORY_BRIDGE_HOME`. How a client launches that process stays outside Core. The command shape is in [Integrations](docs/INTEGRATIONS.md). Connection is real when the client lists `store` and `recall`.
 
-Store one confirmed decision with `store`. In the next session, use the startup rule above and ask for that decision.
+Store one confirmed decision with `store`:
+
+```text
+record_type: decision
+claim: Merge pull requests only after CI is green on the target branch.
+reason: Broken main blocked two releases this month.
+```
+
+Free-form `kind="memory"` notes still recall, while `explore` and `inspect` list records that declare `record_type: decision` or `record_type: constraint`. In the next session, use the startup rule above and ask for that decision.
 
 <details>
 <summary>Clients, an existing home, and optional review</summary>
@@ -204,10 +213,12 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-Current package/source version is `0.38.4`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+Current package/source version is `0.38.5`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for development and public-surface expectations, and [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
 Licensed under [MIT](LICENSE).
+
+<!-- mcp-name: io.github.zzhang82/agent-memory-bridge -->

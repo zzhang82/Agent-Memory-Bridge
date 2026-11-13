@@ -204,9 +204,19 @@ def test_first_run_rejects_retired_client_configuration_flags(
 def test_first_run_default_loop_uses_neutral_templates_and_coherent_question(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
+    from agent_mem_bridge.knowledge_explorer import (
+        _build_explorer,
+        build_explorer_projection,
+        render_explorer_human_markdown,
+    )
+    from tests.test_project_init import make_repo
+
     store = _store(tmp_path)
+    snapshot_root = tmp_path / "repository"
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(tmp_path))
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(store.db_path))
     monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_REPOSITORY_SNAPSHOT_ROOT", str(snapshot_root))
 
     assert main(["first-run", "--format", "json"]) == 0
     payload = json.loads(capsys.readouterr().out)
@@ -214,11 +224,31 @@ def test_first_run_default_loop_uses_neutral_templates_and_coherent_question(
 
     assert payload["query"] == "What should I check before submitting changes to this project?"
     assert templates == [
-        "Before opening a PR, run <your project's test command>.",
-        "Deployments to staging are triggered from <your branch or release process>.",
-        "When editing <component>, preserve <your project-specific constraint>.",
+        "record_type: decision\nclaim: Before opening a PR, run <your project's test command>.\nreason: <why this check is required>",
+        "record_type: decision\nclaim: Deployments to staging are triggered from <your branch or release process>.\nreason: <why staging uses this path>",
+        "record_type: constraint\nclaim: When editing <component>, preserve <your project-specific constraint>.\nreason: <why this boundary matters>",
     ]
     rendered = json.dumps(payload, sort_keys=True)
     for prohibited in ("SQLite/WAL", "ambiguous client configuration", "make check"):
         assert prohibited not in rendered
     assert "Replace the templates below with facts that are true for your project." in payload["remember"]["action"]
+
+    repo = make_repo(tmp_path)
+    assert main(["project", "init", str(repo), "--namespace", NAMESPACE, "--yes"]) == 0
+    capsys.readouterr()
+    store.store(namespace=NAMESPACE, kind="memory", content=templates[0])
+    projection = build_explorer_projection(
+        namespace=NAMESPACE,
+        snapshot_root=snapshot_root,
+        memory_store=store,
+    )
+    decision_edges = [edge for edge in projection["edges"] if edge["relation"] == "has_decision"]
+    assert len(decision_edges) == 1
+    human = render_explorer_human_markdown(
+        _build_explorer(
+            namespace=NAMESPACE,
+            snapshot_root=snapshot_root,
+            memory_store=store,
+        )
+    )
+    assert "1 active decision" in human

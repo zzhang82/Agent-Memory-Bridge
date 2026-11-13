@@ -6,13 +6,13 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.38.4` |
+| Package/source version | `0.38.5` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
 | Runtime model | Default local stdio and optional standard Streamable HTTP over one host-local SQLite/WAL authority; FTS5 and optional embeddings are derived indexes |
 
-Current source test collection: `1294 tests`
+Current source test collection: `1296 tests`
 
 Default local home is `~/.local/share/agent-memory-bridge`. Current source does not discover `~/.codex/mem-bridge`. Set `AGENT_MEMORY_BRIDGE_HOME` to keep the old directory, or copy it to the neutral home. AMB does not migrate or delete it.
 
@@ -20,7 +20,9 @@ Default local home is `~/.local/share/agent-memory-bridge`. Current source does 
 
 ## Distribution Status
 
-The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.4` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.5` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+
+The `0.38.5` source line tightens POSIX bridge-home and repository directory permissions (`0700`) during `project init` and `RepositorySnapshotStore` writes while keeping `peek_bindings()` and `plan_project_init()` read-only, adds `home`, `database`, and `memories stored` summary lines to `doctor`, aligns `first-run` and README store examples with `record_type: decision` and `record_type: constraint`, and adds Official MCP Registry `server.json` metadata. Schema remains v12 and the public MCP surface remains exactly 17 tools.
 
 The `0.38.4` source line adds a gateway ownership check. In gateway RBAC mode, a non-admin principal may `annotate` or `revise` a memory only when its stored actor equals that principal. An admin may change another principal's memory. A memory with an empty stored actor is refused for a non-admin. `store`, local stdio, and the static single-token profile remain unrestricted. Schema remains v12 and the public MCP surface remains exactly 17 tools.
 

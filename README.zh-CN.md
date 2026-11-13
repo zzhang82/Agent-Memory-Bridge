@@ -58,19 +58,28 @@ fresh_process: true
 
 AMB 需要 **Python 3.11+** 和 Git。
 
-当前包/源码版本：`0.38.4`。
+当前包/源码版本：`0.38.5`。
 
 ```bash
-python -m venv .amb-venv
-<venv-python> -m pip install agent-memory-bridge==0.38.4
-<venv-python> -m agent_mem_bridge project init .
+python3 -m venv .amb-venv
+.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.5
+.amb-venv/bin/python -m agent_mem_bridge project init . --yes
+.amb-venv/bin/python -m agent_mem_bridge doctor
 ```
 
-用 `.amb-venv` 里的 Python 可执行文件代替 `<venv-python>`。`project init` 检测 Git 仓库，建议一个类似 `project:my-app` 的 namespace，并等待确认。它不会从代码树学习决策。绑定之后，`project resolve .` 返回该 namespace。
+后文命令里的 `<venv-python>` 在 Linux 和 macOS 上指 `.amb-venv/bin/python`。`project init` 检测 Git 仓库并建议一个类似 `project:my-app` 的 namespace；它支持用 `--yes` 进行非交互式执行，或用 `--dry-run` 在不写入的情况下预览。它不会从代码树学习决策。绑定之后，`project resolve .` 返回该 namespace。
 
 用持久的 `AGENT_MEMORY_BRIDGE_HOME` 运行 `<venv-python> -m agent_mem_bridge`。客户端如何启动这个进程不属于 Core。命令形式见[集成文档](docs/INTEGRATIONS.md)。客户端列出 `store` 和 `recall` 时，连接才算成立。
 
-用 `store` 保存一条已确认的决策。下一次会话按上面的启动规则询问这条决策。
+用 `store` 保存一条已确认的决策：
+
+```text
+record_type: decision
+claim: Merge pull requests only after CI is green on the target branch.
+reason: Broken main blocked two releases this month.
+```
+
+自由格式的 `kind="memory"` 笔记依然可以被 `recall` 召回，而 `explore` 和 `inspect` 会列出声明了 `record_type: decision` 或 `record_type: constraint` 的记录。下一次会话按上面的启动规则询问这条决策。
 
 <details>
 <summary>客户端、已有 home，以及可选审阅</summary>
@@ -204,10 +213,12 @@ AMB 暴露 **17 个公开 MCP 工具**：
 
 ## 当前成熟度
 
-当前包/源码版本是 `0.38.4`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
+当前包/源码版本是 `0.38.5`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
 
 ## 参与贡献
 
 开发和公开接口要求请见 [CONTRIBUTING.md](CONTRIBUTING.md)，漏洞报告方式请见 [SECURITY.md](SECURITY.md)。
 
 项目采用 [MIT](LICENSE) 许可证。
+
+<!-- mcp-name: io.github.zzhang82/agent-memory-bridge -->

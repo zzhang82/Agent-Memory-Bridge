@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from .filesystem_safety import ensure_private_directory
 from .namespaces import canonical_namespace
+from .paths import resolve_bridge_home
 
 SNAPSHOT_STORE_SCHEMA = "repository.snapshot.v1"
 BINDING_STORE_SCHEMA = "repository.binding.v1"
@@ -148,6 +150,12 @@ class RepositorySnapshotStore:
         self.snapshots_root = self.root / "snapshots"
         self.bindings_path = self.root / "bindings.json"
 
+    def _ensure_private_store_root(self) -> None:
+        bridge_home = resolve_bridge_home().expanduser().resolve()
+        if self.root == bridge_home or self.root.is_relative_to(bridge_home):
+            ensure_private_directory(bridge_home, tighten_existing=True)
+        ensure_private_directory(self.root, tighten_existing=True)
+
     def snapshot_path(self, repository_id: str) -> Path:
         return self.snapshots_root / repository_id / "current.json"
 
@@ -163,6 +171,9 @@ class RepositorySnapshotStore:
             "remote_origin": identity["remote_origin"],
             "snapshot": snapshot,
         }
+        self._ensure_private_store_root()
+        ensure_private_directory(self.snapshots_root, tighten_existing=True)
+        ensure_private_directory(self.snapshots_root / identity["repository_id"], tighten_existing=True)
         _atomic_write_json(self.snapshot_path(identity["repository_id"]), stored)
         return {
             **snapshot,
@@ -195,7 +206,7 @@ class RepositorySnapshotStore:
 
     @contextmanager
     def _bindings_lock(self):
-        self.root.mkdir(parents=True, exist_ok=True)
+        self._ensure_private_store_root()
         lock_path = self.root / "bindings.lock"
         with lock_path.open("a+b") as handle:
             handle.seek(0)

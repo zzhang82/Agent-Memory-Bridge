@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.zzhang82/agent-memory-bridge",
+  "title": "Agent Memory Bridge",
+  "description": "Local MCP memory for coding agents: store decisions with their reasons, recall them on request.",
+  "repository": {
+    "url": "https://github.com/zzhang82/Agent-Memory-Bridge",
+    "source": "github"
+  },
+  "version": "0.38.5",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "agent-memory-bridge",
+      "version": "0.38.5",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
