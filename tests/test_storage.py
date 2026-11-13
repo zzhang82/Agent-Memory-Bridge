@@ -249,6 +249,73 @@ def test_recall_flags_changed_repository_dependency(tmp_path: Path, monkeypatch)
     assert changed["items"][0]["id"] == created["id"]
     assert changed["items"][0]["recheck_status"] == "needs_recheck"
     assert changed["items"][0]["recheck_reasons"] == ["depends_on_repo:changed:NOTES.md"]
+    divs = changed["items"][0].get("repo_divergence") or []
+    assert len(divs) == 1
+    assert divs[0]["path"] == "NOTES.md"
+    assert divs[0]["recorded_commit"] == old_commit
+    assert divs[0]["stored_claim"] == "Use fixture-old-port-1111."
+    assert "fixture-current-port-2222" in divs[0]["live_content_preview"]
+    assert "revise" in divs[0]["offer_revise"]
+
+
+def test_recheck_surfaces_stored_claim_and_live_repo_divergence_in_show(tmp_path: Path, monkeypatch) -> None:
+    from agent_mem_bridge.memory_cli import get_memory, render_memory_show
+
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    config_file = repository / "CONFIG.txt"
+    config_file.write_text("port: 8080\n", encoding="utf-8")
+    _git(repository, "init")
+    _git(repository, "config", "user.email", "recheck@example.test")
+    _git(repository, "config", "user.name", "Recheck Test")
+    _git(repository, "add", "CONFIG.txt")
+    _git(repository, "commit", "-m", "initial config")
+    init_commit = _git(repository, "rev-parse", "HEAD").strip()
+
+    store = MemoryStore(tmp_path / "memory.db", log_dir=tmp_path / "logs")
+    created = store.store(
+        namespace="project:drift-test",
+        kind="memory",
+        title="Server port config",
+        content=f"record_type: decision\ndepends_on_repo: CONFIG.txt@{init_commit}\nclaim: Service binds to port 8080.",
+    )
+    monkeypatch.chdir(repository)
+
+    # Initial: no drift
+    initial = store.recall(namespace="project:drift-test", query="port", limit=1)
+    assert initial["items"][0]["recheck_status"] == "current"
+    assert initial["items"][0].get("repo_divergence") == []
+
+    # Modify file in repository and commit
+    config_file.write_text("port: 9090\n", encoding="utf-8")
+    _git(repository, "add", "CONFIG.txt")
+    _git(repository, "commit", "-m", "update port")
+    new_commit = _git(repository, "rev-parse", "HEAD").strip()
+
+    # Drifted: recheck surfaces stored claim vs live repo
+    drifted = store.recall(namespace="project:drift-test", query="port", limit=1)
+    item = drifted["items"][0]
+    assert item["recheck_status"] == "needs_recheck"
+    assert item["recheck_reasons"] == ["depends_on_repo:changed:CONFIG.txt"]
+    assert len(item["repo_divergence"]) == 1
+    divergence = item["repo_divergence"][0]
+    assert divergence["path"] == "CONFIG.txt"
+    assert divergence["recorded_commit"] == init_commit
+    assert divergence["current_commit"] == new_commit
+    assert divergence["stored_claim"] == "Service binds to port 8080."
+    assert "port: 9090" in divergence["live_content_preview"]
+    assert "revise" in divergence["offer_revise"]
+
+    # Verify render_memory_show formats Live Repo Drift section
+    lookup = get_memory(store, created["id"])
+    rendered = render_memory_show(lookup)
+    assert "Live Repo Drift:" in rendered
+    assert "Path:            CONFIG.txt" in rendered
+    assert f"Recorded Commit: {init_commit}" in rendered
+    assert f"Current Commit:  {new_commit}" in rendered
+    assert "Stored Claim:    Service binds to port 8080." in rendered
+    assert "Live State:      port: 9090" in rendered
+    assert "Offer Revise:" in rendered
 
 
 def test_annotate_records_dependency_confirmation_without_rewriting_content(tmp_path: Path, monkeypatch) -> None:

@@ -2,6 +2,10 @@
   <img src="assets/amb-hero.png" alt="Agent Memory Bridge — governed project memory across sessions and tools" width="100%" />
 </p>
 
+<p align="center">
+  <a href="assets/readme-loop-v1.2-1280x720.mp4"><img src="assets/readme-loop-v1.2.gif" alt="Scripted UI of a local stdio loop: one session stores an example decision, and a fresh process on the same AMB home recalls that same record from a real local AMB v0.38.4 run." width="880" /></a>
+</p>
+
 <h1 align="center">Agent Memory Bridge</h1>
 
 <p align="center"><strong>Teach one decision and its reason. The next session can recall that reason when it recalls at the start.</strong></p>
@@ -58,11 +62,11 @@ Store a decision only after it is confirmed. Do not treat chat history as alread
 
 AMB requires **Python 3.11+** and Git.
 
-Current package/source version: `0.38.7`.
+Current package/source version: `0.38.8`.
 
 ```bash
 python3 -m venv .amb-venv
-.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.7
+.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.8
 .amb-venv/bin/python -m agent_mem_bridge project init . --yes
 .amb-venv/bin/python -m agent_mem_bridge doctor
 ```
@@ -213,7 +217,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-Current package/source version is `0.38.7`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+Current package/source version is `0.38.8`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 

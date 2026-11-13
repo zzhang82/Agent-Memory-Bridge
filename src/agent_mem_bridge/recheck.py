@@ -37,12 +37,15 @@ def dependency_recheck_status(
             reasons.append(f"depends_on:expired:{target_id}")
 
     references = _repository_references(content)
+    repo_divergences: list[dict[str, Any]] = []
     if references and repository_root is None:
         unknown = True
     elif references:
         root = repository_root or Path()
-        snapshot = _repository_snapshot(root)
-        if snapshot is None or _repository_is_dirty(root, [path for path, _commit in references]):
+        toplevel = _git(root, "rev-parse", "--show-toplevel")
+        git_root = Path(toplevel.strip()) if toplevel and toplevel.strip() else root
+        snapshot = _repository_snapshot(git_root)
+        if snapshot is None or _repository_is_dirty(git_root, [path for path, _commit in references]):
             unknown = True
         else:
             confirmed_commit = next(
@@ -51,17 +54,85 @@ def dependency_recheck_status(
             )
             for path, recorded_commit in references:
                 baseline = confirmed_commit or recorded_commit
-                if not _path_exists_at(root, baseline, path):
+                if not _path_exists_at(git_root, baseline, path):
                     unknown = True
                     continue
-                if _path_changed(root, baseline, snapshot["head"], path):
+                if _path_changed(git_root, baseline, snapshot["head"], path):
                     reasons.append(f"depends_on_repo:changed:{path}")
+                    divergence = _build_repo_divergence(
+                        root=git_root,
+                        path=path,
+                        baseline_commit=baseline,
+                        current_commit=snapshot["head"],
+                        content=content,
+                    )
+                    repo_divergences.append(divergence)
 
     status = "needs_recheck" if reasons else "unknown" if unknown else "current"
-    return {"recheck_status": status, "recheck_reasons": reasons}
+    return {
+        "recheck_status": status,
+        "recheck_reasons": reasons,
+        "repo_divergence": repo_divergences,
+    }
+
+
+def _build_repo_divergence(
+    root: Path,
+    path: str,
+    baseline_commit: str,
+    current_commit: str,
+    content: str,
+) -> dict[str, Any]:
+    from .structured_record import parse_structured_content
+
+    structured = parse_structured_content(content)
+    claim = structured.first("claim")
+    if not claim:
+        lines = [line.strip() for line in content.splitlines() if line.strip() and not line.startswith("record_type:")]
+        claim = lines[0] if lines else ""
+
+    live_text: str | None = None
+    target_file = root / path
+    if target_file.is_file():
+        try:
+            live_text = target_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            pass
+    if live_text is None:
+        live_text = _git(root, "show", f"{current_commit}:{path}")
+
+    live_preview = ""
+    if live_text is not None:
+        first_lines = [line.strip() for line in live_text.splitlines() if line.strip()][:3]
+        live_preview = " \n ".join(first_lines)[:300]
+    else:
+        live_preview = "(file deleted or missing in live checkout)"
+
+    diff_stat = _git(root, "diff", "--shortstat", baseline_commit, current_commit, "--", path)
+    summary = (
+        diff_stat.strip()
+        if diff_stat and diff_stat.strip()
+        else f"File {path} modified between {baseline_commit[:7]} and {current_commit[:7]}"
+    )
+
+    return {
+        "path": path,
+        "recorded_commit": baseline_commit,
+        "current_commit": current_commit,
+        "stored_claim": claim,
+        "live_content_preview": live_preview,
+        "diff_summary": summary,
+        "offer_revise": (
+            f"Stored claim was recorded against {path}@{baseline_commit[:7]}, "
+            f"but the repository is at {current_commit[:7]}. "
+            f"Consider using 'revise' to update this memory if current code supersedes the stored claim."
+        ),
+    }
 
 
 def _repository_references(content: str) -> list[tuple[str, str]]:
+    import re
+
     metadata = parse_relation_metadata(content)
     raw_values = metadata["relations"].get("depends_on_repo", [])
     if not raw_values:
@@ -69,10 +140,22 @@ def _repository_references(content: str) -> list[tuple[str, str]]:
 
         raw_values = list(parse_structured_content(content).values("depends_on_repo"))
     references: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
     for value in raw_values:
         path, separator, commit = value.rpartition("@")
         if separator and path and _is_commit(commit):
-            references.append((path, commit))
+            ref = (path, commit)
+            if ref not in seen:
+                seen.add(ref)
+                references.append(ref)
+    if not references:
+        for match in re.finditer(r"\b([A-Za-z0-9_./\\-]+\.[A-Za-z0-9_]+)@([0-9a-fA-F]{7,40})\b", content):
+            p, c = match.group(1), match.group(2)
+            if _is_commit(c):
+                ref = (p, c)
+                if ref not in seen:
+                    seen.add(ref)
+                    references.append(ref)
     return references
 
 
