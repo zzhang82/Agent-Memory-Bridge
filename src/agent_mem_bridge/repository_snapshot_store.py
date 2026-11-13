@@ -209,8 +209,8 @@ class RepositorySnapshotStore:
     def _bindings_lock(self):
         self._ensure_private_store_root()
         lock_path = self.root / "bindings.lock"
-        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
-        with os.fdopen(fd, "r+b") as handle:
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(fd, "a+b") as handle:
             ensure_private_file(lock_path)
             handle.seek(0)
             handle.write(b"0")
