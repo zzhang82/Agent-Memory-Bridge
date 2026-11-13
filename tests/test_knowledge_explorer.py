@@ -195,6 +195,9 @@ def test_read_only_database_projection_does_not_change_database(tmp_path: Path, 
         kind="memory",
     )
     assert stored["id"]
+    from agent_mem_bridge.database_maintenance import checkpoint_database
+
+    checkpoint_database(db_path, mode="TRUNCATE")
     before = db_path.read_bytes()
     monkeypatch.setattr("agent_mem_bridge.knowledge_explorer.resolve_bridge_db_path", lambda: db_path)
     projection = build_explorer_projection(
@@ -958,6 +961,9 @@ def test_explore_modes_do_not_write(tmp_path: Path, monkeypatch) -> None:
     repo = fixture_repo(tmp_path)
     snapshot_root = bind_fixture(repo, tmp_path)
     snapshot_store = RepositorySnapshotStore(snapshot_root)
+    from agent_mem_bridge.database_maintenance import checkpoint_database
+
+    checkpoint_database(db_path, mode="TRUNCATE")
 
     def durable_bytes() -> dict[str, bytes]:
         payload = {"sqlite": db_path.read_bytes()}

@@ -467,6 +467,44 @@ def run_memory_revise(args: argparse.Namespace) -> int:
     return 0 if result.get("revised") else 1
 
 
+def run_memory_audit(args: argparse.Namespace) -> int:
+    """CLI runner for memory audit."""
+    from .memory_audit import (
+        build_memory_audit_report,
+        render_memory_audit_markdown,
+        stage_memory_audit_report,
+    )
+    from .paths import resolve_bridge_db_path
+
+    db_path = resolve_bridge_db_path()
+    if not db_path.is_file():
+        print(f"agent-memory-bridge: database not found at {db_path}", file=sys.stderr)
+        return 1
+
+    store = MemoryStore.from_env()
+    try:
+        report = build_memory_audit_report(
+            store,
+            namespace=getattr(args, "namespace", None),
+            repository_root=getattr(args, "path", None),
+            limit=getattr(args, "limit", 20),
+        )
+        if getattr(args, "stage", False):
+            stage_memory_audit_report(store, report)
+    except Exception as exc:
+        if getattr(args, "json", False) or getattr(args, "format", None) == "json":
+            print(json.dumps({"ok": False, "error": str(exc)}))
+        else:
+            print(f"agent-memory-bridge: memory audit failed: {exc}", file=sys.stderr)
+        return 2
+
+    if getattr(args, "json", False) or getattr(args, "format", "markdown") == "json":
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_memory_audit_markdown(report))
+    return 0
+
+
 @asynccontextmanager
 async def _remote_mcp_client(
     url: str,

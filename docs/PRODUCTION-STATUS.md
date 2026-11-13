@@ -6,13 +6,13 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.38.8` |
+| Package/source version | `0.38.9` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
 | Runtime model | Default local stdio and optional standard Streamable HTTP over one host-local SQLite/WAL authority; FTS5 and optional embeddings are derived indexes |
 
-Current source test collection: `1309 tests`
+Current source test collection: `1315 tests`
 
 Default local home is `~/.local/share/agent-memory-bridge`. Current source does not discover `~/.codex/mem-bridge`. Set `AGENT_MEMORY_BRIDGE_HOME` to keep the old directory, or copy it to the neutral home. AMB does not migrate or delete it.
 
@@ -20,7 +20,9 @@ Default local home is `~/.local/share/agent-memory-bridge`. Current source does 
 
 ## Distribution Status
 
-The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.8` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.9` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+
+The `0.38.9` source line adds a reviewable offline memory audit command (`memory audit` and `audit-memory`) for scanning durable memories against live repository checkouts and staging hidden `revise` candidates for drifted claims (#95), and fixes cross-platform Windows WAL checkpoint flakiness in the knowledge explorer test suite. Schema remains v12 and the public MCP surface remains exactly 17 tools.
 
 The `0.38.8` source line surfaces stored claims alongside live repository state during recall when a record's declared commit or repo path drifts, providing stored claim, live content preview, diff summary, and revise suggestion (#93), and adds `--url` and `--token-file` remote support to the operator `memory` CLI subcommand group (`list`, `show`, `forget`, `revise`). Schema remains v12 and the public MCP surface remains exactly 17 tools.
 
