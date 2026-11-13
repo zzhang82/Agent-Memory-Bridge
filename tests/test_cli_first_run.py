@@ -252,3 +252,38 @@ def test_first_run_default_loop_uses_neutral_templates_and_coherent_question(
         )
     )
     assert "1 active decision" in human
+
+
+def test_first_run_without_namespace_uses_bound_repo_namespace_after_project_init(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    from tests.test_project_init import make_repo
+
+    store = _store(tmp_path)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(tmp_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(store.db_path))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(tmp_path / "logs"))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_REPOSITORY_SNAPSHOT_ROOT", str(tmp_path / "repository"))
+
+    repo = make_repo(tmp_path)
+    assert main(["project", "init", str(repo), "--yes"]) == 0
+    capsys.readouterr()
+    store.store(
+        namespace="project:agent-memory-bridge",
+        kind="memory",
+        content="record_type: decision\nclaim: Run the project checks before submitting changes.",
+    )
+
+    monkeypatch.chdir(repo)
+    assert main(["first-run", "--format", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["namespace"] == "project:agent-memory-bridge"
+    assert payload["recall"]["count"] == 1
+
+    unbound = tmp_path / "unbound"
+    unbound.mkdir()
+    monkeypatch.chdir(unbound)
+    assert main(["first-run", "--format", "markdown"]) == 0
+    rendered = capsys.readouterr().out
+    assert "Reading namespace: `project:demo`" in rendered
+    assert "--namespace <namespace>" in rendered

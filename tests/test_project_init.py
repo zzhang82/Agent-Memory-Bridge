@@ -540,6 +540,8 @@ def test_project_init_tightens_home_and_repository_permissions_for_doctor(tmp_pa
     if os.name == "posix":
         assert stat.S_IMODE(home.stat().st_mode) == 0o700
         assert stat.S_IMODE((home / "repository").stat().st_mode) == 0o700
+        assert stat.S_IMODE((home / "repository" / "bindings.lock").stat().st_mode) == 0o600
+        assert stat.S_IMODE((home / "repository" / "bindings.json").stat().st_mode) == 0o600
     report = run_doctor(project_root=ROOT)
     check = next(item for item in report["checks"] if item["name"] == "bridge_home_permissions")
     assert check["status"] == "pass"

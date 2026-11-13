@@ -42,7 +42,7 @@ from .project_init import (
     render_project_init_preview,
     render_project_init_success,
 )
-from .project_resolution import resolution_exit_code, resolve_project_context
+from .project_resolution import namespace_for_host_adapter, resolution_exit_code, resolve_project_context
 from .repository_bootstrap import compile_repository_snapshot, render_snapshot_markdown
 from .repository_snapshot_store import RepositorySnapshotStore
 from .review_queue import build_review_queue_report, render_review_queue_markdown
@@ -248,7 +248,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Guide a read-only durable-memory loop without changing stored memory.",
     )
     first_run_parser.add_argument(
-        "--namespace", default="project:demo", help="Project namespace for the durable-memory loop."
+        "--namespace",
+        default=None,
+        help="Project namespace for the durable-memory loop (defaults to the bound repository namespace or project:demo).",
     )
     first_run_parser.add_argument(
         "--query",
@@ -555,11 +557,18 @@ def _confirm_setup_mutation(prompt: str) -> bool:
         return False
 
 
+def _resolve_first_run_namespace(explicit_namespace: str | None) -> str:
+    if explicit_namespace is not None:
+        return explicit_namespace
+    resolved = resolve_project_context(Path.cwd(), snapshot_root=resolve_repository_snapshot_root())
+    return namespace_for_host_adapter(resolved) or "project:demo"
+
+
 def _run_first_run(namespace: argparse.Namespace) -> int:
     store = MemoryStore.from_env()
     report = build_first_run_report(
         store,
-        namespace=namespace.namespace,
+        namespace=_resolve_first_run_namespace(namespace.namespace),
         query=namespace.query,
     )
     if namespace.format == "json":

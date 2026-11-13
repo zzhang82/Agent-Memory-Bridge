@@ -130,6 +130,8 @@ def render_first_run_markdown(report: dict[str, Any]) -> str:
         "",
         "## 3. What AMB remembered",
         "",
+        f"Reading namespace: `{report['namespace']}`",
+        "",
     ]
     if recall["items"]:
         for item in recall["items"]:
@@ -139,7 +141,7 @@ def render_first_run_markdown(report: dict[str, Any]) -> str:
             [
                 "No suitable memory surfaced yet.",
                 "",
-                "Next step: remember one useful project fact with your connected coding agent, then ask the question again.",
+                "Next step: remember one useful project fact with your connected coding agent, then ask the question again, or pass `--namespace <namespace>` to read another project namespace.",
             ]
         )
 
