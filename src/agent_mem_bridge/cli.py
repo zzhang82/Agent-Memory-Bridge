@@ -28,6 +28,7 @@ from .knowledge_explorer import (
     render_explorer_technical_markdown,
 )
 from .memory_cli import (
+    run_memory_audit,
     run_memory_forget,
     run_memory_list,
     run_memory_revise,
@@ -149,6 +150,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_consolidate_runs(namespace)
     if namespace.command == "memory":
         return _run_memory(parser, namespace)
+    if namespace.command == "audit-memory":
+        return run_memory_audit(namespace)
 
     parser.print_help()
     return 2
@@ -164,10 +167,12 @@ def _run_memory(parser: argparse.ArgumentParser, namespace: argparse.Namespace) 
         return run_memory_forget(namespace)
     if command == "revise":
         return run_memory_revise(namespace)
+    if command == "audit":
+        return run_memory_audit(namespace)
 
     print(
-        "usage: agent-memory-bridge memory {list,show,forget,revise} ...\n\n"
-        "Inspect, forget, or revise durable memories directly from the terminal.",
+        "usage: agent-memory-bridge memory {list,show,forget,revise,audit} ...\n\n"
+        "Inspect, forget, revise, or audit durable memories directly from the terminal.",
         file=sys.stderr,
     )
     return 2
@@ -577,7 +582,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     memory_parser = subparsers.add_parser(
         "memory",
-        help="List, show, forget, or revise durable memories directly from the terminal.",
+        help="List, show, forget, revise, or audit durable memories directly from the terminal.",
     )
     memory_subparsers = memory_parser.add_subparsers(dest="memory_command")
 
@@ -740,6 +745,70 @@ def _build_parser() -> argparse.ArgumentParser:
         "--token-file",
         type=Path,
         help="Host-local bearer credential file for --url.",
+    )
+
+    memory_audit_parser = memory_subparsers.add_parser(
+        "audit",
+        help="Audit durable memories against live repository state and dependencies.",
+    )
+    memory_audit_parser.add_argument(
+        "--namespace",
+        help="Namespace to audit (defaults to bound repository namespace).",
+    )
+    memory_audit_parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum candidates to inspect/stage (default: 20).",
+    )
+    memory_audit_parser.add_argument(
+        "--stage",
+        action="store_true",
+        help="Stage eligible candidates with candidate_status=needs_review in the hidden review queue.",
+    )
+    memory_audit_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
+    memory_audit_parser.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Repository root path to compare against (defaults to current checkout).",
+    )
+
+    audit_memory_parser = subparsers.add_parser(
+        "audit-memory",
+        help="Audit durable memories against live repository state and dependencies.",
+    )
+    audit_memory_parser.add_argument(
+        "--namespace",
+        help="Namespace to audit (defaults to bound repository namespace).",
+    )
+    audit_memory_parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum candidates to inspect/stage (default: 20).",
+    )
+    audit_memory_parser.add_argument(
+        "--stage",
+        action="store_true",
+        help="Stage eligible candidates with candidate_status=needs_review in the hidden review queue.",
+    )
+    audit_memory_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
+    audit_memory_parser.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Repository root path to compare against (defaults to current checkout).",
     )
     return parser
 
