@@ -152,3 +152,46 @@ def test_hardened_doctor_fails_for_non_private_posix_bridge_home(tmp_path: Path,
 
     assert report["ok"] is False
     assert check["status"] == "fail"
+
+
+def test_cli_doctor_human_output_includes_home_db_and_memories_stored(tmp_path: Path, monkeypatch, capsys) -> None:
+    runtime = _isolate_doctor_runtime(tmp_path, monkeypatch)
+    store = MemoryStore(db_path=runtime["db_path"], log_dir=runtime["log_dir"])
+
+    exit_code = main(["doctor", "--project-root", str(PROJECT_ROOT)])
+    before_out = capsys.readouterr().out
+    assert exit_code == 0
+    assert f"home: {runtime['bridge_home']}" in before_out
+    assert f"database: {runtime['db_path']}" in before_out
+    assert "memories stored: 0" in before_out
+
+    store.store(
+        namespace="project:test",
+        kind="memory",
+        title="Durable decision",
+        content="record_type: decision\nclaim: Run pytest before release.\nreason: Regression gate.",
+    )
+    store.store(
+        namespace="project:test",
+        kind="signal",
+        content="pending signal",
+    )
+    candidate = store.store(
+        namespace="project:test",
+        kind="memory",
+        title="Candidate note",
+        content="unpromoted learning candidate",
+        tags=["kind:learning-candidate"],
+    )
+    with sqlite3.connect(runtime["db_path"]) as conn:
+        assert (
+            conn.execute("SELECT is_learning_candidate FROM memories WHERE id = ?", (candidate["id"],)).fetchone()[0]
+            == 1
+        )
+
+    exit_code = main(["doctor", "--project-root", str(PROJECT_ROOT)])
+    after_out = capsys.readouterr().out
+    assert exit_code == 0
+    assert f"home: {runtime['bridge_home']}" in after_out
+    assert f"database: {runtime['db_path']}" in after_out
+    assert "memories stored: 1" in after_out

@@ -157,6 +157,7 @@ def run_doctor(
         "bridge_home": str(bridge_home),
         "db_path": str(db_path),
         "log_dir": str(log_dir),
+        "memories_stored": _memories_stored_count(db_path),
         "include_stdio": include_stdio,
         "stdio_check": stdio_check,
     }
@@ -195,6 +196,12 @@ def render_report(report: dict[str, Any]) -> str:
     lines = [
         f"overall: {'ok' if report['ok'] else 'failed'}",
     ]
+    if "bridge_home" in report:
+        lines.append(f"home: {report['bridge_home']}")
+    if "db_path" in report:
+        lines.append(f"database: {report['db_path']}")
+    if "memories_stored" in report:
+        lines.append(f"memories stored: {report['memories_stored']}")
     for check in report.get("checks", []):
         lines.append(f"- {check['name']}: {check['status']} - {check['detail']}")
     return "\n".join(lines)
@@ -459,6 +466,27 @@ def _related_service_process_count() -> int | None:
         if "service" in normalized and ("agent_mem_bridge" in normalized or "agent-memory-bridge" in normalized):
             count += 1
     return count
+
+
+def _memories_stored_count(db_path: Path) -> int:
+    if not db_path.is_file():
+        return 0
+    try:
+        with sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True) as conn:
+            table_exists = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memories'"
+            ).fetchone()
+            if table_exists is None:
+                return 0
+            try:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM memories WHERE kind = 'memory' AND COALESCE(is_learning_candidate, 0) = 0"
+                ).fetchone()
+            except sqlite3.OperationalError:
+                row = conn.execute("SELECT COUNT(*) FROM memories WHERE kind = 'memory'").fetchone()
+            return int(row[0]) if row is not None else 0
+    except (OSError, sqlite3.Error):
+        return 0
 
 
 def _signal_lifecycle_check(db_path: Path) -> dict[str, Any]:

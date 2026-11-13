@@ -23,9 +23,9 @@ GITHUB_ARCHIVE_URL = f"https://github.com/zzhang82/Agent-Memory-Bridge/archive/r
 RELEASE_INSTALL_GATE_NOTE = f"Current package/source version is `{RELEASE_VERSION}`."
 
 _DEFAULT_MEMORY_PROMPTS = (
-    "Before opening a PR, run <your project's test command>.",
-    "Deployments to staging are triggered from <your branch or release process>.",
-    "When editing <component>, preserve <your project-specific constraint>.",
+    "record_type: decision\nclaim: Before opening a PR, run <your project's test command>.\nreason: <why this check is required>",
+    "record_type: decision\nclaim: Deployments to staging are triggered from <your branch or release process>.\nreason: <why staging uses this path>",
+    "record_type: constraint\nclaim: When editing <component>, preserve <your project-specific constraint>.\nreason: <why this boundary matters>",
 )
 
 _SUPPRESSION_LANGUAGE = {

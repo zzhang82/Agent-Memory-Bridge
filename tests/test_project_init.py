@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import stat
 import subprocess
 from pathlib import Path
 
@@ -14,6 +16,7 @@ from agent_mem_bridge.knowledge_explorer import (
     render_explorer_human_markdown,
     render_explorer_technical_markdown,
 )
+from agent_mem_bridge.onboarding import run_doctor
 from agent_mem_bridge.project_init import (
     apply_project_init,
     plan_project_init,
@@ -526,3 +529,35 @@ def test_apply_repeat_after_clean_head_change_is_refresh(tmp_path: Path, monkeyp
     bound = store.load_bound_snapshot("project:agent-memory-bridge")
     assert bound is not None
     assert bound.get("commit") == head_b
+
+
+def test_project_init_tightens_home_and_repository_permissions_for_doctor(tmp_path: Path, monkeypatch, capsys) -> None:
+    repo = make_repo(tmp_path)
+    home = isolate_home(tmp_path, monkeypatch)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_CONFIG", str(tmp_path / "missing-config.toml"))
+    assert main(["project", "init", str(repo), "--yes"]) == 0
+    capsys.readouterr()
+    if os.name == "posix":
+        assert stat.S_IMODE(home.stat().st_mode) == 0o700
+        assert stat.S_IMODE((home / "repository").stat().st_mode) == 0o700
+    report = run_doctor(project_root=ROOT)
+    check = next(item for item in report["checks"] if item["name"] == "bridge_home_permissions")
+    assert check["status"] == "pass"
+    assert report["ok"] is True
+
+    preexisting_home = tmp_path / "preexisting-home"
+    preexisting_home.mkdir()
+    if os.name == "posix":
+        preexisting_home.chmod(0o755)
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_HOME", str(preexisting_home))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_DB_PATH", str(preexisting_home / "bridge.db"))
+    monkeypatch.setenv("AGENT_MEMORY_BRIDGE_LOG_DIR", str(preexisting_home / "logs"))
+    assert main(["project", "init", str(repo), "--yes"]) == 0
+    capsys.readouterr()
+    if os.name == "posix":
+        assert stat.S_IMODE(preexisting_home.stat().st_mode) == 0o700
+        assert stat.S_IMODE((preexisting_home / "repository").stat().st_mode) == 0o700
+    report_preexisting = run_doctor(project_root=ROOT)
+    check_preexisting = next(item for item in report_preexisting["checks"] if item["name"] == "bridge_home_permissions")
+    assert check_preexisting["status"] == "pass"
+    assert report_preexisting["ok"] is True
