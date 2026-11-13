@@ -505,6 +505,104 @@ def run_memory_audit(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_compile_index(args: argparse.Namespace) -> int:
+    """CLI runner for compile-index."""
+    from .memory_index import (
+        build_memory_index_metadata,
+        compile_memory_index,
+        write_memory_index,
+    )
+    from .paths import resolve_bridge_db_path
+
+    db_path = resolve_bridge_db_path()
+    target_namespace = resolve_default_namespace(getattr(args, "namespace", None))
+
+    if not db_path.is_file():
+        if getattr(args, "fail_open", True):
+            fallback = (
+                f"# Memory Index: `{target_namespace}`\n\n"
+                f"(No durable database found at {db_path}; failing open. Use targeted recall when database is initialized.)\n"
+            )
+            if getattr(args, "out", None):
+                write_memory_index(fallback, args.out)
+            else:
+                sys.stdout.write(fallback)
+            return 0
+        print(f"agent-memory-bridge: database not found at {db_path}", file=sys.stderr)
+        return 1
+
+    store = MemoryStore.from_env()
+    try:
+        content = compile_memory_index(
+            store,
+            namespace=target_namespace,
+            max_lines=getattr(args, "max_lines", 200),
+            max_bytes=getattr(args, "max_bytes", 25600),
+        )
+    except Exception as exc:
+        if getattr(args, "fail_open", True):
+            fallback = f"# Memory Index: `{target_namespace}`\n\n(Compilation error: {exc}; failing open.)\n"
+            sys.stdout.write(fallback)
+            return 0
+        print(f"agent-memory-bridge: compile-index failed: {exc}", file=sys.stderr)
+        return 2
+
+    if getattr(args, "json", False) or getattr(args, "format", "markdown") == "json":
+        meta = build_memory_index_metadata(content, namespace=target_namespace)
+        print(json.dumps(meta, indent=2, sort_keys=True))
+        return 0
+
+    if getattr(args, "out", None):
+        out_file = write_memory_index(content, args.out)
+        print(f"Compiled memory index written to {out_file}")
+    else:
+        sys.stdout.write(content)
+    return 0
+
+
+def run_log_audit(args: argparse.Namespace) -> int:
+    """CLI runner for audit-logs."""
+    from .log_audit import (
+        build_log_audit_report,
+        render_log_audit_markdown,
+        stage_log_audit_report,
+    )
+    from .paths import resolve_bridge_db_path
+
+    db_path = resolve_bridge_db_path()
+    if not db_path.is_file():
+        print(f"agent-memory-bridge: database not found at {db_path}", file=sys.stderr)
+        return 1
+
+    log_path = Path(args.log_file)
+    if not log_path.is_file():
+        print(f"agent-memory-bridge: log file not found: {log_path}", file=sys.stderr)
+        return 1
+
+    store = MemoryStore.from_env()
+    try:
+        report = build_log_audit_report(
+            log_path,
+            store,
+            namespace=getattr(args, "namespace", None),
+            limit=getattr(args, "limit", 10),
+        )
+        if getattr(args, "stage", False):
+            stage_log_audit_report(store, report)
+    except Exception as exc:
+        if getattr(args, "json", False) or getattr(args, "format", None) == "json":
+            print(json.dumps({"ok": False, "error": str(exc)}))
+        else:
+            print(f"agent-memory-bridge: log audit failed: {exc}", file=sys.stderr)
+        return 2
+
+    if getattr(args, "json", False) or getattr(args, "format", "markdown") == "json":
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_log_audit_markdown(report))
+    return 0
+
+
 @asynccontextmanager
 async def _remote_mcp_client(
     url: str,

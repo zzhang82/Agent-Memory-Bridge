@@ -137,8 +137,8 @@ def test_current_package_and_source_docs_use_published_identity() -> None:
     assert "no automatic learning" in announcement
     contract = (ROOT / "docs/evidence/v0.35.0-lifecycle/CONTRACT.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "v0.38.9 — Reviewable Offline Memory Audit and Windows WAL Checkpoint Stability" in announcement
-    assert "v0.38.9 — Reviewable Offline Memory Audit and Windows WAL Checkpoint Stability" in changelog
+    assert "v0.38.9 — Reviewable Offline Memory Audit, Session Index Compiler, and Windows WAL Stability" in announcement
+    assert "v0.38.9 — Reviewable Offline Memory Audit, Session Index Compiler, and Windows WAL Stability" in changelog
     assert "v0.38.9 source/release line" in changelog
     assert "v0.38.8 — Live Repo Claim Drift, Remote Operator Memory CLI, and Hero Walkthrough" in announcement
     assert "v0.38.8 — Live Repo Claim Drift, Remote Operator Memory CLI, and Hero Walkthrough" in changelog

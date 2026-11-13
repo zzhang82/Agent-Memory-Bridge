@@ -28,6 +28,8 @@ from .knowledge_explorer import (
     render_explorer_technical_markdown,
 )
 from .memory_cli import (
+    run_compile_index,
+    run_log_audit,
     run_memory_audit,
     run_memory_forget,
     run_memory_list,
@@ -152,6 +154,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_memory(parser, namespace)
     if namespace.command == "audit-memory":
         return run_memory_audit(namespace)
+    if namespace.command == "compile-index":
+        return run_compile_index(namespace)
+    if namespace.command == "audit-logs":
+        return run_log_audit(namespace)
 
     parser.print_help()
     return 2
@@ -169,10 +175,14 @@ def _run_memory(parser: argparse.ArgumentParser, namespace: argparse.Namespace) 
         return run_memory_revise(namespace)
     if command == "audit":
         return run_memory_audit(namespace)
+    if command == "compile-index":
+        return run_compile_index(namespace)
+    if command == "audit-logs":
+        return run_log_audit(namespace)
 
     print(
-        "usage: agent-memory-bridge memory {list,show,forget,revise,audit} ...\n\n"
-        "Inspect, forget, revise, or audit durable memories directly from the terminal.",
+        "usage: agent-memory-bridge memory {list,show,forget,revise,audit,compile-index,audit-logs} ...\n\n"
+        "Inspect, forget, revise, audit, compile index views, or audit logs for review candidates.",
         file=sys.stderr,
     )
     return 2
@@ -779,6 +789,66 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Repository root path to compare against (defaults to current checkout).",
     )
 
+    memory_compile_index_parser = memory_subparsers.add_parser(
+        "compile-index",
+        help="Compile an operator-visible, compact Markdown index (<=200 lines / <=25KB).",
+    )
+    memory_compile_index_parser.add_argument(
+        "--namespace",
+        help="Namespace to index (defaults to bound repository namespace).",
+    )
+    memory_compile_index_parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Output file path (defaults to stdout).",
+    )
+    memory_compile_index_parser.add_argument(
+        "--max-lines",
+        type=int,
+        default=200,
+        help="Hard ceiling on output lines (default: 200, max: 200).",
+    )
+    memory_compile_index_parser.add_argument(
+        "--max-bytes",
+        type=int,
+        default=25600,
+        help="Hard ceiling on output bytes (default: 25600, max: 25600).",
+    )
+    memory_compile_index_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
+    memory_compile_index_parser.add_argument(
+        "--no-fail-open",
+        action="store_false",
+        dest="fail_open",
+        default=True,
+        help="Exit with error on missing store instead of failing open.",
+    )
+
+    memory_audit_logs_parser = memory_subparsers.add_parser(
+        "audit-logs",
+        help="Audit an operator-provided session log and stage candidate lessons.",
+    )
+    memory_audit_logs_parser.add_argument("log_file", type=Path, help="Path to transcript or log file.")
+    memory_audit_logs_parser.add_argument(
+        "--namespace", help="Target namespace (defaults to bound repository namespace)."
+    )
+    memory_audit_logs_parser.add_argument(
+        "--limit", type=int, default=10, help="Maximum candidates to extract/stage (default: 10)."
+    )
+    memory_audit_logs_parser.add_argument(
+        "--stage",
+        action="store_true",
+        help="Stage candidates into the review queue with candidate_status=needs_review.",
+    )
+    memory_audit_logs_parser.add_argument(
+        "--format", choices=("markdown", "json"), default="markdown", help="Output format."
+    )
+
     audit_memory_parser = subparsers.add_parser(
         "audit-memory",
         help="Audit durable memories against live repository state and dependencies.",
@@ -810,6 +880,62 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Repository root path to compare against (defaults to current checkout).",
     )
+
+    compile_index_parser = subparsers.add_parser(
+        "compile-index",
+        help="Compile an operator-visible, compact Markdown index (<=200 lines / <=25KB).",
+    )
+    compile_index_parser.add_argument(
+        "--namespace",
+        help="Namespace to index (defaults to bound repository namespace).",
+    )
+    compile_index_parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Output file path (defaults to stdout).",
+    )
+    compile_index_parser.add_argument(
+        "--max-lines",
+        type=int,
+        default=200,
+        help="Hard ceiling on output lines (default: 200, max: 200).",
+    )
+    compile_index_parser.add_argument(
+        "--max-bytes",
+        type=int,
+        default=25600,
+        help="Hard ceiling on output bytes (default: 25600, max: 25600).",
+    )
+    compile_index_parser.add_argument(
+        "--format",
+        choices=("markdown", "json"),
+        default="markdown",
+        help="Output format.",
+    )
+    compile_index_parser.add_argument(
+        "--no-fail-open",
+        action="store_false",
+        dest="fail_open",
+        default=True,
+        help="Exit with error on missing store instead of failing open.",
+    )
+
+    audit_logs_parser = subparsers.add_parser(
+        "audit-logs",
+        help="Audit an operator-provided session log and stage candidate lessons.",
+    )
+    audit_logs_parser.add_argument("log_file", type=Path, help="Path to transcript or log file.")
+    audit_logs_parser.add_argument("--namespace", help="Target namespace (defaults to bound repository namespace).")
+    audit_logs_parser.add_argument(
+        "--limit", type=int, default=10, help="Maximum candidates to extract/stage (default: 10)."
+    )
+    audit_logs_parser.add_argument(
+        "--stage",
+        action="store_true",
+        help="Stage candidates into the review queue with candidate_status=needs_review.",
+    )
+    audit_logs_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
     return parser
 
 
