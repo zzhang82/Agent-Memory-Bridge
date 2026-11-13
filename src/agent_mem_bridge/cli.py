@@ -617,6 +617,15 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit JSON instead of formatted text.",
     )
+    memory_list_parser.add_argument(
+        "--url",
+        help="Connect to a remote HTTP authority instead of local database.",
+    )
+    memory_list_parser.add_argument(
+        "--token-file",
+        type=Path,
+        help="Host-local bearer credential file for --url.",
+    )
 
     memory_show_parser = memory_subparsers.add_parser(
         "show",
@@ -627,9 +636,22 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Memory ID to display.",
     )
     memory_show_parser.add_argument(
+        "--namespace",
+        help="Namespace to search for memory ID. Defaults to bound repository namespace or project:demo.",
+    )
+    memory_show_parser.add_argument(
         "--json",
         action="store_true",
         help="Emit JSON instead of formatted text.",
+    )
+    memory_show_parser.add_argument(
+        "--url",
+        help="Connect to a remote HTTP authority instead of local database.",
+    )
+    memory_show_parser.add_argument(
+        "--token-file",
+        type=Path,
+        help="Host-local bearer credential file for --url.",
     )
 
     memory_forget_parser = memory_subparsers.add_parser(
@@ -655,6 +677,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Emit JSON receipt instead of formatted text.",
+    )
+    memory_forget_parser.add_argument(
+        "--url",
+        help="Connect to a remote HTTP authority instead of local database.",
+    )
+    memory_forget_parser.add_argument(
+        "--token-file",
+        type=Path,
+        help="Host-local bearer credential file for --url.",
     )
 
     memory_revise_parser = memory_subparsers.add_parser(
@@ -700,6 +731,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Emit JSON instead of formatted text.",
+    )
+    memory_revise_parser.add_argument(
+        "--url",
+        help="Connect to a remote HTTP authority instead of local database.",
+    )
+    memory_revise_parser.add_argument(
+        "--token-file",
+        type=Path,
+        help="Host-local bearer credential file for --url.",
     )
     return parser
 

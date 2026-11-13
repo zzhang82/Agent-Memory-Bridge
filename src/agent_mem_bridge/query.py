@@ -1154,7 +1154,10 @@ def _recheck_fields(
             states.update(_dependency_states(owned, target_ids))
     elif connection is not None and target_ids:
         states.update(_dependency_states(connection, target_ids))
-    repository_root = Path.cwd() if "depends_on_repo:" in memory.content else None
+    has_repo_ref = "depends_on_repo:" in memory.content or bool(
+        "@" in memory.content and any(len(part) in {7, 40} for part in memory.content.split("@")[1:])
+    )
+    repository_root = Path.cwd() if has_repo_ref else None
     return dependency_recheck_status(
         memory.content,
         records_by_id=states,

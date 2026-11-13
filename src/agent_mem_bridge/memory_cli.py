@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -220,6 +222,9 @@ def render_memory_show(lookup: dict[str, Any]) -> str:
         )
 
     item = lookup["item"] or {}
+    recheck_status = item.get("recheck_status") or "-"
+    recheck_reasons = item.get("recheck_reasons") or []
+    recheck_display = f"{recheck_status} ({', '.join(recheck_reasons)})" if recheck_reasons else recheck_status
     lines = [
         f"Memory ID:    {item.get('id', '')}",
         f"Namespace:    {item.get('namespace', '')}",
@@ -228,7 +233,7 @@ def render_memory_show(lookup: dict[str, Any]) -> str:
         f"Title:        {item.get('title') or '-'}",
         f"Created At:   {item.get('created_at', '')}",
         f"Actor:        {item.get('actor') or '-'}",
-        f"Recheck:      {item.get('recheck_status') or '-'}",
+        f"Recheck:      {recheck_display}",
         f"Validity:     {item.get('validity_status') or '-'}",
     ]
 
@@ -248,6 +253,25 @@ def render_memory_show(lookup: dict[str, Any]) -> str:
     lines.append("-" * 60)
     lines.append(str(item.get("content", "")).rstrip())
     lines.append("-" * 60)
+
+    repo_divergence = item.get("repo_divergence") or []
+    if repo_divergence:
+        lines.append("")
+        lines.append("Live Repo Drift:")
+        lines.append("-" * 60)
+        for div in repo_divergence:
+            lines.append(f"  Path:            {div.get('path', '')}")
+            lines.append(f"  Recorded Commit: {div.get('recorded_commit', '')}")
+            lines.append(f"  Current Commit:  {div.get('current_commit', '')}")
+            if div.get("stored_claim"):
+                lines.append(f"  Stored Claim:    {div.get('stored_claim', '')}")
+            if div.get("live_content_preview"):
+                lines.append(f"  Live State:      {div.get('live_content_preview', '')}")
+            if div.get("diff_summary"):
+                lines.append(f"  Diff Summary:    {div.get('diff_summary', '')}")
+            if div.get("offer_revise"):
+                lines.append(f"  Offer Revise:    {div.get('offer_revise', '')}")
+        lines.append("-" * 60)
 
     if rel_lines:
         lines.append("")
@@ -294,6 +318,8 @@ def render_memory_revise(result: dict[str, Any]) -> str:
 
 def run_memory_list(args: argparse.Namespace) -> int:
     """CLI runner for memory list."""
+    if getattr(args, "url", None):
+        return _run_remote_memory_list(args)
     store = MemoryStore.from_env()
     report = list_memories(
         store,
@@ -312,6 +338,8 @@ def run_memory_list(args: argparse.Namespace) -> int:
 
 def run_memory_show(args: argparse.Namespace) -> int:
     """CLI runner for memory show."""
+    if getattr(args, "url", None):
+        return _run_remote_memory_show(args)
     store = MemoryStore.from_env()
     lookup = get_memory(store, args.id)
     if args.json:
@@ -328,6 +356,8 @@ def run_memory_show(args: argparse.Namespace) -> int:
 
 def run_memory_forget(args: argparse.Namespace) -> int:
     """CLI runner for memory forget."""
+    if getattr(args, "url", None):
+        return _run_remote_memory_forget(args)
     store = MemoryStore.from_env()
     lookup = get_memory(store, args.id)
     if not lookup["found"]:
@@ -372,6 +402,8 @@ def run_memory_forget(args: argparse.Namespace) -> int:
 
 def run_memory_revise(args: argparse.Namespace) -> int:
     """CLI runner for memory revise."""
+    if getattr(args, "url", None):
+        return _run_remote_memory_revise(args)
     store = MemoryStore.from_env()
     lookup = get_memory(store, args.id)
     if not lookup["found"]:
@@ -426,6 +458,339 @@ def run_memory_revise(args: argparse.Namespace) -> int:
             print(json.dumps({"revised": False, "error": str(exc)}))
         else:
             print(f"agent-memory-bridge: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        print(render_memory_revise(result))
+    return 0 if result.get("revised") else 1
+
+
+@asynccontextmanager
+async def _remote_mcp_client(
+    url: str,
+    token_file: Path | None,
+    timeout: float = 15.0,
+):
+    import httpx2
+    from mcp.client import Client
+    from mcp.client.streamable_http import streamable_http_client
+
+    from .deployment_config import read_token_file
+    from .http_probe import validate_http_url
+
+    validate_http_url(url)
+    headers: dict[str, str] = {}
+    if token_file is not None:
+        headers["Authorization"] = f"Bearer {read_token_file(token_file)}"
+
+    async with asyncio.timeout(timeout):
+        async with httpx2.AsyncClient(
+            headers=headers, timeout=timeout, follow_redirects=False, trust_env=False
+        ) as http:
+            async with Client(streamable_http_client(url, http_client=http)) as client:
+                yield client
+
+
+async def _remote_call_tool(client: Any, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    result = await client.call_tool(tool_name, arguments)
+    if result.is_error:
+        error_msg = "Remote tool error"
+        for content in getattr(result, "content", []) or []:
+            text = getattr(content, "text", None)
+            if text:
+                error_msg = text
+                break
+        raise RuntimeError(error_msg)
+    if getattr(result, "structured_content", None) is not None and isinstance(result.structured_content, dict):
+        return result.structured_content
+    for content in getattr(result, "content", []) or []:
+        text = getattr(content, "text", None)
+        if text:
+            try:
+                data = json.loads(text)
+                if isinstance(data, dict):
+                    return data
+            except (ValueError, TypeError):
+                pass
+    return {}
+
+
+async def _async_memory_list(
+    url: str,
+    token_file: Path | None,
+    *,
+    namespace: str | None,
+    all_namespaces: bool,
+    kind: str | None,
+    query: str,
+    limit: int,
+) -> dict[str, Any]:
+    if all_namespaces:
+        raise ValueError(
+            "--all across namespaces is only supported with local database; specify --namespace for remote"
+        )
+    target_namespace = resolve_default_namespace(namespace)
+    cleaned_query = query.strip()
+    async with _remote_mcp_client(url, token_file) as client:
+        call_args: dict[str, Any] = {
+            "namespace": target_namespace,
+            "limit": limit,
+        }
+        if kind is not None:
+            call_args["kind"] = kind
+
+        if cleaned_query:
+            call_args["query"] = cleaned_query
+            payload = await _remote_call_tool(client, "recall", call_args)
+        else:
+            payload = await _remote_call_tool(client, "browse", call_args)
+
+        items = payload.get("items", [])
+        return {
+            "count": len(items),
+            "namespace": target_namespace,
+            "all_namespaces": False,
+            "kind": kind,
+            "query": cleaned_query if cleaned_query else None,
+            "limit": limit,
+            "items": items,
+        }
+
+
+def _run_remote_memory_list(args: argparse.Namespace) -> int:
+    try:
+        report = asyncio.run(
+            _async_memory_list(
+                args.url,
+                getattr(args, "token_file", None),
+                namespace=args.namespace,
+                all_namespaces=bool(args.all),
+                kind=args.kind,
+                query=args.query,
+                limit=args.limit,
+            )
+        )
+    except ValueError as exc:
+        print(f"agent-memory-bridge: {exc}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        print(f"agent-memory-bridge: remote list failed: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        print(render_memory_list(report))
+    return 0
+
+
+async def _async_memory_show(
+    url: str,
+    token_file: Path | None,
+    *,
+    memory_id: str,
+    namespace: str | None,
+) -> dict[str, Any]:
+    cleaned_id = memory_id.strip()
+    if not cleaned_id:
+        return {"found": False, "forgotten": False, "item": None, "tombstone": None}
+    target_namespace = resolve_default_namespace(namespace)
+    async with _remote_mcp_client(url, token_file) as client:
+        payload = await _remote_call_tool(
+            client,
+            "recall",
+            {
+                "namespace": target_namespace,
+                "query": cleaned_id,
+                "limit": 20,
+            },
+        )
+        for item in payload.get("items", []):
+            if str(item.get("id")) == cleaned_id:
+                return {"found": True, "forgotten": False, "item": item, "tombstone": None}
+        browse_payload = await _remote_call_tool(
+            client,
+            "browse",
+            {
+                "namespace": target_namespace,
+                "limit": 100,
+            },
+        )
+        for item in browse_payload.get("items", []):
+            if str(item.get("id")) == cleaned_id:
+                return {"found": True, "forgotten": False, "item": item, "tombstone": None}
+        return {"found": False, "forgotten": False, "item": None, "tombstone": None}
+
+
+def _run_remote_memory_show(args: argparse.Namespace) -> int:
+    try:
+        lookup = asyncio.run(
+            _async_memory_show(
+                args.url,
+                getattr(args, "token_file", None),
+                memory_id=args.id,
+                namespace=getattr(args, "namespace", None),
+            )
+        )
+    except ValueError as exc:
+        print(f"agent-memory-bridge: {exc}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        print(f"agent-memory-bridge: remote show failed: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(lookup, indent=2, ensure_ascii=False))
+        return 0 if lookup["found"] else 1
+
+    if not lookup["found"]:
+        print(f"agent-memory-bridge: record not found: {args.id}", file=sys.stderr)
+        return 1
+
+    print(render_memory_show(lookup))
+    return 0
+
+
+async def _async_memory_forget(
+    url: str,
+    token_file: Path | None,
+    *,
+    memory_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    cleaned_id = memory_id.strip()
+    if not cleaned_id:
+        return {"id": "", "deleted": False, "not_found": True}
+    async with _remote_mcp_client(url, token_file) as client:
+        payload = await _remote_call_tool(
+            client,
+            "forget",
+            {"id": cleaned_id},
+        )
+        if payload.get("deleted"):
+            item = payload.get("item") or {}
+            return {
+                "id": cleaned_id,
+                "deleted": True,
+                "tombstone": {
+                    "namespace": item.get("namespace", ""),
+                    "deleted_at": "remote",
+                    "cause": reason,
+                },
+            }
+        return {"id": cleaned_id, "deleted": False, "not_found": True}
+
+
+def _run_remote_memory_forget(args: argparse.Namespace) -> int:
+    if not args.yes:
+        prompt = f"Forget remote memory {args.id} at {args.url}? [y/N]: "
+        try:
+            confirmed = input(prompt).strip().lower() in {"y", "yes"}
+        except EOFError:
+            confirmed = False
+        if not confirmed:
+            print("Aborted.")
+            return 1
+
+    try:
+        result = asyncio.run(
+            _async_memory_forget(
+                args.url,
+                getattr(args, "token_file", None),
+                memory_id=args.id,
+                reason=args.reason,
+            )
+        )
+    except ValueError as exc:
+        print(f"agent-memory-bridge: {exc}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        print(f"agent-memory-bridge: remote forget failed: {exc}", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        print(render_memory_forget(result))
+    return 0 if result.get("deleted") else 1
+
+
+async def _async_memory_revise(
+    url: str,
+    token_file: Path | None,
+    *,
+    memory_id: str,
+    content: str,
+    title: str | None,
+    tags: list[str] | None,
+    reason: str | None,
+    actor: str,
+) -> dict[str, Any]:
+    cleaned_id = memory_id.strip()
+    if not cleaned_id:
+        return {"revised": False, "error": "id must not be empty"}
+    args: dict[str, Any] = {
+        "id": cleaned_id,
+        "replacement_content": content,
+        "actor": actor,
+    }
+    if title is not None:
+        args["title"] = title
+    if tags is not None:
+        args["tags"] = tags
+    if reason is not None:
+        args["reason"] = reason
+
+    async with _remote_mcp_client(url, token_file) as client:
+        try:
+            payload = await _remote_call_tool(client, "revise", args)
+            return {
+                "revised": True,
+                "predecessor_id": cleaned_id,
+                "successor_id": payload.get("successor_id"),
+                "item": payload.get("item"),
+            }
+        except Exception as exc:
+            return {"revised": False, "error": str(exc)}
+
+
+def _run_remote_memory_revise(args: argparse.Namespace) -> int:
+    if not args.yes:
+        prompt = f"Revise remote memory {args.id} at {args.url}? [y/N]: "
+        try:
+            confirmed = input(prompt).strip().lower() in {"y", "yes"}
+        except EOFError:
+            confirmed = False
+        if not confirmed:
+            print("Aborted.")
+            return 1
+
+    try:
+        result = asyncio.run(
+            _async_memory_revise(
+                args.url,
+                getattr(args, "token_file", None),
+                memory_id=args.id,
+                content=args.content,
+                title=args.title,
+                tags=args.tags,
+                reason=args.reason,
+                actor=args.actor,
+            )
+        )
+    except ValueError as exc:
+        if args.json:
+            print(json.dumps({"revised": False, "error": str(exc)}))
+        else:
+            print(f"agent-memory-bridge: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        if args.json:
+            print(json.dumps({"revised": False, "error": str(exc)}))
+        else:
+            print(f"agent-memory-bridge: remote revision failed: {exc}", file=sys.stderr)
         return 1
 
     if args.json:

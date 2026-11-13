@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import json
+import socket
+import threading
+import time
 from pathlib import Path
 
+import uvicorn
+
 from agent_mem_bridge.cli import main
+from agent_mem_bridge.deployment_config import HttpTransportConfig
+from agent_mem_bridge.http_transport import build_http_app
 from agent_mem_bridge.storage import MemoryStore
 
 
@@ -326,3 +333,220 @@ def test_memory_list_default_namespace_bound_repo(tmp_path: Path, monkeypatch, c
     assert payload["namespace"] == bound_ns
     assert payload["count"] == 1
     assert payload["items"][0]["title"] == "Bound note"
+
+
+def test_remote_memory_cli_operations_over_http(tmp_path: Path, monkeypatch, capsys) -> None:
+    store = _init_store(tmp_path, monkeypatch)
+    token_file = tmp_path / "test-token"
+    token_file.write_text("secret-token-12345\n", encoding="utf-8")
+    token_file.chmod(0o600)
+    r1 = store.store(
+        namespace="project:remote-test",
+        kind="memory",
+        title="Initial remote decision",
+        content="record_type: decision\nclaim: Deploy via HTTP endpoint.",
+    )
+    rec_id = r1["id"]
+
+    app = build_http_app(
+        HttpTransportConfig(token_file=token_file),
+        store=store,
+        readiness_db_path=store.db_path,
+    )
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+        server = uvicorn.Server(uvicorn.Config(app, log_level="critical", access_log=False))
+        thread = threading.Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
+        thread.start()
+        try:
+            deadline = time.monotonic() + 10
+            while not server.started and thread.is_alive() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            assert server.started
+            url = f"http://127.0.0.1:{port}/mcp"
+
+            # 1. Remote list text
+            assert (
+                main(
+                    [
+                        "memory",
+                        "list",
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--namespace",
+                        "project:remote-test",
+                    ]
+                )
+                == 0
+            )
+            out = capsys.readouterr().out
+            assert "Memories in project:remote-test (showing 1):" in out
+            assert rec_id in out
+            assert "Initial remote decision" in out
+
+            # 2. Remote list json with query
+            assert (
+                main(
+                    [
+                        "memory",
+                        "list",
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--namespace",
+                        "project:remote-test",
+                        "--query",
+                        "HTTP",
+                        "--json",
+                    ]
+                )
+                == 0
+            )
+            list_payload = json.loads(capsys.readouterr().out)
+            assert list_payload["count"] == 1
+            assert list_payload["items"][0]["id"] == rec_id
+
+            # 3. Remote list rejects --all across namespaces
+            assert (
+                main(
+                    [
+                        "memory",
+                        "list",
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--all",
+                    ]
+                )
+                == 2
+            )
+            err = capsys.readouterr().err
+            assert "--all across namespaces is only supported with local database" in err
+
+            # 4. Remote show text
+            assert (
+                main(
+                    [
+                        "memory",
+                        "show",
+                        rec_id,
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--namespace",
+                        "project:remote-test",
+                    ]
+                )
+                == 0
+            )
+            show_out = capsys.readouterr().out
+            assert f"Memory ID:    {rec_id}" in show_out
+            assert "Initial remote decision" in show_out
+            assert "Deploy via HTTP endpoint." in show_out
+
+            # 5. Remote show json
+            assert (
+                main(
+                    [
+                        "memory",
+                        "show",
+                        rec_id,
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--namespace",
+                        "project:remote-test",
+                        "--json",
+                    ]
+                )
+                == 0
+            )
+            show_payload = json.loads(capsys.readouterr().out)
+            assert show_payload["found"] is True
+            assert show_payload["item"]["id"] == rec_id
+
+            # 6. Remote revise
+            assert (
+                main(
+                    [
+                        "memory",
+                        "revise",
+                        rec_id,
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--content",
+                        "record_type: decision\nclaim: Deploy via HTTP endpoint v2.",
+                        "--title",
+                        "Updated remote decision",
+                        "--yes",
+                        "--json",
+                    ]
+                )
+                == 0
+            )
+            rev_payload = json.loads(capsys.readouterr().out)
+            assert rev_payload["revised"] is True
+            assert rev_payload["predecessor_id"] == rec_id
+            succ_id = rev_payload["successor_id"]
+
+            # 7. Remote forget
+            assert (
+                main(
+                    [
+                        "memory",
+                        "forget",
+                        succ_id,
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--yes",
+                        "--json",
+                    ]
+                )
+                == 0
+            )
+            forget_payload = json.loads(capsys.readouterr().out)
+            assert forget_payload["deleted"] is True
+            assert forget_payload["id"] == succ_id
+
+            # 8. Remote show non-existent
+            assert (
+                main(
+                    [
+                        "memory",
+                        "show",
+                        "nonexistent-id",
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--namespace",
+                        "project:remote-test",
+                    ]
+                )
+                == 1
+            )
+            capsys.readouterr()
+        finally:
+            server.should_exit = True
+            thread.join(10)
+
+
+def test_remote_memory_cli_errors(capsys) -> None:
+    # Invalid URL
+    assert main(["memory", "list", "--url", "not-a-valid-url"]) == 2
+    assert "HTTP endpoint must be an absolute HTTP(S) URL" in capsys.readouterr().err
+
+    # Unreachable port
+    assert main(["memory", "list", "--url", "http://127.0.0.1:1/mcp"]) == 1
+    assert "remote list failed" in capsys.readouterr().err
