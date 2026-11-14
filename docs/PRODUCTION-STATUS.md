@@ -6,7 +6,7 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.38.9` |
+| Package/source version | `0.38.10` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
@@ -20,9 +20,11 @@ Default local home is `~/.local/share/agent-memory-bridge`. Current source does 
 
 ## Distribution Status
 
-The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.9` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.38.10` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
 
-The `0.38.9` source line adds a reviewable offline memory audit command (`memory audit` and `audit-memory`) for scanning durable memories against live repository checkouts and staging hidden `revise` candidates for drifted claims (#95), implements a size-capped session-start memory index compiler (`compile-index`, <=200 lines / <=25KB) as a pure derived projection (#96), adds an offline operator log audit command (`audit-logs`) to extract candidate gotchas into the review queue with zero transcript storage (#97), and fixes cross-platform Windows WAL checkpoint flakiness in the knowledge explorer test suite. Schema remains v12 and the public MCP surface remains exactly 17 tools.
+The `0.38.10` source line implements a size-capped session-start memory index compiler (`compile-index`, <=200 lines / <=25KB) as a pure derived projection (#96), adds an offline operator log audit command (`audit-logs`) to extract candidate gotchas into the review queue with zero transcript storage (#97), and strengthens test formatting for CI stability. Schema remains v12 and the public MCP surface remains exactly 17 tools.
+
+The `0.38.9` source line adds a reviewable offline memory audit command (`memory audit` and `audit-memory`) for scanning durable memories against live repository checkouts and staging hidden `revise` candidates for drifted claims (#95), and fixes cross-platform Windows WAL checkpoint flakiness in the knowledge explorer test suite. Schema remains v12 and the public MCP surface remains exactly 17 tools.
 
 The `0.38.8` source line surfaces stored claims alongside live repository state during recall when a record's declared commit or repo path drifts, providing stored claim, live content preview, diff summary, and revise suggestion (#93), and adds `--url` and `--token-file` remote support to the operator `memory` CLI subcommand group (`list`, `show`, `forget`, `revise`). Schema remains v12 and the public MCP surface remains exactly 17 tools.
 
