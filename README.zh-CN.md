@@ -58,11 +58,11 @@ fresh_process: true
 
 AMB 需要 **Python 3.11+** 和 Git。
 
-当前包/源码版本：`0.38.10`。
+当前包/源码版本：`0.39.0`。
 
 ```bash
 python3 -m venv .amb-venv
-.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.10
+.amb-venv/bin/python -m pip install agent-memory-bridge==0.39.0
 .amb-venv/bin/python -m agent_mem_bridge project init . --yes
 .amb-venv/bin/python -m agent_mem_bridge doctor
 ```
@@ -81,14 +81,42 @@ reason: Broken main blocked two releases this month.
 
 自由格式的 `kind="memory"` 笔记依然可以被 `recall` 召回，而 `explore` 和 `inspect` 会列出声明了 `record_type: decision` 或 `record_type: constraint` 的记录。下一次会话按上面的启动规则询问这条决策。
 
+## 用 AMB 可以做什么
+
+1. **决策与规则（Decisions and Rules）**：教一次已确认的项目决策和理由，让后续会话召回代码背后的“为什么”，而不是靠翻旧聊天记录猜测。
+2. **替换过时决策（Replacing Outdated Decisions）**：当规则变化时干净地替换旧记录，旧版本默认不再浮出，同时完整保留变更历史。
+3. **智能体交接与认领超时（Agent Handoffs and Claim Timeouts）**：发布短期交接项并由单个工作进程带超时认领，避免并行智能体争抢同一任务。
+4. **工作运行记录与证明回执（Tracked Work Runs and Proof Receipts）**：记录多步任务的执行进展、验证结果，以及证明哪些记忆曾被展示的防篡改回执。
+5. **多客户端连接与触发提醒（Connected Clients and Trigger Reminders）**：一键配置 Claude Code、Cursor、Codex、Cline 和 VS Code（带三层连接检查：`config_valid`、`server_spawn_verified` 与 `host_cli_verified` / `host_reload_required`），并为 6 个关键时机安装客户端提醒。
+
+如果你在阅读 Python 源码或原始 MCP JSON，请参阅[日常用语与代码术语对照表](docs/GLOSSARY.md)了解精确的代码与协议字段名（如 `namespace`、`supersedes`、`signal`、`lease_seconds`、`episode`、`attestation`）。
+
 <details>
-<summary>客户端、已有 home，以及可选审阅</summary>
+<summary>客户端、触发器、已有 home，以及可选审阅</summary>
 
-AMB 不会发现、写入或认证 Codex、Claude、Cursor、OpenCode、Hermes、Cline、VS Code 或 Antigravity。客户端把 AMB 配置为标准 MCP stdio 服务，并让共享同一项目的客户端指向同一个本地 home。
+用一条命令配置支持的客户端，并运行三层连接检查：
 
-如果已有 bridge 位于 `~/.codex/mem-bridge`，v0.36 不会自动打开它。把 `AGENT_MEMORY_BRIDGE_HOME` 指到该目录，或把目录复制到 `~/.local/share/agent-memory-bridge`。具体切换见[配置说明](docs/CONFIGURATION.md)。
+```bash
+<venv-python> -m agent_mem_bridge connect claude-code --yes
+<venv-python> -m agent_mem_bridge connect cursor --yes
+<venv-python> -m agent_mem_bridge connect codex --yes
+<venv-python> -m agent_mem_bridge connect cline --config-path ~/.cline/data/settings/cline_mcp_settings.json --yes
+<venv-python> -m agent_mem_bridge connect vscode --yes
+<venv-python> -m agent_mem_bridge connect cursor --check
+```
 
-配套技能是发现和日常使用的可选帮助。它们不能代替上面的启动规则；Claude Code 与 Cursor 的触发时机和 hook 配置见[生命周期与 hook 配方](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/references/lifecycle_and_hooks.md)。从 [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills) 安装：
+安装各客户端的触发提醒，并查看诚实的 6×5 客户端支持矩阵（`native_hook`、`deferred_hook`、`trust_gated_hook`、`instruction_rule`）：
+
+```bash
+<venv-python> -m agent_mem_bridge triggers matrix
+<venv-python> -m agent_mem_bridge triggers install claude-code --yes
+<venv-python> -m agent_mem_bridge triggers install cursor --yes
+<venv-python> -m agent_mem_bridge triggers test claude-code
+```
+
+如果已有 bridge 位于 `~/.codex/mem-bridge`，v0.36+ 不会自动打开它。把 `AGENT_MEMORY_BRIDGE_HOME` 指到该目录，或把目录复制到 `~/.local/share/agent-memory-bridge`。具体切换见[配置说明](docs/CONFIGURATION.md)。
+
+配套技能是发现和日常使用的可选帮助。它们不能代替上面的启动规则；更多背景见[生命周期与 hook 配方](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/references/lifecycle_and_hooks.md)。从 [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills) 安装：
 
 ```bash
 npx skills add zzhang82/Agent-Memory-Skills --skill amb
@@ -150,6 +178,7 @@ AMB 是面向编码智能体的、受治理的本地项目记忆层。持久知�
 
 | 文档 | 用途 |
 |---|---|
+| [术语对照表](docs/GLOSSARY.md) | 日常用语功能名称与代码、JSON 及 MCP 协议字段对照 |
 | [首次成功演示](examples/demo/README.md) | 本地双进程记录，以及更早的协作演示 |
 | [首次成功验收](docs/FIRST-WIN-ACCEPTANCE.md) | v0.35 系列的历史 Codex 观察记录 |
 | [架构](docs/ARCHITECTURE.md) | 系统形态与数据流 |
@@ -164,20 +193,20 @@ AMB 是面向编码智能体的、受治理的本地项目记忆层。持久知�
 
 ## 技术模型
 
-在内部，AMB 将 `derived_repository` 数据与受治理的持久记忆分开，避免一方悄悄变成另一方。对维护者和审阅者，当前权威流如下：
+在内部，AMB 将从 Git 读取的代码事实（`derived_repository`）与人工确认的决策（`governed_durable_memory`）分开，避免一方悄悄变成另一方。代码与协议字段对照见[术语对照表](docs/GLOSSARY.md)。对维护者和审阅者，当前权威流如下：
 
 ```mermaid
 flowchart LR
-    A[Durable Memory / WHY] --> C[Lifecycle-aware Recall]
-    B[Repository Knowledge / WHAT] --> D[Context Compiler]
-    S[Dynamic State Authority] --> D
-    C --> E[Governed Task Memory]
+    A[Decisions & Rules / WHY] --> C[Current-Version Recall]
+    B[Code Facts / WHAT] --> D[Context Compiler]
+    S[Runtime State] --> D
+    C --> E[Task Memory]
     E --> D
-    D --> F[Transient Bounded Context]
-    F --> G[Metadata-only Context Attestation]
-    G --> H[Episode and Run Authority]
+    D --> F[In-Memory Context]
+    F --> G[Context Proof Receipt]
+    G --> H[Tracked Work Runs]
     H --> I[Verification Receipt]
-    I --> J[Current Verified Outcome]
+    I --> J[Verified Outcome]
 ```
 
 SQLite/WAL 记录是持久权威。仓库 snapshot、FTS 记录、embedding sidecar、编译上下文、报告和 Explorer 视图都是派生内容。Context Compiler 只在进程内渲染上下文正文，不会将其持久保存。
@@ -213,7 +242,7 @@ AMB 暴露 **17 个公开 MCP 工具**：
 
 ## 当前成熟度
 
-当前包/源码版本是 `0.38.10`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
+当前包/源码版本是 `0.39.0`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
 
 ## 参与贡献
 

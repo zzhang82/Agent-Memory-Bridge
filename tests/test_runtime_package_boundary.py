@@ -56,9 +56,11 @@ def test_runtime_distribution_excludes_evidence_package_and_executes_extracted_s
         wheel_entries = set(wheel.namelist())
     assert {
         "agent_mem_bridge/cli.py",
+        "agent_mem_bridge/connectors.py",
         "agent_mem_bridge/server.py",
         "agent_mem_bridge/storage.py",
         "agent_mem_bridge/first_run.py",
+        "agent_mem_bridge/triggers.py",
     }.issubset(wheel_entries)
     assert not any(
         f"agent_mem_bridge/{name}.py" in wheel_entries for name in ("client_config", "setup_planner", "setup_apply")

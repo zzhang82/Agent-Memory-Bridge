@@ -62,11 +62,11 @@ Store a decision only after it is confirmed. Do not treat chat history as alread
 
 AMB requires **Python 3.11+** and Git.
 
-Current package/source version: `0.38.10`.
+Current package/source version: `0.39.0`.
 
 ```bash
 python3 -m venv .amb-venv
-.amb-venv/bin/python -m pip install agent-memory-bridge==0.38.10
+.amb-venv/bin/python -m pip install agent-memory-bridge==0.39.0
 .amb-venv/bin/python -m agent_mem_bridge project init . --yes
 .amb-venv/bin/python -m agent_mem_bridge doctor
 ```
@@ -85,14 +85,42 @@ reason: Broken main blocked two releases this month.
 
 Free-form `kind="memory"` notes still recall, while `explore` and `inspect` list records that declare `record_type: decision` or `record_type: constraint`. In the next session, use the startup rule above and ask for that decision.
 
+## What you can do with AMB
+
+1. **Decisions and Rules**: Teach one confirmed project decision and its reason so the next session recalls *why* the code is written that way instead of guessing from chat history.
+2. **Replacing Outdated Decisions**: When a decision changes, replace the older record cleanly so outdated rules stop surfacing by default while remaining in change history.
+3. **Agent Handoffs and Claim Timeouts**: Post a short-lived handoff item that one worker claims with a timeout so parallel agents do not step on the same task.
+4. **Tracked Work Runs and Proof Receipts**: Record multi-step run progress, verified outcomes, and tamper-evident receipts showing which memories surfaced.
+5. **Connected Clients and Trigger Reminders**: Configure Claude Code, Cursor, Codex, Cline, and VS Code with a three-tier connection check (`config_valid`, `server_spawn_verified`, and `host_cli_verified` / `host_reload_required`), and install per-client reminders for the six workflow trigger moments.
+
+Reading the Python source or raw MCP JSON? See the [Plain-Words to Code Glossary](docs/GLOSSARY.md) for the exact code and wire names (`namespace`, `supersedes`, `signal`, `lease_seconds`, `episode`, `attestation`).
+
 <details>
-<summary>Clients, an existing home, and optional review</summary>
+<summary>Clients, triggers, an existing home, and optional review</summary>
 
-AMB does not discover, write, or certify Codex, Claude, Cursor, OpenCode, Hermes, Cline, VS Code, or Antigravity. Clients configure AMB as a standard MCP stdio server and point shared projects at the same local home.
+Connect a supported client in one command and run the three-tier connection check:
 
-If an existing bridge lives at `~/.codex/mem-bridge`, v0.36 does not open it automatically. Set `AGENT_MEMORY_BRIDGE_HOME` to that directory, or copy it to `~/.local/share/agent-memory-bridge`. The [configuration guide](docs/CONFIGURATION.md) has the cutover.
+```bash
+<venv-python> -m agent_mem_bridge connect claude-code --yes
+<venv-python> -m agent_mem_bridge connect cursor --yes
+<venv-python> -m agent_mem_bridge connect codex --yes
+<venv-python> -m agent_mem_bridge connect cline --config-path ~/.cline/data/settings/cline_mcp_settings.json --yes
+<venv-python> -m agent_mem_bridge connect vscode --yes
+<venv-python> -m agent_mem_bridge connect cursor --check
+```
 
-The companion skills are optional help for discovery and everyday use. They do not replace the startup rule above; see [trigger moments and hook recipes](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/references/lifecycle_and_hooks.md) for Claude Code and Cursor reminders. Install them from [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills):
+Install per-client trigger reminders and inspect the honest 6×5 client support matrix (`native_hook`, `deferred_hook`, `trust_gated_hook`, `instruction_rule`):
+
+```bash
+<venv-python> -m agent_mem_bridge triggers matrix
+<venv-python> -m agent_mem_bridge triggers install claude-code --yes
+<venv-python> -m agent_mem_bridge triggers install cursor --yes
+<venv-python> -m agent_mem_bridge triggers test claude-code
+```
+
+If an existing bridge lives at `~/.codex/mem-bridge`, v0.36+ does not open it automatically. Set `AGENT_MEMORY_BRIDGE_HOME` to that directory, or copy it to `~/.local/share/agent-memory-bridge`. The [configuration guide](docs/CONFIGURATION.md) has the cutover.
+
+The companion skills are optional help for discovery and everyday use. They do not replace the startup rule above; see [trigger moments and hook recipes](https://github.com/zzhang82/Agent-Memory-Skills/blob/main/skills/amb-connect/references/lifecycle_and_hooks.md) for additional background. Install them from [Agent-Memory-Skills](https://github.com/zzhang82/Agent-Memory-Skills):
 
 ```bash
 npx skills add zzhang82/Agent-Memory-Skills --skill amb
@@ -154,6 +182,7 @@ Do not treat memory as a prompt trash can for linter errors, directory conventio
 
 | Read | For |
 |---|---|
+| [Glossary](docs/GLOSSARY.md) | Plain-words feature names mapped to exact code, JSON, and MCP wire terms |
 | [First-win demo](examples/demo/README.md) | The local two-process recording, and the older coordination demo |
 | [First-win acceptance](docs/FIRST-WIN-ACCEPTANCE.md) | Historical Codex observation from the v0.35 line |
 | [Architecture](docs/ARCHITECTURE.md) | System shape and data flow |
@@ -168,20 +197,20 @@ Do not treat memory as a prompt trash can for linter errors, directory conventio
 
 ## Technical model
 
-Internally, AMB keeps `derived_repository` data separate from governed durable memory so one cannot silently become the other. For maintainers and reviewers, the current authority flow is:
+Internally, AMB keeps code facts read from Git (`derived_repository`) separate from human-confirmed decisions (`governed_durable_memory`) so one cannot silently become the other. See the [Plain-Words to Code Glossary](docs/GLOSSARY.md) for the exact code and wire terms. For maintainers and reviewers, the current authority flow is:
 
 ```mermaid
 flowchart LR
-    A[Durable Memory / WHY] --> C[Lifecycle-aware Recall]
-    B[Repository Knowledge / WHAT] --> D[Context Compiler]
-    S[Dynamic State Authority] --> D
-    C --> E[Governed Task Memory]
+    A[Decisions & Rules / WHY] --> C[Current-Version Recall]
+    B[Code Facts / WHAT] --> D[Context Compiler]
+    S[Runtime State] --> D
+    C --> E[Task Memory]
     E --> D
-    D --> F[Transient Bounded Context]
-    F --> G[Metadata-only Context Attestation]
-    G --> H[Episode and Run Authority]
+    D --> F[In-Memory Context]
+    F --> G[Context Proof Receipt]
+    G --> H[Tracked Work Runs]
     H --> I[Verification Receipt]
-    I --> J[Current Verified Outcome]
+    I --> J[Verified Outcome]
 ```
 
 SQLite/WAL rows are durable authority. Repository snapshots, FTS rows, embedding sidecars, compiled context, reports, and Explorer views are derived. Context bodies are rendered in process and are not durably persisted by the compiler.
@@ -217,7 +246,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-Current package/source version is `0.38.10`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+Current package/source version is `0.39.0`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 

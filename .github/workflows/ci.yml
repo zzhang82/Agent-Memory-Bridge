@@ -116,6 +116,8 @@ jobs:
           src/agent_mem_bridge/gateway/permissions.py
           src/agent_mem_bridge/gateway/audit.py
           src/agent_mem_bridge/gateway/middleware.py
+          src/agent_mem_bridge/connectors.py
+          src/agent_mem_bridge/triggers.py
 
       - name: Core branch coverage
         run: >

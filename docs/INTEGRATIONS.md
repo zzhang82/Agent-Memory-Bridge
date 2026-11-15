@@ -7,9 +7,41 @@ Agent Memory Bridge is a local-first stdio MCP server. The generic installer and
 - the bridge writes JSON-RPC on `stdout`
 - every client or process sharing project memory points to one shared `AGENT_MEMORY_BRIDGE_HOME`
 
-Connecting a specific coding client is outside AMB Core. AMB does not discover, write, or certify Codex, Claude, Cursor, OpenCode, Hermes, Cline, VS Code, or Antigravity. Clients configure stdio subprocess launching independently. The historical `v0.35.0` tag still contains the old per-client notes.
+Connecting a specific coding client can be done either with AMB's `connect` CLI command (for Claude Code, Cursor, Codex, Cline, and VS Code) or by writing the client's native MCP stdio configuration manually. The historical `v0.35.0` tag still contains the older v0.35 notes.
 
-The current source/package line is `0.38.10` with exactly 17 public MCP tools. The normal install route is `pip install agent-memory-bridge`; GitHub Releases remains the publication authority for source tags and release notes. Published release availability is listed in GitHub Releases; the published v0.30.0 source archive is `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The pinned `v0.27.0` route is a historical published baseline.
+The current source/package line is `0.39.0` with exactly 17 public MCP tools. The normal install route is `pip install agent-memory-bridge`; GitHub Releases remains the publication authority for source tags and release notes. Published release availability is listed in GitHub Releases; the published v0.30.0 source archive is `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The pinned `v0.27.0` route is a historical published baseline.
+
+## One-Command Client Connectors and Three-Tier Check
+
+Use `connect` to merge the `agent-memory-bridge` entry into a supported client's configuration file (preserving existing sibling servers) and run the automated three-tier connection check:
+
+```bash
+<venv-python> -m agent_mem_bridge connect claude-code --yes
+<venv-python> -m agent_mem_bridge connect cursor --yes
+<venv-python> -m agent_mem_bridge connect codex --yes
+<venv-python> -m agent_mem_bridge connect cline --config-path ~/.cline/data/settings/cline_mcp_settings.json --yes
+<venv-python> -m agent_mem_bridge connect vscode --yes
+<venv-python> -m agent_mem_bridge connect cursor --check
+<venv-python> -m agent_mem_bridge connect --bridge-check --from-client claude-code --to-client codex
+```
+
+`connect <client> --check` reports three separate tiers:
+1. `tier1_config_valid`: Target JSON/TOML parses cleanly, uses the client's native key (`mcpServers`, `servers`, or `[mcp_servers]`), and uses an absolute executable path.
+2. `tier2_server_spawn_verified`: Spawns the exact configured command over MCP stdio and confirms `store` and `recall` are listed among the 17 tools.
+3. `tier3_host_registration_status`: Reports `host_cli_verified` when a non-interactive host CLI confirms registration, or `host_reload_required` when the client application must be reloaded to pick up the file.
+
+## Per-Client Trigger Reminders (6×5 Capability Matrix)
+
+Use `triggers` to inspect the 6 moments × 5 clients support matrix (`native_hook`, `deferred_hook`, `trust_gated_hook`, `instruction_rule`), install per-client reminders, or run the synthetic multi-turn self-test:
+
+```bash
+<venv-python> -m agent_mem_bridge triggers matrix
+<venv-python> -m agent_mem_bridge triggers install claude-code --yes
+<venv-python> -m agent_mem_bridge triggers install cursor --yes
+<venv-python> -m agent_mem_bridge triggers test claude-code
+```
+
+Host hook entries invoke `<venv-python> -m agent_mem_bridge trigger-hook --client <client>`, which translates vendor hook payloads outside `lifecycle-hook` and never auto-writes to SQLite. See the [Plain-Words to Code Glossary](GLOSSARY.md) for the exact vocabulary mapping.
 
 ## Generic Stdio Command Shape
 
