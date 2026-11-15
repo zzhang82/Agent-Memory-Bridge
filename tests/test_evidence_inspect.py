@@ -101,7 +101,7 @@ def test_inspect_real_governed_projection_is_deterministic_relevant_and_read_onl
     }.issubset({item["memory_id"] for item in report["excluded"]})
     assert unrelated["id"] not in {item["memory_id"] for item in report["excluded"]}
     assert unsafe["id"] in {item["memory_id"] for item in report["needs_review"]}
-    assert any("Superseded by a newer memory." in item["why"] for item in report["excluded"])
+    assert any("Replaced by a newer memory (superseded)." in item["why"] for item in report["excluded"])
     assert any("Out of date for this task." in item["why"] for item in report["excluded"])
     assert any("Marked unsafe to use." in item["why"] for item in report["excluded"])
     assert any("Depends on evidence that is not currently eligible." in item["why"] for item in report["excluded"])

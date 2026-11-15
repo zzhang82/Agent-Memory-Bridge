@@ -18,6 +18,7 @@ PUBLIC_ONBOARDING_FILES = (
     Path("config.example.toml"),
     Path("benchmark/README.md"),
     Path("docs/CONFIGURATION.md"),
+    Path("docs/GLOSSARY.md"),
     Path("docs/HARNESS-DESIGN.md"),
     Path("docs/INTEGRATIONS.md"),
     Path("examples/README.md"),

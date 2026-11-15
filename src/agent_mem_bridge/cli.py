@@ -158,6 +158,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_compile_index(namespace)
     if namespace.command == "audit-logs":
         return run_log_audit(namespace)
+    if namespace.command == "connect":
+        return _run_connect(namespace)
+    if namespace.command == "triggers":
+        return _run_triggers(namespace)
+    if namespace.command == "trigger-hook":
+        return _run_trigger_hook(namespace)
 
     parser.print_help()
     return 2
@@ -227,12 +233,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     project_parser = subparsers.add_parser(
         "project",
-        help="Orchestrate project learning over existing bootstrap and Explore commands.",
+        help="Bind a repository to a project memory name (namespace) and refresh code facts.",
     )
     project_subparsers = project_parser.add_subparsers(dest="project_command")
     project_init_parser = project_subparsers.add_parser(
         "init",
-        help="Detect a repository, confirm a namespace, bootstrap WHAT, and show Human-first Explore.",
+        help="Detect a repository, confirm a project memory name, refresh code facts (WHAT), and show Explore.",
     )
     project_init_parser.add_argument(
         "path",
@@ -243,21 +249,21 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     project_init_parser.add_argument(
         "--namespace",
-        help="Explicit project namespace. Shown before mutation and never silently rewritten.",
+        help="Explicit project memory name (namespace). Shown before writing and never silently rewritten.",
     )
     project_init_parser.add_argument(
         "--yes",
         action="store_true",
-        help="Confirm the shown namespace non-interactively. Does not create WHY.",
+        help="Confirm the shown project memory name non-interactively. Does not create decisions (WHY).",
     )
     project_init_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Show the detected repository and namespace without writing.",
+        help="Show the detected repository and project memory name without writing.",
     )
     project_resolve_parser = project_subparsers.add_parser(
         "resolve",
-        help="Resolve the current checkout to its governed project namespace without writing.",
+        help="Look up the bound project memory name (namespace) for this checkout without writing.",
     )
     project_resolve_parser.add_argument(
         "path",
@@ -269,7 +275,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     bootstrap_parser = subparsers.add_parser(
         "bootstrap-repo",
-        help="Derive a bounded, commit-bound repository knowledge snapshot without changing memory.",
+        help="Refresh code facts (WHAT) from the current clean Git commit without changing stored decisions.",
     )
     bootstrap_parser.add_argument("path", type=Path, help="Repository directory to inspect locally.")
     bootstrap_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
@@ -280,14 +286,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
     unbind_parser = subparsers.add_parser(
         "unbind-repo",
-        help="Remove one explicit local repository binding without deleting snapshots or memory.",
+        help="Remove one local repository binding without deleting snapshots or stored decisions.",
     )
     unbind_parser.add_argument("--namespace", required=True, help="Project namespace to unbind locally.")
     unbind_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
 
     first_run_parser = subparsers.add_parser(
         "first-run",
-        help="Guide a read-only durable-memory loop without changing stored memory.",
+        help="Walk through a read-only example of storing and recalling a decision without changing memory.",
     )
     first_run_parser.add_argument(
         "--namespace",
@@ -307,7 +313,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     inspect_parser = subparsers.add_parser(
         "inspect",
-        help="Explain governed task-memory selections and relevant exclusions without changing memory.",
+        help="Show why a decision or rule appeared or was left out for a question (read-only).",
     )
     inspect_parser.add_argument("--namespace", required=True, help="Project namespace to inspect.")
     inspect_parser.add_argument("--query", required=True, help="Task question used by governed task memory.")
@@ -317,7 +323,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     explore_parser = subparsers.add_parser(
         "explore",
-        help="Explore a bounded read-only projection of known project relationships.",
+        help="Show what AMB knows about a project: code facts (WHAT), decisions and rules (WHY), and replacements.",
     )
     explore_parser.add_argument("--namespace", required=True, help="Project namespace to explore.")
     explore_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
@@ -502,7 +508,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     signal_repair_parser = subparsers.add_parser(
         "signal-repair",
-        help="Explicitly reset one malformed claimed Signal to pending with an audit receipt.",
+        help="Reset one stuck claimed handoff message (signal) back to pending with an audit receipt.",
     )
     signal_repair_parser.add_argument("--id", required=True, help="Exact malformed Signal id to repair.")
     signal_repair_parser.add_argument("--reason", required=True, help="Required operator repair reason.")
@@ -558,7 +564,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     cleanup_parser = subparsers.add_parser(
         "signal-cleanup",
-        help="Preview or apply retention cleanup for old acknowledged and expired Signals.",
+        help="Preview or delete old completed and expired handoff messages (signals).",
     )
     cleanup_parser.add_argument("--acked-older-than-days", type=float, default=30.0)
     cleanup_parser.add_argument("--expired-older-than-days", type=float, default=7.0)
@@ -568,7 +574,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     run_consolidation_parser = subparsers.add_parser(
         "consolidate-runs",
-        help="Read completed run evidence and emit shadow-only lesson candidates.",
+        help="Scan completed tracked work runs (episodes) and propose review-inbox lesson candidates.",
     )
     run_consolidation_parser.add_argument("--shadow", action="store_true", help="Required safety acknowledgement.")
     run_consolidation_parser.add_argument("--workspace-key", required=True, help="Workspace key to inspect.")
@@ -936,6 +942,92 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Stage candidates into the review queue with candidate_status=needs_review.",
     )
     audit_logs_parser.add_argument("--format", choices=("markdown", "json"), default="markdown", help="Output format.")
+
+    connect_parser = subparsers.add_parser(
+        "connect",
+        help="Connect Claude Code, Cursor, Codex, Cline, or VS Code and verify MCP store/recall.",
+    )
+    connect_parser.add_argument(
+        "client",
+        nargs="?",
+        default=None,
+        help="Target client: claude-code, cursor, codex, cline, or vscode.",
+    )
+    connect_parser.add_argument(
+        "--scope",
+        choices=("project", "user"),
+        default="project",
+        help="Write/check project-local or user-level client config (default: project).",
+    )
+    connect_parser.add_argument("--home", type=Path, default=None, help="Shared AGENT_MEMORY_BRIDGE_HOME directory.")
+    connect_parser.add_argument("--config-path", type=Path, default=None, help="Explicit client config file path.")
+    connect_parser.add_argument("--url", default=None, help="Optional remote HTTP authority URL.")
+    connect_parser.add_argument("--token-file", type=Path, default=None, help="Bearer token file for --url.")
+    connect_parser.add_argument(
+        "--vscode-format",
+        choices=("servers", "copilot"),
+        default="servers",
+        help="VS Code config format: workspace .vscode/mcp.json (`servers`) or Copilot `.mcp.json` (`copilot`).",
+    )
+    connect_parser.add_argument("--check", action="store_true", help="Run the 3-tier connection check without writing.")
+    connect_parser.add_argument(
+        "--bridge-check",
+        action="store_true",
+        help="Run the two-client bridge acceptance test (store in Client A, recall in Client B).",
+    )
+    connect_parser.add_argument("--from-client", default="claude-code", help="Writer client for --bridge-check.")
+    connect_parser.add_argument("--to-client", default="cursor", help="Reader client for --bridge-check.")
+    connect_parser.add_argument("--namespace", default="project:bridge-check", help="Namespace for --bridge-check.")
+    connect_parser.add_argument("--force", action="store_true", help="Allow replacing an existing HTTP/stdio entry.")
+    connect_parser.add_argument(
+        "--dry-run", action="store_true", help="Preview the merged client config without writing."
+    )
+    connect_parser.add_argument("--yes", "-y", action="store_true", help="Apply non-interactively.")
+    connect_parser.add_argument("--json", action="store_true", help="Emit JSON instead of Markdown.")
+
+    triggers_parser = subparsers.add_parser(
+        "triggers",
+        help="Inspect the 6x5 client trigger matrix, install trigger reminders, or run self-tests.",
+    )
+    triggers_subparsers = triggers_parser.add_subparsers(dest="triggers_command")
+    triggers_matrix_parser = triggers_subparsers.add_parser(
+        "matrix",
+        help="Show the 6x5 per-client trigger capability matrix (native, deferred, trust-gated, instruction).",
+    )
+    triggers_matrix_parser.add_argument("--client", default=None, help="Optional single client filter.")
+    triggers_matrix_parser.add_argument("--json", action="store_true", help="Emit JSON instead of Markdown.")
+
+    triggers_install_parser = triggers_subparsers.add_parser(
+        "install",
+        help="Install per-client trigger hooks or managed instruction rules.",
+    )
+    triggers_install_parser.add_argument("client", help="Client: claude-code, cursor, codex, cline, or vscode.")
+    triggers_install_parser.add_argument(
+        "--scope",
+        choices=("project", "user"),
+        default="project",
+        help="Target project-local or user-level hooks/rules (default: project).",
+    )
+    triggers_install_parser.add_argument("--dry-run", action="store_true", help="Preview without writing files.")
+    triggers_install_parser.add_argument("--yes", "-y", action="store_true", help="Apply non-interactively.")
+    triggers_install_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+
+    triggers_test_parser = triggers_subparsers.add_parser(
+        "test",
+        help="Run the synthetic multi-turn trigger self-test for a client.",
+    )
+    triggers_test_parser.add_argument("client", help="Client: claude-code, cursor, codex, cline, or vscode.")
+    triggers_test_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
+
+    trigger_hook_parser = subparsers.add_parser(
+        "trigger-hook",
+        help="Translate one client hook event on stdin into a host-specific reminder response.",
+    )
+    trigger_hook_parser.add_argument(
+        "--client",
+        required=True,
+        help="Host client: claude-code, cursor, codex, cline, or vscode.",
+    )
     return parser
 
 
@@ -1493,3 +1585,126 @@ def _package_version() -> str:
         return version("agent-memory-bridge")
     except PackageNotFoundError:
         return "0.0.0"
+
+
+def _run_connect(namespace: argparse.Namespace) -> int:
+    from .connectors import (
+        check_client_connection,
+        connect_client,
+        render_connector_report_markdown,
+        run_bridge_check,
+    )
+
+    try:
+        if namespace.bridge_check:
+            report = run_bridge_check(
+                from_client=namespace.from_client,
+                to_client=namespace.to_client,
+                namespace=namespace.namespace,
+                bridge_home=namespace.home,
+            )
+            if namespace.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(render_connector_report_markdown(report))
+            return 0 if report["ok"] else 1
+
+        if not namespace.client:
+            print(
+                "usage: agent-memory-bridge connect <claude-code|cursor|codex|cline|vscode> [--check] ...\n"
+                "       agent-memory-bridge connect --bridge-check --from-client <A> --to-client <B>",
+                file=sys.stderr,
+            )
+            return 2
+
+        if namespace.check:
+            report = check_client_connection(
+                namespace.client,
+                scope=namespace.scope,
+                config_path=namespace.config_path,
+                vscode_format=namespace.vscode_format,
+            )
+        else:
+            report = connect_client(
+                namespace.client,
+                scope=namespace.scope,
+                config_path=namespace.config_path,
+                bridge_home=namespace.home,
+                url=namespace.url,
+                token_file=namespace.token_file,
+                vscode_format=namespace.vscode_format,
+                force=namespace.force,
+                dry_run=namespace.dry_run,
+            )
+    except (OSError, ValueError) as exc:
+        print(f"agent-memory-bridge: connect failed: {exc}", file=sys.stderr)
+        return 2
+
+    if namespace.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(render_connector_report_markdown(report))
+    return 0 if report["ok"] else 1
+
+
+def _run_triggers(namespace: argparse.Namespace) -> int:
+    from .triggers import (
+        build_trigger_matrix_report,
+        install_client_triggers,
+        render_trigger_matrix_markdown,
+        verify_client_triggers,
+    )
+
+    subcmd = getattr(namespace, "triggers_command", None)
+    try:
+        if subcmd == "matrix":
+            report = build_trigger_matrix_report(namespace.client)
+            if namespace.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(render_trigger_matrix_markdown(report))
+            return 0
+        if subcmd == "install":
+            report = install_client_triggers(
+                namespace.client,
+                scope=namespace.scope,
+                dry_run=namespace.dry_run,
+            )
+            if namespace.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(f"client={report['client']} delivery_mode={report['delivery_mode']} files={len(report['files'])}")
+                for warn in report.get("warnings") or []:
+                    print(f"warning: {warn}")
+            return 0
+        if subcmd == "test":
+            report = verify_client_triggers(namespace.client)
+            if namespace.json:
+                print(json.dumps(report, indent=2, sort_keys=True))
+            else:
+                print(f"client={report['client']} ok={str(bool(report['ok'])).lower()}")
+            return 0 if report["ok"] else 1
+    except (OSError, ValueError) as exc:
+        print(f"agent-memory-bridge: triggers failed: {exc}", file=sys.stderr)
+        return 2
+
+    print("usage: agent-memory-bridge triggers {matrix,install,test} ...", file=sys.stderr)
+    return 2
+
+
+def _run_trigger_hook(namespace: argparse.Namespace) -> int:
+    from .triggers import run_trigger_hook
+
+    try:
+        raw = sys.stdin.read()
+        payload = json.loads(raw) if raw.strip() else {}
+        if not isinstance(payload, dict):
+            payload = {}
+    except ValueError:
+        payload = {}
+    try:
+        out = run_trigger_hook(namespace.client, payload)
+    except Exception:
+        out = {}
+    print(json.dumps(out, ensure_ascii=False))
+    return 0

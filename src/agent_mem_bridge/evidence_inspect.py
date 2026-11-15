@@ -391,7 +391,7 @@ def _selected_explanations(reason_codes: list[object]) -> list[str]:
 
 def _suppression_explanation(reason: str) -> str:
     if reason == "superseded" or reason == "superseded_revision":
-        return "Superseded by a newer memory."
+        return "Replaced by a newer memory (superseded)."
     if reason == "validity:expired":
         return "Out of date for this task."
     if reason == "validity:future":
@@ -411,7 +411,7 @@ def _suppression_explanation(reason: str) -> str:
     if reason == "contradicted":
         return "Conflicts with stronger current guidance."
     if reason == "lineage_status:degraded":
-        return "Has incomplete lineage evidence."
+        return "Has incomplete change history."
     if reason == "invalid_structured_metadata":
         return "Its structured metadata failed validation, so governance left it out."
     return "Existing governance kept this candidate out of the task-memory result."

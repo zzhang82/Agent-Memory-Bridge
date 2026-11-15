@@ -36,6 +36,7 @@ PUBLIC_DOC_PATHS = (
     Path("docs/HARNESS-DESIGN.md"),
     Path("docs/INTEGRATIONS.md"),
     Path("docs/FIRST-WIN-ACCEPTANCE.md"),
+    Path("docs/GLOSSARY.md"),
     Path("docs/MEMORY-TAXONOMY.md"),
     Path("docs/MEMORY-HYGIENE.md"),
     Path("docs/PROMOTION-RULES.md"),
