@@ -634,6 +634,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Maximum number of memories to return (default: 20).",
     )
     memory_list_parser.add_argument(
+        "--include-superseded",
+        action="store_true",
+        help="Include superseded predecessor records in the listing.",
+    )
+    memory_list_parser.add_argument(
         "--json",
         action="store_true",
         help="Emit JSON instead of formatted text.",
@@ -813,13 +818,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-lines",
         type=int,
         default=200,
-        help="Hard ceiling on output lines (default: 200, max: 200).",
+        help="Hard ceiling on output lines (default: 200, min: 10, max: 200).",
     )
     memory_compile_index_parser.add_argument(
         "--max-bytes",
         type=int,
         default=25600,
-        help="Hard ceiling on output bytes (default: 25600, max: 25600).",
+        help="Hard ceiling on output bytes (default: 25600, min: 1024, max: 25600).",
     )
     memory_compile_index_parser.add_argument(
         "--format",
@@ -905,13 +910,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-lines",
         type=int,
         default=200,
-        help="Hard ceiling on output lines (default: 200, max: 200).",
+        help="Hard ceiling on output lines (default: 200, min: 10, max: 200).",
     )
     compile_index_parser.add_argument(
         "--max-bytes",
         type=int,
         default=25600,
-        help="Hard ceiling on output bytes (default: 25600, max: 25600).",
+        help="Hard ceiling on output bytes (default: 25600, min: 1024, max: 25600).",
     )
     compile_index_parser.add_argument(
         "--format",
@@ -963,6 +968,11 @@ def _build_parser() -> argparse.ArgumentParser:
     connect_parser.add_argument("--config-path", type=Path, default=None, help="Explicit client config file path.")
     connect_parser.add_argument("--url", default=None, help="Optional remote HTTP authority URL.")
     connect_parser.add_argument("--token-file", type=Path, default=None, help="Bearer token file for --url.")
+    connect_parser.add_argument(
+        "--allow-project-token",
+        action="store_true",
+        help="Allow writing a bearer token from --token-file into a project-scoped config file (ensure it is gitignored).",
+    )
     connect_parser.add_argument(
         "--vscode-format",
         choices=("servers", "copilot"),
@@ -1017,6 +1027,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Run the synthetic multi-turn trigger self-test for a client.",
     )
     triggers_test_parser.add_argument("client", help="Client: claude-code, cursor, codex, cline, or vscode.")
+    triggers_test_parser.add_argument(
+        "--scope",
+        choices=("project", "user"),
+        default="project",
+        help="Target project-local or user-level installed triggers (default: project).",
+    )
     triggers_test_parser.add_argument("--json", action="store_true", help="Emit JSON instead of plain text.")
 
     trigger_hook_parser = subparsers.add_parser(
@@ -1633,6 +1649,7 @@ def _run_connect(namespace: argparse.Namespace) -> int:
                 url=namespace.url,
                 token_file=namespace.token_file,
                 vscode_format=namespace.vscode_format,
+                allow_project_token=namespace.allow_project_token,
                 force=namespace.force,
                 dry_run=namespace.dry_run,
             )
@@ -1674,11 +1691,18 @@ def _run_triggers(namespace: argparse.Namespace) -> int:
                 print(json.dumps(report, indent=2, sort_keys=True))
             else:
                 print(f"client={report['client']} delivery_mode={report['delivery_mode']} files={len(report['files'])}")
+                for written_path in report.get("files") or []:
+                    print(f"file={written_path}")
+                if report.get("scope") == "project" and not report.get("dry_run") and report.get("files"):
+                    print(
+                        "note: new untracked project files mark the Git worktree dirty for `explore`/`inspect` "
+                        "until committed or gitignored."
+                    )
                 for warn in report.get("warnings") or []:
                     print(f"warning: {warn}")
             return 0
         if subcmd == "test":
-            report = verify_client_triggers(namespace.client)
+            report = verify_client_triggers(namespace.client, scope=namespace.scope)
             if namespace.json:
                 print(json.dumps(report, indent=2, sort_keys=True))
             else:

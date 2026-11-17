@@ -11,7 +11,9 @@ import re
 from typing import Any
 
 from .mcp_boundary import package_version
+from .memory_cli import truncate_on_word
 from .storage import MemoryStore
+from .structured_record import parse_structured_content
 from .task_brief import build_task_brief_report
 
 FIRST_RUN_SCHEMA = "memory.first_run.v2"
@@ -285,17 +287,16 @@ def _technical_details(
 
 def _friendly_title(value: object, content: str, rank: int) -> str:
     title = str(value or "").strip()
-    if title:
-        return title[:120]
-    summary = _summarize_content(content)
-    return summary[:120] if summary else f"Remembered item {rank}"
+    if not title:
+        title = parse_structured_content(content).first("claim") or _summarize_content(content)
+    if not title:
+        title = f"Remembered item {rank}"
+    return truncate_on_word(title, 120)
 
 
 def _summarize_content(content: str) -> str:
     compact = re.sub(r"\s+", " ", content).strip()
-    if len(compact) <= 240:
-        return compact
-    return f"{compact[:237].rstrip()}..."
+    return truncate_on_word(compact, 240)
 
 
 def _dedupe(values: list[str]) -> list[str]:

@@ -62,18 +62,18 @@ Store a decision only after it is confirmed. Do not treat chat history as alread
 
 AMB requires **Python 3.11+** and Git.
 
-Current package/source version: `0.39.0`.
+Current package/source version: `0.39.1`.
 
 ```bash
 python3 -m venv .amb-venv
-.amb-venv/bin/python -m pip install agent-memory-bridge==0.39.0
+.amb-venv/bin/python -m pip install agent-memory-bridge==0.39.1
 .amb-venv/bin/python -m agent_mem_bridge project init . --yes
 .amb-venv/bin/python -m agent_mem_bridge doctor
 ```
 
 In later commands, `<venv-python>` means `.amb-venv/bin/python` on Linux and macOS. `project init` detects the Git repository and proposes a namespace such as `project:my-app`; it accepts `--yes` for non-interactive runs and `--dry-run` to preview without writing. It does not learn decisions from the tree. After that, `project resolve .` returns the namespace.
 
-Run `<venv-python> -m agent_mem_bridge` with one persistent `AGENT_MEMORY_BRIDGE_HOME`. How a client launches that process stays outside Core. The command shape is in [Integrations](docs/INTEGRATIONS.md). Connection is real when the client lists `store` and `recall`.
+Run `<venv-python> -m agent_mem_bridge` with one persistent `AGENT_MEMORY_BRIDGE_HOME`. Configure a client with `connect <client> --yes` (and `triggers install <client> --yes`), or write the command shape by hand from [Integrations](docs/INTEGRATIONS.md). Connection is real when the client lists `store` and `recall`.
 
 Store one confirmed decision with `store`:
 
@@ -109,6 +109,8 @@ Connect a supported client in one command and run the three-tier connection chec
 <venv-python> -m agent_mem_bridge connect cursor --check
 ```
 
+`connect` writes `.mcp.json` (Claude Code project scope, or VS Code Copilot project format), `.cursor/mcp.json`, `.codex/config.toml`, `.vscode/mcp.json`, or Cline settings (`cline_mcp_settings.json`). Point a client at a remote HTTP authority with `connect <client> --url <url> --token-file <path> --scope user`. Project-scope token writes require `--allow-project-token`, and that config file must stay gitignored and must not be committed.
+
 Install per-client trigger reminders and inspect the honest 6×5 client support matrix (`native_hook`, `deferred_hook`, `trust_gated_hook`, `instruction_rule`):
 
 ```bash
@@ -117,6 +119,8 @@ Install per-client trigger reminders and inspect the honest 6×5 client support 
 <venv-python> -m agent_mem_bridge triggers install cursor --yes
 <venv-python> -m agent_mem_bridge triggers test claude-code
 ```
+
+`triggers install` writes `.claude/settings.json`, `.cursor/hooks.json`, `.codex/hooks.json`, `AGENTS.md`, `.github/hooks/amb-triggers.json`, `.github/copilot-instructions.md`, `.clinerules/amb-triggers.md`, and `.cline/rules/amb-triggers.md`. New untracked project files from `connect` or `triggers install` mark the Git worktree dirty. `explore` and `inspect` report `dirty_worktree` until those files are committed or gitignored.
 
 If an existing bridge lives at `~/.codex/mem-bridge`, v0.36+ does not open it automatically. Set `AGENT_MEMORY_BRIDGE_HOME` to that directory, or copy it to `~/.local/share/agent-memory-bridge`. The [configuration guide](docs/CONFIGURATION.md) has the cutover.
 
@@ -246,7 +250,7 @@ The local protocol cache contract is `300000/public` for discovery and `0/privat
 
 ## Current maturity
 
-Current package/source version is `0.39.0`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
+Current package/source version is `0.39.1`. Schema remains v12 and the public MCP surface remains exactly 17 tools. There is no automatic learning and no MCP tool #18. `project init` is the preferred first-project path. Default Explore is a Human-first view over existing repository-derived context and governed project knowledge. Current evidence and non-claims live in [Production Status](docs/PRODUCTION-STATUS.md); published artifacts live in [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases).
 
 ## Contributing
 

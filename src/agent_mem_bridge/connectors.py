@@ -50,7 +50,6 @@ _CLIENT_ALIASES: dict[str, ConnectorClient] = {
 }
 
 _UNEXPANDED_VAR_RE = re.compile(r"\$\{(?:workspaceFolder|input:|env:|command:)[^}]*\}")
-_TOML_SECTION_HEADER_RE = re.compile(r"^\s*\[([^\]]+)\]\s*$")
 
 
 def normalize_connector_client(raw: str) -> ConnectorClient:
@@ -220,6 +219,7 @@ def connect_client(
     token_file: Path | None = None,
     vscode_format: VSCodeFormat = "servers",
     force: bool = False,
+    allow_project_token: bool = False,
     dry_run: bool = False,
     verify_spawn: bool = True,
     host_cli_probe: Callable[[ConnectorClient], str] | None = None,
@@ -235,11 +235,21 @@ def connect_client(
         vscode_format=vscode_format,
         environ=environ,
     )
+    if url is not None and token_file is not None and scope == "project" and not allow_project_token:
+        raise ValueError(
+            "Refusing to write a bearer token from --token-file into a project-scoped config file. "
+            "Use --scope user or pass --allow-project-token and ensure the config file is gitignored."
+        )
+
     bearer_token: str | None = None
     if token_file is not None:
         bearer_token = Path(token_file).expanduser().read_text(encoding="utf-8").strip()
         if not bearer_token:
             raise ValueError(f"Token file is empty: {token_file}")
+        if len(bearer_token) > 8192 or any(ord(ch) < 33 or ord(ch) > 126 for ch in bearer_token):
+            raise ValueError(
+                f"Token file must contain one non-empty printable ASCII token without whitespace: {token_file}"
+            )
 
     desired_entry = build_server_entry(
         normalized,
@@ -276,7 +286,8 @@ def connect_client(
 
     rendered_text: str = merge_result["rendered_text"]
     if dry_run:
-        return {
+        preview = _redact_bearer_token(rendered_text, bearer_token)
+        dry_report: dict[str, Any] = {
             "schema": CONNECTOR_SCHEMA,
             "ok": True,
             "dry_run": True,
@@ -285,10 +296,39 @@ def connect_client(
             "config_path": str(target_path),
             "action": merge_result["action"],
             "unrelated_server_count": merge_result["unrelated_server_count"],
-            "preview": rendered_text,
+            "preview": preview,
         }
+        if token_file is not None:
+            dry_report["warnings"] = _bearer_token_warnings(scope)
+        return dry_report
 
     backup_path = target_path.with_name(f"{target_path.name}.amb-backup.bak") if existed_before else None
+    if merge_result["action"] == "unchanged":
+        check_report = check_client_connection(
+            normalized,
+            scope=scope,
+            cwd=cwd,
+            home=home,
+            config_path=target_path,
+            vscode_format=vscode_format,
+            verify_spawn=verify_spawn,
+            host_cli_probe=host_cli_probe,
+            environ=environ,
+        )
+        return {
+            "schema": CONNECTOR_SCHEMA,
+            "ok": bool(check_report.get("ok")),
+            "dry_run": False,
+            "rolled_back": False,
+            "client": normalized,
+            "scope": scope,
+            "config_path": str(target_path),
+            "backup_path": str(backup_path) if (backup_path and backup_path.exists()) else None,
+            "action": "unchanged",
+            "unrelated_server_count": merge_result["unrelated_server_count"],
+            "check": check_report,
+        } | ({"warnings": _bearer_token_warnings(scope)} if token_file is not None else {})
+
     target_path.parent.mkdir(parents=True, exist_ok=True)
     if backup_path is not None and original_bytes is not None:
         _atomic_write_bytes(backup_path, original_bytes)
@@ -332,7 +372,7 @@ def connect_client(
             "error": str(exc),
         }
 
-    return {
+    written: dict[str, Any] = {
         "schema": CONNECTOR_SCHEMA,
         "ok": True,
         "dry_run": False,
@@ -345,6 +385,9 @@ def connect_client(
         "unrelated_server_count": merge_result["unrelated_server_count"],
         "check": check_report,
     }
+    if token_file is not None:
+        written["warnings"] = _bearer_token_warnings(scope)
+    return written
 
 
 def _merge_client_config(
@@ -425,6 +468,18 @@ def _merge_client_config(
                     [k for k in servers_map if k not in {SERVER_ENTRY_NAME, LEGACY_SERVER_ENTRY_NAME}]
                 ),
             }
+        if existing_entry != desired_entry and not force:
+            return {
+                "ok": False,
+                "reason": "existing_entry_requires_force",
+                "detail": (
+                    f"Existing AMB {'http' if existing_is_http else 'stdio'} entry differs "
+                    "(for example AGENT_MEMORY_BRIDGE_HOME, command, or url). Pass --force to replace it."
+                ),
+                "unrelated_server_count": len(
+                    [k for k in servers_map if k not in {SERVER_ENTRY_NAME, LEGACY_SERVER_ENTRY_NAME}]
+                ),
+            }
 
     unrelated_count = len([k for k in servers_map if k not in {SERVER_ENTRY_NAME, LEGACY_SERVER_ENTRY_NAME}])
     if existing_key == LEGACY_SERVER_ENTRY_NAME and SERVER_ENTRY_NAME not in servers_map:
@@ -439,6 +494,28 @@ def _merge_client_config(
         "unrelated_server_count": unrelated_count,
         "rendered_text": json.dumps(parsed, indent=2) + "\n",
     }
+
+
+def _redact_bearer_token(text: str, bearer_token: str | None) -> str:
+    if not bearer_token:
+        return text
+    redacted = text.replace(bearer_token, "<REDACTED>")
+    escaped = _escape_toml(bearer_token)
+    if escaped != bearer_token:
+        redacted = redacted.replace(escaped, "<REDACTED>")
+    json_escaped = json.dumps(bearer_token)[1:-1]
+    if json_escaped != bearer_token:
+        redacted = redacted.replace(json_escaped, "<REDACTED>")
+    return redacted
+
+
+def _bearer_token_warnings(scope: ConnectorScope) -> list[str]:
+    if scope == "project":
+        return [
+            "Bearer token from --token-file was written into a project-scoped config file; "
+            "keep it untracked/gitignored and never commit it."
+        ]
+    return ["Bearer token from --token-file was written into your user-level config file (mode 0600); keep it private."]
 
 
 def _json_root_key(client: ConnectorClient, *, target_path: Path, vscode_format: VSCodeFormat) -> str:
@@ -489,8 +566,30 @@ def _merge_codex_toml(
                     f"({'http' if existing_is_http else 'stdio'}). Pass --force to replace it."
                 ),
             }
+        if existing_entry != desired_entry and not force:
+            unrelated_count = len([k for k in servers_map if k not in {SERVER_ENTRY_NAME, LEGACY_SERVER_ENTRY_NAME}])
+            return {
+                "ok": False,
+                "reason": "existing_entry_requires_force",
+                "detail": (
+                    f"Existing AMB {'http' if existing_is_http else 'stdio'} entry differs "
+                    "(for example AGENT_MEMORY_BRIDGE_HOME, command, or url). Pass --force to replace it."
+                ),
+                "unrelated_server_count": unrelated_count,
+            }
 
     unrelated_count = len([k for k in servers_map if k not in {SERVER_ENTRY_NAME, LEGACY_SERVER_ENTRY_NAME}])
+    if (
+        existing_entry == desired_entry
+        and SERVER_ENTRY_NAME in servers_map
+        and LEGACY_SERVER_ENTRY_NAME not in servers_map
+    ):
+        return {
+            "ok": True,
+            "action": "unchanged",
+            "unrelated_server_count": unrelated_count,
+            "rendered_text": existing_text,
+        }
     stripped_text = _strip_codex_amb_sections(existing_text)
     new_section = _render_codex_amb_section(desired_entry)
     if stripped_text.strip():
@@ -509,22 +608,133 @@ def _merge_codex_toml(
     }
 
 
+def _toml_multiline_state(line: str, delim: str | None) -> str | None:
+    """Advance a `'''` / `\"\"\"` multiline-string state across one physical line.
+
+    Backslash escapes count only inside basic `\"\"\"` strings. A comment marker
+    outside a string ends the scan, so a `#` cannot open or close a string.
+    """
+
+    index = 0
+    length = len(line)
+    while index < length:
+        if delim is None and line[index] == "#":
+            return None
+        if delim is not None:
+            if delim == '"""' and line[index] == "\\":
+                index += 2
+                continue
+            if line.startswith(delim, index):
+                delim = None
+                index += 3
+                continue
+            index += 1
+            continue
+        if line.startswith('"""', index) or line.startswith("'''", index):
+            delim = line[index : index + 3]
+            index += 3
+            continue
+        index += 1
+    return delim
+
+
+def _toml_statement_is_complete(statement: str) -> bool:
+    try:
+        tomllib.loads(statement if statement.endswith("\n") else statement + "\n")
+    except tomllib.TOMLDecodeError:
+        return False
+    return True
+
+
+def _toml_header_state(line: str) -> tuple[bool, bool] | None:
+    """Classify one single-line table header outside a multiline string.
+
+    Returns `(skip_section, in_mcp_servers_root)`, or `None` when the line is
+    not a TOML header.
+    """
+
+    stripped = line.strip()
+    if not stripped.startswith("["):
+        return None
+    if stripped.startswith("[["):
+        if not _toml_statement_is_complete(line):
+            return None
+        return (False, False)
+    if not _toml_statement_is_complete(line):
+        return None
+    try:
+        parsed = tomllib.loads(line + "\n")
+    except tomllib.TOMLDecodeError:
+        return None
+    if len(parsed) != 1:
+        return None
+    top_key, sub = next(iter(parsed.items()))
+    if top_key == "mcp_servers" and isinstance(sub, dict):
+        if len(sub) == 0:
+            return (False, True)
+        if SERVER_ENTRY_NAME in sub or LEGACY_SERVER_ENTRY_NAME in sub:
+            return (True, False)
+        return (False, False)
+    return (False, False)
+
+
+def _statement_defines_amb_key(statement: str) -> bool:
+    if not _toml_statement_is_complete(statement):
+        return False
+    parsed = tomllib.loads(statement if statement.endswith("\n") else statement + "\n")
+    return SERVER_ENTRY_NAME in parsed or LEGACY_SERVER_ENTRY_NAME in parsed
+
+
 def _strip_codex_amb_sections(text: str) -> str:
+    lines = text.splitlines()
     kept_lines: list[str] = []
     skip_section = False
-    target_prefixes = (
-        f"mcp_servers.{SERVER_ENTRY_NAME}",
-        f'mcp_servers."{SERVER_ENTRY_NAME}"',
-        f"mcp_servers.{LEGACY_SERVER_ENTRY_NAME}",
-        f'mcp_servers."{LEGACY_SERVER_ENTRY_NAME}"',
-    )
-    for line in text.splitlines():
-        match = _TOML_SECTION_HEADER_RE.match(line)
-        if match:
-            header = match.group(1).strip()
-            skip_section = any(header == prefix or header.startswith(prefix + ".") for prefix in target_prefixes)
+    in_mcp_servers_root = False
+    multiline_delim: str | None = None
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if multiline_delim is not None:
+            if not skip_section:
+                kept_lines.append(line)
+            multiline_delim = _toml_multiline_state(line, multiline_delim)
+            index += 1
+            continue
+
+        header_state = _toml_header_state(line)
+        if header_state is not None:
+            skip_section, in_mcp_servers_root = header_state
+            if not skip_section:
+                kept_lines.append(line)
+            multiline_delim = _toml_multiline_state(line, None)
+            index += 1
+            continue
+
+        stripped = line.strip()
+        if in_mcp_servers_root and stripped and not stripped.startswith("#"):
+            statement_lines = [line]
+            while not _toml_statement_is_complete("\n".join(statement_lines)) and index + 1 < len(lines):
+                index += 1
+                statement_lines.append(lines[index])
+            statement = "\n".join(statement_lines)
+            if _statement_defines_amb_key(statement):
+                multiline_delim = None
+                for statement_line in statement_lines:
+                    multiline_delim = _toml_multiline_state(statement_line, multiline_delim)
+                index += 1
+                continue
+            if not skip_section:
+                kept_lines.extend(statement_lines)
+            multiline_delim = None
+            for statement_line in statement_lines:
+                multiline_delim = _toml_multiline_state(statement_line, multiline_delim)
+            index += 1
+            continue
+
         if not skip_section:
             kept_lines.append(line)
+        multiline_delim = _toml_multiline_state(line, None)
+        index += 1
     return "\n".join(kept_lines).rstrip()
 
 
@@ -607,6 +817,7 @@ def check_client_connection(
             "tool_count": 0,
             "tool_names": [],
             "issues": validation["issues"],
+            "note": "Connection check failed; see issues above.",
         }
 
     entry: dict[str, Any] = validation["entry"]
@@ -653,9 +864,17 @@ def check_client_connection(
         "bridge_home": (entry.get("env") or {}).get("AGENT_MEMORY_BRIDGE_HOME") if transport == "stdio" else None,
         "issues": issues,
         "note": (
-            "Host CLI confirmed MCP registration."
-            if tier3_status == "host_cli_verified"
-            else "Config and MCP server spawn verified (`store` and `recall` listed); reload the client app to load config changes."
+            (
+                "Host CLI confirmed MCP registration."
+                if tier3_status == "host_cli_verified"
+                else "Config and MCP server spawn verified (`store` and `recall` listed); reload the client app to load config changes."
+            )
+            if ok
+            else (
+                "Config is valid, but MCP server spawn probe failed; see issues above."
+                if validation["tier1_config_valid"]
+                else "Connection check failed; see issues above."
+            )
         ),
     }
 
@@ -1078,6 +1297,12 @@ def render_connector_report_markdown(report: Mapping[str, Any]) -> str:
     ]
     if "action" in report:
         lines.append(f"- Action: `{report.get('action')}`")
+    if report.get("reason"):
+        lines.append(f"- Reason: `{report['reason']}`")
+    if report.get("detail"):
+        lines.append(f"- Detail: {report['detail']}")
+    if report.get("error"):
+        lines.append(f"- Error: {report['error']}")
     if isinstance(check, Mapping) and "tier1_config_valid" in check:
         lines.extend(
             [
@@ -1092,6 +1317,8 @@ def render_connector_report_markdown(report: Mapping[str, Any]) -> str:
             lines.append(f"- Issue: {issue}")
         if check.get("note"):
             lines.extend(["", str(check["note"])])
+    for warning in report.get("warnings") or []:
+        lines.append(f"- Warning: {warning}")
     if report.get("preview"):
         lines.extend(["", "## Preview", "", "```", str(report["preview"]).rstrip(), "```"])
     return "\n".join(lines)

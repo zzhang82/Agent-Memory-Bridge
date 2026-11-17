@@ -6,6 +6,7 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
 import uvicorn
 
 from agent_mem_bridge.cli import main
@@ -94,6 +95,119 @@ def test_memory_list_with_records_and_filters(tmp_path: Path, monkeypatch, capsy
     all_payload = json.loads(capsys.readouterr().out)
     assert all_payload["count"] == 3
     assert all_payload["all_namespaces"] is True
+
+
+def test_memory_list_hides_superseded_records_until_requested(tmp_path: Path, monkeypatch, capsys) -> None:
+    from agent_mem_bridge.memory_cli import list_memories, render_memory_list
+
+    store = _init_store(tmp_path, monkeypatch)
+    original = store.store(
+        namespace="project:supersede-list",
+        kind="memory",
+        title="Deploy to EC2 instances",
+        content="record_type: decision\nclaim: Deploy to EC2 instances.",
+    )
+    revised = store.revise(
+        original["id"],
+        replacement_content="record_type: decision\nclaim: Deploy to ECS containers.",
+        title="Deploy to ECS containers",
+    )
+    successor_id = revised["successor_id"]
+
+    assert main(["memory", "list", "--namespace", "project:supersede-list"]) == 0
+    listed = capsys.readouterr().out
+    assert successor_id in listed
+    assert original["id"] not in listed
+
+    # Forgetting the successor must not resurrect the predecessor.
+    assert main(["memory", "forget", successor_id, "--yes"]) == 0
+    capsys.readouterr()
+    assert main(["memory", "list", "--namespace", "project:supersede-list"]) == 0
+    after_forget = capsys.readouterr().out
+    assert "No memories found" in after_forget
+    assert original["id"] not in after_forget
+
+    report = list_memories(store, namespace="project:supersede-list", include_superseded=True)
+    restored = next(item for item in report["items"] if item["id"] == original["id"])
+    assert report["include_superseded"] is True
+    assert restored["superseded"] is True
+    assert restored["superseded_by"] == [successor_id]
+    rendered = render_memory_list(report)
+    assert "[superseded] Deploy to EC2 instances" in rendered
+
+    assert main(["memory", "list", "--namespace", "project:supersede-list", "--include-superseded"]) == 0
+    included = capsys.readouterr().out
+    assert original["id"] in included
+    assert "[superseded]" in included
+
+
+def test_compile_index_help_states_minimum_ceilings(capsys) -> None:
+    with pytest.raises(SystemExit) as caught:
+        main(["compile-index", "--help"])
+    assert caught.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "min: 10" in help_text
+    assert "min:" in help_text and "1024" in help_text
+
+
+def test_memory_list_labels_untitled_records_by_claim(tmp_path: Path, monkeypatch, capsys) -> None:
+    store = _init_store(tmp_path, monkeypatch)
+    store.store(
+        namespace="project:untitled",
+        kind="memory",
+        content="record_type: decision\nclaim: Pin the schema migration to version twelve.",
+    )
+
+    assert main(["memory", "list", "--namespace", "project:untitled"]) == 0
+    out = capsys.readouterr().out
+    assert "Pin the schema migration to version twelve." in out
+    assert "record_type: decision" not in out
+
+
+def test_memory_show_marks_superseded_records_and_withholds_revise_offer(tmp_path: Path, monkeypatch, capsys) -> None:
+    store = _init_store(tmp_path, monkeypatch)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    tracked = repo / "deploy.json"
+    tracked.write_text('{"replica_count": 2}\n', encoding="utf-8")
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "cli-test@example.com")
+    _git(repo, "config", "user.name", "CLI Tester")
+    _git(repo, "add", "deploy.json")
+    _git(repo, "commit", "-m", "initial deploy config")
+    commit = _git(repo, "rev-parse", "HEAD").strip()
+
+    original = store.store(
+        namespace="project:supersede-show",
+        kind="memory",
+        title="Production replica count",
+        content=(f"record_type: decision\ndepends_on_repo: deploy.json@{commit}\nclaim: Production runs 2 replicas."),
+    )
+    tracked.write_text('{"replica_count": 4}\n', encoding="utf-8")
+    _git(repo, "add", "deploy.json")
+    _git(repo, "commit", "-m", "scale to 4 replicas")
+
+    revised = store.revise(
+        original["id"],
+        replacement_content="record_type: decision\nclaim: Production runs 4 replicas.",
+        title="Production replica count updated",
+    )
+    monkeypatch.chdir(repo)
+
+    assert main(["memory", "show", original["id"]]) == 0
+    out = capsys.readouterr().out
+    assert f"Status:       superseded (replaced by {revised['successor_id']})" in out
+    assert "Live Repo Drift:" in out
+    assert "Offer Revise:" not in out
+    assert "Consider using 'revise'" not in out
+    assert f"Already superseded by {revised['successor_id']}" in out
+    assert "inspect the successor instead of revising this record." in out
+
+
+def _git(root: Path, *args: str) -> str:
+    import subprocess
+
+    return subprocess.check_output(["git", *args], cwd=root, text=True, stderr=subprocess.DEVNULL)
 
 
 def test_memory_show_and_tombstone(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -428,6 +542,25 @@ def test_remote_memory_cli_operations_over_http(tmp_path: Path, monkeypatch, cap
             err = capsys.readouterr().err
             assert "--all across namespaces is only supported with local database" in err
 
+            assert (
+                main(
+                    [
+                        "memory",
+                        "list",
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--namespace",
+                        "project:remote-test",
+                        "--include-superseded",
+                    ]
+                )
+                == 2
+            )
+            superseded_err = capsys.readouterr().err
+            assert "--include-superseded is only supported with local database" in superseded_err
+
             # 4. Remote show text
             assert (
                 main(
@@ -497,6 +630,27 @@ def test_remote_memory_cli_operations_over_http(tmp_path: Path, monkeypatch, cap
             assert rev_payload["revised"] is True
             assert rev_payload["predecessor_id"] == rec_id
             succ_id = rev_payload["successor_id"]
+
+            assert (
+                main(
+                    [
+                        "memory",
+                        "list",
+                        "--url",
+                        url,
+                        "--token-file",
+                        str(token_file),
+                        "--namespace",
+                        "project:remote-test",
+                        "--json",
+                    ]
+                )
+                == 0
+            )
+            revised_list = json.loads(capsys.readouterr().out)
+            listed_ids = [item["id"] for item in revised_list["items"]]
+            assert succ_id in listed_ids
+            assert rec_id not in listed_ids
 
             # 7. Remote forget
             assert (

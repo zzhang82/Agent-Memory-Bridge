@@ -6,13 +6,13 @@ This page is the canonical reference for **checked-in current-source facts**: im
 
 | Field | Current fact |
 |---|---|
-| Package/source version | `0.39.0` |
+| Package/source version | `0.39.1` |
 | Durable schema | v12 |
 | Public MCP surface | Exactly 17 public MCP tools |
 | Public tool-schema digest | `24c5c52321d61b4b6f647c0d74e2d8304ca68716c403e08a274e9badfd8dc9f8` |
 | Runtime model | Default local stdio and optional standard Streamable HTTP over one host-local SQLite/WAL authority; FTS5 and optional embeddings are derived indexes |
 
-Current source test collection: `1348 tests`
+Current source test collection: `1373 tests`
 
 Default local home is `~/.local/share/agent-memory-bridge`. Current source does not discover `~/.codex/mem-bridge`. Set `AGENT_MEMORY_BRIDGE_HOME` to keep the old directory, or copy it to the neutral home. AMB does not migrate or delete it.
 
@@ -20,7 +20,9 @@ Default local home is `~/.local/share/agent-memory-bridge`. Current source does 
 
 ## Distribution Status
 
-The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.39.0` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+The `0.32.1` source line introduced the release-side contract for PyPI distribution. Current source `0.39.1` uses the same publication route: a published GitHub Release whose tag matches `v<project.version>` can build and verify distributions, then publish through PyPI Trusted Publishing with GitHub OIDC. No PyPI API token is stored in the repository workflow. The container workflow builds and tests the immutable release-event SHA before GHCR publication. Live package/image availability is external state and is not asserted by this checked-in document.
+
+The `0.39.1` source line changes `memory list` to omit superseded records by default, including after a successor is forgotten, adds `--include-superseded`, aligns remote `--url` listing with that default, breaks `first-run` titles and claim labels on word boundaries, and shows the claim instead of `record_type:` in the `memory list` TITLE column (#115). It also preserves a venv symlink in `triggers install`, checks the installed command with `triggers test --scope` and reports the checked command under `--json`, merges `connect codex` TOML while keeping backups and unchanged files, protects differing stdio and HTTP entries with `--force` (`existing_entry_requires_force`), notes a failed connection check, and guards `--url --token-file` with `--allow-project-token` plus redaction (#116). `compile-index` omits superseded records, labels claims, and enforces `--max-lines` and `--max-bytes` minimums and the byte ceiling; `lifecycle-hook` truncates on word boundaries and flags `needs_recheck`; `memory show` reports `Status: superseded` and suppresses `Offer Revise` in `Live Repo Drift`; `triggers install` path output lists each `file=` path and notes a dirty worktree; onboarding, README, and integration docs match (#117). Schema remains v12 and the public MCP surface remains exactly 17 tools.
 
 The `0.39.0` source line delivers the plain-words pass across `README.md`, `README.zh-CN.md`, `Inspect`, and CLI `--help` with a code-reader glossary (`docs/GLOSSARY.md`), adds verified one-command client connectors (`connect`) with a three-tier connection check (`config_valid`, `server_spawn_verified`, `host_cli_verified` / `host_reload_required`) and cross-client bridge check (`connect --bridge-check`) for Claude Code, Cursor, Codex, Cline, and VS Code, and ships per-client workflow trigger reminders (`triggers` and `trigger-hook`) with an explicit 6×5 capability matrix. Schema remains v12 and the public MCP surface remains exactly 17 tools.
 
