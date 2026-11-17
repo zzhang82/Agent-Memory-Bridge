@@ -409,6 +409,7 @@ def test_codex_toml_strip_replaces_inline_root_entry(tmp_path: Path) -> None:
 
 
 def test_different_stdio_home_requires_force_but_identical_rerun_is_unchanged(tmp_path: Path) -> None:
+    team_home = str((tmp_path / "team-home").resolve())
     cursor_cfg = tmp_path / ".cursor" / "mcp.json"
     cursor_cfg.parent.mkdir(parents=True)
     cursor_cfg.write_text(
@@ -419,7 +420,7 @@ def test_different_stdio_home_requires_force_but_identical_rerun_is_unchanged(tm
                         "command": sys.executable,
                         "args": ["-I", "-m", "agent_mem_bridge"],
                         "env": {
-                            "AGENT_MEMORY_BRIDGE_HOME": "/data/team-home",
+                            "AGENT_MEMORY_BRIDGE_HOME": team_home,
                             "AGENT_MEMORY_BRIDGE_DEFAULT_SOURCE_CLIENT": "cursor",
                             "AGENT_MEMORY_BRIDGE_DEFAULT_CLIENT_TRANSPORT": "stdio",
                         },
@@ -452,7 +453,7 @@ def test_different_stdio_home_requires_force_but_identical_rerun_is_unchanged(tm
         scope="project",
         cwd=tmp_path,
         python_path=sys.executable,
-        bridge_home="/data/team-home",
+        bridge_home=team_home,
         force=False,
         verify_spawn=False,
     )
