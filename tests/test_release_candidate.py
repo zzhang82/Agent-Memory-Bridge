@@ -105,7 +105,7 @@ def test_readmes_use_v0381_release_identity() -> None:
     english = (ROOT / "README.md").read_text(encoding="utf-8")
     chinese = (ROOT / "README.zh-CN.md").read_text(encoding="utf-8")
     server_json = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
-    assert CURRENT == "0.39.0"
+    assert CURRENT == "0.39.1"
     assert f"Current package/source version: `{CURRENT}`." in english
     assert f"当前包/源码版本：`{CURRENT}`。" in chinese
     assert f"agent-memory-bridge=={CURRENT}" in english
@@ -137,7 +137,12 @@ def test_current_package_and_source_docs_use_published_identity() -> None:
     assert "no automatic learning" in announcement
     contract = (ROOT / "docs/evidence/v0.35.0-lifecycle/CONTRACT.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "v0.39.0 — Plain-Words Pass, Verified Client Connectors, and Per-Client Triggers" in announcement
+    assert "v0.39.1 — Connector, Trigger, and Operator CLI Fixes" in announcement
+    assert "v0.39.1 — Connector, Trigger, and Operator CLI Fixes" in changelog
+    assert "v0.39.1 source/release line" in changelog
+    assert "ghcr.io/zzhang82/agent-memory-bridge:0.39.1" in announcement
+    historical = (ROOT / "docs/v0.39.0-announcement.md").read_text(encoding="utf-8")
+    assert "v0.39.0 — Plain-Words Pass, Verified Client Connectors, and Per-Client Triggers" in historical
     assert "v0.39.0 — Plain-Words Pass, Verified Client Connectors, and Per-Client Triggers" in changelog
     assert "v0.39.0 source/release line" in changelog
     assert "v0.38.10 — Session Index Compiler and Operator Log Audit" in changelog

@@ -220,7 +220,14 @@ explicit project namespace, for example `project:my-app`, to `store` and
 
 Verify connectivity from each machine with
 `agent-memory-bridge doctor --url <url> --token-file <path>` and
-`verify --url <url> --token-file <path>`. This recipe makes no hosted-sync
+`verify --url <url> --token-file <path>`.
+
+Write the client MCP entry with
+`connect <client> --url <url> --token-file <path> --scope user`.
+Project-scope token writes require `--allow-project-token`. That config file
+must stay gitignored and must never be committed.
+
+This recipe makes no hosted-sync
 promise and no multi-writer shared-SQLite promise: one authority process owns
 the database, and the clients only talk to it over HTTP.
 

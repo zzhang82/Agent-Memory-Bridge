@@ -3,12 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .memory_cli import resolve_default_namespace
+from .memory_cli import _SUPERSEDED_SQL, display_memory_label, resolve_default_namespace, truncate_on_word
 from .repository import MEMORY_ROW_SELECT, MemoryRow
 from .storage import MemoryStore
 
 INDEX_SCHEMA = "memory.compiled_index.v1"
+MIN_INDEX_LINES = 10
 MAX_INDEX_LINES = 200
+MIN_INDEX_BYTES = 1024
 MAX_INDEX_BYTES = 25_600  # 25 KB
 
 
@@ -26,8 +28,8 @@ def compile_memory_index(
     discovery problem at session start without dumping raw record bodies.
     """
     target_namespace = resolve_default_namespace(namespace)
-    line_limit = max(10, min(max_lines, MAX_INDEX_LINES))
-    byte_limit = max(1024, min(max_bytes, MAX_INDEX_BYTES))
+    line_limit = max(MIN_INDEX_LINES, min(max_lines, MAX_INDEX_LINES))
+    byte_limit = max(MIN_INDEX_BYTES, min(max_bytes, MAX_INDEX_BYTES))
 
     with store._connect() as conn:
         rows = conn.execute(
@@ -37,6 +39,7 @@ def compile_memory_index(
             WHERE namespace = ?
               AND kind = 'memory'
               AND COALESCE(is_learning_candidate, 0) = 0
+              AND NOT {_SUPERSEDED_SQL}
             ORDER BY created_at DESC
             LIMIT 500
             """,
@@ -72,9 +75,7 @@ def compile_memory_index(
     body_lines: list[str] = []
 
     def _format_item(m: MemoryRow) -> str:
-        label = (m.title or m.content.splitlines()[0] if m.content else m.id).strip()
-        if len(label) > 72:
-            label = label[:69] + "..."
+        label = truncate_on_word(display_memory_label(m.title, m.content, fallback=m.id), 72)
         domain_tags = [t.partition(":")[2] for t in m.tags if t.startswith("domain:") or t.startswith("topic:")]
         tag_str = f" [{', '.join(domain_tags[:3])}]" if domain_tags else ""
         return f"- `{m.id}`: {label}{tag_str}"
@@ -99,19 +100,21 @@ def compile_memory_index(
         group_lines.append("")
         body_lines.extend(group_lines)
 
-    # Reserve lines for footer/omission notice
-    max_body_lines = line_limit - len(header_lines) - 4
+    # Reserve lines for footer, the omission notice, and any limit-adjustment note.
+    adjustments = _limit_adjustments(max_lines, line_limit, max_bytes, byte_limit)
+    max_body_lines = max(0, line_limit - len(header_lines) - 4 - len(adjustments))
     omitted = 0
 
     if len(body_lines) > max_body_lines:
         cutoff = max_body_lines
-        # Adjust cutoff so we don't end on a section header
-        if body_lines[cutoff - 1].startswith("##"):
+        # Adjust cutoff so we don't end on a section header.
+        # cutoff == 0 must not index body_lines[-1].
+        if cutoff > 0 and body_lines[cutoff - 1].startswith("##"):
             cutoff -= 1
         omitted = total_records - sum(1 for line in body_lines[:cutoff] if line.startswith("- `"))
         body_lines = body_lines[:cutoff]
 
-    footer_lines = []
+    footer_lines = [f"<!-- {adjustment} -->" for adjustment in adjustments]
     if omitted > 0:
         footer_lines.extend(
             [
@@ -123,16 +126,18 @@ def compile_memory_index(
 
     full_text = "\n".join(header_lines + body_lines + footer_lines)
 
-    # Enforce byte ceiling
+    # Enforce byte ceiling without slicing a multibyte character in half.
     encoded = full_text.encode("utf-8")
     if len(encoded) > byte_limit:
-        # Binary-safe truncation back to clean line
-        truncated = encoded[:byte_limit].decode("utf-8", errors="ignore")
-        lines = truncated.splitlines()
-        if len(lines) > 2:
-            lines = lines[:-1]
-        lines.append(f"<!-- truncated to stay within {byte_limit} bytes -->")
-        full_text = "\n".join(lines) + "\n"
+        notice = f"<!-- truncated to stay within {byte_limit} bytes -->"
+        adjustment_lines = [f"<!-- {adjustment} -->" for adjustment in adjustments]
+        tail = [line for line in footer_lines if line not in adjustment_lines]
+        tail.append(notice)
+        protected_tail = adjustment_lines + tail
+        body = list(body_lines)
+        while body and len(("\n".join(header_lines + body + protected_tail) + "\n").encode("utf-8")) > byte_limit:
+            body.pop()
+        full_text = "\n".join(header_lines + body + protected_tail) + "\n"
 
     return full_text
 
@@ -147,17 +152,54 @@ def write_memory_index(content: str, out_path: Path) -> Path:
     return resolved
 
 
-def build_memory_index_metadata(content: str, *, namespace: str) -> dict[str, Any]:
-    """Return machine-readable metadata for the compiled index."""
+def _limit_adjustments(max_lines: int, line_limit: int, max_bytes: int, byte_limit: int) -> list[str]:
+    """Describe requested limits that were clamped, as HTML-comment bodies."""
+
+    adjustments: list[str] = []
+    for name, requested, effective, floor, ceiling in (
+        ("max_lines", max_lines, line_limit, MIN_INDEX_LINES, MAX_INDEX_LINES),
+        ("max_bytes", max_bytes, byte_limit, MIN_INDEX_BYTES, MAX_INDEX_BYTES),
+    ):
+        if requested < floor:
+            adjustments.append(f"requested {name}={requested} raised to minimum {effective}")
+        elif requested > ceiling:
+            adjustments.append(f"requested {name}={requested} lowered to maximum {effective}")
+    return adjustments
+
+
+def build_memory_index_metadata(
+    content: str,
+    *,
+    namespace: str,
+    max_lines: int = MAX_INDEX_LINES,
+    max_bytes: int = MAX_INDEX_BYTES,
+) -> dict[str, Any]:
+    """Return machine-readable metadata for the compiled index.
+
+    ``max_lines`` and ``max_bytes`` are the requested limits. The effective
+    limits are what compilation actually enforced, and ``size_capped`` is judged
+    against those effective limits.
+    """
     lines = content.splitlines()
     byte_count = len(content.encode("utf-8"))
     record_count = sum(1 for line in lines if line.startswith("- `"))
+    effective_max_lines = max(MIN_INDEX_LINES, min(max_lines, MAX_INDEX_LINES))
+    effective_max_bytes = max(MIN_INDEX_BYTES, min(max_bytes, MAX_INDEX_BYTES))
+    limits_adjusted = [
+        note.removeprefix("requested ")
+        for note in _limit_adjustments(max_lines, effective_max_lines, max_bytes, effective_max_bytes)
+    ]
     return {
         "schema": INDEX_SCHEMA,
         "namespace": namespace,
         "line_count": len(lines),
         "byte_count": byte_count,
         "record_count": record_count,
-        "size_capped": len(lines) <= MAX_INDEX_LINES and byte_count <= MAX_INDEX_BYTES,
+        "requested_max_lines": max_lines,
+        "effective_max_lines": effective_max_lines,
+        "requested_max_bytes": max_bytes,
+        "effective_max_bytes": effective_max_bytes,
+        "limits_adjusted": limits_adjusted,
+        "size_capped": len(lines) <= effective_max_lines and byte_count <= effective_max_bytes,
         "content": content,
     }

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -14,6 +16,7 @@ from agent_mem_bridge.triggers import (
     TRIGGER_CAPABILITY_MATRIX,
     TRIGGER_MOMENTS,
     _hook_command_string,
+    _split_hook_command,
     _state_file_path,
     build_trigger_matrix_report,
     install_client_triggers,
@@ -282,6 +285,11 @@ def test_cli_triggers_and_trigger_hook_entrypoints(
     test_out = json.loads(capsys.readouterr().out)
     assert test_out["ok"] is True
 
+    assert main(["triggers", "test", "claude-code", "--scope", "user", "--json"]) == 0
+    user_scope_out = json.loads(capsys.readouterr().out)
+    assert user_scope_out["ok"] is True
+    assert user_scope_out["client"] == "claude-code"
+
     monkeypatch.setattr(
         "sys.stdin",
         type(
@@ -294,3 +302,73 @@ def test_cli_triggers_and_trigger_hook_entrypoints(
     hook_out = json.loads(capsys.readouterr().out)
     assert "additionalContext" in hook_out["hookSpecificOutput"]
     assert "cole-" not in render_managed_instruction_block("project:demo")
+
+
+def test_cli_triggers_install_lists_written_files_and_dirty_worktree_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    monkeypatch.chdir(workspace)
+    assert main(["triggers", "install", "claude-code", "--yes"]) == 0
+    out = capsys.readouterr().out
+    written = workspace / ".claude" / "settings.json"
+    assert written.is_file()
+    assert f"file={written}" in out
+    assert "worktree dirty" in out
+    assert "`explore`/`inspect`" in out
+    assert "files=1" in out
+
+
+def test_split_hook_command_preserves_windows_backslashes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(os, "name", "nt")
+    unquoted = r"C:\Tools\Python\python.exe -I -m agent_mem_bridge"
+    spaced = r"C:\Program Files\Python\python.exe -I -m agent_mem_bridge"
+    quoted = '"C:\\Program Files\\Python 3\\python.exe" -I -m agent_mem_bridge trigger-hook --client cursor'
+    assert _split_hook_command(unquoted)[0] == r"C:\Tools\Python\python.exe"
+    assert _split_hook_command(spaced)[:2] == [r"C:\Program", r"Files\Python\python.exe"]
+    assert _split_hook_command(quoted)[0] == r"C:\Program Files\Python 3\python.exe"
+    assert _split_hook_command(quoted)[-1] == "cursor"
+
+
+def test_hook_command_string_preserves_symlinked_venv_python(tmp_path: Path) -> None:
+    venv_python = tmp_path / ".amb-venv" / "bin" / "python"
+    venv_python.parent.mkdir(parents=True)
+    venv_python.symlink_to(sys.executable)
+    command = _hook_command_string(venv_python, "claude-code")
+    assert command.startswith(f"{venv_python} -I -m agent_mem_bridge")
+    assert not command.startswith(str(Path(sys.executable).resolve()))
+
+
+def test_verify_client_triggers_fails_when_installed_hook_command_is_broken(tmp_path: Path) -> None:
+    workspace = tmp_path / "repo"
+    hooks_path = workspace / ".cursor" / "hooks.json"
+    hooks_path.parent.mkdir(parents=True)
+    broken = tmp_path / "broken-python"
+    broken.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    broken.chmod(0o755)
+    hooks_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "hooks": {
+                    "sessionStart": [
+                        {"command": f"{broken} -I -m agent_mem_bridge trigger-hook --client cursor"},
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = verify_client_triggers(
+        "cursor",
+        bridge_home=tmp_path / "amb-home",
+        cwd=workspace,
+        home=tmp_path / "home",
+    )
+    assert result["ok"] is False
+    installed = next(item for item in result["checks"] if item["moment"] == "installed_command")
+    assert installed["installed"] is True
+    assert installed["ok"] is False
+    assert "error" in installed
+    assert str(broken) in installed["command"]

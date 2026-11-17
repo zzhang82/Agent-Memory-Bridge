@@ -58,18 +58,18 @@ fresh_process: true
 
 AMB 需要 **Python 3.11+** 和 Git。
 
-当前包/源码版本：`0.39.0`。
+当前包/源码版本：`0.39.1`。
 
 ```bash
 python3 -m venv .amb-venv
-.amb-venv/bin/python -m pip install agent-memory-bridge==0.39.0
+.amb-venv/bin/python -m pip install agent-memory-bridge==0.39.1
 .amb-venv/bin/python -m agent_mem_bridge project init . --yes
 .amb-venv/bin/python -m agent_mem_bridge doctor
 ```
 
 后文命令里的 `<venv-python>` 在 Linux 和 macOS 上指 `.amb-venv/bin/python`。`project init` 检测 Git 仓库并建议一个类似 `project:my-app` 的 namespace；它支持用 `--yes` 进行非交互式执行，或用 `--dry-run` 在不写入的情况下预览。它不会从代码树学习决策。绑定之后，`project resolve .` 返回该 namespace。
 
-用持久的 `AGENT_MEMORY_BRIDGE_HOME` 运行 `<venv-python> -m agent_mem_bridge`。客户端如何启动这个进程不属于 Core。命令形式见[集成文档](docs/INTEGRATIONS.md)。客户端列出 `store` 和 `recall` 时，连接才算成立。
+用持久的 `AGENT_MEMORY_BRIDGE_HOME` 运行 `<venv-python> -m agent_mem_bridge`。用 `connect <client> --yes`（以及 `triggers install <client> --yes`）配置客户端，或按[集成文档](docs/INTEGRATIONS.md)手工写入命令形式。客户端列出 `store` 和 `recall` 时，连接才算成立。
 
 用 `store` 保存一条已确认的决策：
 
@@ -105,6 +105,8 @@ reason: Broken main blocked two releases this month.
 <venv-python> -m agent_mem_bridge connect cursor --check
 ```
 
+`connect` 写入 `.mcp.json`（Claude Code 项目范围，或 VS Code Copilot 项目格式）、`.cursor/mcp.json`、`.codex/config.toml`、`.vscode/mcp.json`，或 Cline 设置（`cline_mcp_settings.json`）。用 `connect <client> --url <url> --token-file <path> --scope user` 把客户端指向远程 HTTP 权威。项目范围的令牌写入需要 `--allow-project-token`，该配置文件必须加入 gitignore，且不得提交。
+
 安装各客户端的触发提醒，并查看诚实的 6×5 客户端支持矩阵（`native_hook`、`deferred_hook`、`trust_gated_hook`、`instruction_rule`）：
 
 ```bash
@@ -113,6 +115,8 @@ reason: Broken main blocked two releases this month.
 <venv-python> -m agent_mem_bridge triggers install cursor --yes
 <venv-python> -m agent_mem_bridge triggers test claude-code
 ```
+
+`triggers install` 写入 `.claude/settings.json`、`.cursor/hooks.json`、`.codex/hooks.json`、`AGENTS.md`、`.github/hooks/amb-triggers.json`、`.github/copilot-instructions.md`、`.clinerules/amb-triggers.md` 和 `.cline/rules/amb-triggers.md`。`connect` 或 `triggers install` 新建的未跟踪项目文件会把 Git 工作区标成脏。在这些文件被提交或加入 gitignore 之前，`explore` 和 `inspect` 会报告 `dirty_worktree`。
 
 如果已有 bridge 位于 `~/.codex/mem-bridge`，v0.36+ 不会自动打开它。把 `AGENT_MEMORY_BRIDGE_HOME` 指到该目录，或把目录复制到 `~/.local/share/agent-memory-bridge`。具体切换见[配置说明](docs/CONFIGURATION.md)。
 
@@ -242,7 +246,7 @@ AMB 暴露 **17 个公开 MCP 工具**：
 
 ## 当前成熟度
 
-当前包/源码版本是 `0.39.0`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
+当前包/源码版本是 `0.39.1`。schema 仍为 v12，公开 MCP 接口仍是恰好 17 个工具。没有自动学习，也没有 MCP 工具 #18。`project init` 是首选的首次项目路径。默认 Explore 是覆盖现有仓库派生上下文与受治理项目知识的 Human-first 视图。当前证据与非声明位于[生产状态](docs/PRODUCTION-STATUS.md)，已发布工件位于 [GitHub Releases](https://github.com/zzhang82/Agent-Memory-Bridge/releases)。
 
 ## 参与贡献
 

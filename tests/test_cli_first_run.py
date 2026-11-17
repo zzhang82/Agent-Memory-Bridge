@@ -62,6 +62,51 @@ def test_first_run_is_read_only_and_surfaces_real_durable_memory(tmp_path: Path)
     assert "token" not in report["technical_details"]
 
 
+def test_first_run_titles_keep_word_boundaries_and_use_the_claim(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    untitled = store.store(
+        namespace=NAMESPACE,
+        kind="memory",
+        content=(
+            "record_type: decision\n"
+            "claim: Run the complete validation suite before submitting any project change.\n"
+            "reason: A partial check hides regressions that the full suite would catch. "
+            + "The suite covers storage, retrieval, revision, and activation. "
+            * 6
+        ),
+    )
+    long_title = "Run the complete validation suite before submitting any project change " * 4
+    titled = store.store(
+        namespace=NAMESPACE,
+        kind="memory",
+        title=long_title,
+        content=(
+            "record_type: decision\n"
+            "claim: The long title must be shortened on a word boundary. "
+            + "Word boundary truncation keeps every visible word intact. "
+            * 6
+        ),
+    )
+
+    report = build_first_run_report(store, namespace=NAMESPACE, query="validation suite")
+    items = {item["memory_id"]: item for item in report["recall"]["items"]}
+    untitled_item = items[untitled["id"]]
+    titled_item = items[titled["id"]]
+    markdown = render_first_run_markdown(report)
+
+    assert untitled_item["title"] == "Run the complete validation suite before submitting any project change."
+    assert "record_type" not in untitled_item["title"]
+    assert titled_item["title"].endswith("...")
+    assert len(titled_item["title"]) <= 120
+    assert not titled_item["title"].removesuffix("...").endswith("submi")
+    for item in (untitled_item, titled_item):
+        assert item["summary"].endswith("...")
+        assert len(item["summary"]) <= 240
+    for item in (untitled_item, titled_item):
+        assert item["title"] in markdown
+        assert item["summary"] in markdown
+
+
 def test_first_run_empty_state_guides_existing_store_without_writing(tmp_path: Path) -> None:
     store = _store(tmp_path)
     before = store.stats(NAMESPACE)["total_count"]

@@ -9,7 +9,7 @@ Agent Memory Bridge is a local-first stdio MCP server. The generic installer and
 
 Connecting a specific coding client can be done either with AMB's `connect` CLI command (for Claude Code, Cursor, Codex, Cline, and VS Code) or by writing the client's native MCP stdio configuration manually. The historical `v0.35.0` tag still contains the older v0.35 notes.
 
-The current source/package line is `0.39.0` with exactly 17 public MCP tools. The normal install route is `pip install agent-memory-bridge`; GitHub Releases remains the publication authority for source tags and release notes. Published release availability is listed in GitHub Releases; the published v0.30.0 source archive is `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The pinned `v0.27.0` route is a historical published baseline.
+The current source/package line is `0.39.1` with exactly 17 public MCP tools. The normal install route is `pip install agent-memory-bridge`; GitHub Releases remains the publication authority for source tags and release notes. Published release availability is listed in GitHub Releases; the published v0.30.0 source archive is `https://github.com/zzhang82/Agent-Memory-Bridge/archive/refs/tags/v0.30.0.zip`. The pinned `v0.27.0` route is a historical published baseline.
 
 ## One-Command Client Connectors and Three-Tier Check
 
@@ -23,7 +23,10 @@ Use `connect` to merge the `agent-memory-bridge` entry into a supported client's
 <venv-python> -m agent_mem_bridge connect vscode --yes
 <venv-python> -m agent_mem_bridge connect cursor --check
 <venv-python> -m agent_mem_bridge connect --bridge-check --from-client claude-code --to-client codex
+<venv-python> -m agent_mem_bridge connect cursor --url <url> --token-file <path> --scope user
 ```
+
+`connect` writes `.mcp.json` (Claude Code project scope, or VS Code Copilot project format), `.cursor/mcp.json`, `.codex/config.toml`, `.vscode/mcp.json`, or Cline settings (`cline_mcp_settings.json`, passed with `--config-path` or resolved at user scope). `--scope user` is the recommended scope when `--token-file` supplies a bearer token. Project-scope token writes require `--allow-project-token`, and that config file must stay gitignored and must not be committed.
 
 `connect <client> --check` reports three separate tiers:
 1. `tier1_config_valid`: Target JSON/TOML parses cleanly, uses the client's native key (`mcpServers`, `servers`, or `[mcp_servers]`), and uses an absolute executable path.
@@ -40,6 +43,8 @@ Use `triggers` to inspect the 6 moments × 5 clients support matrix (`native_hoo
 <venv-python> -m agent_mem_bridge triggers install cursor --yes
 <venv-python> -m agent_mem_bridge triggers test claude-code
 ```
+
+`triggers install` writes `.claude/settings.json`, `.cursor/hooks.json`, `.codex/hooks.json`, `AGENTS.md`, `.github/hooks/amb-triggers.json`, `.github/copilot-instructions.md`, `.clinerules/amb-triggers.md`, and `.cline/rules/amb-triggers.md`. New untracked project files from `connect` or `triggers install` mark the Git worktree dirty. `explore` and `inspect` report `dirty_worktree` until those files are committed or gitignored.
 
 Host hook entries invoke `<venv-python> -m agent_mem_bridge trigger-hook --client <client>`, which translates vendor hook payloads outside `lifecycle-hook` and never auto-writes to SQLite. See the [Plain-Words to Code Glossary](GLOSSARY.md) for the exact vocabulary mapping.
 
@@ -171,7 +176,7 @@ To inspect an existing binding without writing or rebinding:
 
 ## Generic Lifecycle-Hook Input
 
-AMB provides an optional lifecycle hook for hosts that wish to invoke memory recall or review candidate capture directly. It does not ship client-specific plugins or hook manifests. The host invokes the generic hook command:
+AMB provides an optional lifecycle hook for hosts that wish to invoke memory recall or review candidate capture directly. `lifecycle-hook` itself is the generic stdin/stdout adapter. `triggers install` writes per-client hook entries and instruction rules outside `lifecycle-hook`. The host invokes the generic hook command:
 
 ```bash
 <venv-python> -m agent_mem_bridge lifecycle-hook

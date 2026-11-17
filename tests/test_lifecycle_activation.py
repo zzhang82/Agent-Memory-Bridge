@@ -20,6 +20,7 @@ from agent_mem_bridge.activation_policy import classify_task_need
 from agent_mem_bridge.cli import main
 from agent_mem_bridge.lifecycle_activation import (
     _memory_context,
+    _one_line,
     activation_evidence_path,
     run_hook_payload,
 )
@@ -584,6 +585,45 @@ def test_memory_context_keeps_stale_and_reconcile_refusal(stale: bool, reconcile
     assert "Read the relevant current repository files before acting or answering" in context
     assert "reconcile this context with that inspected evidence" in context
     assert "absence from current repository files alone is not a contradiction" not in context
+
+
+def test_memory_context_truncates_on_word_boundaries_and_marks_recheck() -> None:
+    long_title = "Confirm the deployment window before touching production " * 4
+    long_content = "The rollout waits for the maintenance window and the backup " * 12
+    context = _memory_context(
+        [
+            {
+                "id": "memory-recheck-1",
+                "title": long_title,
+                "content": long_content,
+                "recheck_status": "needs_recheck",
+                "recheck_reasons": ["depends_on:superseded:memory-9", "depends_on_repo:changed:deploy.json"],
+            },
+            {
+                "id": "memory-current-2",
+                "title": "Current decision",
+                "content": "Keep the current rollout decision.",
+                "recheck_status": "current",
+                "recheck_reasons": [],
+            },
+        ],
+        "abc1234",
+        stale=False,
+        reconcile=False,
+    )
+
+    title_line = next(line for line in context.splitlines() if line.startswith("- Confirm"))
+    assert title_line.startswith("- ")
+    assert " [needs_recheck: depends_on:superseded:memory-9, depends_on_repo:changed:deploy.json]" in title_line
+    assert _one_line(long_title, 120).endswith("...")
+    assert len(_one_line(long_title, 120)) <= 120
+    assert len(_one_line(long_content, 280)) <= 280
+    assert not _one_line(long_content, 280).removesuffix("...").endswith("maintenan")
+    assert "- Current decision: Keep the current rollout decision." in context
+    assert (
+        "Note: items marked [needs_recheck] have unresolved or changed dependencies; verify before applying." in context
+    )
+    assert "may be answered from AMB with recalled-record provenance" in context
 
 
 def test_compaction_preserves_continuity_without_transcript_or_recall(tmp_path: Path, monkeypatch) -> None:

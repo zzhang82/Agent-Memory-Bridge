@@ -4,6 +4,8 @@ import hashlib
 import json
 import os
 import re
+import shlex
+import subprocess
 import sys
 import tempfile
 import tomllib
@@ -805,7 +807,9 @@ def _upsert_managed_block(target: Path, block: str) -> str:
 
 
 def _hook_command_string(python_path: str | Path | None, client: ConnectorClient) -> str:
-    executable = str(Path(python_path or sys.executable).expanduser().resolve())
+    raw = Path(python_path or sys.executable).expanduser()
+    abs_path = Path(os.path.abspath(raw))
+    executable = str(abs_path.parent.resolve() / abs_path.name)
     if "\n" in executable or "\r" in executable or '"' in executable:
         raise ValueError("Python executable path must not contain quotes or newline characters.")
     quoted_exec = f'"{executable}"' if " " in executable else executable
@@ -1094,12 +1098,160 @@ def _merge_vscode_hooks_json(hooks_path: Path, cmd_str: str) -> str:
     return json.dumps(data, indent=2) + "\n"
 
 
+def _installed_hook_config_path(
+    client: ConnectorClient,
+    *,
+    scope: ConnectorScope,
+    cwd: Path,
+    home: Path,
+) -> Path | None:
+    if client == "claude-code":
+        return cwd / ".claude" / "settings.json" if scope == "project" else home / ".claude" / "settings.json"
+    if client == "cursor":
+        return cwd / ".cursor" / "hooks.json" if scope == "project" else home / ".cursor" / "hooks.json"
+    if client == "codex":
+        return cwd / ".codex" / "hooks.json" if scope == "project" else home / ".codex" / "hooks.json"
+    if client == "vscode":
+        if scope == "project":
+            return cwd / ".github" / "hooks" / "amb-triggers.json"
+        copilot_home = os.environ.get("COPILOT_HOME", "").strip()
+        user_root = Path(copilot_home).expanduser() if copilot_home else home / ".copilot"
+        return user_root / "hooks" / "amb-triggers.json"
+    return None
+
+
+def _collect_trigger_hook_commands(node: Any, marker: str, found: list[str]) -> None:
+    if isinstance(node, dict):
+        command = node.get("command")
+        if isinstance(command, str) and marker in command:
+            found.append(command)
+        for value in node.values():
+            _collect_trigger_hook_commands(value, marker, found)
+    elif isinstance(node, list):
+        for item in node:
+            _collect_trigger_hook_commands(item, marker, found)
+
+
+def _installed_trigger_commands(
+    client: ConnectorClient,
+    *,
+    scope: ConnectorScope,
+    cwd: Path,
+    home: Path,
+) -> list[str]:
+    config_path = _installed_hook_config_path(client, scope=scope, cwd=cwd, home=home)
+    if config_path is None or not config_path.is_file():
+        return []
+    try:
+        parsed = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    marker = f"trigger-hook --client {client}"
+    found: list[str] = []
+    _collect_trigger_hook_commands(parsed, marker, found)
+    distinct: list[str] = []
+    for command in found:
+        if command not in distinct:
+            distinct.append(command)
+    return distinct
+
+
+def _session_start_hook_payload(client: ConnectorClient) -> dict[str, str]:
+    if client in {"claude-code", "codex"}:
+        return {"hook_event_name": "SessionStart", "session_id": f"verify-{client}"}
+    return {"hook_event_name": "sessionStart", "session_id": f"verify-{client}"}
+
+
+def _hook_output_has_session_context(client: ConnectorClient, payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    if client == "cursor":
+        return "additional_context" in payload
+    if client == "vscode":
+        return "additionalContext" in payload
+    return "additionalContext" in (payload.get("hookSpecificOutput") or {})
+
+
+def _split_hook_command(command: str) -> list[str]:
+    tokens = shlex.split(command, posix=(os.name != "nt"))
+    if os.name == "nt":
+        cleaned: list[str] = []
+        for token in tokens:
+            if len(token) >= 2 and token[0] == token[-1] and token[0] in {'"', "'"}:
+                cleaned.append(token[1:-1])
+            else:
+                cleaned.append(token)
+        return cleaned
+    return tokens
+
+
+def _verify_installed_hook_command(
+    client: ConnectorClient,
+    *,
+    scope: ConnectorScope,
+    cwd: Path,
+    home: Path,
+    temp_home: Path,
+) -> dict[str, Any]:
+    installed_cmds = _installed_trigger_commands(client, scope=scope, cwd=cwd, home=home)
+    commands = installed_cmds or [_hook_command_string(None, client)]
+    payload = json.dumps(_session_start_hook_payload(client))
+    env = {**os.environ, "AGENT_MEMORY_BRIDGE_HOME": str(temp_home)}
+    failures: list[str] = []
+    checked_command = commands[-1]
+    for command in commands:
+        try:
+            completed = subprocess.run(
+                _split_hook_command(command),
+                input=payload,
+                text=True,
+                capture_output=True,
+                env=env,
+                timeout=10,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError, ValueError) as exc:
+            failures.append(f"{command}: {exc}")
+            checked_command = command
+            continue
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "").strip()
+            failures.append(f"{command}: exit {completed.returncode}" + (f": {detail}" if detail else ""))
+            checked_command = command
+            continue
+        try:
+            parsed = json.loads(completed.stdout)
+        except json.JSONDecodeError as exc:
+            failures.append(f"{command}: invalid JSON output: {exc}")
+            checked_command = command
+            continue
+        if not _hook_output_has_session_context(client, parsed):
+            failures.append(f"{command}: missing SessionStart context")
+            checked_command = command
+            continue
+        checked_command = command
+    item: dict[str, Any] = {
+        "moment": "installed_command",
+        "command": checked_command,
+        "installed": bool(installed_cmds),
+        "ok": not failures,
+    }
+    if failures:
+        item["error"] = "; ".join(failures)
+    return item
+
+
 def verify_client_triggers(
     client: str,
     *,
     bridge_home: Path | None = None,
+    scope: ConnectorScope = "project",
+    cwd: Path | None = None,
+    home: Path | None = None,
 ) -> dict[str, Any]:
     normalized = normalize_connector_client(client)
+    resolved_cwd = (cwd or Path.cwd()).expanduser()
+    resolved_home = (home or Path.home()).expanduser()
     with tempfile.TemporaryDirectory(prefix=f"amb-trigger-test-{normalized}-") as temp_dir:
         temp_home = (bridge_home or Path(temp_dir) / "bridge-home").resolve()
         temp_home.mkdir(parents=True, exist_ok=True)
@@ -1319,6 +1471,16 @@ def verify_client_triggers(
                 bridge_home=temp_home,
             )
             checks.append({"moment": "session_stop", "ok": "additionalContext" in stop_out})
+
+        checks.append(
+            _verify_installed_hook_command(
+                normalized,
+                scope=scope,
+                cwd=resolved_cwd,
+                home=resolved_home,
+                temp_home=temp_home,
+            )
+        )
 
         return {
             "schema": TRIGGER_TEST_SCHEMA,

@@ -567,10 +567,21 @@ def _memory_context(
             "Recalled history conflicts with or is marked stale against current evidence. "
             "Do not apply it over the live repository."
         )
+    needs_recheck = False
     for item in items:
         title = _one_line(str(item.get("title") or "Untitled memory"), 120)
         excerpt = _one_line(str(item.get("content") or ""), _EXCERPT_LIMIT)
-        lines.append(f"- {title}: {excerpt}")
+        line = f"- {title}: {excerpt}"
+        if item.get("recheck_status") == "needs_recheck":
+            needs_recheck = True
+            reasons = [str(reason) for reason in item.get("recheck_reasons") or [] if str(reason)]
+            marker = f" [needs_recheck: {', '.join(reasons)}]" if reasons else " [needs_recheck]"
+            line += marker
+        lines.append(line)
+    if needs_recheck:
+        lines.append(
+            "Note: items marked [needs_recheck] have unresolved or changed dependencies; verify before applying."
+        )
     if stale or reconcile:
         lines.append(
             "Read the relevant current repository files before acting or answering; "
@@ -708,4 +719,16 @@ def _bounded(value: str, limit: int) -> str:
 
 
 def _one_line(value: str, limit: int) -> str:
-    return " ".join(value.split())[:limit]
+    compact = " ".join(value.split())
+    if len(compact) <= limit:
+        return compact
+    if limit <= 3:
+        return compact[:limit]
+    cutoff = limit - 3
+    head = compact[:cutoff]
+    # Only backtrack when the cut lands inside a word, so the result stays within limit.
+    if not compact[cutoff].isspace():
+        boundary = head.rfind(" ")
+        if boundary > 0:
+            head = head[:boundary]
+    return f"{head.rstrip()}..."
