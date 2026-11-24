@@ -3,8 +3,10 @@
 </p>
 
 <p align="center">
-  <a href="assets/readme-loop-v1.2-1280x720.mp4"><img src="assets/readme-loop-v1.2.gif" alt="Scripted UI of a local stdio loop: one session stores an example decision, and a fresh process on the same AMB home recalls that same record from a real local AMB v0.38.4 run." width="880" /></a>
+  <a href="https://frankzhang.ca/amb"><img src="assets/readme-loop-v2.gif" alt="Replay of a captured AMB v0.39.1 MCP session: session 1 stores a decision with its reason and source, the session ends, and a cold session 2 recalls the same record with lineage intact and recheck current." width="880" /></a>
 </p>
+
+<p align="center"><a href="https://frankzhang.ca/amb"><strong>Try the loop live → frankzhang.ca/amb</strong></a> · <a href="assets/readme-loop-v2.mp4">MP4</a></p>
 
 <h1 align="center">Agent Memory Bridge</h1>
 
@@ -27,9 +29,9 @@
 
 ## The loop
 
-One process stores a decision. A second process, on the same AMB home, recalls the claim and the reason. The recording is that local stdio proof. It is not a filmed coding-agent session, and it is not an adoption measurement.
+One process stores a decision. A second process, on the same AMB home, recalls the claim and the reason. The cast below is that local stdio proof. Neither it nor the animation is a filmed coding-agent session or an adoption measurement.
 
-The source is [examples/demo/first-win-demo.cast](examples/demo/first-win-demo.cast). The block below is an abridged transcript of that cast. Regenerating it runs the two processes, then writes generated playback: the header time and the line delays are fixed, not a measurement of the run. Command: `python ./scripts/build_first_win_cast.py`. Rendering a GIF needs `agg`; this repository does not include that GIF.
+The source is [examples/demo/first-win-demo.cast](examples/demo/first-win-demo.cast). The block below is an abridged transcript of that cast. Regenerating it runs the two processes, then writes generated playback: the header time and the line delays are fixed, not a measurement of the run. Command: `python ./scripts/build_first_win_cast.py`. The animation at the top is a different capture: a replay of an MCP session from the installed AMB v0.39.1 server, recorded from [frankzhang.ca/amb](https://frankzhang.ca/amb).
 
 ```text
 # Session A: store one explicit decision

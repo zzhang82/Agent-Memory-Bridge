@@ -2,6 +2,12 @@
   <img src="assets/amb-hero.png" alt="Agent Memory Bridge — 跨会话与工具的受治理项目记忆" width="100%" />
 </p>
 
+<p align="center">
+  <a href="https://frankzhang.ca/amb"><img src="assets/readme-loop-v2.gif" alt="一次 AMB v0.39.1 MCP 会话的回放：会话 1 存下一条带理由和来源的决策，会话结束，冷启动的会话 2 召回同一条记录，lineage 完整，recheck 为 current。" width="880" /></a>
+</p>
+
+<p align="center"><a href="https://frankzhang.ca/amb"><strong>在线体验这个闭环 → frankzhang.ca/amb</strong></a>（页面为英文） · <a href="assets/readme-loop-v2.mp4">MP4</a></p>
+
 <h1 align="center">Agent Memory Bridge</h1>
 
 <p align="center"><strong>教一次决策和它的理由。下一次会话在开始时召回，就能带回那条理由。</strong></p>
@@ -23,9 +29,9 @@
 
 ## 这一次闭环
 
-一个进程存下一条决策。同一个 AMB home 上的第二个进程召回主张和理由。这段记录是本地 stdio 证明。它不是编码智能体的屏幕录像，也不是采用率测量。
+一个进程存下一条决策。同一个 AMB home 上的第二个进程召回主张和理由。下面这段 cast 是本地 stdio 证明。它和顶部的动画都不是编码智能体的屏幕录像，也不是采用率测量。
 
-来源是 [examples/demo/first-win-demo.cast](examples/demo/first-win-demo.cast)。下面的文本块是这段 cast 的节选。重新生成会先跑两个进程，再写入生成的回放：文件头时间和逐行延迟是固定的，不是这次运行的耗时测量。命令是 `python ./scripts/build_first_win_cast.py`。渲染 GIF 需要 `agg`；本仓库不附带该 GIF。
+来源是 [examples/demo/first-win-demo.cast](examples/demo/first-win-demo.cast)。下面的文本块是这段 cast 的节选。重新生成会先跑两个进程，再写入生成的回放：文件头时间和逐行延迟是固定的，不是这次运行的耗时测量。命令是 `python ./scripts/build_first_win_cast.py`。顶部的动画是另一段记录：从已安装的 AMB v0.39.1 服务器捕获的一次 MCP 会话的回放，录自 [frankzhang.ca/amb](https://frankzhang.ca/amb)。
 
 ```text
 # Session A: store one explicit decision
